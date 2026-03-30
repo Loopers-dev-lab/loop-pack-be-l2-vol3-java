@@ -53,7 +53,7 @@ public class PaymentProcessor {
         if (!paymentService.markFailedIfRequested(paymentId, reason)) return;
         Order order = orderService.getOrder(orderId);
         stockService.releaseReserved(order.getProductQuantities());
-        if (order.getIssuedCouponId() != null) {
+        if (order.hasCoupon()) {
             issuedCouponService.restore(order.getIssuedCouponId());
         }
         orderService.cancelOrder(orderId);
@@ -75,7 +75,7 @@ public class PaymentProcessor {
         if (!paymentService.markCanceledIfRequested(paymentId)) return;
         Order order = orderService.getOrder(orderId);
         stockService.releaseConfirmed(order.getProductQuantities());
-        if (order.getIssuedCouponId() != null) {
+        if (order.hasCoupon()) {
             issuedCouponService.restore(order.getIssuedCouponId());
         }
         orderService.cancelOrder(orderId);

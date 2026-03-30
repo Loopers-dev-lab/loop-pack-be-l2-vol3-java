@@ -118,6 +118,10 @@ public class Order {
         return this.status == OrderStatus.PAID;
     }
 
+    public boolean hasCoupon() {
+        return this.issuedCouponId != null;
+    }
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = ZonedDateTime.now();

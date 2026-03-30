@@ -5,6 +5,7 @@ import com.loopers.domain.order.OrderStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -49,4 +50,15 @@ public interface OrderJpaRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.orderItems WHERE o.status = :status")
     List<Order> findAllByStatusWithItems(@Param("status") OrderStatus status);
+
+    @Modifying
+    @Query("UPDATE Order o SET o.status = :newStatus WHERE o.id = :id AND o.status = :currentStatus")
+    int updateStatusIfCurrent(@Param("id") Long id,
+                              @Param("newStatus") OrderStatus newStatus,
+                              @Param("currentStatus") OrderStatus currentStatus);
+
+    @Query("SELECT DISTINCT o FROM Order o JOIN FETCH o.orderItems "
+         + "WHERE o.status = :status AND o.createdAt < :threshold")
+    List<Order> findAllByStatusAndCreatedAtBeforeWithItems(@Param("status") OrderStatus status,
+                                                           @Param("threshold") ZonedDateTime threshold);
 }

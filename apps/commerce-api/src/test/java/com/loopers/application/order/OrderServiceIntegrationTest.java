@@ -1,6 +1,8 @@
 package com.loopers.application.order;
 
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,6 +31,9 @@ class OrderServiceIntegrationTest {
 
     @Autowired
     private OrderService orderService;
+
+    @Autowired
+    private OrderRepository orderRepository;
 
     @Autowired
     private ProductRepository productRepository;
@@ -139,6 +145,82 @@ class OrderServiceIntegrationTest {
             assertThat(result.getContent()).hasSize(2);
             assertThat(result.getTotalElements()).isEqualTo(5);
             assertThat(result.getTotalPages()).isEqualTo(3);
+        }
+    }
+
+    @Nested
+    class 주문_만료 {
+
+        @Test
+        void CREATED_상태_주문이면_만료되고_true를_반환한다() {
+            Order order = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
+                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 1)
+            )));
+
+            boolean expired = orderService.expireIfCreated(order.getId());
+
+            assertThat(expired).isTrue();
+            Order found = orderService.getOrder(order.getId());
+            assertThat(found.getStatus()).isEqualTo(OrderStatus.CANCELED);
+        }
+
+        @Test
+        void PAID_상태_주문이면_만료되지_않고_false를_반환한다() {
+            Order order = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
+                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 1)
+            )));
+            orderService.payOrder(order.getId());
+
+            boolean expired = orderService.expireIfCreated(order.getId());
+
+            assertThat(expired).isFalse();
+            Order found = orderService.getOrder(order.getId());
+            assertThat(found.getStatus()).isEqualTo(OrderStatus.PAID);
+        }
+
+        @Test
+        void 이미_취소된_주문이면_만료되지_않고_false를_반환한다() {
+            Order order = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
+                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 1)
+            )));
+            orderService.cancelOrder(order.getId());
+
+            boolean expired = orderService.expireIfCreated(order.getId());
+
+            assertThat(expired).isFalse();
+        }
+    }
+
+    @Nested
+    class 만료_대상_조회 {
+
+        @Test
+        void 기준시간_이전에_생성된_CREATED_주문만_조회된다() {
+            Order old = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
+                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 1)
+            )));
+            Order recent = orderService.createOrder(OrderCommand.Create.of(2L, List.of(
+                    OrderCommand.CreateItem.of(2L, "셔츠", new BigDecimal("30000"), 1)
+            )));
+
+            // 방금 생성된 주문은 미래 시점 기준으로는 조회되고, 과거 시점 기준으로는 조회 안 됨
+            List<Order> allCreated = orderService.findCreatedOlderThanWithItems(ZonedDateTime.now().plusMinutes(1));
+            List<Order> noneCreated = orderService.findCreatedOlderThanWithItems(ZonedDateTime.now().minusMinutes(10));
+
+            assertThat(allCreated).hasSize(2);
+            assertThat(noneCreated).isEmpty();
+        }
+
+        @Test
+        void PAID_상태_주문은_조회되지_않는다() {
+            Order order = orderService.createOrder(OrderCommand.Create.of(1L, List.of(
+                    OrderCommand.CreateItem.of(1L, "운동화", new BigDecimal("50000"), 1)
+            )));
+            orderService.payOrder(order.getId());
+
+            List<Order> result = orderService.findCreatedOlderThanWithItems(ZonedDateTime.now().plusMinutes(1));
+
+            assertThat(result).isEmpty();
         }
     }
 

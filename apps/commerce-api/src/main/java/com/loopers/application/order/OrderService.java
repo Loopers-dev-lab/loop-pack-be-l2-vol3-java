@@ -59,6 +59,11 @@ public class OrderService {
         order.cancel();
     }
 
+    @Transactional
+    public boolean expireIfCreated(Long orderId) {
+        return orderRepository.updateStatusIfCurrent(orderId, OrderStatus.CANCELED, OrderStatus.CREATED) > 0;
+    }
+
     // Query
 
     @Transactional(readOnly = true)
@@ -90,5 +95,10 @@ public class OrderService {
     @Transactional(readOnly = true)
     public List<Order> findOrdersByStatusWithItems(OrderStatus status) {
         return orderRepository.findAllByStatusWithItems(status);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Order> findCreatedOlderThanWithItems(ZonedDateTime threshold) {
+        return orderRepository.findAllByStatusAndCreatedAtBeforeWithItems(OrderStatus.CREATED, threshold);
     }
 }

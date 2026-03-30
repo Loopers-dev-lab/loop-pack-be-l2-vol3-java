@@ -116,6 +116,27 @@ class OrderTest {
     }
 
     @Nested
+    class 쿠폰_보유_여부 {
+
+        @Test
+        void 쿠폰이_적용된_주문이면_true를_반환한다() {
+            Order order = Order.create(1L);
+            order.addItem(1L, "운동화", new BigDecimal("50000"), 1);
+            order.applyCoupon(10L, new BigDecimal("5000"));
+
+            assertThat(order.hasCoupon()).isTrue();
+        }
+
+        @Test
+        void 쿠폰이_미적용된_주문이면_false를_반환한다() {
+            Order order = Order.create(1L);
+            order.addItem(1L, "운동화", new BigDecimal("50000"), 1);
+
+            assertThat(order.hasCoupon()).isFalse();
+        }
+    }
+
+    @Nested
     class 총_주문금액_계산 {
 
         @Test

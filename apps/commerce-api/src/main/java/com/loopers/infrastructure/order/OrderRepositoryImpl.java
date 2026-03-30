@@ -54,4 +54,14 @@ public class OrderRepositoryImpl implements OrderRepository {
     public List<Order> findAllByStatusWithItems(OrderStatus status) {
         return orderJpaRepository.findAllByStatusWithItems(status);
     }
+
+    @Override
+    public int updateStatusIfCurrent(Long id, OrderStatus newStatus, OrderStatus currentStatus) {
+        return orderJpaRepository.updateStatusIfCurrent(id, newStatus, currentStatus);
+    }
+
+    @Override
+    public List<Order> findAllByStatusAndCreatedAtBeforeWithItems(OrderStatus status, ZonedDateTime threshold) {
+        return orderJpaRepository.findAllByStatusAndCreatedAtBeforeWithItems(status, threshold);
+    }
 }
