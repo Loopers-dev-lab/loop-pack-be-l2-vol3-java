@@ -13,4 +13,5 @@ public interface OrderRepository {
     List<OrderModel> findAllByUserIdAndPeriod(Long userId, ZonedDateTime startAt, ZonedDateTime endAt);
     Optional<OrderModel> findDetailById(Long id);
     Optional<OrderModel> findDetailByIdAndUserId(Long id, Long userId);
+    Optional<OrderModel> findByIdForUpdate(Long id);
 }

@@ -58,4 +58,18 @@ public class OrderService {
         return orderRepository.findDetailById(orderId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
     }
+
+    @Transactional
+    public void markPaid(Long orderId) {
+        OrderModel order = orderRepository.findByIdForUpdate(orderId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        order.markPaid();
+    }
+
+    @Transactional
+    public void markPaymentFailed(Long orderId) {
+        OrderModel order = orderRepository.findByIdForUpdate(orderId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+        order.markPaymentFailed();
+    }
 }

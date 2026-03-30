@@ -5,8 +5,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
+import jakarta.persistence.LockModeType;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -37,4 +39,8 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, Long> {
     @EntityGraph(attributePaths = "orderItems")
     @Query("SELECT o FROM OrderModel o WHERE o.id = :id AND o.userId = :userId AND o.deletedAt IS NULL")
     Optional<OrderModel> findDetailByIdAndUserId(Long id, Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT o FROM OrderModel o WHERE o.id = :id AND o.deletedAt IS NULL")
+    Optional<OrderModel> findByIdForUpdate(Long id);
 }

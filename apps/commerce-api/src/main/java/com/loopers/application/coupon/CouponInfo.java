@@ -12,6 +12,8 @@ public record CouponInfo(
     Long value,
     Long minOrderAmount,
     ZonedDateTime expiredAt,
+    Long issueLimit,
+    Long issuedCount,
     ZonedDateTime createdAt,
     ZonedDateTime updatedAt
 ) {
@@ -23,6 +25,8 @@ public record CouponInfo(
             model.getValue(),
             model.getMinOrderAmount(),
             model.getExpiredAt(),
+            model.getIssueLimit(),
+            model.getIssuedCount(),
             model.getCreatedAt(),
             model.getUpdatedAt()
         );

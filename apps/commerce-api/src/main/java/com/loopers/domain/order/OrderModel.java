@@ -6,6 +6,8 @@ import com.loopers.support.error.ErrorType;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -36,6 +38,10 @@ public class OrderModel extends BaseEntity {
     @Column(name = "used_coupon_id")
     private Long usedCouponId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private OrderStatus status;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItemModel> orderItems = new ArrayList<>();
 
@@ -50,8 +56,26 @@ public class OrderModel extends BaseEntity {
         this.discountAmount = 0L;
         this.totalAmount = 0L;
         this.usedCouponId = usedCouponId;
+        this.status = OrderStatus.PAYMENT_PENDING;
         orderItems.forEach(this::addOrderItem);
         applyDiscount(discountAmount);
+    }
+
+    public void markPaid() {
+        if (this.status == OrderStatus.PAID) {
+            return;
+        }
+        if (this.status != OrderStatus.PAYMENT_PENDING && this.status != OrderStatus.PAYMENT_FAILED) {
+            throw new CoreException(ErrorType.CONFLICT, "결제 완료로 변경할 수 없는 주문 상태입니다.");
+        }
+        this.status = OrderStatus.PAID;
+    }
+
+    public void markPaymentFailed() {
+        if (this.status == OrderStatus.PAID) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 결제가 완료된 주문입니다.");
+        }
+        this.status = OrderStatus.PAYMENT_FAILED;
     }
 
     private void addOrderItem(OrderItemModel orderItem) {

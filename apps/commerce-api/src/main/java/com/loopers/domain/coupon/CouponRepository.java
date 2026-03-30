@@ -7,6 +7,7 @@ import java.util.Optional;
 
 public interface CouponRepository {
     Optional<CouponModel> findById(Long id);
+    Optional<CouponModel> findByIdForUpdate(Long id);
     CouponModel save(CouponModel coupon);
     Page<CouponModel> findAll(Pageable pageable);
 }

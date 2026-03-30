@@ -22,21 +22,27 @@ public class CouponService {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
     }
 
+    @Transactional
+    public CouponModel getCouponForUpdate(Long couponId) {
+        return couponRepository.findByIdForUpdate(couponId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 쿠폰입니다."));
+    }
+
     @Transactional(readOnly = true)
     public Page<CouponModel> getAll(Pageable pageable) {
         return couponRepository.findAll(pageable);
     }
 
     @Transactional
-    public CouponModel register(String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt) {
-        CouponModel coupon = new CouponModel(name, type, value, minOrderAmount, expiredAt);
+    public CouponModel register(String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt, Long issueLimit) {
+        CouponModel coupon = new CouponModel(name, type, value, minOrderAmount, expiredAt, issueLimit);
         return couponRepository.save(coupon);
     }
 
     @Transactional
-    public CouponModel update(Long couponId, String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt) {
+    public CouponModel update(Long couponId, String name, CouponType type, Long value, Long minOrderAmount, ZonedDateTime expiredAt, Long issueLimit) {
         CouponModel coupon = getCoupon(couponId);
-        coupon.update(name, type, value, minOrderAmount, expiredAt);
+        coupon.update(name, type, value, minOrderAmount, expiredAt, issueLimit);
         return coupon;
     }
 

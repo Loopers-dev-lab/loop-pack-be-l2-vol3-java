@@ -1,5 +1,6 @@
 package com.loopers.domain.like;
 
+import com.loopers.application.event.ApplicationDomainEventPublisher;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
@@ -35,6 +36,9 @@ class LikeServiceTest {
     @Mock
     private ProductRepository productRepository;
 
+    @Mock
+    private ApplicationDomainEventPublisher applicationDomainEventPublisher;
+
     private LikeService likeService;
 
     private BrandModel brand;
@@ -42,7 +46,7 @@ class LikeServiceTest {
 
     @BeforeEach
     void setUp() {
-        likeService = new LikeService(likeRepository, productRepository);
+        likeService = new LikeService(likeRepository, productRepository, applicationDomainEventPublisher);
         brand = new BrandModel("나이키", "스포츠 의류 및 신발 브랜드");
         product = new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE);
     }
