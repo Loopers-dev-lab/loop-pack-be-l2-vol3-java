@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 @Embeddable
 public class Name {
 
-    private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣]{2,6}$");
+    private static final Pattern NAME_PATTERN = Pattern.compile("^[가-힣0-9]{2,6}$");
 
     @Column(name = "name")
     private String value;

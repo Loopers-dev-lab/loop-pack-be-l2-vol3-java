@@ -99,7 +99,7 @@ public class UserCoupon extends BaseEntity {
         return couponType.calculate(amount, value);
     }
 
-    public void use(Long userId) {
+    public void validate(Long userId) {
         if (!this.userId.equals(userId)) {
             throw new CoreException(ErrorType.FORBIDDEN, "본인의 쿠폰만 사용할 수 있습니다.");
         }
@@ -109,6 +109,10 @@ public class UserCoupon extends BaseEntity {
         if (status() == CouponStatus.EXPIRED) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다.");
         }
+    }
+
+    public void use(Long userId) {
+        validate(userId);
         status = CouponStatus.USED;
     }
 }

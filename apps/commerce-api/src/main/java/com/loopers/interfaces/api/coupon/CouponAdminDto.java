@@ -7,7 +7,7 @@ import java.time.ZonedDateTime;
 
 public class CouponAdminDto {
 
-    public static record RegisterRequest(String name, String type, int value, ZonedDateTime expiredAt) {
+    public static record RegisterRequest(String name, String type, int value, Integer totalQuantity, ZonedDateTime expiredAt) {
     }
 
     public static record RegisterResponse(Long couponId) {
