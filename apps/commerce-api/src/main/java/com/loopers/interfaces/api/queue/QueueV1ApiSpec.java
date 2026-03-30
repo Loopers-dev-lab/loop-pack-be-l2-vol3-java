@@ -19,7 +19,7 @@ public interface QueueV1ApiSpec {
     })
     ResponseEntity<ApiResponse<EnterResponse>> enterQueue(@RequestBody EnterRequest request);
 
-    @Operation(summary = "순번 조회", description = "현재 대기 순번과 토큰 발급 여부를 조회합니다.")
+    @Operation(summary = "순번 조회", description = "현재 대기 순번과 토큰 발급 여부를 조회합니다. schedulerHealthy=false이면 토큰 발급 스케줄러가 일시 중단된 상태입니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "순번 조회 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "대기열에 없음")

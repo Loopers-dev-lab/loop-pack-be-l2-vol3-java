@@ -12,7 +12,8 @@ public record PositionResponse(
         String token,
         Long estimateA,
         Long estimateB,
-        Long estimateC
+        Long estimateC,
+        Boolean schedulerHealthy
 ) {
     public static PositionResponse from(QueueInfo info) {
         return new PositionResponse(
@@ -23,7 +24,8 @@ public record PositionResponse(
                 info.token(),
                 info.estimateA(),
                 info.estimateB(),
-                info.estimateC()
+                info.estimateC(),
+                info.schedulerHealthy()
         );
     }
 }

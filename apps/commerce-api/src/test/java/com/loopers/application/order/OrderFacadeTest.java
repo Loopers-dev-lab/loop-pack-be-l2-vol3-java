@@ -1,8 +1,6 @@
 package com.loopers.application.order;
 
 import com.loopers.application.coupon.CouponApp;
-import com.loopers.application.queue.QueueApp;
-import com.loopers.config.QueueProperties;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,15 +28,11 @@ class OrderFacadeTest {
     @Mock
     private CouponApp couponApp;
 
-    @Mock
-    private QueueApp queueApp;
-
     private OrderFacade orderFacade;
 
     @BeforeEach
     void setUp() {
-        QueueProperties queueProperties = new QueueProperties(false, 14, 100, 300, 140, 100000);
-        orderFacade = new OrderFacade(orderApp, couponApp, queueApp, queueProperties);
+        orderFacade = new OrderFacade(orderApp, couponApp);
     }
 
     @Nested
@@ -55,12 +49,11 @@ class OrderFacadeTest {
             when(orderApp.createOrder(memberId, items, BigDecimal.ZERO, null)).thenReturn(expectedInfo);
 
             // when
-            OrderInfo result = orderFacade.createOrder(memberId, items, null, null);
+            OrderInfo result = orderFacade.createOrder(memberId, items, null);
 
             // then
             assertThat(result).isEqualTo(expectedInfo);
             verifyNoInteractions(couponApp);
-            verifyNoInteractions(queueApp);
         }
 
         @Test
@@ -81,18 +74,16 @@ class OrderFacadeTest {
             when(orderApp.createOrder(memberId, items, discountAmount, userCouponPkId)).thenReturn(expectedInfo);
 
             // when
-            OrderInfo result = orderFacade.createOrder(memberId, items, userCouponId, null);
+            OrderInfo result = orderFacade.createOrder(memberId, items, userCouponId);
 
             // then
             assertThat(result).isEqualTo(expectedInfo);
             assertThat(result.discountAmount()).isEqualByComparingTo(discountAmount);
             assertThat(result.refUserCouponId()).isEqualTo(userCouponPkId);
-            verify(couponApp).calculateDiscount(userCouponId, memberId, originalAmount);
-            verify(couponApp).useUserCoupon(userCouponId);
         }
 
         @Test
-        @DisplayName("만료 쿠폰으로 주문 시 실패 - CouponApp에서 예외 발생")
+        @DisplayName("만료 쿠폰으로 주문 시 실패")
         void createOrder_expiredCoupon_throws() {
             // given
             Long memberId = 1L;
@@ -105,51 +96,9 @@ class OrderFacadeTest {
                     .thenThrow(new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰입니다."));
 
             // when & then
-            assertThatThrownBy(() -> orderFacade.createOrder(memberId, items, userCouponId, null))
+            assertThatThrownBy(() -> orderFacade.createOrder(memberId, items, userCouponId))
                     .isInstanceOf(CoreException.class)
                     .hasFieldOrPropertyWithValue("errorType", ErrorType.BAD_REQUEST);
-        }
-
-        @Test
-        @DisplayName("대기열 활성화 시 토큰 검증 및 소비")
-        void createOrder_queueEnabled_validatesAndConsumesToken() {
-            // given
-            QueueProperties enabledProperties = new QueueProperties(true, 14, 100, 300, 140, 100000);
-            OrderFacade enabledFacade = new OrderFacade(orderApp, couponApp, queueApp, enabledProperties);
-
-            Long memberId = 1L;
-            String entryToken = "valid-token";
-            List<OrderItemCommand> items = List.of(new OrderItemCommand("prod1", 2));
-            OrderInfo expectedInfo = createOrderInfo(BigDecimal.ZERO, null);
-            when(orderApp.createOrder(memberId, items, BigDecimal.ZERO, null)).thenReturn(expectedInfo);
-
-            // when
-            enabledFacade.createOrder(memberId, items, null, entryToken);
-
-            // then
-            verify(queueApp).validateToken(memberId, entryToken);
-            verify(queueApp).consumeToken(memberId);
-        }
-
-        @Test
-        @DisplayName("대기열 활성화 + 주문 실패 시 토큰 소비하지 않음")
-        void createOrder_queueEnabled_orderFails_tokenNotConsumed() {
-            // given
-            QueueProperties enabledProperties = new QueueProperties(true, 14, 100, 300, 140, 100000);
-            OrderFacade enabledFacade = new OrderFacade(orderApp, couponApp, queueApp, enabledProperties);
-
-            Long memberId = 1L;
-            String entryToken = "valid-token";
-            List<OrderItemCommand> items = List.of(new OrderItemCommand("prod1", 2));
-            when(orderApp.createOrder(memberId, items, BigDecimal.ZERO, null))
-                    .thenThrow(new CoreException(ErrorType.CONFLICT, "재고 부족"));
-
-            // when & then
-            assertThatThrownBy(() -> enabledFacade.createOrder(memberId, items, null, entryToken))
-                    .isInstanceOf(CoreException.class);
-
-            verify(queueApp).validateToken(memberId, entryToken);
-            verify(queueApp, never()).consumeToken(memberId);
         }
     }
 

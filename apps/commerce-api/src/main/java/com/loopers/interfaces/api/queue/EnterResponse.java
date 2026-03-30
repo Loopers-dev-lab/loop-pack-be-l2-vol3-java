@@ -12,7 +12,8 @@ public record EnterResponse(
         String token,
         Long estimateA,
         Long estimateB,
-        Long estimateC
+        Long estimateC,
+        Boolean schedulerHealthy
 ) {
     public static EnterResponse from(QueueInfo info) {
         return new EnterResponse(
@@ -23,7 +24,8 @@ public record EnterResponse(
                 info.token(),
                 info.estimateA(),
                 info.estimateB(),
-                info.estimateC()
+                info.estimateC(),
+                info.schedulerHealthy()
         );
     }
 }
