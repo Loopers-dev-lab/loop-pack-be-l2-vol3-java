@@ -92,7 +92,7 @@ public enum ErrorType {
     COUPON_ISSUE_STATUS_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_ISSUE_STATUS_NOT_FOUND", "쿠폰 발급 상태를 찾을 수 없습니다."),
 
     /** Queue 에러 */
-    ALREADY_IN_QUEUE(HttpStatus.CONFLICT, "ALREADY_IN_QUEUE", "이미 대기열에 진입한 상태입니다."),
+    ALREADY_IN_QUEUE(HttpStatus.BAD_REQUEST, "ALREADY_IN_QUEUE", "이미 대기열에 진입한 상태입니다."),
     QUEUE_NOT_ENTERED(HttpStatus.NOT_FOUND, "QUEUE_NOT_ENTERED", "대기열에 진입하지 않은 상태입니다."),
 
     /** Payment 도메인 에러 */

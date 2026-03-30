@@ -24,4 +24,18 @@ public class QueueSteps {
                 responseType
         );
     }
+
+    public static ResponseEntity<ApiResponse<QueueDto.PositionResponse>> getPosition(
+            TestRestTemplate testRestTemplate,
+            HttpHeaders headers
+    ) {
+        ParameterizedTypeReference<ApiResponse<QueueDto.PositionResponse>> responseType = new ParameterizedTypeReference<>() {
+        };
+        return testRestTemplate.exchange(
+                "/api/v1/queue/position",
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                responseType
+        );
+    }
 }
