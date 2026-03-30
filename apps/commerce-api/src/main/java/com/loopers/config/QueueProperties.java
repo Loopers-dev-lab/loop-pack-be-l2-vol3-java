@@ -9,6 +9,7 @@ public record QueueProperties(
         int intervalMs,
         int tokenTtlSeconds,
         int throughputPerSecond,
-        int maxSize
+        int maxSize,
+        String fallbackStrategy
 ) {
 }

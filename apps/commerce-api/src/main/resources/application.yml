@@ -54,6 +54,7 @@ queue:
   token-ttl-seconds: 300
   throughput-per-second: 140
   max-size: 100000
+  fallback-strategy: LOCAL_QUEUE
 
 commerce-api:
   callback-base-url: http://localhost:8080
