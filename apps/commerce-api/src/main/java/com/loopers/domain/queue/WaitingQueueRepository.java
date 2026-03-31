@@ -1,6 +1,7 @@
 package com.loopers.domain.queue;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface WaitingQueueRepository {
 
@@ -9,5 +10,7 @@ public interface WaitingQueueRepository {
     Optional<Long> findRank(String eventId, Long userId);
 
     long countWaiting(String eventId);
+
+    List<Long> popOldest(String eventId, long count);
 }
 
