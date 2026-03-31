@@ -61,6 +61,14 @@ queue:
     close-threshold: 0.5
     cooldown-seconds: 30
     evaluation-interval-ms: 5000
+  rate-limit:
+    enabled: true
+    activate-threshold: 0.85
+    deactivate-threshold: 0.60
+    cooldown-seconds: 10
+    evaluation-interval-ms: 1000
+    per-user-max-requests: 10
+    per-user-window-seconds: 10
 
 commerce-api:
   callback-base-url: http://localhost:8080
