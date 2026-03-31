@@ -10,10 +10,6 @@ public record PositionResponse(
         long estimatedWaitSeconds,
         long totalInQueue,
         String token,
-        Long estimateA,
-        Long estimateB,
-        Long estimateC,
-        Long estimateD,
         Boolean schedulerHealthy
 ) {
     public static PositionResponse from(QueueInfo info) {
@@ -23,10 +19,6 @@ public record PositionResponse(
                 info.estimatedWaitSeconds(),
                 info.totalInQueue(),
                 info.token(),
-                info.estimateA(),
-                info.estimateB(),
-                info.estimateC(),
-                info.estimateD(),
                 info.schedulerHealthy()
         );
     }

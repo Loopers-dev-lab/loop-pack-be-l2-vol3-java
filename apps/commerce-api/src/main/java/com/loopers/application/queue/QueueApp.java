@@ -45,13 +45,9 @@ public class QueueApp {
         Optional<Long> position = waitingQueueService.getPosition(memberId);
         long pos = position.orElse(0L);
         long totalInQueue = waitingQueueService.getTotalCount();
+        long estimatedWait = throughputTracker.estimateWait(pos);
 
-        long estA = throughputTracker.estimateWaitA(pos);
-        long estB = throughputTracker.estimateWaitB(pos);
-        long estC = throughputTracker.estimateWaitC(pos);
-        long estD = throughputTracker.estimateWaitD(pos);
-
-        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC, estD, true);
+        return new QueueInfo(QueueStatus.WAITING, pos, estimatedWait, totalInQueue, null, true);
     }
 
     public QueueInfo getQueueStatus(Long memberId) {
@@ -59,8 +55,7 @@ public class QueueApp {
 
         Optional<String> token = entryTokenService.findToken(memberId);
         if (token.isPresent()) {
-            return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, waitingQueueService.getTotalCount(), token.get(),
-                    null, null, null, null, healthy);
+            return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, waitingQueueService.getTotalCount(), token.get(), healthy);
         }
 
         Optional<Long> position = waitingQueueService.getPosition(memberId);
@@ -70,13 +65,9 @@ public class QueueApp {
 
         long pos = position.get();
         long totalInQueue = waitingQueueService.getTotalCount();
+        long estimatedWait = throughputTracker.estimateWait(pos);
 
-        long estA = throughputTracker.estimateWaitA(pos);
-        long estB = throughputTracker.estimateWaitB(pos);
-        long estC = throughputTracker.estimateWaitC(pos);
-        long estD = throughputTracker.estimateWaitD(pos);
-
-        return new QueueInfo(QueueStatus.WAITING, pos, estB, totalInQueue, null, estA, estB, estC, estD, healthy);
+        return new QueueInfo(QueueStatus.WAITING, pos, estimatedWait, totalInQueue, null, healthy);
     }
 
     public void validateToken(Long memberId, String token) {

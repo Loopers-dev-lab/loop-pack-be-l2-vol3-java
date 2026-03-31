@@ -39,18 +39,9 @@ public class QueueScheduler {
             return;
         }
 
-        long now = System.currentTimeMillis();
         for (Map.Entry<Long, Double> entry : entries) {
             Long memberId = entry.getKey();
-            double score = entry.getValue();
             entryTokenService.issue(memberId);
-
-            double enterTimeMs = score / 1000.0;
-            double actualWaitSeconds = (now - enterTimeMs) / 1000.0;
-            long position = entries.size();
-            if (actualWaitSeconds > 0 && position > 0) {
-                throughputTracker.recordActualWait(position, actualWaitSeconds);
-            }
         }
 
         throughputTracker.recordIssued(entries.size());
