@@ -1,12 +1,29 @@
 ### 대기열 시스템 구현하기
 
-1. 한계 TPS 계산하기
-    - k6 부하 테스트로 진행
-    - RPS(Request Per Second)을 점진적으로 올리면서 응답시간이 급격히 튀는 지점 확인
-    - 튀기 직전 RPS로 테스트했을 때의 TPS를 한계 TPS로 간주
-    - 한계 TPS는 "여기까진 괜찮아"가 아니라 "이거 넘으면 터져" 이므로 안정적인 서비스 운영을 위해서는 안전 마진이 필요
+구현 전 아래 의사결정 포인트들을 논의하고 확정한 후 진행한다.
 
-2. Rate Limiting, Queuing 전략 세우기
-    - 주문은 기본적으로 하나의 요청이 가치가 높음. 튕겨내지 않고 대기열로 진행
-    - 단, Rate Limiting 과 Queuing은 택 일 하는 관계가 아님을 명심
-    - 보완하는 관계
+---
+
+#### 1. 패키지 구조
+- 대기열을 새 도메인(`queue`)으로 분리할지, 기존 `order` 도메인에 붙일지
+- 입장 토큰도 같은 패키지에 둘지
+
+#### 2. 대기열 API 설계
+- `POST /queue/enter` — 대기열 진입
+- `GET /queue/position` — 순번 + 예상 대기 시간 조회
+- 응답 구조 (rank, estimatedWaitSeconds, nextPollAfter 등)
+
+#### 3. 스케줄러 설계
+- 처리 TPS 산정 기준
+- 배치 크기 및 실행 주기
+- Thundering Herd 완화 방식 (ms 단위 배치 발급으로 충분한지)
+
+#### 4. 입장 토큰 설계
+- Redis key 구조
+- TTL 설정 값
+- 주문 API에서 토큰 검증 위치 (인터셉터 vs 파사드 내부)
+- 토큰 소멸 시점 (주문 생성 완료 시)
+
+#### 5. Graceful Degradation
+- Redis 장애 시 전략 (Fail Open / Fail Closed)
+- 토큰 검증 실패 시 처리 방식
