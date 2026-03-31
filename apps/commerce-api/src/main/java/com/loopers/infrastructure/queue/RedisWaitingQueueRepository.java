@@ -5,8 +5,11 @@ import com.loopers.domain.queue.WaitingQueueRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.redis.core.ZSetOperations;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public class RedisWaitingQueueRepository implements WaitingQueueRepository {
@@ -37,6 +40,21 @@ public class RedisWaitingQueueRepository implements WaitingQueueRepository {
     public long countWaiting(String eventId) {
         Long size = redisTemplate.opsForZSet().zCard(waitingKey(eventId));
         return size == null ? 0L : size;
+    }
+
+    @Override
+    public List<Long> popOldest(String eventId, long count) {
+        // ZPOPMIN: 가장 작은 값(점수);을 가진 멤버를 제거하고 반환
+        // 키 규칙: queue:waiting:{eventId}
+        Set<ZSetOperations.TypedTuple<String>> tuples = redisTemplate.opsForZSet().popMin(waitingKey(eventId), count);
+        if (tuples == null || tuples.isEmpty()) {
+            return List.of();
+        }
+        return tuples.stream()
+            .map(ZSetOperations.TypedTuple::getValue)
+            .filter(value -> value != null && !value.isBlank())
+            .map(Long::parseLong)
+            .toList();
     }
 
     private String waitingKey(String eventId) {
