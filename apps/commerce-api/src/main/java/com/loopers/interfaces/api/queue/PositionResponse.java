@@ -13,6 +13,7 @@ public record PositionResponse(
         Long estimateA,
         Long estimateB,
         Long estimateC,
+        Long estimateD,
         Boolean schedulerHealthy
 ) {
     public static PositionResponse from(QueueInfo info) {
@@ -25,6 +26,7 @@ public record PositionResponse(
                 info.estimateA(),
                 info.estimateB(),
                 info.estimateC(),
+                info.estimateD(),
                 info.schedulerHealthy()
         );
     }

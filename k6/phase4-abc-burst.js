@@ -6,9 +6,11 @@ const actualWait = new Trend('actual_wait_s', true);
 const errorA = new Trend('error_a_s', true);
 const errorB = new Trend('error_b_s', true);
 const errorC = new Trend('error_c_s', true);
+const errorD = new Trend('error_d_s', true);
 const errorPctA = new Trend('error_pct_a', true);
 const errorPctB = new Trend('error_pct_b', true);
 const errorPctC = new Trend('error_pct_c', true);
+const errorPctD = new Trend('error_pct_d', true);
 const positionAtEnter = new Trend('position_at_enter', true);
 const samples = new Counter('samples');
 const timeouts = new Counter('timeouts');
@@ -44,6 +46,7 @@ export default function () {
   const predA = data.estimateA || 0;
   const predB = data.estimateB || 0;
   const predC = data.estimateC || 0;
+  const predD = data.estimateD || 0;
   const enterTime = Date.now();
 
   positionAtEnter.add(position);
@@ -73,10 +76,12 @@ export default function () {
   errorA.add(Math.abs(actual - predA));
   errorB.add(Math.abs(actual - predB));
   errorC.add(Math.abs(actual - predC));
+  errorD.add(Math.abs(actual - predD));
 
   if (actual > 0) {
     errorPctA.add(Math.abs(actual - predA) / actual * 100);
     errorPctB.add(Math.abs(actual - predB) / actual * 100);
     errorPctC.add(Math.abs(actual - predC) / actual * 100);
+    errorPctD.add(Math.abs(actual - predD) / actual * 100);
   }
 }

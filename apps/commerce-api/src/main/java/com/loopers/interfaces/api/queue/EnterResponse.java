@@ -13,6 +13,7 @@ public record EnterResponse(
         Long estimateA,
         Long estimateB,
         Long estimateC,
+        Long estimateD,
         Boolean schedulerHealthy
 ) {
     public static EnterResponse from(QueueInfo info) {
@@ -25,6 +26,7 @@ public record EnterResponse(
                 info.estimateA(),
                 info.estimateB(),
                 info.estimateC(),
+                info.estimateD(),
                 info.schedulerHealthy()
         );
     }

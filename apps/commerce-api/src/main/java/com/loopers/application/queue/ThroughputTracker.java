@@ -22,6 +22,9 @@ public class ThroughputTracker {
     private static final double EMA_ALPHA = 0.3;
     private static final long WINDOW_SECONDS = 10;
 
+    private final AtomicReference<Double> lesLastDelay = new AtomicReference<>(0.0);
+    private final AtomicLong lesLastPosition = new AtomicLong(0);
+
     public void recordIssued(int count) {
         windowIssuedCount.addAndGet(count);
     }
@@ -34,6 +37,9 @@ public class ThroughputTracker {
             return EMA_ALPHA * perPositionWait + (1 - EMA_ALPHA) * prev;
         });
         lastEmaPosition.set(position);
+
+        lesLastDelay.set(actualWaitSeconds);
+        lesLastPosition.set(position);
     }
 
     public long estimateWaitA(long position) {
@@ -71,5 +77,17 @@ public class ThroughputTracker {
         }
 
         return (long) Math.ceil(position * perPositionWait);
+    }
+
+    public long estimateWaitD(long position) {
+        if (position <= 0) return 0;
+
+        double lastDelay = lesLastDelay.get();
+        long lastPos = lesLastPosition.get();
+        if (lastDelay <= 0 || lastPos <= 0) {
+            return estimateWaitA(position);
+        }
+
+        return (long) Math.ceil(lastDelay * ((double) position / lastPos));
     }
 }
