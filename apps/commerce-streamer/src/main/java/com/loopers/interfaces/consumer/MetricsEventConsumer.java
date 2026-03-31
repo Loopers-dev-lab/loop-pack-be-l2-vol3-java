@@ -11,8 +11,6 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
-
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -25,19 +23,14 @@ public class MetricsEventConsumer {
             containerFactory = KafkaConfig.SINGLE_LISTENER
     )
     public void consume(String message, Acknowledgment ack) {
-        try {
-            Event<EventPayload> event = Event.fromJson(message);
-            if (event == null) {
-                log.warn("[MetricsEventConsumer] 이벤트 파싱 실패, message={}", message);
-                ack.acknowledge();
-                return;
-            }
-
-            eventProcessingService.process(event);
+        Event<EventPayload> event = Event.fromJson(message);
+        if (event == null) {
+            log.warn("[MetricsEventConsumer] 이벤트 파싱 실패, message={}", message);
             ack.acknowledge();
-        } catch (Exception e) {
-            log.error("[MetricsEventConsumer] 이벤트 처리 실패 — nack 후 재처리 대기, message={}", message, e);
-            ack.nack(Duration.ofSeconds(1));
+            return;
         }
+
+        eventProcessingService.process(event);
+        ack.acknowledge();
     }
 }
