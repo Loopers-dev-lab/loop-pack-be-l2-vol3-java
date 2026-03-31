@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.product;
 
+import com.loopers.domain.metrics.QProductMetricsReadModel;
 import com.loopers.domain.product.ProductOrder;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -35,6 +36,7 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Page<Product> findActiveProducts(Long brandId, ProductOrder order, Pageable pageable) {
         QProduct product = QProduct.product;
+        QProductMetricsReadModel metrics = QProductMetricsReadModel.productMetricsReadModel;
 
         BooleanBuilder builder = new BooleanBuilder();
         builder.and(product.deletedAt.isNull());
@@ -46,12 +48,13 @@ public class ProductRepositoryImpl implements ProductRepository {
 
         OrderSpecifier<?> orderSpecifier = switch (order) {
             case PRICE_ASC -> product.price.asc();
-            case LIKES_DESC -> product.likeCount.desc();
             case LATEST -> product.id.desc();
+            case LIKES_DESC -> metrics.likeCount.coalesce(0L).desc();
         };
 
         List<Product> content = queryFactory
                 .selectFrom(product)
+                .leftJoin(metrics).on(metrics.productId.eq(product.id))
                 .where(builder)
                 .orderBy(orderSpecifier)
                 .offset(pageable.getOffset())
@@ -115,13 +118,4 @@ public class ProductRepositoryImpl implements ProductRepository {
         return productJpaRepository.increaseStock(productId, quantity);
     }
 
-    @Override
-    public void increaseLikeCount(Long productId) {
-        productJpaRepository.increaseLikeCount(productId);
-    }
-
-    @Override
-    public void decreaseLikeCount(Long productId) {
-        productJpaRepository.decreaseLikeCount(productId);
-    }
 }

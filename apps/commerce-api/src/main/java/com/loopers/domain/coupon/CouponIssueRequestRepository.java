@@ -1,0 +1,9 @@
+package com.loopers.domain.coupon;
+
+import java.util.Optional;
+
+public interface CouponIssueRequestRepository {
+    CouponIssueRequest save(CouponIssueRequest request);
+    Optional<CouponIssueRequest> findById(Long id);
+    Optional<CouponIssueRequest> findByIdAndUserId(Long id, Long userId);
+}

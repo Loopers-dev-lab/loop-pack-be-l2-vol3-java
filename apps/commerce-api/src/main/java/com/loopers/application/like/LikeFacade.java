@@ -1,7 +1,11 @@
 package com.loopers.application.like;
 
+import com.loopers.application.outbox.OutboxEventPublisher;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductService;
+import com.loopers.event.EventType;
+import com.loopers.event.payload.ProductLikedEventPayload;
+import com.loopers.event.payload.ProductUnlikedEventPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,18 +19,29 @@ import java.util.stream.Collectors;
 public class LikeFacade {
     private final LikeService likeService;
     private final ProductService productService;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     @Transactional
     public LikeInfo register(Long userId, Long productId) {
+        productService.getActiveProduct(productId);
         LikeInfo like = likeService.register(userId, productId);
-        productService.increaseLikeCount(productId);
+        outboxEventPublisher.publish(
+                EventType.PRODUCT_LIKED,
+                ProductLikedEventPayload.of(productId, userId),
+                productId
+        );
+
         return like;
     }
 
     @Transactional
     public void cancel(Long userId, Long productId) {
         if (likeService.cancel(userId, productId)) {
-            productService.decreaseLikeCount(productId);
+            outboxEventPublisher.publish(
+                    EventType.PRODUCT_UNLIKED,
+                    ProductUnlikedEventPayload.of(productId, userId),
+                    productId
+            );
         }
     }
 

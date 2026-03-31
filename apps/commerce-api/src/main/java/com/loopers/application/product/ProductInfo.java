@@ -27,7 +27,7 @@ public record ProductInfo(
                 product.getDescription(),
                 product.getPrice(),
                 product.getStockQuantity(),
-                product.getLikeCount(),
+                0,
                 product.getVisibility(),
                 product.getCreatedAt(),
                 product.getUpdatedAt(),

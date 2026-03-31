@@ -1,26 +1,32 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponPromotion;
 import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.coupon.CouponIssueRequestJpaRepository;
 import com.loopers.infrastructure.coupon.CouponJpaRepository;
+import com.loopers.infrastructure.coupon.CouponPromotionJpaRepository;
 import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository;
-import com.loopers.infrastructure.like.LikeJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
+import com.loopers.interfaces.api.coupon.CouponV1Dto;
 import com.loopers.interfaces.api.order.OrderV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -29,6 +35,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -44,7 +51,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ConcurrencyE2ETest {
 
     private static final String ORDERS_ENDPOINT = "/api/v1/orders";
-    private static final String PRODUCTS_ENDPOINT = "/api/v1/products";
     private static final String RAW_PASSWORD = "TestPass1!";
 
     private final TestRestTemplate testRestTemplate;
@@ -52,8 +58,10 @@ class ConcurrencyE2ETest {
     private final BrandJpaRepository brandJpaRepository;
     private final ProductJpaRepository productJpaRepository;
     private final CouponJpaRepository couponJpaRepository;
+    private final CouponPromotionJpaRepository couponPromotionJpaRepository;
+    private final CouponIssueRequestJpaRepository couponIssueRequestJpaRepository;
     private final IssuedCouponJpaRepository issuedCouponJpaRepository;
-    private final LikeJpaRepository likeJpaRepository;
+    private final RedisTemplate<String, String> redisTemplate;
     private final DatabaseCleanUp databaseCleanUp;
     private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
@@ -64,8 +72,10 @@ class ConcurrencyE2ETest {
             BrandJpaRepository brandJpaRepository,
             ProductJpaRepository productJpaRepository,
             CouponJpaRepository couponJpaRepository,
+            CouponPromotionJpaRepository couponPromotionJpaRepository,
+            CouponIssueRequestJpaRepository couponIssueRequestJpaRepository,
             IssuedCouponJpaRepository issuedCouponJpaRepository,
-            LikeJpaRepository likeJpaRepository,
+            @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) RedisTemplate<String, String> redisTemplate,
             DatabaseCleanUp databaseCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
@@ -73,14 +83,17 @@ class ConcurrencyE2ETest {
         this.brandJpaRepository = brandJpaRepository;
         this.productJpaRepository = productJpaRepository;
         this.couponJpaRepository = couponJpaRepository;
+        this.couponPromotionJpaRepository = couponPromotionJpaRepository;
+        this.couponIssueRequestJpaRepository = couponIssueRequestJpaRepository;
         this.issuedCouponJpaRepository = issuedCouponJpaRepository;
-        this.likeJpaRepository = likeJpaRepository;
+        this.redisTemplate = redisTemplate;
         this.databaseCleanUp = databaseCleanUp;
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisTemplate.delete(redisTemplate.keys("coupon-promotion:issued-count:*"));
     }
 
     private HttpHeaders headersFor(String loginId) {
@@ -151,6 +164,66 @@ class ConcurrencyE2ETest {
         assertThat(finalProduct.getStockQuantity()).isEqualTo(0);
     }
 
+    @DisplayName("선착순 쿠폰 N장에 M명(M>N)이 동시 요청하면, 정확히 N건만 ACCEPTED되고 나머지는 거절된다.")
+    @Test
+    void 선착순_쿠폰_동시_발급_요청_테스트() throws InterruptedException {
+        // arrange
+        int maxQuantity = 5;
+        int threadCount = 20;
+
+        String encodedPassword = bCryptPasswordEncoder.encode(RAW_PASSWORD);
+        Coupon coupon = couponJpaRepository.save(
+                Coupon.create("선착순 쿠폰", Coupon.DiscountType.FIXED, 1000L, 1000L, LocalDateTime.now().plusDays(30)));
+        couponPromotionJpaRepository.save(
+                CouponPromotion.create(coupon.getId(), maxQuantity, ZonedDateTime.now().minusHours(1), ZonedDateTime.now().plusDays(1)));
+
+        List<User> users = new ArrayList<>();
+        for (int i = 0; i < threadCount; i++) {
+            users.add(userJpaRepository.save(
+                    UserFixture.builder().loginId("flashUser" + i).password(encodedPassword).build()));
+        }
+
+        String endpoint = "/api/v1/coupons/" + coupon.getId() + "/issue-request";
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        CountDownLatch doneLatch = new CountDownLatch(threadCount);
+        AtomicInteger acceptedCount = new AtomicInteger(0);
+        AtomicInteger rejectedCount = new AtomicInteger(0);
+
+        for (int i = 0; i < threadCount; i++) {
+            final User user = users.get(i);
+            executor.submit(() -> {
+                try {
+                    startLatch.await();
+                    HttpEntity<Void> entity = new HttpEntity<>(headersFor(user.getLoginId()));
+                    ResponseEntity<ApiResponse<CouponV1Dto.IssueRequestResponse>> response =
+                            testRestTemplate.exchange(endpoint, HttpMethod.POST, entity, new ParameterizedTypeReference<>() {});
+                    if (response.getStatusCode() == HttpStatus.ACCEPTED) {
+                        acceptedCount.incrementAndGet();
+                    } else {
+                        rejectedCount.incrementAndGet();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    doneLatch.countDown();
+                }
+            });
+        }
+
+        // act
+        startLatch.countDown();
+        boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        // assert
+        long issueRequestCount = couponIssueRequestJpaRepository.count();
+        assertThat(completed).isTrue();
+        assertThat(acceptedCount.get()).isEqualTo(maxQuantity);
+        assertThat(rejectedCount.get()).isEqualTo(threadCount - maxQuantity);
+        assertThat(issueRequestCount).isEqualTo(maxQuantity);
+    }
+
     @DisplayName("동일 쿠폰으로 N번 동시 주문하면, 정확히 1건만 성공하고 쿠폰은 사용 처리된다.")
     @Test
     void 쿠폰_동시_사용_테스트() throws InterruptedException {
@@ -210,61 +283,4 @@ class ConcurrencyE2ETest {
         assertThat(usedCoupon.getUsedAt()).isNotNull();
     }
 
-    @DisplayName("N명이 동시에 좋아요를 등록하면, likeCount는 정확히 N이 된다.")
-    @Test
-    void likeCount_동시성_테스트() throws InterruptedException {
-        // arrange
-        int threadCount = 10;
-
-        String encodedPassword = bCryptPasswordEncoder.encode(RAW_PASSWORD);
-        Brand brand = brandJpaRepository.save(Brand.create("나이키", "스포츠"));
-        Product product = productJpaRepository.save(Product.create(brand.getId(), "에어맥스", null, 10000, 100));
-        String likeUrl = PRODUCTS_ENDPOINT + "/" + product.getId() + "/likes";
-
-        List<User> users = new ArrayList<>();
-        for (int i = 0; i < threadCount; i++) {
-            users.add(userJpaRepository.save(
-                    UserFixture.builder()
-                               .loginId("likeUser" + i)
-                               .password(encodedPassword)
-                               .build()));
-        }
-
-        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
-        CountDownLatch startLatch = new CountDownLatch(1);
-        CountDownLatch doneLatch = new CountDownLatch(threadCount);
-        AtomicInteger successCount = new AtomicInteger(0);
-
-        for (int i = 0; i < threadCount; i++) {
-            final User user = users.get(i);
-            executor.submit(() -> {
-                try {
-                    startLatch.await();
-                    ResponseEntity<ApiResponse<?>> response = testRestTemplate.exchange(
-                            likeUrl, HttpMethod.POST,
-                            new HttpEntity<>(headersFor(user.getLoginId())),
-                            new ParameterizedTypeReference<>() {});
-                    if (response.getStatusCode() == HttpStatus.CREATED) {
-                        successCount.incrementAndGet();
-                    }
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                } finally {
-                    doneLatch.countDown();
-                }
-            });
-        }
-
-        // act
-        startLatch.countDown();
-        boolean completed = doneLatch.await(30, TimeUnit.SECONDS);
-        executor.shutdown();
-
-        // assert
-        Product finalProduct = productJpaRepository.findById(product.getId()).orElseThrow();
-        assertThat(completed).isTrue();
-        assertThat(successCount.get()).isEqualTo(threadCount);
-        assertThat(finalProduct.getLikeCount()).isEqualTo(threadCount);
-        assertThat(likeJpaRepository.findAll()).hasSize(threadCount);
-    }
 }

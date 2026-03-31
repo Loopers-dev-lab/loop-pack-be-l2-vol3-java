@@ -29,12 +29,4 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE Product p SET p.stockQuantity = p.stockQuantity + :quantity WHERE p.id = :productId")
     int increaseStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
-
-    @Modifying(clearAutomatically = true)
-    @Query("UPDATE Product p SET p.likeCount = p.likeCount + 1 WHERE p.id = :productId")
-    int increaseLikeCount(@Param("productId") Long productId);
-
-    @Modifying(clearAutomatically = true)
-    @Query("UPDATE Product p SET p.likeCount = p.likeCount - 1 WHERE p.id = :productId AND p.likeCount > 0")
-    int decreaseLikeCount(@Param("productId") Long productId);
 }
