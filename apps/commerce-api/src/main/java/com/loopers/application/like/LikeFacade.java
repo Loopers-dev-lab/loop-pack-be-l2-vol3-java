@@ -48,12 +48,18 @@ public class LikeFacade {
         this.outboxEventService = outboxEventService;
     }
 
-    /** 상품 좋아요 (상품 검증 → 좋아요 생성 → likeCount 증가 → 상세 캐시만 삭제) */
+    /**
+     * 상품 좋아요 (상품 검증 → 좋아요 생성 → Outbox 이벤트 발행 → 상세 캐시 삭제)
+     *
+     * products.like_count 직접 증분은 하지 않음:
+     *   Outbox → Kafka → CatalogMetricsProcessor가
+     *   product_metrics.like_count + products.like_count를 같은 TX에서 업데이트.
+     *   단일 파이프라인으로 정합성을 보장한다. (eventual consistency)
+     */
     @Transactional
     public LikeResult likeProduct(Long userId, Long productId) {
         Product product = productService.getDisplayableProduct(productId);
         likeService.like(userId, productId);
-        productService.incrementLikeCount(productId);
         productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
 
         // Outbox 저장 — 같은 TX (좋아요 집계 → catalog-events-v1)
@@ -64,12 +70,16 @@ public class LikeFacade {
         return new LikeResult(product.getLikeCount() + 1);
     }
 
-    /** 상품 좋아요 취소 (상품 존재 검증 → 좋아요 삭제 → likeCount 감소 → 상세 캐시만 삭제) */
+    /**
+     * 상품 좋아요 취소 (상품 존재 검증 → 좋아요 삭제 → Outbox 이벤트 발행 → 상세 캐시 삭제)
+     *
+     * products.like_count 직접 감소는 하지 않음:
+     *   CatalogMetricsProcessor가 단일 파이프라인으로 처리.
+     */
     @Transactional
     public LikeResult unlikeProduct(Long userId, Long productId) {
         Product product = productService.getById(productId);
         likeService.unlike(userId, productId);
-        productService.decrementLikeCount(productId);
         productCacheManager.registerDetailOnlyEvictAfterCommit(productId);
 
         // Outbox 저장 — 같은 TX (좋아요 취소 집계 → catalog-events-v1)

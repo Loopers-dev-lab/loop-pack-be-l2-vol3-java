@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.infrastructure.event.EventHandledEntity;
 import com.loopers.infrastructure.event.EventHandledJpaRepository;
 import com.loopers.infrastructure.product.ProductMetricsEntity;
+import com.loopers.infrastructure.product.ProductLikeCountJpaRepository;
 import com.loopers.infrastructure.product.ProductMetricsJpaRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,11 @@ import org.springframework.transaction.annotation.Transactional;
  * increment + event_handled INSERT가 같은 TX:
  *   → 하나 실패 → 전체 롤백 → 재처리 시 정합성 유지
  *   → increment만 커밋되고 event_handled가 실패하는 시나리오 방지
+ *
+ * 좋아요 파이프라인 단일화:
+ *   product_metrics.like_count + products.like_count를 같은 TX에서 업데이트.
+ *   LikeFacade에서 products.like_count 직접 증분을 제거하고,
+ *   이 Processor가 단일 파이프라인으로 두 테이블을 동기화한다.
  */
 @Service
 public class CatalogMetricsProcessor {
@@ -31,13 +37,16 @@ public class CatalogMetricsProcessor {
 
     private final ObjectMapper objectMapper;
     private final ProductMetricsJpaRepository productMetricsRepository;
+    private final ProductLikeCountJpaRepository productLikeCountRepository;
     private final EventHandledJpaRepository eventHandledRepository;
 
     public CatalogMetricsProcessor(ObjectMapper objectMapper,
                                     ProductMetricsJpaRepository productMetricsRepository,
+                                    ProductLikeCountJpaRepository productLikeCountRepository,
                                     EventHandledJpaRepository eventHandledRepository) {
         this.objectMapper = objectMapper;
         this.productMetricsRepository = productMetricsRepository;
+        this.productLikeCountRepository = productLikeCountRepository;
         this.eventHandledRepository = eventHandledRepository;
     }
 
@@ -85,7 +94,11 @@ public class CatalogMetricsProcessor {
         ProductMetricsEntity metrics = getOrCreateMetrics(productId);
         metrics.incrementLikeCount();
         productMetricsRepository.save(metrics);
-        log.info("[MetricsProcessor] 좋아요 집계 완료 — productId={}, likeCount={}",
+
+        // products.like_count도 같은 TX에서 업데이트 (파이프라인 단일화)
+        productLikeCountRepository.incrementLikeCount(productId);
+
+        log.info("[MetricsProcessor] 좋아요 집계 완료 — productId={}, metricsLikeCount={}",
                 productId, metrics.getLikeCount());
     }
 
@@ -94,7 +107,11 @@ public class CatalogMetricsProcessor {
         ProductMetricsEntity metrics = getOrCreateMetrics(productId);
         metrics.decrementLikeCount();
         productMetricsRepository.save(metrics);
-        log.info("[MetricsProcessor] 좋아요 취소 집계 완료 — productId={}, likeCount={}",
+
+        // products.like_count도 같은 TX에서 업데이트 (파이프라인 단일화)
+        productLikeCountRepository.decrementLikeCount(productId);
+
+        log.info("[MetricsProcessor] 좋아요 취소 집계 완료 — productId={}, metricsLikeCount={}",
                 productId, metrics.getLikeCount());
     }
 
