@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class OrderOrderQueueSchedulerTest {
+class OrderQueueSchedulerTest {
 
     private InMemoryWaitingQueueRepository waitingQueueRepository;
     private InMemoryEntryTokenRepository entryTokenRepository;
@@ -19,7 +19,8 @@ class OrderOrderQueueSchedulerTest {
     void setUp() {
         waitingQueueRepository = new InMemoryWaitingQueueRepository();
         entryTokenRepository = new InMemoryEntryTokenRepository();
-        queueScheduler = new OrderQueueScheduler(waitingQueueRepository, entryTokenRepository);
+        OrderQueueReader alwaysEnabled = () -> true;
+        queueScheduler = new OrderQueueScheduler(waitingQueueRepository, entryTokenRepository, alwaysEnabled);
     }
 
     @DisplayName("토큰 발급 스케줄러 실행 시, ")
@@ -109,6 +110,25 @@ class OrderOrderQueueSchedulerTest {
             for (long i = 15; i <= 20; i++) {
                 assertThat(entryTokenRepository.getToken(i)).isEmpty();
             }
+        }
+
+        @DisplayName("대기열이 비활성화 상태면 토큰을 발급하지 않는다.")
+        @Test
+        void doesNothing_whenQueueDisabled() {
+            // arrange
+            OrderQueueReader disabled = () -> false;
+            OrderQueueScheduler disabledScheduler = new OrderQueueScheduler(
+                    waitingQueueRepository, entryTokenRepository, disabled);
+
+            for (long i = 1; i <= 5; i++) {
+                waitingQueueRepository.enqueue(i, (double) i);
+            }
+
+            // act
+            disabledScheduler.issueTokens();
+
+            // assert: 대기열에서 꺼내지 않음
+            assertThat(waitingQueueRepository.getTotalCount()).isEqualTo(5);
         }
     }
 }
