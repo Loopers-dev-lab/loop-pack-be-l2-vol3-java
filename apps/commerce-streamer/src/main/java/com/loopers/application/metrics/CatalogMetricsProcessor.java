@@ -72,6 +72,7 @@ public class CatalogMetricsProcessor {
         }
 
         switch (eventType) {
+            case "ProductViewedEvent" -> handleProductViewed(node);
             case "ProductLikedEvent" -> handleProductLiked(node);
             case "ProductUnlikedEvent" -> handleProductUnliked(node);
             case "OrderItemSoldEvent" -> handleOrderItemSold(node);
@@ -87,6 +88,15 @@ public class CatalogMetricsProcessor {
         }
 
         return true;
+    }
+
+    private void handleProductViewed(JsonNode node) {
+        Long productId = node.path("productId").asLong();
+        ProductMetricsEntity metrics = getOrCreateMetrics(productId);
+        metrics.incrementViewCount();
+        productMetricsRepository.save(metrics);
+        log.debug("[MetricsProcessor] 조회 수 집계 완료 — productId={}, viewCount={}",
+                productId, metrics.getViewCount());
     }
 
     private void handleProductLiked(JsonNode node) {
