@@ -48,11 +48,11 @@ class ReadQueuePositionUseCaseTest {
             // act
             QueuePositionResult result = useCase.execute(userId);
 
-            // assert — position 121, ceil(121/60) = 3초
+            // assert — position 121, ceil(121/5) = 25초
             assertAll(
                 () -> assertThat(result.position()).isEqualTo(121),
                 () -> assertThat(result.totalWaiting()).isEqualTo(200),
-                () -> assertThat(result.estimatedWaitSeconds()).isEqualTo(3),
+                () -> assertThat(result.estimatedWaitSeconds()).isEqualTo(25),
                 () -> assertThat(result.token()).isNull()
             );
         }
@@ -68,10 +68,10 @@ class ReadQueuePositionUseCaseTest {
             // act
             QueuePositionResult result = useCase.execute(userId);
 
-            // assert — position 60, 60/60 = 1초
+            // assert — position 60, 60/5 = 12초
             assertAll(
                 () -> assertThat(result.position()).isEqualTo(60),
-                () -> assertThat(result.estimatedWaitSeconds()).isEqualTo(1)
+                () -> assertThat(result.estimatedWaitSeconds()).isEqualTo(12)
             );
         }
 

@@ -13,19 +13,19 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 대기열 입장 허용 스케줄러.
  *
- * <p>300ms 주기로 대기열에서 최대 18명을 입장열로 이동시킨다.
- * Lua 스크립트로 ZRANGE → ZADD → ZREM을 원자적으로 실행한다.</p>
+ * <p>주기적으로 대기열에서 일정 인원을 입장열로 이동시킨다.
+ * 배치 크기 산정 근거는 ADR-04 참고.</p>
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class QueueAdmissionScheduler {
 
-    private static final int BATCH_SIZE = 18;
+    private static final int BATCH_SIZE = 2;
 
     private final WaitingQueueAdmitter waitingQueueAdmitter;
 
-    @Scheduled(fixedRate = 300)
+    @Scheduled(fixedRate = 400)
     public void admit() {
         List<Long> admitted = waitingQueueAdmitter.admit(BATCH_SIZE);
 

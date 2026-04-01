@@ -34,26 +34,26 @@ class QueueAdmissionSchedulerTest {
         @Test
         void noTransfer_whenQueueIsEmpty() {
             // arrange
-            given(waitingQueueAdmitter.admit(18)).willReturn(Collections.emptyList());
+            given(waitingQueueAdmitter.admit(2)).willReturn(Collections.emptyList());
 
             // act
             scheduler.admit();
 
             // assert
-            then(waitingQueueAdmitter).should().admit(18);
+            then(waitingQueueAdmitter).should().admit(2);
         }
 
         @DisplayName("대기자가 있으면, 원자적으로 입장열로 이동한다.")
         @Test
         void transfersAtomically_whenUsersExist() {
             // arrange
-            given(waitingQueueAdmitter.admit(18)).willReturn(List.of(1L, 2L, 3L));
+            given(waitingQueueAdmitter.admit(2)).willReturn(List.of(1L, 2L));
 
             // act
             scheduler.admit();
 
             // assert
-            then(waitingQueueAdmitter).should().admit(18);
+            then(waitingQueueAdmitter).should().admit(2);
         }
     }
 }

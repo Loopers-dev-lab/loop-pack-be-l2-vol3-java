@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReadQueuePositionUseCase {
 
-    private static final long THROUGHPUT_PER_SECOND = 60;
+    private static final long THROUGHPUT_PER_SECOND = 5;
 
     private final WaitingQueue waitingQueue;
     private final EntryTokenStore entryTokenStore;

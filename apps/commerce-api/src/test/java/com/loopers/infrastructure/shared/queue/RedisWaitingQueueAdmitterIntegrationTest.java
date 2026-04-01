@@ -105,18 +105,18 @@ class RedisWaitingQueueAdmitterIntegrationTest extends BaseIntegrationTest {
     @Nested
     class ConcurrentAdmit {
 
-        @DisplayName("100명 대기 중 10개 스레드가 동시에 admit(18)을 호출하면, 예외 없이 전원 입장 처리된다.")
+        @DisplayName("20명 대기 중 10개 스레드가 동시에 admit(2)을 호출하면, 예외 없이 전원 입장 처리된다.")
         @Test
         void allAdmitted_whenConcurrentAdmitExceedsBatchSize() throws InterruptedException {
             // arrange
-            int totalUsers = 100;
+            int totalUsers = 20;
             for (long userId = 1; userId <= totalUsers; userId++) {
                 waitingQueue.enter(userId);
             }
 
             // act
             ConcurrentTestHelper.ConcurrentResult result = ConcurrentTestHelper.executeConcurrently(
-                    10, () -> waitingQueueAdmitter.admit(18)
+                    10, () -> waitingQueueAdmitter.admit(2)
             );
 
             // assert
