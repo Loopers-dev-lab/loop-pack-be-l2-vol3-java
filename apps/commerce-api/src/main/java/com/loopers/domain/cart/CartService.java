@@ -1,7 +1,6 @@
 package com.loopers.domain.cart;
 
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.Quantity;
@@ -65,9 +64,9 @@ public class CartService {
         payload.put("quantity", item.getQuantity());
         payload.put("cartItemId", item.getId());
         transactionalOutboxWriter.record(
-                DomainKafkaTopics.USER_EVENTS,
+                DomainEvents.Topic.USER_EVENTS,
                 String.valueOf(item.getUserId()),
-                DomainEventTypes.CART_ITEM_ADDED,
+                DomainEvents.Type.CART_ITEM_ADDED,
                 payload);
     }
 

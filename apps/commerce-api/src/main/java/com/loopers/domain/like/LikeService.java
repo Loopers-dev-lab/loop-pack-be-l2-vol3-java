@@ -1,7 +1,6 @@
 package com.loopers.domain.like;
 
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStatsModel;
@@ -114,9 +113,9 @@ public class LikeService {
         LikeModel saved = likeRepository.save(like);
         productStatsRepository.incrementLikeCount(productId);
         transactionalOutboxWriter.record(
-                DomainKafkaTopics.PRODUCT_EVENTS,
+                DomainEvents.Topic.PRODUCT_EVENTS,
                 String.valueOf(productId),
-                DomainEventTypes.PRODUCT_LIKE_CHANGED,
+                DomainEvents.Type.PRODUCT_LIKE_CHANGED,
                 Map.of(
                         "productId", productId,
                         "userId", userId,
@@ -159,9 +158,9 @@ public class LikeService {
         likeRepository.delete(like);
         productStatsRepository.decrementLikeCount(productId);
         transactionalOutboxWriter.record(
-                DomainKafkaTopics.PRODUCT_EVENTS,
+                DomainEvents.Topic.PRODUCT_EVENTS,
                 String.valueOf(productId),
-                DomainEventTypes.PRODUCT_LIKE_CHANGED,
+                DomainEvents.Type.PRODUCT_LIKE_CHANGED,
                 Map.of(
                         "productId", productId,
                         "userId", userId,

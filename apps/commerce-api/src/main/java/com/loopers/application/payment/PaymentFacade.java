@@ -3,8 +3,7 @@ package com.loopers.application.payment;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.PaymentModel;
@@ -193,9 +192,9 @@ public class PaymentFacade {
         payload.put("occurredAt", Instant.now().toString());
         payload.put("lines", lines);
         transactionalOutboxWriter.record(
-                DomainKafkaTopics.ORDER_EVENTS,
+                DomainEvents.Topic.ORDER_EVENTS,
                 String.valueOf(order.getId()),
-                DomainEventTypes.PAYMENT_COMPLETED,
+                DomainEvents.Type.PAYMENT_COMPLETED,
                 payload);
     }
 

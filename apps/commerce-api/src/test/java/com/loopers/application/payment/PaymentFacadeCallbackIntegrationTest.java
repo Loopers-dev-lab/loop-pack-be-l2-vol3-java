@@ -9,7 +9,7 @@ import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
-import com.loopers.domain.outbox.DomainEventTypes;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.product.ProductValidationRequest;
 import com.loopers.domain.product.Quantity;
 import com.loopers.infrastructure.outbox.OutboxJpaRepository;
@@ -274,7 +274,7 @@ class PaymentFacadeCallbackIntegrationTest {
             assertThat(pay.getStatus()).isEqualTo(PaymentStatus.SUCCESS);
 
             long paymentCompletedForOrder = outboxJpaRepository.findAll().stream()
-                    .filter(e -> DomainEventTypes.PAYMENT_COMPLETED.equals(e.getEventType()))
+                    .filter(e -> DomainEvents.Type.PAYMENT_COMPLETED.equals(e.getEventType()))
                     .filter(e -> payloadOrderIdEquals(e.getPayload(), orderId))
                     .count();
             assertThat(paymentCompletedForOrder).isEqualTo(1);

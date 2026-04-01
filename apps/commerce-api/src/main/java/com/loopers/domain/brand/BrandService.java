@@ -1,7 +1,6 @@
 package com.loopers.domain.brand;
 
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.product.ProductService;
 import com.loopers.support.error.CoreException;
@@ -38,9 +37,9 @@ public class BrandService {
         payload.put("brandId", saved.getId());
         payload.put("name", saved.getName());
         transactionalOutboxWriter.record(
-                DomainKafkaTopics.USER_EVENTS,
+                DomainEvents.Topic.USER_EVENTS,
                 String.valueOf(saved.getId()),
-                DomainEventTypes.BRAND_REGISTERED,
+                DomainEvents.Type.BRAND_REGISTERED,
                 payload);
         return saved;
     }

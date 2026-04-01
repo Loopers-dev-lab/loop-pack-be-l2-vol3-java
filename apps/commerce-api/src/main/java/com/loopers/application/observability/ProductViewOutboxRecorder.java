@@ -1,7 +1,6 @@
 package com.loopers.application.observability;
 
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -28,9 +27,9 @@ public class ProductViewOutboxRecorder {
             return;
         }
         transactionalOutboxWriter.record(
-                DomainKafkaTopics.PRODUCT_EVENTS,
+                DomainEvents.Topic.PRODUCT_EVENTS,
                 String.valueOf(productId),
-                DomainEventTypes.PRODUCT_VIEWED,
+                DomainEvents.Type.PRODUCT_VIEWED,
                 Map.of("productId", productId));
     }
 }
