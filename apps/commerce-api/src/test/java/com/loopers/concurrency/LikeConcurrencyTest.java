@@ -76,12 +76,13 @@ class LikeConcurrencyTest {
         latch.await();
         executor.shutdown();
 
-        // assert — Like 레코드 수와 Product.likeCount가 일치해야 한다
+        // assert — Like 레코드는 즉시 확인, likeCount는 비동기 리스너 완료 대기
         long actualLikeRecords = likeRepository.countByProductId(productId);
-        Product updatedProduct = productRepository.findById(productId).orElseThrow();
         assertThat(successCount.get()).isEqualTo(threadCount);
         assertThat(actualLikeRecords).isEqualTo(threadCount);
-        assertThat(updatedProduct.getLikeCount()).isEqualTo(threadCount);
+
+        // likeCount는 @Async AFTER_COMMIT 리스너에서 갱신 → 폴링으로 대기
+        waitForLikeCount(productId, threadCount);
     }
 
     @DisplayName("동일 상품에 여러 명이 좋아요 후 일부가 취소하면 Like 레코드 수와 Product.likeCount가 일치한다")
@@ -112,6 +113,9 @@ class LikeConcurrencyTest {
         latch1.await();
         executor1.shutdown();
 
+        // addLike 비동기 리스너 완료 대기
+        waitForLikeCount(productId, likeCount);
+
         // 5명이 동시에 좋아요 취소
         int unlikeCount = 5;
         ExecutorService executor2 = Executors.newFixedThreadPool(unlikeCount);
@@ -133,8 +137,27 @@ class LikeConcurrencyTest {
 
         // assert — Like 레코드 수와 Product.likeCount가 일치해야 한다
         long actualLikeRecords = likeRepository.countByProductId(productId);
-        Product updatedProduct = productRepository.findById(productId).orElseThrow();
         assertThat(actualLikeRecords).isEqualTo(likeCount - unlikeCount);
-        assertThat(updatedProduct.getLikeCount()).isEqualTo((int) actualLikeRecords);
+
+        waitForLikeCount(productId, (int) actualLikeRecords);
+    }
+
+    /**
+     * @Async AFTER_COMMIT 리스너의 likeCount 갱신 완료를 폴링으로 대기한다.
+     * 최대 10초 (100ms × 100회) 대기.
+     */
+    private void waitForLikeCount(Long productId, int expected) throws InterruptedException {
+        for (int attempt = 0; attempt < 100; attempt++) {
+            Product p = productRepository.findById(productId).orElseThrow();
+            if (p.getLikeCount() == expected) {
+                return;
+            }
+            Thread.sleep(100);
+        }
+        // 최종 assert (실패 시 명확한 메시지)
+        Product p = productRepository.findById(productId).orElseThrow();
+        assertThat(p.getLikeCount())
+            .as("likeCount가 %d이어야 하지만 비동기 리스너가 시간 내 완료되지 않음", expected)
+            .isEqualTo(expected);
     }
 }

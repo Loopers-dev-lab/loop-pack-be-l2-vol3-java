@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.time.LocalDate;
 
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @SpringBatchTest
 @TestPropertySource(properties = "spring.batch.job.name=" + PaymentRecoveryJobConfig.JOB_NAME)
+@Sql(scripts = "/schema-batch-test.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class PaymentRecoveryJobE2ETest {
 
     @Autowired

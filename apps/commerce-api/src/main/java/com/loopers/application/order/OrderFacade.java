@@ -4,6 +4,10 @@ import com.loopers.application.coupon.CouponApplyResult;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.domain.event.DomainEventPublisher;
+import com.loopers.domain.event.OrderCancelledEvent;
+import com.loopers.domain.event.OrderCreatedEvent;
+import com.loopers.domain.event.OrderItemSnapshot;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
@@ -32,6 +36,7 @@ public class OrderFacade {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final CouponFacade couponFacade;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Transactional
     public Order createOrder(Long memberId, List<OrderItemRequest> itemRequests) {
@@ -109,6 +114,16 @@ public class OrderFacade {
             couponFacade.linkCouponToOrder(resolvedCouponIssueId, order.getId());
         }
 
+        // 8. Outbox INSERT + 이벤트 발행
+        List<OrderItemSnapshot> eventItems = order.getItems().stream()
+            .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity(), item.getProductPrice()))
+            .toList();
+
+        domainEventPublisher.publish("order", String.valueOf(order.getId()),
+            "ORDER_CREATED",
+            Map.of("orderId", order.getId(), "memberId", memberId, "items", eventItems),
+            new OrderCreatedEvent(order.getId(), memberId, eventItems));
+
         return order;
     }
 
@@ -152,6 +167,16 @@ public class OrderFacade {
         if (order.getCouponIssueId() != null) {
             couponFacade.restoreCoupon(order.getCouponIssueId());
         }
+
+        // Outbox INSERT + 이벤트 발행
+        List<OrderItemSnapshot> eventItems = order.getItems().stream()
+            .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity(), item.getProductPrice()))
+            .toList();
+
+        domainEventPublisher.publish("order", String.valueOf(orderId),
+            "ORDER_CANCELLED",
+            Map.of("orderId", orderId, "memberId", memberId, "items", eventItems),
+            new OrderCancelledEvent(orderId, memberId, eventItems));
     }
 
     public List<Order> getOrdersByMemberId(Long memberId, ZonedDateTime startAt, ZonedDateTime endAt) {

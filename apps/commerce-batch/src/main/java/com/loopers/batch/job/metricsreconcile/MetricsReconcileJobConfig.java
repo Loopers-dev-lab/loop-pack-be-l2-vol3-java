@@ -1,6 +1,6 @@
-package com.loopers.batch.job.likecountsync;
+package com.loopers.batch.job.metricsreconcile;
 
-import com.loopers.batch.job.likecountsync.step.LikeCountSyncTasklet;
+import com.loopers.batch.job.metricsreconcile.step.MetricsReconcileTasklet;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
 import lombok.RequiredArgsConstructor;
@@ -16,33 +16,33 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
-@ConditionalOnProperty(name = "spring.batch.job.name", havingValue = LikeCountSyncJobConfig.JOB_NAME)
+@ConditionalOnProperty(name = "spring.batch.job.name", havingValue = MetricsReconcileJobConfig.JOB_NAME)
 @RequiredArgsConstructor
 @Configuration
-public class LikeCountSyncJobConfig {
-    public static final String JOB_NAME = "likeCountSyncJob";
-    private static final String STEP_SYNC_NAME = "likeCountSyncStep";
+public class MetricsReconcileJobConfig {
+    public static final String JOB_NAME = "metricsReconcileJob";
+    private static final String STEP_NAME = "metricsReconcileStep";
 
     private final JobRepository jobRepository;
     private final JobListener jobListener;
     private final StepMonitorListener stepMonitorListener;
-    private final LikeCountSyncTasklet likeCountSyncTasklet;
+    private final MetricsReconcileTasklet metricsReconcileTasklet;
     private final PlatformTransactionManager transactionManager;
 
     @Bean(JOB_NAME)
-    public Job likeCountSyncJob() {
+    public Job metricsReconcileJob() {
         return new JobBuilder(JOB_NAME, jobRepository)
             .incrementer(new RunIdIncrementer())
-            .start(likeCountSyncStep())
+            .start(metricsReconcileStep())
             .listener(jobListener)
             .build();
     }
 
     @JobScope
-    @Bean(STEP_SYNC_NAME)
-    public Step likeCountSyncStep() {
-        return new StepBuilder(STEP_SYNC_NAME, jobRepository)
-            .tasklet(likeCountSyncTasklet, transactionManager)
+    @Bean(STEP_NAME)
+    public Step metricsReconcileStep() {
+        return new StepBuilder(STEP_NAME, jobRepository)
+            .tasklet(metricsReconcileTasklet, transactionManager)
             .listener(stepMonitorListener)
             .build();
     }

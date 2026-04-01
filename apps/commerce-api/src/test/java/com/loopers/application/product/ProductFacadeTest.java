@@ -10,6 +10,7 @@ import com.loopers.fake.FakeBrandRepository;
 import com.loopers.fake.FakeLikeRepository;
 import com.loopers.fake.FakeProductCachePort;
 import com.loopers.fake.FakeProductRepository;
+import com.loopers.fake.FakeStockReservationRedisRepository;
 import com.loopers.interfaces.api.product.ProductDto;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -38,7 +39,7 @@ class ProductFacadeTest {
         brandRepository = new FakeBrandRepository();
         likeRepository = new FakeLikeRepository();
         productRepository.setBrandRepository(brandRepository);
-        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCachePort());
+        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCachePort(), event -> {}, new FakeStockReservationRedisRepository());
     }
 
     @Nested

@@ -2,6 +2,11 @@ version: '3'
 services:
   mysql:
     image: mysql:8.0
+    command:
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --server-id=1
     ports:
       - "3306:3306"
     environment:
@@ -88,6 +93,35 @@ services:
       timeout: 5s
       retries: 10
 
+  kafka-connect:
+    image: debezium/connect:2.5
+    container_name: kafka-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mysql:
+        condition: service_started
+    ports:
+      - "8083:8083"
+    environment:
+      GROUP_ID: 1
+      BOOTSTRAP_SERVERS: kafka:9092
+      CONFIG_STORAGE_TOPIC: _connect_configs
+      OFFSET_STORAGE_TOPIC: _connect_offsets
+      STATUS_STORAGE_TOPIC: _connect_status
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      KEY_CONVERTER_SCHEMAS_ENABLE: "false"
+      VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -99,6 +133,8 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local  # kafka-ui 에서 보이는 클러스터명
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092 # kafka-ui 가 연겷할 브로커 주소
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
 
 volumes:
   mysql-8-data:

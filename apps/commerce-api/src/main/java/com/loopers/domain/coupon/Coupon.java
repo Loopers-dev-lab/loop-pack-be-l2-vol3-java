@@ -32,6 +32,12 @@ public class Coupon extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private ZonedDateTime expiredAt;
 
+    @Column(name = "max_issuance_count")
+    private Integer maxIssuanceCount;
+
+    @Column(name = "issued_count", nullable = false)
+    private int issuedCount;
+
     public Coupon(String name, DiscountType discountType, int discountValue, int minOrderAmount, ZonedDateTime expiredAt) {
         validateDiscountValue(discountType, discountValue);
         this.name = name;
