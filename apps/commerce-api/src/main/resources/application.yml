@@ -100,6 +100,8 @@ queue:
     heartbeat-ttl-seconds: 35
   order:
     require-entry-token: true
+  position:
+    throughput-tps: 175
 
 ---
 spring:
