@@ -27,6 +27,7 @@ import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PaymentErrorType;
 import com.loopers.support.error.PointErrorType;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import io.github.resilience4j.bulkhead.BulkheadFullException;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
@@ -63,6 +64,7 @@ public class PaymentFacade {
     private final CouponService couponService;
     private final ProductService productService;
     private final OrderCacheManager orderCacheManager;
+    private final OutboxEventService outboxEventService;
     private final CompensationDlqRepository compensationDlqRepository;
 
     private final org.springframework.transaction.support.TransactionTemplate txTemplate;
@@ -71,6 +73,7 @@ public class PaymentFacade {
                          InventoryService inventoryService, PointService pointService,
                          CouponService couponService, ProductService productService,
                          OrderCacheManager orderCacheManager,
+                         OutboxEventService outboxEventService,
                          CompensationDlqRepository compensationDlqRepository,
                          org.springframework.transaction.PlatformTransactionManager txManager) {
         this.orderService = orderService;
@@ -80,6 +83,7 @@ public class PaymentFacade {
         this.couponService = couponService;
         this.productService = productService;
         this.orderCacheManager = orderCacheManager;
+        this.outboxEventService = outboxEventService;
         this.compensationDlqRepository = compensationDlqRepository;
         this.txTemplate = new org.springframework.transaction.support.TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
@@ -159,6 +163,7 @@ public class PaymentFacade {
 
             Payment payment = paymentService.create(
                     orderId, order.getTotalAmount(), paymentMethod, generateIdempotencyKey());
+
 
             Map<Long, Integer> productQtyMap = order.getItems().stream()
                     .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
@@ -287,6 +292,15 @@ public class PaymentFacade {
             inventoryService.commitAll(productQtyMap);
             orderService.confirm(orderId, payment.getId(), payment.getPaymentMethod());
             pointService.earn(order.getUserId(), order.getTotalAmount());
+
+            // Outbox 저장 — 같은 TX (판매량 집계 → catalog-events-v1)
+            for (var entry : productQtyMap.entrySet()) {
+                outboxEventService.save("PRODUCT", entry.getKey(),
+                        "OrderItemSoldEvent",
+                        new com.loopers.domain.common.event.OrderItemSoldEvent(
+                                orderId, Map.of(entry.getKey(), entry.getValue())),
+                        "catalog-events-v1", String.valueOf(entry.getKey()));
+            }
 
             orderCacheManager.registerEvictAfterCommit(order.getUserId());
         });

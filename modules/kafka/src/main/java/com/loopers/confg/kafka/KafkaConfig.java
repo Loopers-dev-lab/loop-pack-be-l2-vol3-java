@@ -54,7 +54,8 @@ public class KafkaConfig {
     @Bean(name = BATCH_LISTENER)
     public ConcurrentKafkaListenerContainerFactory<Object, Object> defaultBatchListenerContainerFactory(
             KafkaProperties kafkaProperties,
-            ByteArrayJsonMessageConverter converter
+            ByteArrayJsonMessageConverter converter,
+            KafkaTemplate<Object, Object> kafkaTemplate
     ) {
         Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
         consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE);
@@ -70,6 +71,37 @@ public class KafkaConfig {
         factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
         factory.setConcurrency(3);
         factory.setBatchListener(true);
+
+        // Spring Kafka ErrorHandler 추가 — 재시도 없이 즉시 DLQ 격리
+        // 배치 블로킹 방지: 한 레코드 실패 시 나머지 레코드 블로킹 없이 즉시 DLQ 전송
+        factory.setCommonErrorHandler(createErrorHandler(kafkaTemplate));
+
         return factory;
+    }
+
+    /**
+     * Spring Kafka ErrorHandler 설정
+     *
+     * 재시도 로직을 Consumer 코드에서 제거하고 ErrorHandler에 위임:
+     * - FixedBackOff(0, 0): 재시도 없이 즉시 DLQ
+     * - DeadLetterPublishingRecoverer: DLQ로 동기 전송
+     *
+     * 장점:
+     * - 배치 블로킹 방지 (한 레코드 실패 시 나머지 레코드 블로킹 없음)
+     * - 처리량 유지 (MAX_POLLING_SIZE = 3000 유지 가능)
+     * - 일관된 에러 처리 (모든 Consumer에 적용)
+     */
+    private org.springframework.kafka.listener.CommonErrorHandler createErrorHandler(
+            KafkaTemplate<Object, Object> kafkaTemplate
+    ) {
+        var recoverer = new org.springframework.kafka.listener.DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, ex) -> new org.apache.kafka.common.TopicPartition("pipeline-dlq-v1", -1)
+        );
+
+        return new org.springframework.kafka.listener.DefaultErrorHandler(
+                recoverer,
+                new org.springframework.util.backoff.FixedBackOff(0L, 0L)  // 재시도 없이 즉시 DLQ
+        );
     }
 }

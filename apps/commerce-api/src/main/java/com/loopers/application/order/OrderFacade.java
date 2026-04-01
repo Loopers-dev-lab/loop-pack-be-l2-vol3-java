@@ -26,6 +26,7 @@ import com.loopers.support.error.OrderErrorType;
 import com.loopers.support.error.PointErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +67,7 @@ public class OrderFacade {
     private final PaymentFacade paymentFacade;
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
+    private final OutboxEventService outboxEventService;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
@@ -73,7 +75,8 @@ public class OrderFacade {
                        CouponService couponService, PointService pointService,
                        PaymentFacade paymentFacade,
                        PlatformTransactionManager txManager,
-                       OrderCacheManager orderCacheManager) {
+                       OrderCacheManager orderCacheManager,
+                       OutboxEventService outboxEventService) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -83,6 +86,7 @@ public class OrderFacade {
         this.couponService = couponService;
         this.pointService = pointService;
         this.paymentFacade = paymentFacade;
+        this.outboxEventService = outboxEventService;
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
         this.orderCacheManager = orderCacheManager;
