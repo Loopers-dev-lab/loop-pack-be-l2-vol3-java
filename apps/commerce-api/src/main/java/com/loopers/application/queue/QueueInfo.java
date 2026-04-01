@@ -4,8 +4,7 @@ public record QueueInfo(
         Long position,
         Long totalWaiting,
         boolean asyncFallbackPending,
-        String fallbackRequestId
-) {
+        String fallbackRequestId) {
     /** 동기 대기열 진입 시 생성되는 DTO. */
     public QueueInfo(Long position, Long totalWaiting) {
         this(position, totalWaiting, false, null);

@@ -6,7 +6,10 @@ import com.loopers.domain.queue.QueueJoinFallbackPublisher;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -17,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * Redis 장애 시 대기열 진입 의도를 Kafka로 발행한다. Outbox 릴레이와 동일한 envelope 형태를 맞춘다.
  */
+@Component
+@ConditionalOnProperty(name = "queue.fallback.enabled", havingValue = "true", matchIfMissing = true)
 public class KafkaQueueJoinFallbackPublisher implements QueueJoinFallbackPublisher {
 
     private static final String HEADER_EVENT_ID = "eventId";
@@ -30,8 +35,8 @@ public class KafkaQueueJoinFallbackPublisher implements QueueJoinFallbackPublish
     public KafkaQueueJoinFallbackPublisher(
             KafkaTemplate<Object, Object> kafkaTemplate,
             ObjectMapper objectMapper,
-            String topic,
-            long sendAckTimeoutMs
+            @Value("${queue.fallback.topic-name:queue-join-fallback}") String topic,
+            @Value("${queue.fallback.send-ack-timeout-ms:5000}") long sendAckTimeoutMs
     ) {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;

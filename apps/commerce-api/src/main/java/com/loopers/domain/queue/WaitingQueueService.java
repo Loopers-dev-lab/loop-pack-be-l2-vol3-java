@@ -25,11 +25,11 @@ public class WaitingQueueService {
     }
 
     /**
-     * 대기열 진입. Redis 오류 시(설정이 켜져 있으면) Kafka로 비동기 접수하고 {@link JoinQueueOutcome.AsyncAccepted}를 반환한다.
+     * 대기열 진입. Redis 오류 시(설정이 켜져 있으면) Kafka로 비동기 접수 결과를 반환한다.
      */
-    public JoinQueueOutcome joinQueue(String eventId, Long userId, long score, boolean fallbackEnabled) {
+    public JoinQueueResult joinQueue(String eventId, Long userId, long score, boolean fallbackEnabled) {
         try {
-            return new JoinQueueOutcome.Sync(joinQueueFromRecovery(eventId, userId, score));
+            return joinQueueFromRecovery(eventId, userId, score);
         } catch (CoreException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -41,7 +41,7 @@ public class WaitingQueueService {
                 QueueJoinFallbackPublisher publisher = queueJoinFallbackPublisher
                         .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 fallback publisher가 구성되지 않았습니다."));
                 publisher.publish(eventId, userId, score, requestId);
-                return new JoinQueueOutcome.AsyncAccepted(requestId);
+                return JoinQueueResult.asyncAccepted(requestId);
             }
             throw new CoreException(ErrorType.INTERNAL_ERROR, "대기열을 일시적으로 사용할 수 없습니다.", e);
         }
@@ -62,16 +62,15 @@ public class WaitingQueueService {
         }
         long totalWaiting = waitingQueueRepository.countWaiting(eventId);
 
-        return new JoinQueueResult(rank, totalWaiting);
+        return JoinQueueResult.synced(rank, totalWaiting);
     }
 
     /**
      * 대기열에 남아 있을 때만 순번·총 대기 인원을 반환한다. ZSET에 없으면 empty.
      * 순번과 ZCARD는 Redis Lua로 원자적으로 읽어 스케줄러 틱과의 경쟁을 줄인다.
      */
-    public Optional<JoinQueueResult> findPosition(String eventId, Long userId) {
-        return waitingQueueRepository.findPositionSnapshot(eventId, userId)
-                .map(s -> new JoinQueueResult(s.position(), s.totalWaiting()));
+    public Optional<QueuePositionSnapshot> findPosition(String eventId, Long userId) {
+        return waitingQueueRepository.findPositionSnapshot(eventId, userId);
     }
 
     private static boolean isRecoverableQueueBackendFailure(Throwable e) {
