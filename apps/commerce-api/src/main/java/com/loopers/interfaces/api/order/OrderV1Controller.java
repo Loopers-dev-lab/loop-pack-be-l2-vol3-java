@@ -34,6 +34,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
     @Override
     public ApiResponse<OrderV1Dto.OrderResponse> createOrder(
         @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId,
+        @RequestHeader(value = "X-Entry-Token", required = false) String entryToken,
         @Valid @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
         Long userId = userFacade.findUserIdByLoginId(loginId)
@@ -45,7 +46,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
                 item.optionId()
             ))
             .toList();
-        var info = orderFacade.placeOrder(userId, params, request.couponId());
+        var info = orderFacade.placeOrder(userId, entryToken, params, request.couponId());
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 
