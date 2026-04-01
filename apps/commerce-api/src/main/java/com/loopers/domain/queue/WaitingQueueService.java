@@ -14,11 +14,11 @@ import java.util.UUID;
 public class WaitingQueueService {
 
     private final WaitingQueueRepository waitingQueueRepository;
-    private final QueueJoinFallbackPublisher queueJoinFallbackPublisher;
+    private final Optional<QueueJoinFallbackPublisher> queueJoinFallbackPublisher;
 
     public WaitingQueueService(
             WaitingQueueRepository waitingQueueRepository,
-            QueueJoinFallbackPublisher queueJoinFallbackPublisher
+            Optional<QueueJoinFallbackPublisher> queueJoinFallbackPublisher
     ) {
         this.waitingQueueRepository = waitingQueueRepository;
         this.queueJoinFallbackPublisher = queueJoinFallbackPublisher;
@@ -38,7 +38,9 @@ public class WaitingQueueService {
             }
             if (fallbackEnabled) {
                 String requestId = UUID.randomUUID().toString();
-                queueJoinFallbackPublisher.publish(eventId, userId, score, requestId);
+                QueueJoinFallbackPublisher publisher = queueJoinFallbackPublisher
+                        .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 fallback publisher가 구성되지 않았습니다."));
+                publisher.publish(eventId, userId, score, requestId);
                 return new JoinQueueOutcome.AsyncAccepted(requestId);
             }
             throw new CoreException(ErrorType.INTERNAL_ERROR, "대기열을 일시적으로 사용할 수 없습니다.", e);
