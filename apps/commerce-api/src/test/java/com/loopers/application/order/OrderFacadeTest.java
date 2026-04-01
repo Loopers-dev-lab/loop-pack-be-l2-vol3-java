@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.coupon.*;
@@ -10,12 +11,14 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.fake.*;
+import com.loopers.infrastructure.redis.CouponIssueRequestRedisRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.Clock;
 import java.time.ZonedDateTime;
@@ -23,6 +26,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
 
 class OrderFacadeTest {
 
@@ -42,6 +46,8 @@ class OrderFacadeTest {
         couponRepository = new FakeCouponRepository();
         couponIssueRepository = new FakeCouponIssueRepository();
         couponFacade = new CouponFacade(couponRepository, couponIssueRepository,
+            mock(CouponIssueRequestRedisRepository.class),
+            mock(KafkaTemplate.class), new ObjectMapper(),
             Clock.systemDefaultZone());
         orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository,
             couponFacade);

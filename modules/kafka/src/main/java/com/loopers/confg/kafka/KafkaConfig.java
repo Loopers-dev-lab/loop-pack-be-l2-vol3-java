@@ -10,8 +10,10 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.converter.BatchMessagingMessageConverter;
 import org.springframework.kafka.support.converter.ByteArrayJsonMessageConverter;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,6 +23,11 @@ import java.util.Map;
 @EnableConfigurationProperties(KafkaProperties.class)
 public class KafkaConfig {
     public static final String BATCH_LISTENER = "BATCH_LISTENER_DEFAULT";
+    public static final String SINGLE_LISTENER = "SINGLE_LISTENER_DEFAULT";
+
+    public static final int MAX_POLL_RECORDS = 1;
+    public static final int SINGLE_SESSION_TIMEOUT_MS = 60 * 1000;
+    public static final int SINGLE_MAX_POLL_INTERVAL_MS = 3 * 60 * 1000;
 
     public static final int MAX_POLLING_SIZE = 3000; // read 3000 msg
     public static final int FETCH_MIN_BYTES = (1024 * 1024); // 1mb
@@ -70,6 +77,24 @@ public class KafkaConfig {
         factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
         factory.setConcurrency(3);
         factory.setBatchListener(true);
+        return factory;
+    }
+
+    @Bean(name = SINGLE_LISTENER)
+    public ConcurrentKafkaListenerContainerFactory<Object, Object> singleListenerContainerFactory(
+            KafkaProperties kafkaProperties
+    ) {
+        Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
+        consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLL_RECORDS);
+        consumerConfig.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SINGLE_SESSION_TIMEOUT_MS);
+        consumerConfig.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, SINGLE_SESSION_TIMEOUT_MS / 3);
+        consumerConfig.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, SINGLE_MAX_POLL_INTERVAL_MS);
+
+        ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfig));
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+        factory.setConcurrency(1);
+        factory.setCommonErrorHandler(new DefaultErrorHandler(new FixedBackOff(1000L, 3L)));
         return factory;
     }
 }

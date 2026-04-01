@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.time.ZonedDateTime;
 
+
 public class CouponDto {
 
     public record CreateRequest(
@@ -63,6 +64,24 @@ public class CouponDto {
                 issue.getEffectiveStatus(now).name(),
                 issue.getExpiredAt(),
                 issue.getCreatedAt()
+            );
+        }
+    }
+
+    public record CouponIssueRequestResponse(
+        Long requestId,
+        Long couponId,
+        Long memberId,
+        String status,
+        String rejectReason
+    ) {
+        public static CouponIssueRequestResponse from(CouponIssueRequestInfo info) {
+            return new CouponIssueRequestResponse(
+                info.requestId(),
+                info.couponId(),
+                info.memberId(),
+                info.status().name(),
+                info.rejectReason()
             );
         }
     }
