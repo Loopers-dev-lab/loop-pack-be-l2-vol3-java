@@ -7,14 +7,16 @@ public class QueueDto {
     public record PositionResponse(
             long position,
             long totalWaiting,
-            long estimatedWaitSeconds
+            long estimatedWaitSeconds,
+            String token
     ) {
 
         public static PositionResponse from(QueuePositionResult result) {
             return new PositionResponse(
                     result.position(),
                     result.totalWaiting(),
-                    result.estimatedWaitSeconds()
+                    result.estimatedWaitSeconds(),
+                    result.token()
             );
         }
     }

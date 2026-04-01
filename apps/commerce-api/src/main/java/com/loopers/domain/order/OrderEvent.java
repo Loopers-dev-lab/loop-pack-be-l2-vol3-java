@@ -14,13 +14,10 @@ public class OrderEvent {
     /**
      * 주문이 생성되었을 때 발행되는 이벤트.
      *
-     * <p>재고 차감, 쿠폰 사용 처리 등 주문 생성에 따른 부수 효과를
-     * 각 도메인 리스너가 {@code BEFORE_COMMIT} 단계에서 처리할 수 있도록 한다.</p>
-     *
      * @param eventId       이벤트 식별자
      * @param orderId       주문 ID
-     * @param orderItems    주문 항목 스냅샷 (재고 차감용)
-     * @param ownedCouponId 적용된 쿠폰 ID (nullable, 쿠폰 사용 처리용)
+     * @param orderItems    주문 항목 스냅샷
+     * @param ownedCouponId 적용된 쿠폰 ID (nullable)
      */
     public record OrderPlaced(
             UUID eventId,
@@ -70,14 +67,9 @@ public class OrderEvent {
     /**
      * 주문이 결제 완료되었을 때 발행되는 이벤트.
      *
-     * <p>Outbox 이벤트가 함께 저장된 후, AFTER_COMMIT 시점에
-     * 외부 발행을 트리거하기 위해 사용된다.
-     * 외부 Consumer가 상품별 판매량을 집계할 수 있도록
-     * 주문 항목 스냅샷을 포함한다.</p>
-     *
      * @param eventId    이벤트 식별자
      * @param orderId    결제 완료된 주문 ID
-     * @param orderItems 주문 항목 스냅샷 (상품별 판매량 집계용)
+     * @param orderItems 주문 항목 스냅샷
      */
     public record OrderCompleted(UUID eventId, Long orderId, List<OrderItemSnapshot> orderItems) {
 
