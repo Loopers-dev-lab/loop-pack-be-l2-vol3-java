@@ -98,12 +98,18 @@ queue:
     lock-key: queue:scheduler:lock
     heartbeat-key: queue:scheduler:heartbeat
     heartbeat-ttl-seconds: 35
+  order:
+    require-entry-token: true
 
 ---
 spring:
   config:
     activate:
       on-profile: local, test
+
+queue:
+  order:
+    require-entry-token: false
 ---
 spring:
   config:
