@@ -26,7 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class QueueRedisInfrastructureIntegrationTest {
 
-    private static final String EVENT_ID = "default";
+    /** 스케줄러 기본 event-id(default)와 겹치면 틱이 ZSET을 비울 수 있어 분리한다. */
+    private static final String EVENT_ID = "redis-integration-queue";
 
     @Autowired
     private WaitingQueueRepository waitingQueueRepository;
@@ -82,6 +83,20 @@ class QueueRedisInfrastructureIntegrationTest {
         entryTokenRepository.deleteEntryToken(1L);
 
         assertThat(entryTokenRepository.findEntryToken(1L)).isEmpty();
+    }
+
+    @DisplayName("consumeIfTokenMatches는 값이 일치할 때만 키를 제거한다.")
+    @Test
+    void entryToken_consumeIfTokenMatches_shouldDeleteOnlyWhenMatch() {
+        entryTokenRepository.saveEntryToken(1L, "secret", 300L);
+
+        assertThat(entryTokenRepository.consumeIfTokenMatches(1L, "wrong")).isFalse();
+        assertThat(entryTokenRepository.findEntryToken(1L)).contains("secret");
+
+        assertThat(entryTokenRepository.consumeIfTokenMatches(1L, "secret")).isTrue();
+        assertThat(entryTokenRepository.findEntryToken(1L)).isEmpty();
+
+        assertThat(entryTokenRepository.consumeIfTokenMatches(1L, "secret")).isFalse();
     }
 
     @DisplayName("scheduler lock은 setnx처럼 1회만 획득된다.")
