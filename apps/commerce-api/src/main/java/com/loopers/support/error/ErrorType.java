@@ -72,7 +72,17 @@ public enum ErrorType {
     PAYMENT_STATUS_INVALID(HttpStatus.BAD_REQUEST, "PAYMENT_STATUS_INVALID", "유효하지 않은 결제 상태 전이입니다."),
     PAYMENT_PG_ERROR(HttpStatus.BAD_GATEWAY, "PAYMENT_PG_ERROR", "결제 시스템에 문제가 발생했습니다."),
     PAYMENT_PG_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PAYMENT_PG_TIMEOUT", "결제 확인 중입니다."),
-    PAYMENT_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_SERVICE_UNAVAILABLE", "결제 서비스를 이용할 수 없습니다.");
+    PAYMENT_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_SERVICE_UNAVAILABLE", "결제 서비스를 이용할 수 없습니다."),
+
+    /** Queue */
+    QUEUE_NOT_IN_QUEUE(HttpStatus.NOT_FOUND, "QUEUE_NOT_IN_QUEUE", "대기열에 등록되어 있지 않습니다."),
+    QUEUE_FULL(HttpStatus.SERVICE_UNAVAILABLE, "QUEUE_FULL", "대기열이 가득 찼습니다. 잠시 후 다시 시도해주세요."),
+    QUEUE_ALREADY_HAS_TOKEN(HttpStatus.CONFLICT, "QUEUE_ALREADY_HAS_TOKEN", "이미 입장 토큰이 발급되었습니다."),
+
+    /** Entry Token */
+    ENTRY_TOKEN_REQUIRED(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_REQUIRED", "입장 토큰이 필요합니다."),
+    ENTRY_TOKEN_INVALID(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_INVALID", "유효하지 않은 입장 토큰입니다."),
+    ENTRY_TOKEN_EXPIRED(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_EXPIRED", "입장 토큰이 만료되었습니다.");
 
     private final HttpStatus status;
     private final String code;

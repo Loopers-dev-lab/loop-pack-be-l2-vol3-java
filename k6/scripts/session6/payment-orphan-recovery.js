@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-import { authHeaders } from '../lib/helpers.js';
+import { authHeaders } from '../../lib/helpers.js';
 
 /**
  * Phase C 고아 Payment 강제 생성 + Polling 복구 검증

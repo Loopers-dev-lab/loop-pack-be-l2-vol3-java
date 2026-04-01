@@ -1,0 +1,44 @@
+package com.loopers.domain.queue;
+
+import java.util.List;
+
+/**
+ * 대기열 저장소 인터페이스. Redis Sorted Set 기반으로 infrastructure에서 구현.
+ *
+ * <p>기존 {@code OrderRepository}, {@code UserRepository}와 동일한 DIP 패턴.
+ * 도메인 레이어는 Redis에 의존하지 않는다.</p>
+ */
+public interface QueueRepository {
+
+    /**
+     * 대기열에 사용자를 추가한다. 이미 존재하면 무시 (ZADD NX).
+     *
+     * @param userId 사용자 ID
+     * @param score  진입 시각 (밀리초 타임스탬프)
+     * @return true=신규 추가, false=이미 존재
+     */
+    boolean addIfAbsent(Long userId, double score);
+
+    /**
+     * 사용자의 현재 순번을 조회한다 (ZRANK).
+     *
+     * @param userId 사용자 ID
+     * @return 0-based 순번, 대기열에 없으면 null
+     */
+    Long getRank(Long userId);
+
+    /**
+     * 전체 대기 인원을 조회한다 (ZCARD).
+     *
+     * @return 대기 인원 수
+     */
+    long getSize();
+
+    /**
+     * 앞에서부터 count명을 원자적으로 제거하고 반환한다 (ZPOPMIN).
+     *
+     * @param count 꺼낼 인원 수
+     * @return 꺼낸 항목 리스트 (비어있을 수 있음)
+     */
+    List<QueueEntry> popMin(int count);
+}

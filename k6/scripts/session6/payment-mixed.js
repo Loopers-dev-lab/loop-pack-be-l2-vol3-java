@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-import { authHeaders, getProductIdZipf, checkResponse } from '../lib/helpers.js';
+import { authHeaders, getProductIdZipf, checkResponse } from '../../lib/helpers.js';
 
 /**
  * Phase 2 — Mixed 부하 테스트 (결제 + 상품조회 혼합)

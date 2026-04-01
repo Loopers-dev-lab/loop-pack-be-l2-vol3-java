@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **loopers-java-spring-template** — Multi-module Java 21 / Spring Boot 3.4.4 commerce backend (Gradle Kotlin DSL).
 
-Group: `com.loopers` | 감성 이커머스 MVP: 좋아요 → 장바구니 → 주문(결제 대기) 흐름.
+Group: `com.loopers` | 감성 이커머스 MVP: 좋아요 → 장바구니 → 주문 → 결제 흐름. 이벤트 기반 아키텍처(Transactional Outbox + Kafka).
 
 ## Build & Test Commands
 
@@ -105,7 +105,7 @@ interfaces/ → application/ → domain/ ← infrastructure/
 | 구분 | 구조 | 해당 도메인 |
 |------|------|------------|
 | **단순 도메인** | Controller → **Service** 직접 호출 | User, Brand, Like, Stats |
-| **복잡한 도메인** | Controller → **Facade** → 여러 Service | Product, Cart, Order |
+| **복잡한 도메인** | Controller → **Facade** → 여러 Service | Product, Cart, Order, Coupon, Payment |
 
 - **Facade**: 여러 도메인 서비스를 조합(orchestration)하고, 복잡한 비즈니스 플로우(재고 hold/release, 보상 트랜잭션 등)를 담당하는 application 레이어 클래스.
 - **단순 도메인은 AppService 없이 Controller에서 Service를 직접 호출**한다.
@@ -156,6 +156,9 @@ interfaces/ → application/ → domain/ ← infrastructure/
 | **Like** | 상품 좋아요 등록/취소 (멱등), 복합 PK, ProductService 참조 | `BaseStringIdEntity` | Service 직접 호출 |
 | **Cart** | 장바구니 CRUD, 주문 연계 복원, 복합 PK | `BaseStringIdEntity` | Facade |
 | **Order** | 주문 생성(DIRECT/CART), 취소, 만료 | `BaseStringIdEntity` | Facade |
+| **Coupon** | 쿠폰 발급 (Rush 선착순), 3-상태 머신 (AVAILABLE→RESERVED→USED) | `BaseStringIdEntity` | Facade |
+| **Payment** | PG 결제 연동, 분산락, Resilience4j | `BaseStringIdEntity` | Facade |
+| **Outbox** | Transactional Outbox 이벤트 발행 | - | Service |
 | **Stats** | 운영 통계 (주문 현황, 인기 상품) | - | Service 직접 호출 |
 
 ## Entity Base Classes
@@ -226,6 +229,41 @@ Both provide: `createdAt`, `updatedAt`, `guard()` override for entity validation
 
 DIRECT 주문 취소/만료 시 `order_cart_restore` 테이블 `existsById` 확인으로 1회 복원 보장. CART 주문은 장바구니 유지.
 
+### Transactional Outbox + Kafka 이벤트 파이프라인
+
+비즈니스 트랜잭션과 이벤트 발행의 원자성을 보장하는 Outbox 패턴:
+
+1. **Outbox 저장**: `OutboxEventService`가 비즈니스 TX 내에서 `OutboxEventModel` 저장 (`Propagation.MANDATORY`)
+2. **Relay 발행**: `OutboxEventRelay`가 5초 주기 폴링 → Kafka 발행 (PENDING → PUBLISHED, 실패 시 지수 백오프 10s→60s)
+3. **Consumer 처리**: `commerce-streamer`가 토픽별 Processor로 이벤트 소비 (멱등성 보장: `EventHandledModel`)
+4. **Cleanup**: `OutboxCleanupScheduler`가 7일 경과 PUBLISHED 이벤트 삭제
+
+**Kafka 토픽**:
+- `catalog-events` (3 partitions, productId 파티셔닝): 좋아요/조회 이벤트
+- `order-events` (3 partitions, orderId 파티셔닝): 주문 생성/취소/만료 이벤트
+- `coupon-issue-requests` (1 partition, 순서 보장): 선착순 쿠폰 발급
+
+**ApplicationEvent → Outbox 흐름**: `@TransactionalEventListener(AFTER_COMMIT)`로 도메인 이벤트 핸들링 후 Outbox 저장.
+
+### 결제 분산락 + Resilience4j
+
+**분산락**: `PaymentLock` 인터페이스 → Redis SETNX + Lua owner-verify unlock. 30초 TTL. Redis 장애 시 락 없이 진행 (가용성 우선).
+
+**Resilience4j 데코레이터 체인** (`ResilientPgClient`):
+- Bulkhead (40 semaphore) → CircuitBreaker (80% failure-rate, 15s open) → Retry (3x, jitter 0.5-1.5s) → HTTP
+
+**TX 분리 패턴**: Outbox 이벤트 TX-1 저장 → PG 호출 (TX 밖) → 결과 TX-2 저장. 커넥션 풀 점유 방지.
+
+### 쿠폰 Rush 발급
+
+선착순 쿠폰의 4-레이어 멱등 방어:
+1. `CouponDeduplicationCache`: Redis SETNX 중복 요청 차단
+2. `CouponRemainingCache`: Redis 잔여 수량 사전 차감
+3. CAS `issued_count` 업데이트로 오버셀 방지
+4. `CouponPendingActionRelay`: 3초 폴링으로 RESERVED → USED 확정 또는 복원
+
+**DIP**: `CouponDeduplicationCache`, `CouponRemainingCache`, `CouponIssueMetrics`, `OutboxRelayMetrics` — 도메인 인터페이스로 추출, infrastructure에서 구현.
+
 ### 상품 변경 이력 (ProductRevision)
 
 복합 PK (`product_id` + `revision_seq`). 상품 수정/삭제/복구 시 `before_snapshot`/`after_snapshot` JSON 저장.
@@ -242,6 +280,29 @@ DIRECT 주문 취소/만료 시 `order_cart_restore` 테이블 `existsById` 확�
 | `UnavailableReason` | `DELETED`, `HIDDEN`, `BRAND_DELETED`, `BRAND_HIDDEN`, `STOPPED`, `TEMP_SOLD_OUT`, `OUT_OF_STOCK`, `INVALID_QUANTITY` | 장바구니 항목 주문 불가 사유 |
 | `RestoreReason` | `USER_CANCELLED`, `EXPIRED`, `PAYMENT_FAILED`, `PG_CANCELLED` | 복원 사유 |
 | `RestoreTriggerSource` | `CANCEL_API`, `PG_WEBHOOK`, `EXPIRE_JOB`, `MANUAL` | 복원 트리거 출처 |
+| `CouponActionStatus` | `AVAILABLE`, `RESERVED`, `USED` | 쿠폰 발급 3-상태 머신 |
+| `OutboxEventStatus` | `PENDING`, `PUBLISHED`, `CLEANUP` | Outbox 이벤트 상태 |
+
+## Schedulers (commerce-api)
+
+| 스케줄러 | 주기 | 역할 |
+|----------|------|------|
+| `OutboxEventRelay` | 5초 | Outbox → Kafka 발행 (지수 백오프) |
+| `OutboxCleanupScheduler` | - | 7일 경과 PUBLISHED 이벤트 삭제 |
+| `OrderExpiryScheduler` | 60초 | PENDING_PAYMENT → EXPIRED (결제 요청 중인 주문 제외) |
+| `PaymentPollingScheduler` | - | PG 결제 상태 폴링 (CB-aware fail-fast) |
+| `CouponActionRelay` | 3초 | RESERVED → USED 확정 또는 복원 |
+| `CartRestoreRetryScheduler` | 매일 05:30 | 실패한 장바구니 복원 재시도 |
+
+별도 `ThreadPoolTaskScheduler` (poolSize=3)로 `@Scheduled` 태스크 실행.
+
+## commerce-streamer (Kafka Consumer)
+
+Kafka 이벤트를 소비하여 집계/처리하는 별도 애플리케이션 (Web 없음):
+- `CatalogEventProcessor`: 좋아요/조회 집계 → `ProductMetricsModel` upsert
+- `OrderEventProcessor`: 상품별 주문 수 추적 (멱등)
+- `CouponIssueProcessor`: 선착순 쿠폰 발급 4-레이어 멱등 처리
+- `EventHandledModel`: event_id PK로 중복 처리 방지, 30일 후 자동 삭제
 
 ## Key Conventions
 
@@ -280,6 +341,8 @@ DIRECT 주문 취소/만료 시 `order_cart_restore` 테이블 `existsById` 확�
 - `04-erd.md` — ERD (복합 PK, 인덱스 전략)
 - `05-architecture.md` — 종합 아키텍처 설계서
 - `07-facade-analysis.md` — Facade 필요성 분석
+- `07-index-cache-strategy.md` — 인덱스 + Redis 캐시 전략 (TTL, cache-aside, write-invalidate)
+- `08-order-payment-flow.md` — 주문-결제 상태 머신 + TX 분리 패턴 + PG 콜백 흐름
 
 ## 설계 원칙
 

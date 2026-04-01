@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.domain.user.AuthCacheService;
 import com.loopers.domain.user.UserModel;
-import com.loopers.domain.user.UserService;
 import com.loopers.support.error.CoreException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -28,7 +28,7 @@ public class CustomerAuthInterceptor implements HandlerInterceptor {
      */
     public static final String AUTH_USER_ATTR = "authenticatedUser";
 
-    private final UserService userService;
+    private final AuthCacheService authCacheService;
 
     /**
      * 요청을 처리하기 전에 고객 인증을 수행한다.
@@ -51,7 +51,7 @@ public class CustomerAuthInterceptor implements HandlerInterceptor {
             return true;  // 헤더 없으면 통과 (인증 불필요 API용)
         }
 
-        UserModel user = userService.authenticate(loginId, loginPw);
+        UserModel user = authCacheService.authenticateWithCache(loginId, loginPw);
         request.setAttribute(AUTH_USER_ATTR, user);
         return true;
     }

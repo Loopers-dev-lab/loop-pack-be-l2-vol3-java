@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
-import { authHeaders } from '../lib/helpers.js';
+import { authHeaders } from '../../lib/helpers.js';
 
 /**
  * 결제 분산락 동시성 테스트

@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter } from 'k6/metrics';
-import { authHeaders } from '../lib/helpers.js';
+import { authHeaders } from '../../lib/helpers.js';
 
 /**
  * Polling/고아 Payment 복구 검증 테스트

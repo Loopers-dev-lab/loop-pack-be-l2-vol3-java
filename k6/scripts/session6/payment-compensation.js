@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-import { authHeaders, adminHeaders } from '../lib/helpers.js';
+import { authHeaders, adminHeaders } from '../../lib/helpers.js';
 
 /**
  * 보상 트랜잭션(Compensation) 발동 검증 테스트

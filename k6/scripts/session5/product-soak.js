@@ -1,6 +1,6 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { getProductIdZipf, authHeaders, checkResponse } from '../lib/helpers.js';
+import { getProductIdZipf, authHeaders, checkResponse } from '../../lib/helpers.js';
 
 export const options = {
     scenarios: {

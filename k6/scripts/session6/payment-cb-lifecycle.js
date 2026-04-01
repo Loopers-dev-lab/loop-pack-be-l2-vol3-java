@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend, Rate } from 'k6/metrics';
-import { authHeaders } from '../lib/helpers.js';
+import { authHeaders } from '../../lib/helpers.js';
 
 /**
  * CircuitBreaker 전이 사이클 검증 테스트

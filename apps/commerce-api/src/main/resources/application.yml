@@ -63,6 +63,16 @@ resilience4j:
         max-concurrent-calls: 40
         max-wait-duration: 0
 
+queue:
+  enabled: true
+  max-size: 0                    # 0 = 무제한
+  entry-token:
+    ttl-seconds: 300             # 5분
+  scheduler:
+    enabled: true
+    interval-ms: 100             # 100ms 주기
+    batch-size: 14               # 14명/회 = 140 TPS
+
 springdoc:
   use-fqn: true
   swagger-ui:

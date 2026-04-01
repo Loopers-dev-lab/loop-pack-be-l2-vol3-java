@@ -1,7 +1,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
-import { authHeaders } from '../lib/helpers.js';
+import { authHeaders } from '../../lib/helpers.js';
 
 /**
  * Phase 2 — Spike 부하 테스트 (10→200→10 VU 급증)
