@@ -36,13 +36,6 @@ public class CouponFacade {
         this.outboxEventService = outboxEventService;
     }
 
-    /** 쿠폰 발급 (동기 — 기존 방식 유지) */
-    @Transactional
-    public IssueCouponResult issueCoupon(Long templateId, Long userId) {
-        IssuedCoupon issued = couponService.issue(templateId, userId);
-        return new IssueCouponResult(issued.getId(), issued.getStatus().name());
-    }
-
     /**
      * 선착순 쿠폰 발급 요청 (비동기 — Kafka 기반)
      *
@@ -122,8 +115,6 @@ public class CouponFacade {
                 .toList();
         return new AvailableCouponListResult(details);
     }
-
-    public record IssueCouponResult(Long issuedCouponId, String status) {}
 
     public record IssuedCouponDetail(
             Long issuedCouponId, Long couponTemplateId,
