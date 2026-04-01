@@ -11,7 +11,7 @@ import com.loopers.support.queue.WaitingQueue;
 import lombok.RequiredArgsConstructor;
 
 /**
- * 대기열 순번 및 예상 대기 시간을 조회합니다.
+ * 대기열 순번, 예상 대기 시간, 권장 폴링 주기를 조회한다.
  */
 @UseCase
 @RequiredArgsConstructor
@@ -24,7 +24,7 @@ public class ReadQueuePositionUseCase {
 
     /**
      * @param userId 대기열 순번을 조회할 사용자 ID
-     * @return 순번, 총 대기 인원, 예상 대기 시간(초), 입장 토큰(입장 허용된 경우)
+     * @return 순번, 총 대기 인원, 예상 대기 시간(초), 권장 폴링 주기(ms), 입장 토큰
      * @throws CoreException 대기열에 진입하지 않은 경우 ({@code QUEUE_NOT_ENTERED})
      */
     public QueuePositionResult execute(Long userId) {
@@ -33,7 +33,8 @@ public class ReadQueuePositionUseCase {
             long position = rank + 1;
             long totalWaiting = waitingQueue.getTotalCount();
             long estimatedWaitSeconds = (long) Math.ceil((double) position / THROUGHPUT_PER_SECOND);
-            return new QueuePositionResult(position, totalWaiting, estimatedWaitSeconds, null);
+            long pollingIntervalMs = QueuePollingPolicy.calculateIntervalMs(position);
+            return new QueuePositionResult(position, totalWaiting, estimatedWaitSeconds, pollingIntervalMs, null);
         }
 
         return entryTokenStore.getToken(userId)

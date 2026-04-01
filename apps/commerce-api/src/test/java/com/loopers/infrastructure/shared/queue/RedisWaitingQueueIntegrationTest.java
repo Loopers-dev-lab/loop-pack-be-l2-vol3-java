@@ -3,12 +3,15 @@ package com.loopers.infrastructure.shared.queue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.loopers.support.BaseIntegrationTest;
+import com.loopers.support.ConcurrentTestHelper;
 import com.loopers.support.queue.WaitingQueue;
 
 @DisplayName("RedisWaitingQueue 통합 테스트")
@@ -102,6 +105,36 @@ class RedisWaitingQueueIntegrationTest extends BaseIntegrationTest {
 
             // act & assert
             assertThat(waitingQueue.getTotalCount()).isEqualTo(2);
+        }
+    }
+
+    @DisplayName("동시에 대기열에 진입할 때,")
+    @Nested
+    class ConcurrentEnter {
+
+        @DisplayName("100명이 동시에 진입하면, 모두 성공하고 전원 대기열에 존재한다.")
+        @Test
+        void allSucceed_whenConcurrentEntry() throws InterruptedException {
+            // arrange
+            int threadCount = 100;
+            AtomicLong userIdGenerator = new AtomicLong(1);
+
+            // act
+            ConcurrentTestHelper.ConcurrentResult result = ConcurrentTestHelper.executeConcurrently(
+                    threadCount, () -> waitingQueue.enter(userIdGenerator.getAndIncrement())
+            );
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.successCount()).isEqualTo(threadCount),
+                    () -> assertThat(result.failCount()).isZero(),
+                    () -> assertThat(waitingQueue.getTotalCount()).isEqualTo(threadCount)
+            );
+
+            // 모든 사용자가 대기열에 존재하는지 검증
+            for (long userId = 1; userId <= threadCount; userId++) {
+                assertThat(waitingQueue.getPosition(userId)).isNotNull();
+            }
         }
     }
 }

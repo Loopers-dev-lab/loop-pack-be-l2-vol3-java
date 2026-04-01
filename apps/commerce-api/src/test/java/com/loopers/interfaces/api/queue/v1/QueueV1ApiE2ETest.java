@@ -94,7 +94,8 @@ class QueueV1ApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody()).isNotNull(),
                     () -> assertThat(response.getBody().data().position()).isEqualTo(1),
                     () -> assertThat(response.getBody().data().totalWaiting()).isEqualTo(1),
-                    () -> assertThat(response.getBody().data().estimatedWaitSeconds()).isEqualTo(1)
+                    () -> assertThat(response.getBody().data().estimatedWaitSeconds()).isEqualTo(1),
+                    () -> assertThat(response.getBody().data().pollingIntervalMs()).isEqualTo(1000)
             );
         }
 

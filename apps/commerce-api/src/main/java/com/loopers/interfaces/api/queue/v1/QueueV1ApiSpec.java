@@ -16,7 +16,8 @@ public interface QueueV1ApiSpec {
 
     @Operation(
             summary = "대기열 순번 조회",
-            description = "현재 대기열에서의 순번, 전체 대기 인원, 예상 대기 시간을 조회합니다."
+            description = "현재 대기열에서의 순번, 전체 대기 인원, 예상 대기 시간, 권장 폴링 주기를 조회합니다. "
+                    + "pollingIntervalMs는 순번 구간에 따라 1초~20초로 동적 산정되며, 입장 완료 시 0을 반환합니다."
     )
     ApiResponse<QueueDto.PositionResponse> getPosition(Long userId);
 }

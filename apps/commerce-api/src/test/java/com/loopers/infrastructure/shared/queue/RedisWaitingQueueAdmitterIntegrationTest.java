@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,6 +15,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 
 import com.loopers.config.redis.RedisConfig;
 import com.loopers.support.BaseIntegrationTest;
+import com.loopers.support.ConcurrentTestHelper;
 import com.loopers.support.queue.WaitingQueueAdmitter;
 import com.loopers.support.queue.WaitingQueue;
 
@@ -95,6 +97,35 @@ class RedisWaitingQueueAdmitterIntegrationTest extends BaseIntegrationTest {
             String token = redisTemplate.opsForValue().get("entry-token:1");
             assertThat(token).matches(
                     "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+            );
+        }
+    }
+
+    @DisplayName("배치 크기를 초과하는 동시 입장 처리 요청이 들어올 때,")
+    @Nested
+    class ConcurrentAdmit {
+
+        @DisplayName("100명 대기 중 10개 스레드가 동시에 admit(18)을 호출하면, 예외 없이 전원 입장 처리된다.")
+        @Test
+        void allAdmitted_whenConcurrentAdmitExceedsBatchSize() throws InterruptedException {
+            // arrange
+            int totalUsers = 100;
+            for (long userId = 1; userId <= totalUsers; userId++) {
+                waitingQueue.enter(userId);
+            }
+
+            // act
+            ConcurrentTestHelper.ConcurrentResult result = ConcurrentTestHelper.executeConcurrently(
+                    10, () -> waitingQueueAdmitter.admit(18)
+            );
+
+            // assert
+            Set<String> tokenKeys = redisTemplate.keys("entry-token:*");
+            assertAll(
+                    () -> assertThat(result.successCount()).isEqualTo(10),
+                    () -> assertThat(result.failCount()).isZero(),
+                    () -> assertThat(waitingQueue.getTotalCount()).isZero(),
+                    () -> assertThat(tokenKeys).hasSize(totalUsers)
             );
         }
     }

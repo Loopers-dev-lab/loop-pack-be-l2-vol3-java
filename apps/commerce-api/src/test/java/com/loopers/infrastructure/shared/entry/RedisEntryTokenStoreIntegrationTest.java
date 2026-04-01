@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -99,6 +100,25 @@ class RedisEntryTokenStoreIntegrationTest extends BaseIntegrationTest {
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.INVALID_ENTRY_TOKEN);
+        }
+    }
+
+    @DisplayName("토큰 TTL이 만료될 때,")
+    @Nested
+    class TokenExpiration {
+
+        @DisplayName("TTL이 지나면, 토큰이 조회되지 않는다.")
+        @Test
+        void returnsEmpty_whenTtlExpired() throws InterruptedException {
+            // arrange
+            redisTemplate.opsForValue().set("entry-token:1", "test-token", Duration.ofSeconds(1));
+
+            // act
+            Thread.sleep(1100);
+
+            // assert
+            Optional<String> result = entryTokenStore.getToken(1L);
+            assertThat(result).isEmpty();
         }
     }
 }
