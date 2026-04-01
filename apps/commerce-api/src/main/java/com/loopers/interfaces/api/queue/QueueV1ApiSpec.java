@@ -12,7 +12,8 @@ public interface QueueV1ApiSpec {
 
     @Operation(
         summary = "대기열 진입",
-        description = "대기열에 진입하고 현재 순번 및 총 대기 인원을 반환합니다."
+        description = "대기열에 진입하고 현재 순번 및 총 대기 인원을 반환합니다. "
+                + "Redis 장애 시 Kafka 비동기 접수(asyncFallbackPending=true, fallbackRequestId)로 응답할 수 있습니다."
     )
     ApiResponse<QueueV1Dto.JoinQueueResponse> joinQueue(
         @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)

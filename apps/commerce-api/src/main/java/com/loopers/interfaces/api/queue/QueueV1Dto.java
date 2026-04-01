@@ -6,13 +6,17 @@ import com.loopers.application.queue.QueuePositionInfo;
 public class QueueV1Dto {
 
     public record JoinQueueResponse(
-        long position,
-        long totalWaiting
+        Long position,
+        Long totalWaiting,
+        boolean asyncFallbackPending,
+        String fallbackRequestId
     ) {
         public static JoinQueueResponse from(QueueInfo info) {
             return new JoinQueueResponse(
                 info.position(),
-                info.totalWaiting()
+                info.totalWaiting(),
+                info.asyncFallbackPending(),
+                info.fallbackRequestId()
             );
         }
     }
