@@ -13,7 +13,8 @@ import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+/** 스케줄러가 테스트 중 큐 방출해 테스트 간섭이 발생. 이를 방지하기 위한 스케줄러를 비활성화. */
+@SpringBootTest(properties = "spring.task.scheduling.enabled=false")
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class QueueFacadeIntegrationTest {
 

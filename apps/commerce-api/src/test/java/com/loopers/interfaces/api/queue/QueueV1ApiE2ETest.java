@@ -24,7 +24,10 @@ import static com.loopers.interfaces.api.ApiResponse.Metadata.Result.SUCCESS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = "spring.task.scheduling.enabled=false"
+)
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class QueueV1ApiE2ETest {
 
