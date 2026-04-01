@@ -14,19 +14,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/queue")
 @RequiredArgsConstructor
-public class QueueV1Controller {
+public class OrderQueueV1Controller {
 
     private final WaitingQueueService waitingQueueService;
 
     @PostMapping("/enter")
-    public ApiResponse<QueueV1Dto.EnterResponse> enter(@LoginUser Long userId) {
+    public ApiResponse<OrderQueueV1Dto.EnterResponse> enter(@LoginUser Long userId) {
         QueueEntryResult result = waitingQueueService.enter(userId);
-        return ApiResponse.success(QueueV1Dto.EnterResponse.from(result));
+        return ApiResponse.success(OrderQueueV1Dto.EnterResponse.from(result));
     }
 
     @GetMapping("/position")
-    public ApiResponse<QueueV1Dto.PositionResponse> getPosition(@LoginUser Long userId) {
+    public ApiResponse<OrderQueueV1Dto.PositionResponse> getPosition(@LoginUser Long userId) {
         QueuePositionResult result = waitingQueueService.getPosition(userId);
-        return ApiResponse.success(QueueV1Dto.PositionResponse.from(result));
+        return ApiResponse.success(OrderQueueV1Dto.PositionResponse.from(result));
     }
 }

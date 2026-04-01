@@ -18,7 +18,12 @@ public enum ErrorType {
     /** 쿠폰 관련 에러 */
     COUPON_ALREADY_USED(HttpStatus.BAD_REQUEST, "COUPON_ALREADY_USED", "이미 사용된 쿠폰입니다."),
     COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "COUPON_EXPIRED", "만료된 쿠폰입니다."),
-    MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 않습니다.");
+    MIN_ORDER_AMOUNT_NOT_MET(HttpStatus.BAD_REQUEST, "MIN_ORDER_AMOUNT_NOT_MET", "최소 주문 금액 조건을 충족하지 않습니다."),
+
+    /** 대기열 관련 에러 */
+    ENTRY_TOKEN_REQUIRED(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_REQUIRED", "입장 토큰이 필요합니다."),
+    ENTRY_TOKEN_INVALID(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_INVALID", "유효하지 않은 입장 토큰입니다."),
+    ENTRY_TOKEN_NOT_ACCEPTED(HttpStatus.BAD_REQUEST, "ENTRY_TOKEN_NOT_ACCEPTED", "대기열이 비활성화 상태에서는 입장 토큰을 사용할 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

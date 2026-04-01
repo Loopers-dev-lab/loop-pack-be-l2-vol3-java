@@ -3,7 +3,7 @@ package com.loopers.interfaces.api.queue;
 import com.loopers.domain.queue.QueueEntryResult;
 import com.loopers.domain.queue.QueuePositionResult;
 
-public class QueueV1Dto {
+public class OrderQueueV1Dto {
 
     public record EnterResponse(
             long position,
