@@ -26,7 +26,7 @@
 
 | 구간 | 상태 | 한 줄 |
 | --- | --- | --- |
-| **0~2** Outbox → 릴레이 → streamer 집계 | 완료 | `DomainKafkaTopics`, `commerce-batch` 릴레이, `product_metrics`·`event_handled`·수동 ack |
+| **0~2** Outbox → 릴레이 → streamer 집계 | 완료 | `DomainEvents.Topic`, `commerce-batch` 릴레이, `product_metrics`·`event_handled`·수동 ack |
 | **3** DLQ·관측 | 부분 | DLQ 전송·redrive·메트릭은 있음. lag 알람·운영 Runbook은 후속 |
 | **4** 쿠폰 비동기 발급 | 완료 | `supports:error`·`modules/coupon` 분리, `coupon-issue-requests`, streamer `CouponIssueRequestCollectorListener` |
 | **5** CDC | 미착수 | §5 참고, Polling과 토픽·환경 분리 전제 |
