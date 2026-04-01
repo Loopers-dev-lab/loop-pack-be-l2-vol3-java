@@ -23,32 +23,54 @@
 - 각 개념 끝나면 → Claude가 퀴즈 1~2개 출제, 내가 답변 후 확인
 - 퀴즈 통과 기준 → 아래 개념 체크리스트에 ✅ 표시
 
+### 📚 토요일 수업 핵심 요약 (사전 학습 완료)
+> 이미 배운 개념들. 깊이가 필요한 것만 아래 체크리스트에서 추가 학습.
+
+**Back-pressure** — 시스템이 처리 가능한 속도를 초과하는 요청을 의도적으로 지연/제한. 대기열의 본질.
+
+**전체 흐름**
+```
+사용자 요청 → Redis 대기열 등록 → 순번 계산
+  → 스케줄러: 상위 N명 토큰 발급 → 토큰 보유자만 주문 API 접근
+  → 토큰 사용/만료 → Event Listener → Redis 토큰 제거
+```
+
+**흔한 실수**
+- 대기열 없이 바로 DB 접근 → 트래픽 증가 시 즉시 장애
+- Polling 주기 너무 짧게 → 오히려 서버 부하 증가
+- 토큰 TTL 미설정 → 유령 사용자 증가
+- 순번 계산을 DB에서 수행 → 성능 저하
+
+---
+
 ### 📖 개념 체크리스트
+> ✅ = 퀴즈 통과 / 🔵 = 수업에서 개요 학습 / [ ] = 미학습
 
 #### Redis 자료구조
-- [ ] **Sorted Set 기본** — ZADD, ZRANK, ZREM, ZCARD, ZSCORE 동작 원리
-- [ ] **ZADD NX 옵션** — 중복 방지 원리 (왜 NX가 멱등성을 보장하는가)
-- [ ] **score 설계** — 진입 순서 보장을 위한 score 전략 (timestamp vs sequence)
-- [ ] **TOCTOU 문제** — 조회 후 조건 분기 시 발생하는 race condition
+- ✅ **Sorted Set 기본** — ZADD, ZRANK, ZREM, ZCARD 동작 원리
+- ✅ **ZADD NX 옵션** — 없을 때만 등록, score 덮어쓰기 방지
+- 🔵 **score 설계** — timestamp 충돌 시 undefined (해결 전략은 설계 시 결정)
+- ✅ **TOCTOU 문제** — 확인+등록 사이에 끼어드는 race condition → ZADD NX로 원자적 처리
 
 #### 대기열 시스템 설계
-- [ ] **대기열 vs Rate Limiting** — 언제 어떤 전략을 쓰는가
-- [ ] **Thundering Herd** — 대기열 열릴 때 동시 진입 폭발 문제와 대응
-- [ ] **배치 크기 N 산정** — `N = 커넥션 수 × (주기 / 평균 처리 시간)` 공식 근거
+- ✅ **Back-pressure** — 처리 가능한 만큼만 받는 것. 대기열의 본질
+- ✅ **대기열 vs Rate Limiting** — Rate Limiting은 거절 후 재시도 반복(카오스), 대기열은 번호 받으면 경쟁 끝
+- ✅ **Thundering Herd** — 배치 발급 시 N명이 동시에 API 호출 → 순차 발급 또는 배치 크기 제한으로 해결
+- ✅ **배치 크기 N 산정** — `N = 커넥션 수 × (주기 / 평균 처리 시간)`
 
 #### 토큰 & TTL
-- [ ] **입장 토큰 설계** — Redis String + TTL이 왜 적합한가
-- [ ] **TTL 기준 산정** — 몇 분으로 설정해야 하는가, 그 근거
-- [ ] **토큰 검증 위치** — Filter vs Interceptor vs AOP 비교
+- ✅ **입장 토큰 & TTL** — 토큰 없으면 주문 API 차단. TTL 너무 짧으면 주문 중 만료, 너무 길면 자리 점유
+- ✅ **TTL 기준 산정** — P95 주문 완료 시간 + 여유 20~30%. 짧으면 결제 중 만료, 길면 자리 점유
+- ✅ **토큰 검증 위치** — Filter(Spring 밖, Bean 불편), Interceptor(Spring 안, Bean+URL패턴 가능), AOP(메서드 레벨). 대기열 토큰은 Interceptor
 
 #### 실시간 순번 조회
-- [ ] **Polling 구조** — 클라이언트가 어떻게 주기적으로 조회하는가
-- [ ] **Polling vs SSE** — 각각 언제 쓰는가, 왜 Polling을 선택했는가
-- [ ] **예상 대기 시간 계산** — 공식과 한계
+- ✅ **Polling vs SSE** — Polling: 연결 짧고 요청 많음 / SSE: 요청 적고 연결 10만 개 유지. 실무는 Polling
+- ✅ **Polling 부하 완화** — 용량 기준으로 주기 설정 + Redis만 조회. 순번에 따라 주기 다르게 (Adaptive)
+- ✅ **예상 대기 시간 계산 공식** — `내 순번 / N × 주기`. 오차 있음 (이탈자, 가변 처리시간). 정확한 값 아닌 안내용
 
 #### 시스템 안정성
-- [ ] **HikariCP 커넥션 풀** — 고갈이 왜 생기고 대기열이 어떻게 해결하는가
-- [ ] **Redis 장애 시나리오** — Redis 죽으면 어떻게 해야 하는가
+- ✅ **HikariCP 커넥션 풀 고갈** — 스레드 점유 → 메모리 OOM → 서버 다운. 대기열이 커넥션 수를 기준으로 N 제한
+- ✅ **Redis 장애 시나리오** — Master-Replica로 확률 감소. 전부 죽으면 503(안전) vs 직접 허용(비즈니스). 트레이드오프로 결정
 
 ---
 
@@ -58,6 +80,20 @@
 - **코드 PR**: 2026-04-03 (금) 18:00
 - **블로그 (Technical Writing)**: 2026-04-03 (금) 18:00
 - **WIL (Weekly I Learned)**: 2026-04-03 (금) 18:00
+
+### 📅 일별 계획 (목요일까지 구현 완료)
+
+| 날짜 | 목표 | 세부 내용 |
+|------|------|----------|
+| **화 (오늘)** | 개념 마무리 + 시뮬레이션 | 미학습 개념 중 설계에 필요한 것 → 시뮬레이션 Phase 1/2 실행 |
+| **수** | 설계 확정 + 구현 시작 | 고민 목록 → 결정 사항 확정 → Step 1 TDD 시작 |
+| **목** | 구현 완료 | Step 2, Step 3 TDD → Phase 3 검증 (Before/After) → PR 초안 |
+| **금 오전** | PR + 블로그 + WIL | PR 다듬기 → 블로그 작성 → WIL 작성 → 18:00 제출 |
+
+### ⚠️ 리스크 관리
+- 수요일까지 설계 결정 못 하면 → 목요일 구현 시간 부족
+- 시뮬레이션은 결과 수치만 기록하고 길게 보지 말 것 (최대 1~2시간)
+- 블로그/WIL은 구현하면서 메모해둔 것 기반으로 작성 → 금요일 당일 처음 쓰지 말 것
 
 ### 주제
 **Redis 기반 대기열 시스템** (Black Friday 주문 API 앞단)
@@ -177,29 +213,60 @@ k6 run --vus 200 --duration 10s simulate/no-queue.js
 <!-- 구현 전/중에 판단해야 할 것들. 결론 나면 아래 "설계 결정 사항"으로 이동 -->
 
 ### Step 1 — 대기열
-- [ ] **Redis Sorted Set score 기준**: `System.currentTimeMillis()` vs `AtomicLong` 시퀀스?
-  - 밀리초 충돌 가능성 있음 → 동시 진입 시 순서 보장 어떻게?
-- [ ] **중복 진입 방지 구현 방식**: `ZSCORE` 조회 후 조건 분기 vs Lua 스크립트로 원자적 처리?
-  - 분리하면 TOCTOU(Time-of-Check-Time-of-Use) 문제 가능성 있음
-- [ ] **대기열 만료 처리**: 대기 중 연결 끊긴 유저는 어떻게 처리?
-  - 무기한 대기 vs TTL 설정 후 자동 제거
+- [x] **Redis Sorted Set score 기준**: `System.currentTimeMillis()` ✅
+  - 고민: `currentTimeMillis()` 밀리초 충돌 가능성 vs `AtomicLong` 시퀀스 순서 완벽 보장
+  - 선택: `System.currentTimeMillis()`
+  - 이유: 밀리초 충돌은 극히 드물고, 같은 밀리초 내 순서는 비즈니스상 무의미. AtomicLong은 서버 재시작 시 초기화 문제 + 멀티 인스턴스 시 충돌 리스크
+- [x] **중복 진입 방지 구현 방식**: `ZADD NX` ✅
+  - 고민: ZSCORE 조회 후 조건 분기(2단계) 참조-TOCTOU 개념 파일(03-toctou.md) vs ZADD NX(1단계 원자적 처리)
+  - 선택: ZADD NX (`addIfAbsent`)
+  - 이유: ZSCORE 후 분기는 두 명령어 사이에 다른 스레드가 끼어드는 TOCTOU 문제 발생 가능. ZADD NX는 Redis 싱글 스레드 특성상 확인+추가가 원자적으로 처리되어 중복 불가능
+- [x] **대기열 만료 처리**: Polling 기반 이탈 감지 후 자동 제거 ✅
+  - 고민: 무기한 대기 vs Polling 없으면 이탈로 간주 후 제거
+  - 선택: Polling 기반 이탈 감지 (마지막 Polling 시각 추적 → 일정 시간 초과 시 ZREM)
+  - 이유: 무기한 대기는 유령 유저가 쌓여 실제 대기자 순번 왜곡
+  - ⏳ **Polling 주기 + 이탈 판단 기준**: 시뮬레이션 후 결정
 
 ### Step 2 — 입장 토큰 & 스케줄러
-- [ ] **토큰 저장소**: Redis String (TTL 활용) vs DB?
-  - Redis 선택 시 → 장애 시 토큰 일괄 소멸 문제
-- [ ] **스케줄러 배치 크기 N 산정 근거**:
-  - DB 커넥션 풀 기본값(HikariCP default=10), 평균 주문 처리 시간 기준으로 계산해야 함
-  - `N = 커넥션 수 × (스케줄 주기 / 평균 처리 시간)` 공식 검토
-- [ ] **토큰 검증 위치**: Filter vs Interceptor vs AOP?
-- [ ] **스케줄러 중복 실행 방지**: 단일 인스턴스면 괜찮지만, 멀티 인스턴스 시 분산 락 필요?
+- [x] **토큰 저장소**: Redis String ✅
+  - 고민: Redis String (TTL 자동 만료, 빠른 조회) vs DB (장애 내성, TTL 직접 관리)
+  - 선택: Redis String
+  - 이유: 토큰 조회는 모든 주문 API 호출마다 발생 → DB 커넥션 소모 부담. Redis TTL로 만료 자동 처리
+  - ⏳ **Redis vs DB 성능 비교 테스트**: 시뮬레이션에서 직접 체험 후 수치 기록
+- [x] **스케줄러 배치 크기 N 산정**: 초기값 N=80 ✅
+  - 고민: 실측 전이므로 가정값으로 시작, 시뮬레이션 후 조정
+  - 선택: N=80 (커넥션 10 × (주기 5초 / 처리 500ms) × 버퍼 80%)
+  - 이유: HikariCP 기본값 10, 처리시간 500ms 가정. 100% 사용 시 여유 없으므로 80%로 보수적 설정
+  - ⏳ **주기 + 처리시간 실측 후 N 재산정**: 시뮬레이션 후 조정
+- [x] **토큰 검증 위치**: Interceptor ✅
+  - 고민: Filter(Spring 밖) vs Interceptor(Spring 안) vs AOP(메서드 레벨)
+  - 선택: Interceptor
+  - 이유: Redis 조회(Spring Bean 필요) + `/order/**` URL 패턴 적용 + CoreException → ControllerAdvice 처리
+- [x] **스케줄러 중복 실행 방지**: Redisson 분산 락 구현 ✅
+  - 고민: 단일 인스턴스는 문제 없지만, 멀티 인스턴스 시 스케줄러 중복 실행 → 같은 유저에게 토큰 중복 발급
+  - 선택: Redisson 분산 락 (락 획득한 인스턴스만 실행, 나머지 스킵)
+  - 이유: 멀티 인스턴스 환경 기준으로 공부 및 구현. 테스트 코드로 중복 실행 방지 검증
 
 ### Step 3 — 실시간 순번 조회
-- [ ] **예상 대기 시간 계산 공식**:
-  - `예상 대기 시간 = 내 순번 × (스케줄 주기 / 배치 크기 N)`?
-  - 더 정교한 계산 방식 있는지 검토
-- [ ] **Polling 주기**: 몇 초마다 호출? 클라이언트에서 결정하는가?
-  - 대기 인원 많을 때 주기 늘리는 Adaptive Polling 고려 여부
-- [ ] **Polling 부하 완화**: Redis만 조회하면 충분? DB 조회 없이 가능?
+- [x] **예상 대기 시간 계산 공식**: `내 순번 / N × 주기` ✅
+  - 고민: 기본 공식 vs 이탈자/가변 처리시간 반영한 정교한 공식
+  - 선택: `내 순번 / N × 주기`
+  - 이유: 정교한 공식은 복잡도 대비 정확도 개선 미미. 어차피 안내용이므로 단순 공식으로 충분
+- [x] **Polling 주기**: Adaptive Polling 구현 ✅
+  - 고민: 고정 주기 vs 서버가 nextPollAfter 포함한 Adaptive
+  - 선택: Adaptive (응답에 `nextPollAfter` 포함, 순번에 따라 주기 다르게)
+  - ⏳ **구체적 주기 수치**: 시뮬레이션 후 결정
+- [x] **Polling 부하 완화**: Redis only (ZRANK) ✅
+  - 고민: DB 조회 포함 vs Redis ZRANK만 조회
+  - 선택: Redis only (`ZRANK`, `ZCARD`)
+  - 이유: 순번 조회는 모든 대기자가 주기적으로 호출 → DB 커넥션을 주문 API와 경쟁하지 않도록
+  - 트레이드오프:
+    - Redis 장애 시 순번 조회 불가 (단, 주문 API도 이미 불가 → 허용 가능한 수준)
+    - Redis 데이터가 유일한 진실의 원천 → DB와 동기화 없음 (설계상 의도)
+  - 엣지케이스:
+    - 토큰 발급 직후 ZREM 전에 Polling 오면 순번이 아직 남아있을 수 있음 → 다음 Polling에서 해소
+    - ZRANK는 0-indexed → 클라이언트에 내려줄 때 +1 처리 필요
+    - 대기열이 비어있을 때 ZRANK → null 반환 → null 체크 필수
 
 ---
 
@@ -208,10 +275,17 @@ k6 run --vus 200 --duration 10s simulate/no-queue.js
 
 | 항목 | 결정 | 이유 |
 |------|------|------|
-| Polling vs SSE | - | 미결 |
-| 토큰 TTL | - | 미결 |
-| 스케줄러 배치 크기 N | - | 미결 |
-| Redis 장애 시 fallback | - | 미결 |
+| Polling vs SSE | Polling + Adaptive | 연결 유지 비용 없음, 주기 조절로 부하 제어 |
+| 토큰 저장소 | Redis String | TTL 자동 만료, 빠른 조회 |
+| 토큰 검증 위치 | Interceptor | Spring Bean + URL 패턴 + ControllerAdvice |
+| 스케줄러 배치 크기 N | 초기값 80, 시뮬레이션 후 조정 | 커넥션 10 × 주기5s / 처리500ms × 80% |
+| 스케줄러 중복 실행 방지 | Redisson 분산 락 | 멀티 인스턴스 환경 기준 |
+| score 기준 | currentTimeMillis() | 밀리초 충돌 비즈니스상 무의미 |
+| 중복 진입 방지 | ZADD NX | 원자적 처리, TOCTOU 방지 |
+| 대기열 만료 처리 | Polling 기반 이탈 감지 | 유령 유저 순번 왜곡 방지 |
+| 예상 대기 시간 공식 | 순번 / N × 주기 | 안내용, 단순 공식으로 충분 |
+| Polling 부하 완화 | Redis only (ZRANK) | DB 커넥션 경쟁 없음 |
+| Redis 장애 시 fallback | 503 반환 | 안전 우선, 팀 결정에 따라 변경 가능 |
 
 ---
 
