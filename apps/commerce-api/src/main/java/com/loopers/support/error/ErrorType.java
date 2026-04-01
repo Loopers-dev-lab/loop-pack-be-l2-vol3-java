@@ -27,6 +27,9 @@ public enum ErrorType {
     COUPON_ISSUE_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "COUPON_ISSUE_LIMIT_EXCEEDED", "선착순 쿠폰 수량이 소진되었습니다."),
     COUPON_ISSUE_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_ISSUE_REQUEST_NOT_FOUND", "존재하지 않는 발급 요청입니다."),
 
+    /** 대기열 에러 */
+    QUEUE_TOKEN_INVALID(HttpStatus.FORBIDDEN, "QUEUE_TOKEN_INVALID", "유효하지 않은 대기열 토큰입니다."),
+
     /** 결제 에러 */
     ORDER_ALREADY_PAID(HttpStatus.CONFLICT, "ORDER_ALREADY_PAID", "이미 결제된 주문입니다.");
 
