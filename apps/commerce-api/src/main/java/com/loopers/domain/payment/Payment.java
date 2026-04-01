@@ -69,18 +69,53 @@ public class Payment {
         return payment;
     }
 
+    /**
+     * PG 승인 완료 — REQUESTED 또는 UNKNOWN에서만 전이 가능
+     *
+     * REQUESTED → APPROVED: 정상 승인 (콜백 SUCCESS)
+     * UNKNOWN → APPROVED: 대사 배치에서 PG 승인 확인
+     */
     public void approve(String pgTxnId, int approvedAmount) {
+        if (this.status != PaymentStatus.REQUESTED && this.status != PaymentStatus.UNKNOWN) {
+            throw new CoreException(PaymentErrorType.INVALID_PAYMENT_STATUS);
+        }
         this.status = PaymentStatus.APPROVED;
         this.pgTxnId = pgTxnId;
         this.approvedAmount = approvedAmount;
         this.approvedAt = ZonedDateTime.now();
     }
 
+    /**
+     * PG 거절 또는 보상 완료 — REQUESTED 또는 UNKNOWN에서만 전이 가능
+     *
+     * REQUESTED → FAILED: 즉시 실패 (4xx, 500) 또는 콜백 FAILED
+     * UNKNOWN → FAILED: 대사 배치에서 미승인 확인 + 보상 완료
+     */
     public void reject() {
+        if (this.status != PaymentStatus.REQUESTED && this.status != PaymentStatus.UNKNOWN) {
+            throw new CoreException(PaymentErrorType.INVALID_PAYMENT_STATUS);
+        }
         this.status = PaymentStatus.FAILED;
         this.failedAt = ZonedDateTime.now();
     }
 
+    /**
+     * 결제 여부 불확실 — REQUESTED에서만 전이 가능
+     *
+     * REQUESTED → UNKNOWN: 타임아웃 + 조회도 실패
+     */
+    public void markUnknown() {
+        if (this.status != PaymentStatus.REQUESTED) {
+            throw new CoreException(PaymentErrorType.INVALID_PAYMENT_STATUS);
+        }
+        this.status = PaymentStatus.UNKNOWN;
+    }
+
+    /**
+     * 결제 취소 — APPROVED에서만 전이 가능
+     *
+     * APPROVED → CANCELED: 주문 취소 → PG 취소 API 호출 후
+     */
     public void cancel() {
         if (this.status != PaymentStatus.APPROVED) {
             throw new CoreException(PaymentErrorType.INVALID_PAYMENT_STATUS);

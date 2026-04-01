@@ -11,7 +11,8 @@ public class OrderRequest {
             String ordererPhone,
             Long issuedCouponId,
             int pointAmount,
-            String paymentMethod
+            String paymentMethod,
+            String cardNo
     ) {}
 
     public record OrderItemRequest(

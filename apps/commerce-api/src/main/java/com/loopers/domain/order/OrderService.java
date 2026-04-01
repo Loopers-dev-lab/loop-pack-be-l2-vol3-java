@@ -49,6 +49,12 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
+    public Order getByOrderNumber(String orderNumber) {
+        return orderRepository.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new CoreException(OrderErrorType.ORDER_NOT_FOUND));
+    }
+
+    @Transactional(readOnly = true)
     public Order getOrder(Long orderId, Long userId) {
         Order order = getById(orderId);
         order.validateOwnership(userId);

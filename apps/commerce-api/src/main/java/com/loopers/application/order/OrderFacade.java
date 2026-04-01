@@ -1,6 +1,7 @@
 package com.loopers.application.order;
 
 import com.loopers.application.cache.OrderCacheManager;
+import com.loopers.application.payment.PaymentFacade;
 import com.loopers.domain.address.UserAddress;
 import com.loopers.domain.address.UserAddressService;
 import com.loopers.domain.brand.Brand;
@@ -15,8 +16,6 @@ import com.loopers.domain.common.CursorResult;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.payment.Payment;
-import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
@@ -65,7 +64,7 @@ public class OrderFacade {
     private final CartItemService cartItemService;
     private final CouponService couponService;
     private final PointService pointService;
-    private final PaymentService paymentService;
+    private final PaymentFacade paymentFacade;
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
     private final OutboxEventService outboxEventService;
@@ -74,7 +73,7 @@ public class OrderFacade {
                        ProductService productService, BrandService brandService,
                        InventoryService inventoryService, CartItemService cartItemService,
                        CouponService couponService, PointService pointService,
-                       PaymentService paymentService,
+                       PaymentFacade paymentFacade,
                        PlatformTransactionManager txManager,
                        OrderCacheManager orderCacheManager,
                        OutboxEventService outboxEventService) {
@@ -86,7 +85,7 @@ public class OrderFacade {
         this.cartItemService = cartItemService;
         this.couponService = couponService;
         this.pointService = pointService;
-        this.paymentService = paymentService;
+        this.paymentFacade = paymentFacade;
         this.outboxEventService = outboxEventService;
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
@@ -98,12 +97,13 @@ public class OrderFacade {
      */
     public OrderCreateResult createOrder(Long userId, String userName, String ordererPhone,
                                           List<OrderItemCommand> itemCommands, Long addressId,
-                                          Long issuedCouponId, int pointAmount, String paymentMethod) {
+                                          Long issuedCouponId, int pointAmount, String paymentMethod,
+                                          String cardNo) {
         OrderPaymentContext context = reserveAndCreateOrder(
                 userId, userName, ordererPhone, itemCommands, addressId,
                 issuedCouponId, pointAmount, paymentMethod);
 
-        OrderCreateResult result = processPaymentAndConfirm(context);
+        OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
         orderCacheManager.evictOrderList(userId);
         return result;
@@ -114,7 +114,8 @@ public class OrderFacade {
      */
     public OrderCreateResult createOrderFromCart(Long userId, String userName, String ordererPhone,
                                                   List<Long> cartItemIds, Long addressId,
-                                                  Long issuedCouponId, int pointAmount, String paymentMethod) {
+                                                  Long issuedCouponId, int pointAmount, String paymentMethod,
+                                                  String cardNo) {
         if (cartItemIds == null || cartItemIds.isEmpty()) {
             throw new CoreException(OrderErrorType.EMPTY_ORDER_ITEMS);
         }
@@ -128,7 +129,7 @@ public class OrderFacade {
                 userId, userName, ordererPhone, itemCommands, addressId,
                 issuedCouponId, pointAmount, paymentMethod);
 
-        OrderCreateResult result = processPaymentAndConfirm(context);
+        OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
         // 장바구니 삭제는 best-effort — 실패해도 주문 성공 응답을 유지한다
         try {
@@ -220,100 +221,33 @@ public class OrderFacade {
                 pointService.use(userId, pointAmount);
             }
 
-            // 7. Payment 생성 (REQUESTED)
-            String idempotencyKey = generateIdempotencyKey();
-            Payment payment = paymentService.create(
-                    order.getId(), order.getTotalAmount(), paymentMethod, idempotencyKey);
+            // 7. Payment 생성 (REQUESTED) — PaymentFacade에 위임
+            Long paymentId = paymentFacade.createPaymentForOrder(
+                    order.getId(), order.getTotalAmount(), paymentMethod);
 
             return new OrderPaymentContext(
                     order.getId(), order.getOrderNumber(), order.getTotalAmount(),
-                    payment.getId(), userId, issuedCouponId, pointAmount,
+                    paymentId, userId, issuedCouponId, pointAmount,
                     paymentMethod, productQtyMap);
         });
     }
 
     /**
-     * PG 결제 + TX2 (확정 또는 보상)
+     * PG 결제 요청 + 결과에 따른 처리 — PaymentFacade에 위임
      *
-     * PG 호출은 트랜잭션 밖에서 수행되어 락 보유 시간을 최소화한다.
-     * PG 실패 또는 확정 실패 시 보상 트랜잭션으로 TX1의 변경을 되돌린다.
+     * OrderFacade는 PG 관련 세부사항(PgApproveRequest, PaymentResult)을 모른다.
+     * "언제 결제할지"는 OrderFacade가, "어떻게 결제할지"는 PaymentFacade가 담당한다.
      */
-    private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context) {
-        try {
-            // PG 결제 (트랜잭션 밖 — 락 미보유 상태에서 외부 호출)
-            String pgTxnId = simulatePgPayment();
+    private OrderCreateResult processPaymentAndConfirm(OrderPaymentContext context, String cardNo) {
+        paymentFacade.processPaymentForOrder(
+                context.orderId(), context.userId(), context.paymentMethod(), cardNo);
 
-            // TX2: 결제 확정 + 재고 확정 + 주문 확정 + 포인트 적립 + Outbox 저장
-            // 포인트 적립: 같은 앱, 같은 TX에서 직접 처리 (Kafka 안 거침)
-            // Outbox: 같은 TX에서 직접 저장 → 비즈니스 + Outbox 원자성 보장
-            return txTemplate.execute(status -> {
-                paymentService.approve(context.paymentId(), pgTxnId, context.totalAmount());
-                inventoryService.commitAll(context.productQtyMap());
-                orderService.confirm(context.orderId(), context.paymentId(), context.paymentMethod());
-                pointService.earn(context.userId(), context.totalAmount());
-
-                // Outbox 저장 — 같은 TX (판매량 집계 → catalog-events-v1)
-                for (var entry : context.productQtyMap().entrySet()) {
-                    outboxEventService.save("PRODUCT", entry.getKey(),
-                            "OrderItemSoldEvent",
-                            new com.loopers.domain.common.event.OrderItemSoldEvent(
-                                    context.orderId(), Map.of(entry.getKey(), entry.getValue())),
-                            "catalog-events-v1", String.valueOf(entry.getKey()));
-                }
-
-                Order order = orderService.getById(context.orderId());
-                return new OrderCreateResult(
-                        order.getId(), order.getOrderNumber(), order.getStatus().name(),
-                        order.getTotalAmount(), order.getPaymentId());
-            });
-        } catch (Exception e) {
-            compensateOrder(context);
-            throw e;
-        }
-    }
-
-    /**
-     * 보상 트랜잭션: TX1에서 커밋된 변경을 되돌린다.
-     *
-     * - Payment → FAILED
-     * - 쿠폰 → ISSUED 복원 (USED → ISSUED)
-     * - 포인트 → 환급 (차감 금액 반환)
-     * - 재고 → 예약 해제
-     * - 주문 → CANCELED
-     *
-     * 보상 자체가 실패하면 CRITICAL 로그를 남기고 수동 복구가 필요하다.
-     */
-    private void compensateOrder(OrderPaymentContext context) {
-        try {
-            txTemplate.executeWithoutResult(status -> {
-                paymentService.fail(context.paymentId());
-
-                if (context.issuedCouponId() != null) {
-                    couponService.restore(context.issuedCouponId(), context.orderId());
-                }
-                if (context.pointAmount() > 0) {
-                    pointService.refund(context.userId(), context.pointAmount());
-                }
-
-                inventoryService.releaseAll(context.productQtyMap());
-                orderService.cancel(context.orderId(), context.userId());
-            });
-
-            // txTemplate 완료 = 커밋 완료 → 직접 캐시 삭제
-            orderCacheManager.evictOrderList(context.userId());
-        } catch (Exception compensateEx) {
-            log.error("CRITICAL: 보상 트랜잭션 실패 — 수동 복구 필요 (orderId={}, paymentId={})",
-                    context.orderId(), context.paymentId(), compensateEx);
-            // 보상 실패 시 캐시 삭제도 안 됨 → TTL 안전망 (300초)
-        }
-    }
-
-    /**
-     * PG 결제 시뮬레이션 — 항상 성공
-     * 실제 PG 연동 시 이 메서드를 외부 PG API 호출로 교체한다.
-     */
-    private String simulatePgPayment() {
-        return "PG-TXN-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        return txTemplate.execute(status -> {
+            Order order = orderService.getById(context.orderId());
+            return new OrderCreateResult(
+                    order.getId(), order.getOrderNumber(), order.getStatus().name(),
+                    order.getTotalAmount(), order.getPaymentId());
+        });
     }
 
     /**
@@ -339,10 +273,6 @@ public class OrderFacade {
 
     private String generateOrderNumber() {
         return "ORD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
-    private String generateIdempotencyKey() {
-        return "PAY-" + UUID.randomUUID().toString().substring(0, 12).toUpperCase();
     }
 
     /**

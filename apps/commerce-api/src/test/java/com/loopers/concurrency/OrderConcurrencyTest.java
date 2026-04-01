@@ -119,7 +119,8 @@ class OrderConcurrencyTest {
                             addressId,
                             null,
                             1000,
-                            "CREDIT_CARD");
+                            "CREDIT_CARD",
+                            "0000-0000-0000-0000");
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failCount.incrementAndGet();

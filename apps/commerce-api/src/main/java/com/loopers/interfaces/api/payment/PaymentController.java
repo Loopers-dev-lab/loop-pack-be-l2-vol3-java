@@ -42,7 +42,7 @@ public class PaymentController implements PaymentApiSpec {
             @PathVariable Long orderId,
             @RequestBody PaymentRequest.PayRequest request) {
         PaymentFacade.PaymentRequestResult result = paymentFacade.requestPayment(
-                orderId, user.getId(), request.paymentMethod(), request.issuedCouponId());
+                orderId, user.getId(), request.paymentMethod(), request.issuedCouponId(), request.cardNo());
 
         return ApiResponse.success(new PaymentResponse.PaymentResult(
                 result.paymentId(), result.orderId(), result.status(),

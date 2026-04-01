@@ -89,7 +89,7 @@ class PaymentApiE2ETest {
                 List.of(),
                 savedAddress.getId(),
                 "010-1234-5678",
-                null, 0, "CARD");
+                null, 0, "CARD", "0000-0000-0000-0000");
         testRestTemplate.exchange("/api/v1/orders", HttpMethod.POST,
                 new HttpEntity<>(orderRequest, authHeaders()), ApiResponse.class);
 
@@ -106,7 +106,7 @@ class PaymentApiE2ETest {
         void 이미_PAID_상태이면_409_Conflict를_반환한다() {
             // arrange — 1단계 트랜잭션으로 주문 즉시 PAID 확정
             Long orderId = createOrderAndGetId();
-            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null);
+            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null, "0000-0000-0000-0000");
 
             // act — 이미 PAID인 주문에 결제 요청
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -120,7 +120,7 @@ class PaymentApiE2ETest {
         @Test
         void 존재하지_않는_주문이면_404_Not_Found를_반환한다() {
             // act
-            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null);
+            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null, "0000-0000-0000-0000");
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     "/api/v1/orders/999/pay", HttpMethod.POST,
                     new HttpEntity<>(request, authHeaders()), ApiResponse.class);
@@ -133,7 +133,7 @@ class PaymentApiE2ETest {
         void 이미_결제된_주문이면_409_Conflict를_반환한다() {
             // arrange
             Long orderId = createOrderAndGetId();
-            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null);
+            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null, "0000-0000-0000-0000");
             testRestTemplate.exchange("/api/v1/orders/" + orderId + "/pay", HttpMethod.POST,
                     new HttpEntity<>(request, authHeaders()), ApiResponse.class);
 
@@ -149,7 +149,7 @@ class PaymentApiE2ETest {
         @Test
         void 인증_없이_요청하면_401_Unauthorized를_반환한다() {
             // act
-            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null);
+            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null, "0000-0000-0000-0000");
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
@@ -164,7 +164,7 @@ class PaymentApiE2ETest {
         void 결제_성공_후_재고가_확정된다() {
             // arrange
             Long orderId = createOrderAndGetId();
-            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null);
+            PaymentRequest.PayRequest request = new PaymentRequest.PayRequest("CARD", null, "0000-0000-0000-0000");
 
             // act
             testRestTemplate.exchange("/api/v1/orders/" + orderId + "/pay", HttpMethod.POST,
