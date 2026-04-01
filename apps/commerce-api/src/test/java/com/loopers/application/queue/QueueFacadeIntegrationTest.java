@@ -5,6 +5,7 @@ import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,12 @@ class QueueFacadeIntegrationTest {
 
     @Autowired
     private RedisCleanUp redisCleanUp;
+
+    @BeforeEach
+    void setUp() {
+        databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
+    }
 
     @AfterEach
     void tearDown() {

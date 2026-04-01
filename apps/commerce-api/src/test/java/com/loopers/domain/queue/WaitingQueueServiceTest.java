@@ -1,17 +1,19 @@
 package com.loopers.domain.queue;
 
 import com.loopers.support.error.CoreException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,8 +28,18 @@ class WaitingQueueServiceTest {
     @Mock
     private WaitingQueueRepository waitingQueueRepository;
 
-    @InjectMocks
+    @Mock
+    private QueueJoinFallbackPublisher queueJoinFallbackPublisher;
+
     private WaitingQueueService waitingQueueService;
+
+    @BeforeEach
+    void setUp() {
+        waitingQueueService = new WaitingQueueService(
+                waitingQueueRepository,
+                Optional.of(queueJoinFallbackPublisher)
+        );
+    }
 
     @DisplayName("joinQueue 호출 시 순번과 대기인원을 반환한다.")
     @Test
@@ -36,10 +48,11 @@ class WaitingQueueServiceTest {
         when(waitingQueueRepository.findRank(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.of(3L));
         when(waitingQueueRepository.countWaiting(eq(EVENT_ID))).thenReturn(10L);
 
-        WaitingQueueService.JoinQueueResult result = waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE);
+        JoinQueueResult outcome = waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true);
 
-        assertThat(result.position()).isEqualTo(3L);
-        assertThat(result.totalWaiting()).isEqualTo(10L);
+        assertThat(outcome.position()).isEqualTo(3L);
+        assertThat(outcome.totalWaiting()).isEqualTo(10L);
+        assertThat(outcome.asyncFallbackPending()).isFalse();
         verify(waitingQueueRepository).addIfAbsent(EVENT_ID, USER_ID, SCORE);
         verify(waitingQueueRepository).findRank(EVENT_ID, USER_ID);
         verify(waitingQueueRepository).countWaiting(EVENT_ID);
@@ -52,13 +65,29 @@ class WaitingQueueServiceTest {
         when(waitingQueueRepository.findRank(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.of(1L));
         when(waitingQueueRepository.countWaiting(eq(EVENT_ID))).thenReturn(5L);
 
-        WaitingQueueService.JoinQueueResult result = waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE);
+        JoinQueueResult outcome = waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true);
 
-        assertThat(result.position()).isEqualTo(1L);
-        assertThat(result.totalWaiting()).isEqualTo(5L);
+        assertThat(outcome.position()).isEqualTo(1L);
+        assertThat(outcome.totalWaiting()).isEqualTo(5L);
+        assertThat(outcome.asyncFallbackPending()).isFalse();
         verify(waitingQueueRepository).addIfAbsent(EVENT_ID, USER_ID, SCORE);
         verify(waitingQueueRepository).findRank(EVENT_ID, USER_ID);
         verify(waitingQueueRepository).countWaiting(EVENT_ID);
+    }
+
+    @DisplayName("Redis 장애 시 Kafka 접수 후 AsyncAccepted를 반환한다.")
+    @Test
+    void joinQueue_whenRedisDownAndFallbackEnabled_shouldPublishAndReturnAsyncAccepted() {
+        when(waitingQueueRepository.addIfAbsent(eq(EVENT_ID), eq(USER_ID), eq(SCORE)))
+                .thenThrow(new RedisConnectionFailureException("down", new RuntimeException("cause")));
+
+        JoinQueueResult outcome = waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true);
+
+        assertThat(outcome.asyncFallbackPending()).isTrue();
+        assertThat(outcome.fallbackRequestId()).isNotBlank();
+        assertThat(outcome.position()).isNull();
+        assertThat(outcome.totalWaiting()).isNull();
+        verify(queueJoinFallbackPublisher).publish(eq(EVENT_ID), eq(USER_ID), eq(SCORE), anyString());
     }
 
     @DisplayName("findPosition: 순번이 있으면 순번·총 대기 인원을 반환한다.")
@@ -67,9 +96,9 @@ class WaitingQueueServiceTest {
         when(waitingQueueRepository.findPositionSnapshot(eq(EVENT_ID), eq(USER_ID)))
                 .thenReturn(Optional.of(new QueuePositionSnapshot(2L, 7L)));
 
-        Optional<WaitingQueueService.JoinQueueResult> result = waitingQueueService.findPosition(EVENT_ID, USER_ID);
+        Optional<QueuePositionSnapshot> result = waitingQueueService.findPosition(EVENT_ID, USER_ID);
 
-        assertThat(result).contains(new WaitingQueueService.JoinQueueResult(2L, 7L));
+        assertThat(result).contains(new QueuePositionSnapshot(2L, 7L));
     }
 
     @DisplayName("findPosition: ZSET에 없으면 empty")
@@ -77,7 +106,7 @@ class WaitingQueueServiceTest {
     void findPosition_whenNotInQueue_shouldReturnEmpty() {
         when(waitingQueueRepository.findPositionSnapshot(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.empty());
 
-        Optional<WaitingQueueService.JoinQueueResult> result = waitingQueueService.findPosition(EVENT_ID, USER_ID);
+        Optional<QueuePositionSnapshot> result = waitingQueueService.findPosition(EVENT_ID, USER_ID);
 
         assertThat(result).isEmpty();
     }
@@ -88,8 +117,7 @@ class WaitingQueueServiceTest {
         when(waitingQueueRepository.addIfAbsent(eq(EVENT_ID), eq(USER_ID), eq(SCORE))).thenReturn(true);
         when(waitingQueueRepository.findRank(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE))
-            .isInstanceOf(CoreException.class);
+        assertThatThrownBy(() -> waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true))
+                .isInstanceOf(CoreException.class);
     }
 }
-

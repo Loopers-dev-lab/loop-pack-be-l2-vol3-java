@@ -1,6 +1,8 @@
 package com.loopers.application.queue;
 
 import com.loopers.domain.queue.EntryTokenRepository;
+import com.loopers.domain.queue.JoinQueueResult;
+import com.loopers.domain.queue.QueuePositionSnapshot;
 import com.loopers.domain.queue.WaitingQueueService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,6 +32,9 @@ class QueueFacadeTest {
     @Mock
     private QueuePositionProperties queuePositionProperties;
 
+    @Mock
+    private QueueFallbackProperties queueFallbackProperties;
+
     @InjectMocks
     private QueueFacade queueFacade;
 
@@ -37,13 +42,14 @@ class QueueFacadeTest {
     @Test
     void joinQueue_shouldUseDefaultEventIdAndCurrentTimestampScore() {
         Long userId = 10L;
-        when(waitingQueueService.joinQueue(eq("default"), eq(userId), anyLong()))
-            .thenReturn(new WaitingQueueService.JoinQueueResult(0L, 1L));
+        when(queueFallbackProperties.enabled()).thenReturn(true);
+        when(waitingQueueService.joinQueue(eq("default"), eq(userId), anyLong(), eq(true)))
+            .thenReturn(JoinQueueResult.synced(0L, 1L));
 
         QueueInfo result = queueFacade.joinQueue(userId);
 
         ArgumentCaptor<Long> scoreCaptor = ArgumentCaptor.forClass(Long.class);
-        verify(waitingQueueService).joinQueue(eq("default"), eq(userId), scoreCaptor.capture());
+        verify(waitingQueueService).joinQueue(eq("default"), eq(userId), scoreCaptor.capture(), eq(true));
         Long score = scoreCaptor.getValue();
 
         assertThat(score).isPositive();
@@ -56,7 +62,7 @@ class QueueFacadeTest {
     void getQueuePosition_whenInQueue_shouldReturnSnapshot() {
         Long userId = 10L;
         when(waitingQueueService.findPosition(eq("default"), eq(userId)))
-                .thenReturn(Optional.of(new WaitingQueueService.JoinQueueResult(5L, 100L)));
+                .thenReturn(Optional.of(new QueuePositionSnapshot(5L, 100L)));
         when(entryTokenRepository.findEntryToken(userId)).thenReturn(Optional.empty());
         when(queuePositionProperties.throughputTps()).thenReturn(175.0);
 
