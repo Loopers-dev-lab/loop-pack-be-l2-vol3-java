@@ -106,7 +106,7 @@ class OrderV1AdminApiE2ETest extends BaseE2ETest {
 
             var firstOrderId = createOrder(
                     testRestTemplate,
-                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L)), null), 
+                    new OrderDto.CreateOrderRequest(List.of(new OrderDto.OrderItemRequest(productId, 1L)), null),
                     userHeaders
             ).getBody().data().orderId();
             var secondOrderId = createOrder(
