@@ -59,6 +59,11 @@ resilience4j:
         minimum-number-of-calls: 5
     circuit-breaker-aspect-order: 1
 
+queue:
+  batch-size: 14
+  token-ttl-seconds: 300
+  throughput-per-second: 140
+
 ---
 spring:
   config:
