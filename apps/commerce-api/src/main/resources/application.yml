@@ -102,6 +102,11 @@ queue:
     require-entry-token: true
   position:
     throughput-tps: 175
+  fallback:
+    enabled: true
+    topic-name: queue-join-fallback
+    consumer-group: loopers-queue-join-fallback-consumer
+    send-ack-timeout-ms: 5000
 
 ---
 spring:
@@ -112,6 +117,8 @@ spring:
 queue:
   order:
     require-entry-token: false
+  fallback:
+    enabled: false
 ---
 spring:
   config:
