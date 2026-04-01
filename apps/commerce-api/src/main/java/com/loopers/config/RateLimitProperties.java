@@ -10,6 +10,8 @@ public record RateLimitProperties(
         int cooldownSeconds,
         int evaluationIntervalMs,
         int perUserMaxRequests,
-        int perUserWindowSeconds
+        int perUserWindowSeconds,
+        int pollingMaxRequests,
+        int pollingWindowSeconds
 ) {
 }

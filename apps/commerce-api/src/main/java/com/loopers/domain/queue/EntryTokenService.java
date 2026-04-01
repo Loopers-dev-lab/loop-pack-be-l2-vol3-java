@@ -19,6 +19,7 @@ public class EntryTokenService {
     public String issue(Long memberId) {
         String token = UUID.randomUUID().toString();
         entryTokenRepository.issue(memberId, token, queueProperties.tokenTtlSeconds());
+        entryTokenRepository.recordIssuedAt(memberId, queueProperties.tokenTtlSeconds());
         return token;
     }
 
@@ -33,6 +34,21 @@ public class EntryTokenService {
         }
         if (!storedToken.get().equals(token)) {
             throw new CoreException(ErrorType.QUEUE_TOKEN_INVALID);
+        }
+        validateMinInterval(memberId);
+    }
+
+    private void validateMinInterval(Long memberId) {
+        int minIntervalSeconds = queueProperties.tokenMinIntervalSeconds();
+        if (minIntervalSeconds <= 0) {
+            return;
+        }
+        Optional<Long> issuedAt = entryTokenRepository.findIssuedAt(memberId);
+        if (issuedAt.isPresent()) {
+            long elapsedMs = System.currentTimeMillis() - issuedAt.get();
+            if (elapsedMs < minIntervalSeconds * 1000L) {
+                throw new CoreException(ErrorType.QUEUE_TOKEN_TOO_EARLY);
+            }
         }
     }
 

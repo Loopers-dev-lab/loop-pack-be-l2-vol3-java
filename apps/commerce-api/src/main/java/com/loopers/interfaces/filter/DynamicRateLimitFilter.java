@@ -23,6 +23,8 @@ public class DynamicRateLimitFilter extends OncePerRequestFilter {
 
     private final ConcurrentHashMap<String, WindowCounter> counters = new ConcurrentHashMap<>();
 
+    private final ConcurrentHashMap<String, WindowCounter> pollingCounters = new ConcurrentHashMap<>();
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
@@ -31,13 +33,24 @@ public class DynamicRateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (!rateLimitModeEvaluator.isActive()) {
+        String userId = request.getHeader("X-USER-ID");
+        if (userId == null || userId.isBlank()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String userId = request.getHeader("X-USER-ID");
-        if (userId == null || userId.isBlank()) {
+        if (isPollingEndpoint(request)) {
+            WindowCounter pollingCounter = pollingCounters.computeIfAbsent(userId, k -> new WindowCounter());
+            if (!pollingCounter.incrementAndCheck(rateLimitProperties.pollingMaxRequests(), rateLimitProperties.pollingWindowSeconds())) {
+                response.setStatus(429);
+                response.setContentType("application/json");
+                response.setHeader("Retry-After", String.valueOf(rateLimitProperties.pollingWindowSeconds()));
+                response.getWriter().write("{\"meta\":{\"result\":\"FAIL\",\"errorCode\":\"TOO_MANY_REQUESTS\",\"message\":\"폴링 요청이 너무 빈번합니다. Retry-After 헤더를 확인하세요.\"}}");
+                return;
+            }
+        }
+
+        if (!rateLimitModeEvaluator.isActive()) {
             filterChain.doFilter(request, response);
             return;
         }
@@ -55,6 +68,11 @@ public class DynamicRateLimitFilter extends OncePerRequestFilter {
     private boolean isQueueEndpoint(HttpServletRequest request) {
         String path = request.getRequestURI();
         return path.startsWith("/api/v1/queue/");
+    }
+
+    private boolean isPollingEndpoint(HttpServletRequest request) {
+        return "GET".equalsIgnoreCase(request.getMethod())
+                && request.getRequestURI().startsWith("/api/v1/queue/position");
     }
 
     static class WindowCounter {

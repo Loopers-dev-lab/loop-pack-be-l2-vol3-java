@@ -40,5 +40,21 @@ public class EntryTokenRedisRepository implements EntryTokenRepository {
     public void consume(Long memberId) {
         String key = KEY_PREFIX + memberId;
         redisTemplate.delete(key);
+        redisTemplate.delete(ISSUED_AT_PREFIX + memberId);
     }
+
+    @Override
+    public void recordIssuedAt(Long memberId, int ttlSeconds) {
+        String key = ISSUED_AT_PREFIX + memberId;
+        redisTemplate.opsForValue().set(key, String.valueOf(System.currentTimeMillis()), ttlSeconds, TimeUnit.SECONDS);
+    }
+
+    @Override
+    public Optional<Long> findIssuedAt(Long memberId) {
+        String key = ISSUED_AT_PREFIX + memberId;
+        String value = redisTemplate.opsForValue().get(key);
+        return Optional.ofNullable(value).map(Long::parseLong);
+    }
+
+    private static final String ISSUED_AT_PREFIX = "queue:token-issued-at:";
 }
