@@ -4,8 +4,11 @@ import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.queue.EntryTokenRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -18,6 +21,19 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
 
     /** Redis 키 접두사. userId와 조합해 사용자별 입장 토큰을 구분한다. */
     private static final String ENTRY_TOKEN_KEY_PREFIX = "queue:entry:";
+
+    private static final DefaultRedisScript<Long> CONSUME_IF_MATCHES_SCRIPT = new DefaultRedisScript<>(
+            """
+                    local v = redis.call('GET', KEYS[1])
+                    if not v then return 0 end
+                    if v == ARGV[1] then
+                      redis.call('DEL', KEYS[1])
+                      return 1
+                    end
+                    return 2
+                    """,
+            Long.class
+    );
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -49,6 +65,20 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
     @Override
     public void deleteEntryToken(Long userId) {
         redisTemplate.delete(entryTokenKey(userId));
+    }
+
+    /**
+     * GET·DEL을 Lua로 묶어 동시에 두 요청이 같은 토큰을 통과하지 못하게 한다.
+     */
+    @Override
+    public boolean consumeIfTokenMatches(Long userId, String presentedToken) {
+        Objects.requireNonNull(presentedToken, "presentedToken");
+        Long result = redisTemplate.execute(
+                CONSUME_IF_MATCHES_SCRIPT,
+                List.of(entryTokenKey(userId)),
+                presentedToken
+        );
+        return Long.valueOf(1L).equals(result);
     }
 
     private String entryTokenKey(Long userId) {
