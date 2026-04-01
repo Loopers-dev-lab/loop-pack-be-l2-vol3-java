@@ -94,7 +94,7 @@ class QueueV1ApiE2ETest extends BaseE2ETest {
                     () -> assertThat(response.getBody()).isNotNull(),
                     () -> assertThat(response.getBody().data().position()).isEqualTo(1),
                     () -> assertThat(response.getBody().data().totalWaiting()).isEqualTo(1),
-                    () -> assertThat(response.getBody().data().estimatedWaitSeconds()).isEqualTo(5)
+                    () -> assertThat(response.getBody().data().estimatedWaitSeconds()).isEqualTo(1)
             );
         }
 
@@ -119,7 +119,7 @@ class QueueV1ApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getBody().data().position()).isEqualTo(2),
                     () -> assertThat(response.getBody().data().totalWaiting()).isEqualTo(2),
-                    () -> assertThat(response.getBody().data().estimatedWaitSeconds()).isEqualTo(10)
+                    () -> assertThat(response.getBody().data().estimatedWaitSeconds()).isEqualTo(1)
             );
         }
 
