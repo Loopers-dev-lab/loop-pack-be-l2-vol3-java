@@ -7,14 +7,19 @@ import com.loopers.domain.queue.QueueModeRepository;
 import com.loopers.domain.queue.WaitingQueueService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class QueueApp {
+
+    private static final String CB_NAME = "queue-redis";
 
     private final WaitingQueueService waitingQueueService;
     private final EntryTokenService entryTokenService;
@@ -23,6 +28,7 @@ public class QueueApp {
     private final QueueModeRepository queueModeRepository;
     private final SchedulerHealthChecker schedulerHealthChecker;
 
+    @CircuitBreaker(name = CB_NAME, fallbackMethod = "enterQueueFallback")
     public QueueInfo enterQueue(Long memberId) {
         QueueMode mode = queueModeRepository.getCurrentMode();
 
@@ -50,6 +56,7 @@ public class QueueApp {
         return new QueueInfo(QueueStatus.WAITING, pos, estimatedWait, totalInQueue, null, true);
     }
 
+    @CircuitBreaker(name = CB_NAME, fallbackMethod = "getQueueStatusFallback")
     public QueueInfo getQueueStatus(Long memberId) {
         boolean healthy = schedulerHealthChecker.isAliveByHeartbeat();
 
@@ -70,11 +77,32 @@ public class QueueApp {
         return new QueueInfo(QueueStatus.WAITING, pos, estimatedWait, totalInQueue, null, healthy);
     }
 
+    @CircuitBreaker(name = CB_NAME, fallbackMethod = "validateTokenFallback")
     public void validateToken(Long memberId, String token) {
         entryTokenService.validate(memberId, token);
     }
 
+    @CircuitBreaker(name = CB_NAME, fallbackMethod = "consumeTokenFallback")
     public void consumeToken(Long memberId) {
         entryTokenService.consume(memberId);
+    }
+
+    private QueueInfo enterQueueFallback(Long memberId, Throwable t) {
+        log.warn("[QUEUE_CB] enterQueue circuit open — Redis 장애로 대기열 차단. memberId={}", memberId, t);
+        throw new CoreException(ErrorType.QUEUE_FULL);
+    }
+
+    private QueueInfo getQueueStatusFallback(Long memberId, Throwable t) {
+        log.warn("[QUEUE_CB] getQueueStatus circuit open — Redis 장애로 대기열 차단. memberId={}", memberId, t);
+        throw new CoreException(ErrorType.QUEUE_FULL);
+    }
+
+    private void validateTokenFallback(Long memberId, String token, Throwable t) {
+        log.warn("[QUEUE_CB] validateToken circuit open — Redis 장애로 주문 차단. memberId={}", memberId, t);
+        throw new CoreException(ErrorType.QUEUE_FULL);
+    }
+
+    private void consumeTokenFallback(Long memberId, Throwable t) {
+        log.warn("[QUEUE_CB] consumeToken circuit open — Redis 장애로 토큰 소비 실패 (무시). memberId={}", memberId);
     }
 }

@@ -54,6 +54,7 @@ queue:
   token-ttl-seconds: 300
   throughput-per-second: 140
   max-size: 100000
+  token-min-interval-seconds: 2
   dynamic:
     enabled: false
     metric: hikari-pool-usage
@@ -69,6 +70,8 @@ queue:
     evaluation-interval-ms: 1000
     per-user-max-requests: 10
     per-user-window-seconds: 10
+    polling-max-requests: 1
+    polling-window-seconds: 2
 
 commerce-api:
   callback-base-url: http://localhost:8080
@@ -117,6 +120,24 @@ resilience4j:
         record-exceptions:
           - java.io.IOException
           - com.loopers.infrastructure.payment.pg.PgServerException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+      queue-redis:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 2s
+        slow-call-rate-threshold: 80
+        wait-duration-in-open-state: 15s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        register-health-indicator: true
+        record-exceptions:
+          - org.springframework.data.redis.RedisConnectionFailureException
+          - org.springframework.data.redis.RedisSystemException
+          - io.lettuce.core.RedisConnectionException
+          - io.lettuce.core.RedisCommandTimeoutException
         ignore-exceptions:
           - com.loopers.support.error.CoreException
   bulkhead:
@@ -178,6 +199,8 @@ spring:
   config:
     activate:
       on-profile: local
+  jpa:
+    defer-datasource-initialization: true
   sql:
     init:
       data-locations: classpath:data-local.sql
@@ -187,8 +210,6 @@ outbox:
     delay-ms: 86400000
     initial-delay-ms: 86400000
     limit: 100
-  jpa:
-    defer-datasource-initialization: true
   cloud:
     openfeign:
       client:
