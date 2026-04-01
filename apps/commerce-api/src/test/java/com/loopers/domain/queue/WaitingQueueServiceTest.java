@@ -61,6 +61,27 @@ class WaitingQueueServiceTest {
         verify(waitingQueueRepository).countWaiting(EVENT_ID);
     }
 
+    @DisplayName("findPosition: 순번이 있으면 순번·총 대기 인원을 반환한다.")
+    @Test
+    void findPosition_whenInQueue_shouldReturnPosition() {
+        when(waitingQueueRepository.findPositionSnapshot(eq(EVENT_ID), eq(USER_ID)))
+                .thenReturn(Optional.of(new QueuePositionSnapshot(2L, 7L)));
+
+        Optional<WaitingQueueService.JoinQueueResult> result = waitingQueueService.findPosition(EVENT_ID, USER_ID);
+
+        assertThat(result).contains(new WaitingQueueService.JoinQueueResult(2L, 7L));
+    }
+
+    @DisplayName("findPosition: ZSET에 없으면 empty")
+    @Test
+    void findPosition_whenNotInQueue_shouldReturnEmpty() {
+        when(waitingQueueRepository.findPositionSnapshot(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.empty());
+
+        Optional<WaitingQueueService.JoinQueueResult> result = waitingQueueService.findPosition(EVENT_ID, USER_ID);
+
+        assertThat(result).isEmpty();
+    }
+
     @DisplayName("rank를 찾지 못하면 CoreException을 던진다.")
     @Test
     void joinQueue_whenRankNotFound_shouldThrowCoreException() {

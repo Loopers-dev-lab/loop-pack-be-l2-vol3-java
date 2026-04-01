@@ -61,5 +61,26 @@ class QueueFacadeIntegrationTest {
         assertThat(second.position()).isEqualTo(first.position());
         assertThat(second.totalWaiting()).isEqualTo(first.totalWaiting());
     }
+
+    @DisplayName("join 후 getQueuePosition 하면 순번·Retry-After 대응 힌트가 채워진다.")
+    @Test
+    void getQueuePosition_afterJoin_shouldReturnPositionAndHints() {
+        Long userId = 1L;
+        queueFacade.joinQueue(userId);
+
+        var opt = queueFacade.getQueuePosition(userId);
+
+        assertThat(opt).isPresent();
+        assertThat(opt.get().position()).isEqualTo(0L);
+        assertThat(opt.get().totalWaiting()).isEqualTo(1L);
+        assertThat(opt.get().suggestedPollIntervalMs()).isEqualTo(1000L);
+        assertThat(opt.get().retryAfterSeconds()).isEqualTo(1L);
+    }
+
+    @DisplayName("진입 없이 getQueuePosition 하면 empty")
+    @Test
+    void getQueuePosition_withoutJoin_shouldReturnEmpty() {
+        assertThat(queueFacade.getQueuePosition(999L)).isEmpty();
+    }
 }
 

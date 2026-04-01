@@ -2,6 +2,7 @@ package com.loopers.infrastructure.queue;
 
 import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.queue.EntryTokenRepository;
+import com.loopers.domain.queue.QueuePositionSnapshot;
 import com.loopers.domain.queue.SchedulerLockRepository;
 import com.loopers.domain.queue.WaitingQueueRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -60,6 +61,17 @@ class QueueRedisInfrastructureIntegrationTest {
         redisCleanUp.truncateAll();
     }
 
+    @DisplayName("findPositionSnapshot은 ZRANK·ZCARD를 일치시킨다.")
+    @Test
+    void findPositionSnapshot_shouldReturnRankAndCountAtomically() {
+        waitingQueueRepository.addIfAbsent(EVENT_ID, 30L, 3000L);
+        waitingQueueRepository.addIfAbsent(EVENT_ID, 10L, 1000L);
+
+        var snap = waitingQueueRepository.findPositionSnapshot(EVENT_ID, 10L);
+
+        assertThat(snap).contains(new QueuePositionSnapshot(0L, 2L));
+    }
+
     @DisplayName("popOldest는 score가 작은 순서대로 userId를 꺼낸다.")
     @Test
     void popOldest_shouldPopUsersInScoreOrder() {
@@ -102,8 +114,9 @@ class QueueRedisInfrastructureIntegrationTest {
     @DisplayName("scheduler lock은 setnx처럼 1회만 획득된다.")
     @Test
     void schedulerLock_tryAcquireLock_shouldBehaveLikeSetNx() {
-        boolean first = schedulerLockRepository.tryAcquireLock("queue:scheduler:lock", "lock-1", 5L);
-        boolean second = schedulerLockRepository.tryAcquireLock("queue:scheduler:lock", "lock-2", 5L);
+        String lockKey = "queue:scheduler:lock:it";
+        boolean first = schedulerLockRepository.tryAcquireLock(lockKey, "lock-1", 5L);
+        boolean second = schedulerLockRepository.tryAcquireLock(lockKey, "lock-2", 5L);
 
         assertThat(first).isTrue();
         assertThat(second).isFalse();
