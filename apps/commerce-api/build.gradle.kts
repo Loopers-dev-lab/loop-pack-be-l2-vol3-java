@@ -7,6 +7,9 @@ dependencies {
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
 
+    // redisson
+    implementation("org.redisson:redisson-spring-boot-starter:3.27.2")
+
     // feign
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
 
