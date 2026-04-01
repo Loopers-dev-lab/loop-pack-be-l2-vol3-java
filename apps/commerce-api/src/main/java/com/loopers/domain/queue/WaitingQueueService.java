@@ -2,24 +2,62 @@ package com.loopers.domain.queue;
 
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class WaitingQueueService {
 
     private final WaitingQueueRepository waitingQueueRepository;
+    private final QueueJoinFallbackPublisher queueJoinFallbackPublisher;
 
-    public WaitingQueueService(WaitingQueueRepository waitingQueueRepository) {
+    public WaitingQueueService(
+            WaitingQueueRepository waitingQueueRepository,
+            QueueJoinFallbackPublisher queueJoinFallbackPublisher
+    ) {
         this.waitingQueueRepository = waitingQueueRepository;
+        this.queueJoinFallbackPublisher = queueJoinFallbackPublisher;
     }
 
-    public JoinQueueResult joinQueue(String eventId, Long userId, long score) {
+    /**
+     * 대기열 진입. Redis 오류 시(설정이 켜져 있으면) Kafka로 비동기 접수하고 {@link JoinQueueOutcome.AsyncAccepted}를 반환한다.
+     */
+    public JoinQueueOutcome joinQueue(String eventId, Long userId, long score, boolean fallbackEnabled) {
+        try {
+            return new JoinQueueOutcome.Sync(joinQueueFromRecovery(eventId, userId, score));
+        } catch (CoreException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            if (!isRecoverableQueueBackendFailure(e)) {
+                throw e;
+            }
+            if (fallbackEnabled) {
+                String requestId = UUID.randomUUID().toString();
+                queueJoinFallbackPublisher.publish(eventId, userId, score, requestId);
+                return new JoinQueueOutcome.AsyncAccepted(requestId);
+            }
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "대기열을 일시적으로 사용할 수 없습니다.", e);
+        }
+    }
+
+    /**
+     * Kafka 복구 컨슈머 전용. Redis에 직접 반영하며, 실패 시 예외를 던져 Kafka 재시도/DLT로 넘긴다.
+     */
+    public JoinQueueResult joinQueueFromRecovery(String eventId, Long userId, long score) {
         waitingQueueRepository.addIfAbsent(eventId, userId, score);
 
-        Long rank = waitingQueueRepository.findRank(eventId, userId)
-            .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 순번 조회에 실패했습니다."));
+        Long rank = waitingQueueRepository.findRank(eventId, userId).orElse(null);
+        if (rank == null) {
+            // 간헐적 Redis 레이스/복제 지연 상황에서 rank 조회가 비는 케이스 방어.
+            waitingQueueRepository.addIfAbsent(eventId, userId, score);
+            rank = waitingQueueRepository.findRank(eventId, userId)
+                    .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 순번 조회에 실패했습니다."));
+        }
         long totalWaiting = waitingQueueRepository.countWaiting(eventId);
 
         return new JoinQueueResult(rank, totalWaiting);
@@ -34,10 +72,18 @@ public class WaitingQueueService {
                 .map(s -> new JoinQueueResult(s.position(), s.totalWaiting()));
     }
 
-    public record JoinQueueResult(
-        long position,
-        long totalWaiting
-    ) {
+    private static boolean isRecoverableQueueBackendFailure(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof DataAccessException) {
+                return true;
+            }
+            if (t instanceof RedisConnectionFailureException) {
+                return true;
+            }
+            if (t instanceof RedisSystemException) {
+                return true;
+            }
+        }
+        return false;
     }
 }
-
