@@ -88,6 +88,17 @@ coupon:
   issue:
     topic-name: coupon-issue-requests
 
+queue:
+  scheduler:
+    tick-ms: 100
+    event-id: default
+    max-batch-size: 18
+    token-ttl-seconds: 300
+    lock-ttl-seconds: 5
+    lock-key: queue:scheduler:lock
+    heartbeat-key: queue:scheduler:heartbeat
+    heartbeat-ttl-seconds: 35
+
 ---
 spring:
   config:
