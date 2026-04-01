@@ -39,6 +39,10 @@ public class DlqPublisher {
         this.kafkaTemplate = kafkaTemplate;
     }
 
+    public void sendToDlq(ConsumerRecord<Object, Object> record, Exception exception) {
+        sendToDlq(record, exception, 0);
+    }
+
     public void sendToDlq(ConsumerRecord<Object, Object> record, Exception exception, int retryCount) {
         try {
             String errorMsg = exception.getMessage() != null
