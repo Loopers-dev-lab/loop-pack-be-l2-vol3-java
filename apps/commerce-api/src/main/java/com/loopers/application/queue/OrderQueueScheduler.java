@@ -23,7 +23,7 @@ public class OrderQueueScheduler {
     private final EntryTokenRepository entryTokenRepository;
     private final OrderQueueReader orderQueueReader;
 
-    @Scheduled(fixedRate = 100)
+    @Scheduled(fixedRate = 100, initialDelay = 1000)
     public void issueTokens() {
         if (!orderQueueReader.isEnabled()) {
             return;
