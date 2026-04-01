@@ -21,9 +21,14 @@ public class OrderQueueScheduler {
 
     private final WaitingQueueRepository waitingQueueRepository;
     private final EntryTokenRepository entryTokenRepository;
+    private final OrderQueueReader orderQueueReader;
 
     @Scheduled(fixedRate = 100)
     public void issueTokens() {
+        if (!orderQueueReader.isEnabled()) {
+            return;
+        }
+
         Set<Long> userIds = waitingQueueRepository.dequeue(BATCH_SIZE);
         for (Long userId : userIds) {
             String token = UUID.randomUUID().toString();
