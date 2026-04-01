@@ -4,6 +4,8 @@ import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "Queue V1 API", description = "대기열 API")
 public interface QueueV1ApiSpec {
@@ -15,6 +17,25 @@ public interface QueueV1ApiSpec {
     ApiResponse<QueueV1Dto.JoinQueueResponse> joinQueue(
         @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)
         String loginId
+    );
+
+    @Operation(
+            summary = "대기열 순번 조회",
+            description = "현재 순번·예상 대기·입장 토큰(있을 때)·폴링 힌트를 반환합니다. "
+                    + "Retry-After 헤더(초)와 suggestedPollIntervalMs를 함께 제공합니다."
+    )
+    ResponseEntity<ApiResponse<QueueV1Dto.PositionResponse>> getQueuePosition(
+            @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)
+            String loginId
+    );
+
+    @Operation(
+            summary = "대기열 순번 SSE",
+            description = "순번 스냅샷을 주기적으로 text/event-stream으로 전송합니다."
+    )
+    SseEmitter streamQueuePosition(
+            @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)
+            String loginId
     );
 }
 

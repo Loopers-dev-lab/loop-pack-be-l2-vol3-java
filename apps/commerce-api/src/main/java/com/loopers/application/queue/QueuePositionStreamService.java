@@ -72,7 +72,7 @@ public class QueuePositionStreamService {
                     return;
                 }
                 QueuePositionInfo info = opt.get();
-                String json = toJson(QueuePositionSsePayload.from(info));
+                String json = toJson(QueuePositionSseDto.from(info));
                 emitter.send(SseEmitter.event().data(json));
                 long sleepMs = Math.max(1000L, info.suggestedPollIntervalMs());
                 Thread.sleep(sleepMs);
@@ -85,8 +85,8 @@ public class QueuePositionStreamService {
         }
     }
 
-    /** SSE 본문용 JSON 문자열. 스키마는 {@link QueuePositionSsePayload}와 동일. */
-    private String toJson(QueuePositionSsePayload payload) throws JsonProcessingException {
-        return objectMapper.writeValueAsString(payload);
+    /** SSE 본문용 JSON 문자열. 스키마는 {@link QueuePositionSseDto}와 동일. */
+    private String toJson(QueuePositionSseDto dto) throws JsonProcessingException {
+        return objectMapper.writeValueAsString(dto);
     }
 }
