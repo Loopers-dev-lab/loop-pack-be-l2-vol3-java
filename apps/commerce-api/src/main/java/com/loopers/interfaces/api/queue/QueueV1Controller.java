@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.queue;
 
 import com.loopers.application.queue.QueueFacade;
 import com.loopers.application.queue.QueueInfo;
+import com.loopers.application.queue.QueuePositionInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,7 +32,7 @@ public class QueueV1Controller implements QueueV1ApiSpec {
     public ApiResponse<QueueV1Dto.PositionResponse> getPosition(
         @RequestParam String userId
     ) {
-        QueueInfo info = queueFacade.getPosition(userId);
+        QueuePositionInfo info = queueFacade.getPosition(userId);
         return ApiResponse.success(QueueV1Dto.PositionResponse.from(info));
     }
 }

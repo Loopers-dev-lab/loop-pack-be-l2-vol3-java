@@ -1,6 +1,8 @@
 package com.loopers.application.queue;
 
+import com.loopers.domain.queue.QueueConstants;
 import com.loopers.domain.queue.QueueService;
+import com.loopers.domain.queue.TokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -8,7 +10,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class QueueFacade {
 
+    // Adaptive Polling: 순번 구간별 nextPollAfter
+    private static final long NEAR_THRESHOLD = 10;
+    private static final long MID_THRESHOLD = 50;
+    private static final long NEAR_POLL_SECONDS = 5;
+    private static final long MID_POLL_SECONDS = 15;
+    private static final long FAR_POLL_SECONDS = 30;
+
     private final QueueService queueService;
+    private final TokenService tokenService;
 
     public QueueInfo enter(String userId) {
         long position = queueService.enter(userId);
@@ -16,9 +26,25 @@ public class QueueFacade {
         return new QueueInfo(position, totalCount);
     }
 
-    public QueueInfo getPosition(String userId) {
+    public QueuePositionInfo getPosition(String userId) {
         long position = queueService.getPosition(userId);
         long totalCount = queueService.getTotalCount();
-        return new QueueInfo(position, totalCount);
+        long estimatedWaitSeconds = calculateEstimatedWait(position);
+        long nextPollAfterSeconds = calculateNextPollAfter(position);
+        String token = tokenService.findToken(userId).orElse(null);
+        return new QueuePositionInfo(position, totalCount, estimatedWaitSeconds, nextPollAfterSeconds, token);
+    }
+
+    private long calculateEstimatedWait(long position) {
+        return (long) Math.ceil((double) position / QueueConstants.BATCH_SIZE * QueueConstants.SCHEDULER_INTERVAL_SECONDS);
+    }
+
+    private long calculateNextPollAfter(long position) {
+        if (position <= NEAR_THRESHOLD) {
+            return NEAR_POLL_SECONDS;
+        } else if (position <= MID_THRESHOLD) {
+            return MID_POLL_SECONDS;
+        }
+        return FAR_POLL_SECONDS;
     }
 }
