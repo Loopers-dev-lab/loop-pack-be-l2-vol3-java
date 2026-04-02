@@ -7,6 +7,7 @@ import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
+import com.loopers.application.queue.OrderQueueScheduler;
 import com.loopers.interfaces.api.order.OrderV1Dto;
 import com.loopers.interfaces.api.queue.OrderQueueV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -47,6 +49,7 @@ class OrderQueueE2ETest {
     private static final String ORDERS_ENDPOINT = "/api/v1/orders";
     private static final String ORDER_QUEUE_ENABLED_KEY = "order:queue:enabled";
     private static final String RAW_PASSWORD = "TestPass1!";
+    private static final int BATCH_SIZE = 14;
 
     private final TestRestTemplate testRestTemplate;
     private final UserJpaRepository userJpaRepository;
@@ -55,6 +58,7 @@ class OrderQueueE2ETest {
     private final DatabaseCleanUp databaseCleanUp;
     private final RedisCleanUp redisCleanUp;
     private final RedisTemplate<String, String> redisTemplate;
+    private final OrderQueueScheduler orderQueueScheduler;
     private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
     private User savedUser;
@@ -68,7 +72,8 @@ class OrderQueueE2ETest {
             ProductJpaRepository productJpaRepository,
             DatabaseCleanUp databaseCleanUp,
             RedisCleanUp redisCleanUp,
-            RedisTemplate<String, String> redisTemplate
+            RedisTemplate<String, String> redisTemplate,
+            OrderQueueScheduler orderQueueScheduler
     ) {
         this.testRestTemplate = testRestTemplate;
         this.userJpaRepository = userJpaRepository;
@@ -77,6 +82,7 @@ class OrderQueueE2ETest {
         this.databaseCleanUp = databaseCleanUp;
         this.redisCleanUp = redisCleanUp;
         this.redisTemplate = redisTemplate;
+        this.orderQueueScheduler = orderQueueScheduler;
     }
 
     @BeforeEach
@@ -91,6 +97,7 @@ class OrderQueueE2ETest {
 
     @AfterEach
     void tearDown() {
+        disableQueue();
         try {
             databaseCleanUp.truncateAllTables();
         } finally {
@@ -113,6 +120,23 @@ class OrderQueueE2ETest {
 
     private void enableQueue() {
         redisTemplate.opsForValue().set(ORDER_QUEUE_ENABLED_KEY, "true");
+    }
+
+    private void disableQueue() {
+        redisTemplate.opsForValue().set(ORDER_QUEUE_ENABLED_KEY, "false");
+    }
+
+    private int countTokenIssuedUsers(List<User> users) {
+        int count = 0;
+        for (User user : users) {
+            HttpEntity<Void> entity = new HttpEntity<>(userHeaders(user));
+            ResponseEntity<ApiResponse<OrderQueueV1Dto.PositionResponse>> response =
+                    testRestTemplate.exchange(QUEUE_POSITION_ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
+            if ("TOKEN_ISSUED".equals(response.getBody().data().status())) {
+                count++;
+            }
+        }
+        return count;
     }
 
     @DisplayName("대기열 진입 및 순번 조회")
@@ -187,9 +211,9 @@ class OrderQueueE2ETest {
     @Nested
     class ConcurrentEntry {
 
-        @DisplayName("여러 유저가 동시에 진입해도 순번이 정확히 부여된다.")
+        @DisplayName("여러 유저가 동시에 진입해도 모두 성공적으로 대기열에 등록된다.")
         @Test
-        void assignsCorrectPositions_whenConcurrentEntry() throws InterruptedException {
+        void allUsersEnterSuccessfully_whenConcurrentEntry() throws InterruptedException {
             // arrange
             int threadCount = 20;
             String encodedPassword = bCryptPasswordEncoder.encode(RAW_PASSWORD);
@@ -251,37 +275,34 @@ class OrderQueueE2ETest {
             enableQueue();
         }
 
-        @DisplayName("대기열 진입 → 스케줄러 토큰 발급 → 토큰으로 주문 성공")
+        @DisplayName("대기열 진입 후 발급된 토큰으로 주문에 성공한다.")
         @Test
-        void fullFlow_enterQueue_getToken_placeOrder() throws InterruptedException {
-            // arrange: 대기열 진입
+        void placesOrderSuccessfully_withIssuedToken() {
+            // arrange
             HttpEntity<Void> enterEntity = new HttpEntity<>(userHeaders(savedUser));
             testRestTemplate.exchange(QUEUE_ENTER_ENDPOINT, HttpMethod.POST, enterEntity, new ParameterizedTypeReference<ApiResponse<OrderQueueV1Dto.EnterResponse>>() {});
 
-            // act: 스케줄러가 토큰 발급할 때까지 polling (최대 3초)
-            String token = null;
-            for (int i = 0; i < 30; i++) {
-                Thread.sleep(100);
-                ResponseEntity<ApiResponse<OrderQueueV1Dto.PositionResponse>> positionResponse =
-                        testRestTemplate.exchange(QUEUE_POSITION_ENDPOINT, HttpMethod.GET, enterEntity, new ParameterizedTypeReference<>() {});
-                if ("TOKEN_ISSUED".equals(positionResponse.getBody().data().status())) {
-                    token = positionResponse.getBody().data().token();
-                    break;
-                }
-            }
+            orderQueueScheduler.issueTokens();
 
-            // assert: 토큰 발급됨
-            assertThat(token).isNotNull();
+            ResponseEntity<ApiResponse<OrderQueueV1Dto.PositionResponse>> positionResponse =
+                    testRestTemplate.exchange(QUEUE_POSITION_ENDPOINT, HttpMethod.GET, enterEntity, new ParameterizedTypeReference<>() {});
+            String issuedToken = positionResponse.getBody().data().token();
+            assertThat(issuedToken).isNotNull();
 
-            // act: 토큰으로 주문
+            // act
             OrderV1Dto.CreateRequest orderRequest = new OrderV1Dto.CreateRequest(
                     List.of(new OrderV1Dto.OrderItemRequest(savedProduct.getId(), 1)), null);
-            HttpEntity<OrderV1Dto.CreateRequest> orderEntity = new HttpEntity<>(orderRequest, userHeadersWithToken(savedUser, token));
+            HttpEntity<OrderV1Dto.CreateRequest> orderEntity = new HttpEntity<>(orderRequest, userHeadersWithToken(savedUser, issuedToken));
             ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> orderResponse =
                     testRestTemplate.exchange(ORDERS_ENDPOINT, HttpMethod.POST, orderEntity, new ParameterizedTypeReference<>() {});
 
-            // assert: 주문 성공
-            assertThat(orderResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            // assert
+            OrderV1Dto.OrderResponse order = orderResponse.getBody().data();
+            assertAll(
+                    () -> assertThat(orderResponse.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                    () -> assertThat(order.id()).isNotNull(),
+                    () -> assertThat(order.userId()).isEqualTo(savedUser.getId())
+            );
         }
 
         @DisplayName("토큰 없이 주문하면 거부된다.")
@@ -363,15 +384,15 @@ class OrderQueueE2ETest {
         }
     }
 
-    @DisplayName("스케줄러 점진적 토큰 발급")
+    @DisplayName("스케줄러 배치 토큰 발급")
     @Nested
-    class GradualTokenIssuance {
+    class BatchTokenIssuance {
 
-        @DisplayName("배치 크기보다 많은 대기자가 있으면 점진적으로 토큰이 발급된다.")
+        @DisplayName("대기자가 배치 크기보다 많아도 한 번에 배치 크기만큼만 토큰이 발급된다.")
         @Test
-        void issuesTokensGradually_whenMoreThanBatchSize() throws InterruptedException {
-            // arrange: 20명 대기열 진입
-            int userCount = 20;
+        void issuesOnlyBatchSize_whenWaitersExceedBatchSize() {
+            // arrange: 대기열 비활성화 상태에서 30명 진입 (스케줄러가 소비하지 못하도록)
+            int userCount = 30;
             String encodedPassword = bCryptPasswordEncoder.encode(RAW_PASSWORD);
             List<User> users = new ArrayList<>();
             for (int i = 0; i < userCount; i++) {
@@ -382,30 +403,17 @@ class OrderQueueE2ETest {
                 testRestTemplate.exchange(QUEUE_ENTER_ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<ApiResponse<OrderQueueV1Dto.EnterResponse>>() {});
             }
 
-            // act: 스케줄러가 토큰 발급할 시간 대기 (200ms → 첫 배치 14명 발급)
-            Thread.sleep(300);
+            // act: 대기열 활성화 후 스케줄러를 수동으로 1회만 호출
+            enableQueue();
+            orderQueueScheduler.issueTokens();
+            disableQueue();
 
-            // assert: polling으로 토큰 발급 상태 확인
-            int tokenIssuedCount = 0;
-            int waitingCount = 0;
-            for (User user : users) {
-                HttpEntity<Void> entity = new HttpEntity<>(userHeaders(user));
-                ResponseEntity<ApiResponse<OrderQueueV1Dto.PositionResponse>> response =
-                        testRestTemplate.exchange(QUEUE_POSITION_ENDPOINT, HttpMethod.GET, entity, new ParameterizedTypeReference<>() {});
-                String status = response.getBody().data().status();
-                if ("TOKEN_ISSUED".equals(status)) {
-                    tokenIssuedCount++;
-                } else if ("WAITING".equals(status)) {
-                    waitingCount++;
-                }
-            }
-
-            // 14명에게 토큰 발급, 6명은 아직 대기 중
-            final int finalTokenIssuedCount = tokenIssuedCount;
-            final int finalWaitingCount = waitingCount;
+            // assert: 첫 번째 배치에서 정확히 BATCH_SIZE만큼 발급되었는지 검증
+            final int tokenIssuedCount = countTokenIssuedUsers(users);
+            final int waitingCount = userCount - tokenIssuedCount;
             assertAll(
-                    () -> assertThat(finalTokenIssuedCount).isEqualTo(14),
-                    () -> assertThat(finalWaitingCount).isEqualTo(6)
+                    () -> assertThat(tokenIssuedCount).isEqualTo(BATCH_SIZE),
+                    () -> assertThat(waitingCount).isEqualTo(userCount - BATCH_SIZE)
             );
         }
     }
