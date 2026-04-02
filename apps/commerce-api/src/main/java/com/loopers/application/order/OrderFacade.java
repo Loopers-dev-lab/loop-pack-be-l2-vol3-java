@@ -20,6 +20,7 @@ import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.queue.QueueService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
@@ -68,6 +69,7 @@ public class OrderFacade {
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
     private final OutboxEventService outboxEventService;
+    private final QueueService queueService;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
@@ -76,7 +78,8 @@ public class OrderFacade {
                        PaymentFacade paymentFacade,
                        PlatformTransactionManager txManager,
                        OrderCacheManager orderCacheManager,
-                       OutboxEventService outboxEventService) {
+                       OutboxEventService outboxEventService,
+                       QueueService queueService) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -90,6 +93,7 @@ public class OrderFacade {
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
         this.orderCacheManager = orderCacheManager;
+        this.queueService = queueService;
     }
 
     /**
@@ -105,6 +109,7 @@ public class OrderFacade {
 
         OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
+        deleteQueueTokenBestEffort(userId);
         orderCacheManager.evictOrderList(userId);
         return result;
     }
@@ -130,6 +135,8 @@ public class OrderFacade {
                 issuedCouponId, pointAmount, paymentMethod);
 
         OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
+
+        deleteQueueTokenBestEffort(userId);
 
         // 장바구니 삭제는 best-effort — 실패해도 주문 성공 응답을 유지한다
         try {
@@ -361,4 +368,16 @@ public class OrderFacade {
     public record OrderItemDetailResult(
             String productName, String brandName,
             int unitPrice, int quantity, int lineTotal) {}
+
+    /**
+     * 대기열 토큰을 best-effort로 삭제한다.
+     * 실패해도 주문 성공에 영향을 주지 않는다 (TTL로 자연 만료).
+     */
+    private void deleteQueueTokenBestEffort(Long userId) {
+        try {
+            queueService.deleteToken(userId);
+        } catch (Exception e) {
+            log.warn("대기열 토큰 삭제 실패 — TTL로 자연 만료 예정 (userId={})", userId, e);
+        }
+    }
 }

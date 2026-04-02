@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -69,6 +70,11 @@ public class RedisConfig{
     }
 
 
+    /**
+     * replica가 master와 동일한 주소이거나 없으면 Standalone으로 fallback한다.
+     * Lettuce의 StaticMasterReplicaTopologyProvider는 master와 replica가 같은 주소일 때
+     * 토폴로지 검증에 실패하므로, 단일 노드 환경(로컬/테스트)에서는 Standalone이 적합하다.
+     */
     private LettuceConnectionFactory lettuceConnectionFactory(
             int database,
             RedisNodeInfo master,
@@ -78,12 +84,29 @@ public class RedisConfig{
         LettuceClientConfiguration.LettuceClientConfigurationBuilder builder = LettuceClientConfiguration.builder();
         if(customizer != null) customizer.accept(builder);
         LettuceClientConfiguration clientConfig = builder.build();
-        RedisStaticMasterReplicaConfiguration masterReplicaConfig = new RedisStaticMasterReplicaConfiguration(master.host(), master.port());
+
+        List<RedisNodeInfo> distinctReplicas = (replicas == null) ? List.of() : replicas.stream()
+                .filter(r -> !isSameNode(r, master))
+                .toList();
+
+        if (distinctReplicas.isEmpty()) {
+            RedisStandaloneConfiguration standaloneConfig =
+                    new RedisStandaloneConfiguration(master.host(), master.port());
+            standaloneConfig.setDatabase(database);
+            return new LettuceConnectionFactory(standaloneConfig, clientConfig);
+        }
+
+        RedisStaticMasterReplicaConfiguration masterReplicaConfig =
+                new RedisStaticMasterReplicaConfiguration(master.host(), master.port());
         masterReplicaConfig.setDatabase(database);
-        for(RedisNodeInfo r : replicas){
+        for (RedisNodeInfo r : distinctReplicas) {
             masterReplicaConfig.addNode(r.host(), r.port());
         }
         return new LettuceConnectionFactory(masterReplicaConfig, clientConfig);
+    }
+
+    private boolean isSameNode(RedisNodeInfo a, RedisNodeInfo b) {
+        return a.host().equals(b.host()) && a.port() == b.port();
     }
 
     private <K,V> RedisTemplate<K,V> defaultRedisTemplate(
