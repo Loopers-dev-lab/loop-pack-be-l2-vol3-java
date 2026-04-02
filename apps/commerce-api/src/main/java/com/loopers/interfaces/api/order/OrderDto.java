@@ -105,6 +105,20 @@ public class OrderDto {
         }
     }
 
+    public record OrderQueueStatusResponse(
+            boolean enabled,
+            long waitingOrder,
+            long estimatedWaitSeconds
+    ) {
+        public static OrderQueueStatusResponse from(com.loopers.application.order.queue.OrderQueueStatusResult result) {
+            return new OrderQueueStatusResponse(
+                    result.enabled(),
+                    result.waitingOrder(),
+                    result.estimatedWaitSeconds()
+            );
+        }
+    }
+
     public record OrderListResponse(
             List<OrderResponse> items,
             int page,

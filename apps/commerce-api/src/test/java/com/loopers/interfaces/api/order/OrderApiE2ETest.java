@@ -6,7 +6,9 @@ import com.loopers.interfaces.api.member.MemberDto;
 import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,8 +31,14 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import java.util.UUID;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ImportTestcontainers(MySqlTestContainersConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "loopers.queue.order.enabled=true",
+                "loopers.queue.order.throughput-per-second=2"
+        }
+)
+@ImportTestcontainers({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @ActiveProfiles("test")
 class OrderApiE2ETest {
 
@@ -45,14 +53,21 @@ class OrderApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final RedisCleanUp redisCleanUp;
     private final CategoryRepository categoryRepository;
     private UUID brandId;
     private UUID categoryId;
 
     @Autowired
-    public OrderApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp, CategoryRepository categoryRepository) {
+    public OrderApiE2ETest(
+            TestRestTemplate testRestTemplate,
+            DatabaseCleanUp databaseCleanUp,
+            RedisCleanUp redisCleanUp,
+            CategoryRepository categoryRepository
+    ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.redisCleanUp = redisCleanUp;
         this.categoryRepository = categoryRepository;
     }
 
@@ -76,6 +91,7 @@ class OrderApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     private HttpHeaders authHeaders() {
@@ -128,6 +144,67 @@ class OrderApiE2ETest {
 
     private UUID createCategory(String name) {
         return categoryRepository.save(new Category(name)).id();
+    }
+
+    @Nested
+    @DisplayName("주문 대기열 시나리오")
+    class OrderQueueScenario {
+
+        @Test
+        @DisplayName("대기열 재진입 시 마지막 timestamp 기준으로 뒤 순번을 반환한다")
+        void reEnterQueueMovesUserToBack() {
+            final String secondLoginId = "orderuser2";
+            MemberDto.RegisterRequest secondUserRequest = new MemberDto.RegisterRequest(
+                    secondLoginId, TEST_PASSWORD, "주문자2", "19900101", "order2@test.com", "010-7777-5678"
+            );
+            testRestTemplate.exchange(
+                    "/api/v1/members",
+                    HttpMethod.POST,
+                    new HttpEntity<>(secondUserRequest),
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+            );
+
+            ResponseEntity<ApiResponse<OrderDto.OrderQueueStatusResponse>> firstEnter = testRestTemplate.exchange(
+                    "/api/v1/order-queue",
+                    HttpMethod.POST,
+                    new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+            assertThat(firstEnter.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(firstEnter.getBody().data().waitingOrder()).isEqualTo(1);
+
+            HttpHeaders secondHeaders = new HttpHeaders();
+            secondHeaders.set(HEADER_LOGIN_ID, secondLoginId);
+            secondHeaders.set(HEADER_LOGIN_PW, TEST_PASSWORD);
+            testRestTemplate.exchange(
+                    "/api/v1/order-queue",
+                    HttpMethod.POST,
+                    new HttpEntity<>(secondHeaders),
+                    new ParameterizedTypeReference<ApiResponse<OrderDto.OrderQueueStatusResponse>>() {}
+            );
+
+            ResponseEntity<ApiResponse<OrderDto.OrderQueueStatusResponse>> reEnter = testRestTemplate.exchange(
+                    "/api/v1/order-queue",
+                    HttpMethod.POST,
+                    new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(reEnter.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(reEnter.getBody().data().enabled()).isTrue();
+            assertThat(reEnter.getBody().data().waitingOrder()).isEqualTo(2);
+
+            ResponseEntity<ApiResponse<OrderDto.OrderQueueStatusResponse>> status = testRestTemplate.exchange(
+                    "/api/v1/order-queue/me",
+                    HttpMethod.GET,
+                    new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(status.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(status.getBody().data().waitingOrder()).isEqualTo(2);
+            assertThat(status.getBody().data().estimatedWaitSeconds()).isEqualTo(0);
+        }
     }
 
     @Nested

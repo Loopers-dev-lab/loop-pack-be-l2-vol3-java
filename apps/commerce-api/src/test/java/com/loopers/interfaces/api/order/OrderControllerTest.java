@@ -2,7 +2,9 @@ package com.loopers.interfaces.api.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,9 +27,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import java.util.UUID;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "loopers.queue.order.enabled=true",
+        "loopers.queue.order.throughput-per-second=2"
+})
 @AutoConfigureMockMvc
-@ImportTestcontainers(MySqlTestContainersConfig.class)
+@ImportTestcontainers({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @ActiveProfiles("test")
 class OrderControllerTest {
 
@@ -45,6 +50,9 @@ class OrderControllerTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private RedisCleanUp redisCleanUp;
+
     @BeforeEach
     void setUp() throws Exception {
         // 테스트 유저 등록
@@ -59,6 +67,72 @@ class OrderControllerTest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
+    }
+
+    @Nested
+    @DisplayName("POST /api/v1/order-queue")
+    class EnterQueue {
+
+        @Test
+        @DisplayName("대기열 진입 시 순번과 예상 대기 시간을 반환한다")
+        void enterQueueSuccess() throws Exception {
+            mockMvc.perform(post("/api/v1/order-queue")
+                            .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                            .header(HEADER_LOGIN_PW, TEST_PASSWORD))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
+                    .andExpect(jsonPath("$.data.enabled").value(true))
+                    .andExpect(jsonPath("$.data.waitingOrder").value(1))
+                    .andExpect(jsonPath("$.data.estimatedWaitSeconds").value(0));
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/order-queue/me")
+    class GetQueueStatus {
+
+        @Test
+        @DisplayName("대기열 재진입 시 기존 엔트리를 갱신해 뒤로 밀린 순번을 반환한다")
+        void reEnterQueueMovesUserBack() throws Exception {
+            String secondLoginId = "testuser2";
+            var secondRegisterRequest = new com.loopers.interfaces.api.member.MemberDto.RegisterRequest(
+                    secondLoginId, TEST_PASSWORD, "테스터2", "19900101", "test2@example.com", "010-9999-5678"
+            );
+            mockMvc.perform(post("/api/v1/members")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(secondRegisterRequest)));
+
+            mockMvc.perform(post("/api/v1/order-queue")
+                    .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                    .header(HEADER_LOGIN_PW, TEST_PASSWORD));
+
+            mockMvc.perform(post("/api/v1/order-queue")
+                    .header(HEADER_LOGIN_ID, secondLoginId)
+                    .header(HEADER_LOGIN_PW, TEST_PASSWORD));
+
+            mockMvc.perform(post("/api/v1/order-queue")
+                            .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                            .header(HEADER_LOGIN_PW, TEST_PASSWORD))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.data.waitingOrder").value(2));
+
+            mockMvc.perform(get("/api/v1/order-queue/me")
+                            .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                            .header(HEADER_LOGIN_PW, TEST_PASSWORD))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.waitingOrder").value(2))
+                    .andExpect(jsonPath("$.data.estimatedWaitSeconds").value(0));
+        }
+
+        @Test
+        @DisplayName("대기열에 진입하지 않은 사용자가 조회하면 404를 반환한다")
+        void getStatusWithoutEnteringFails() throws Exception {
+            mockMvc.perform(get("/api/v1/order-queue/me")
+                            .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                            .header(HEADER_LOGIN_PW, TEST_PASSWORD))
+                    .andExpect(status().isNotFound());
+        }
     }
 
     @Nested
