@@ -76,6 +76,19 @@ management:
     circuitbreakers:
       enabled: true
 
+queue:
+  tps: 175
+  batch-size: 18
+  token-ttl-seconds: 300
+  status-ttl-seconds: 420
+  max-queue-size: 52500
+  max-slot: 175
+  scheduler-lock-ttl-ms: 300
+  jitter-range-ms: 2000
+  scheduler:
+    enabled: true
+    interval-ms: 100
+
 springdoc:
   use-fqn: true
   swagger-ui:
@@ -96,6 +109,19 @@ spring:
 outbox:
   publisher:
     enabled: false
+
+queue:
+  tps: 10
+  batch-size: 5
+  token-ttl-seconds: 60
+  status-ttl-seconds: 120
+  max-queue-size: 100
+  max-slot: 10
+  scheduler-lock-ttl-ms: 300
+  jitter-range-ms: 0
+  scheduler:
+    enabled: false
+    interval-ms: 100
 
 ---
 spring:
