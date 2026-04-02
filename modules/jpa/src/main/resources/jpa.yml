@@ -63,7 +63,7 @@ logging:
 datasource:
   mysql-jpa:
     main:
-      maximum-pool-size: 10
+      maximum-pool-size: 20
       minimum-idle: 5
 
 ---

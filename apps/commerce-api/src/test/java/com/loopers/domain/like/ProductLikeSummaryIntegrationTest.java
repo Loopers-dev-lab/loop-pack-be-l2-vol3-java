@@ -194,14 +194,21 @@ class ProductLikeSummaryIntegrationTest {
             Product product3 = createProduct(brand, "Clyde", 110000);
 
             // product2: 5명, product3: 3명, product1: 1명
-            // Facade를 통해 호출하여 Like 생성 + product.likeCount 증감을 함께 수행
+            // 클래스 레벨 @Transactional 환경에서는 커밋이 발생하지 않아
+            // AFTER_COMMIT 리스너(LikeEventListener)가 실행되지 않으므로,
+            // likeService로 Like를 생성하고 likeCount는 직접 증가시킨다.
             for (long i = 1; i <= 5; i++) {
-                productFacade.like(i, product2.getId());
+                likeService.like(i, product2.getId());
+                productService.incrementLikeCount(product2.getId());
             }
+
             for (long i = 1; i <= 3; i++) {
-                productFacade.like(i, product3.getId());
+                likeService.like(i, product3.getId());
+                productService.incrementLikeCount(product3.getId());
             }
-            productFacade.like(1L, product1.getId());
+
+            likeService.like(1L, product1.getId());
+            productService.incrementLikeCount(product1.getId());
 
             entityManager.flush();
             entityManager.clear();
