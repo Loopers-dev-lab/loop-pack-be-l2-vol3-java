@@ -54,7 +54,7 @@ class PaymentCancelApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("CANCEL_REQUESTED 재요청 시 PG 취소를 재시도한다")
+    @DisplayName("CANCEL_REQUESTED 재요청 시 PG 취소를 다시 호출하지 않고 기존 상태를 반환한다")
     void cancelDuplicateRequestCallsPgOnce() {
         Payment succeeded = succeededPayment();
         Payment cancelRequested = cancelRequestedPayment();
@@ -70,7 +70,7 @@ class PaymentCancelApplicationServiceTest {
 
         assertThat(first.status()).isEqualTo(PaymentStatus.CANCEL_REQUESTED);
         assertThat(second.status()).isEqualTo(PaymentStatus.CANCEL_REQUESTED);
-        verify(paymentGateway, times(2)).cancelPayment(any());
+        verify(paymentGateway, times(1)).cancelPayment(any());
         assertThat(second.pgTransactionKey()).isEqualTo("trx-1");
     }
 

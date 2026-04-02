@@ -19,7 +19,6 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.member.MemberDto;
 import com.loopers.interfaces.api.order.OrderDto;
 import com.loopers.interfaces.api.product.ProductDto;
-import com.loopers.infrastructure.payment.PaymentCompletionPollingScheduler;
 import com.loopers.infrastructure.payment.PaymentRecoveryRequiredException;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
@@ -53,10 +52,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "loopers.payment.completion.polling.requested-min-age-ms=0"
-)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ImportTestcontainers(MySqlTestContainersConfig.class)
 @ActiveProfiles("test")
 @Import(PaymentApiE2ETest.PaymentGatewayTestConfig.class)
@@ -98,9 +94,6 @@ class PaymentApiE2ETest {
     private PointBalanceRepository pointBalanceRepository;
 
     @Autowired
-    private PaymentCompletionPollingScheduler paymentCompletionPollingScheduler;
-
-    @Autowired
     private FakePaymentGateway fakePaymentGateway;
 
     private UUID brandId;
@@ -135,7 +128,7 @@ class PaymentApiE2ETest {
     }
 
     @Nested
-    @DisplayName("결제 콜백/폴링 수렴")
+    @DisplayName("결제 완료 수렴")
     class CompletionConvergence {
 
         @Test
@@ -258,98 +251,6 @@ class PaymentApiE2ETest {
             assertThat(reconciled.getBody().data().transactionKey()).isEqualTo(recoveredTransactionKey);
         }
 
-        @Test
-        @DisplayName("폴링으로 취소 요청 상태를 CANCELLED 로 수렴시킨다")
-        void pollingCompletesCancel() {
-            UUID orderId = createOrderForPayment();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentResponse>> started = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS,
-                    HttpMethod.POST,
-                    new HttpEntity<>(
-                            new PaymentDto.StartPaymentRequest(orderId, com.loopers.domain.payment.CardType.SAMSUNG, "1234-5678-1234-5678"),
-                            authHeaders()
-                    ),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            String transactionKey = started.getBody().data().transactionKey();
-            fakePaymentGateway.setStatus(transactionKey, PaymentStatus.SUCCEEDED, null);
-
-            ResponseEntity<ApiResponse<Void>> callback = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "/callback",
-                    HttpMethod.POST,
-                    new HttpEntity<>(new PaymentCallbackDto.CallbackRequest(TEST_LOGIN_ID, transactionKey), callbackHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-            assertThat(callback.getStatusCode()).isEqualTo(HttpStatus.OK);
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentResponse>> cancelled = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "/" + orderId + "/cancel",
-                    HttpMethod.PATCH,
-                    new HttpEntity<>(authHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(cancelled.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(cancelled.getBody()).isNotNull();
-            assertThat(cancelled.getBody().data().status()).isEqualTo("CANCEL_RECONCILE_REQUIRED");
-
-            fakePaymentGateway.setStatus(transactionKey, PaymentStatus.CANCELLED, null);
-            paymentCompletionPollingScheduler.pollPendingPayments();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentListResponse>> queried = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "?orderId=" + orderId,
-                    HttpMethod.GET,
-                    new HttpEntity<>(authHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(queried.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(queried.getBody()).isNotNull();
-            assertThat(queried.getBody().data().payments()).isNotEmpty();
-            assertThat(queried.getBody().data().payments().get(0).status()).isEqualTo("CANCELLED");
-        }
-
-        @Test
-        @DisplayName("콜백이 오지 않아도 폴링으로 REQUESTED 결제를 수렴시킨다")
-        void pollingCompletesRequestedWithoutCallback() {
-            UUID orderId = createOrderForPayment();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentResponse>> started = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS,
-                    HttpMethod.POST,
-                    new HttpEntity<>(
-                            new PaymentDto.StartPaymentRequest(orderId, com.loopers.domain.payment.CardType.SAMSUNG, "1234-5678-1234-5678"),
-                            authHeaders()
-                    ),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(started.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            String transactionKey = started.getBody().data().transactionKey();
-            fakePaymentGateway.setStatus(transactionKey, PaymentStatus.SUCCEEDED, null);
-
-            paymentCompletionPollingScheduler.pollPendingPayments();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentListResponse>> queried = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "?orderId=" + orderId,
-                    HttpMethod.GET,
-                    new HttpEntity<>(authHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(queried.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(queried.getBody()).isNotNull();
-            assertThat(queried.getBody().data().payments()).isNotEmpty();
-            assertThat(queried.getBody().data().payments().get(0).status()).isEqualTo("SUCCEEDED");
-        }
     }
 
     @Nested

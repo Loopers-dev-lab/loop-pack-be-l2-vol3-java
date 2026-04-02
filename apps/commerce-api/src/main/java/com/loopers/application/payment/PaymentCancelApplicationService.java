@@ -24,13 +24,14 @@ public class PaymentCancelApplicationService {
         Payment payment = paymentRepository.findByMemberIdAndOrderIdForUpdate(command.memberId(), command.orderId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "결제 내역을 찾을 수 없습니다."));
 
-        if (payment.status() == PaymentStatus.CANCELLED) {
+        if (payment.status() == PaymentStatus.CANCELLED
+                || payment.status() == PaymentStatus.CANCEL_REQUESTED) {
             return payment;
         }
 
         Payment saved = switch (payment.status()) {
             case REQUESTED, SUCCEEDED, CANCEL_FAILED -> paymentRepository.save(payment.requestCancel());
-            case CANCEL_REQUESTED, CANCEL_RECONCILE_REQUIRED -> payment;
+            case CANCEL_RECONCILE_REQUIRED -> payment;
             default -> throw new CoreException(ErrorType.CONFLICT, "취소 요청이 가능한 결제 상태가 아닙니다.");
         };
 
