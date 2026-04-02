@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.queue.WaitingQueueService;
+import com.loopers.infrastructure.metrics.QueueInfrastructureMetrics;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.DltHandler;
@@ -18,7 +19,9 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Redis 복구 후 대기열에 반영한다. 실패 시 재시도 토픽·DLQ로 넘긴다.
+ * Kafka에 적재된 대기열 진입 복구 커맨드를 소비해 Redis에 반영한다. 실패 시 재시도 토픽·DLT로 넘긴다.
+ * <p>
+ * 정상 복구·DLT 진입 건수는 {@link com.loopers.infrastructure.metrics.QueueInfrastructureMetrics}에 위임한다.
  */
 @Component
 @ConditionalOnProperty(name = "queue.fallback.enabled", havingValue = "true", matchIfMissing = true)
@@ -28,14 +31,28 @@ public class QueueJoinFallbackKafkaListener {
 
     private final WaitingQueueService waitingQueueService;
     private final ObjectMapper objectMapper;
+    private final QueueInfrastructureMetrics queueInfrastructureMetrics;
 
-    public QueueJoinFallbackKafkaListener(WaitingQueueService waitingQueueService, ObjectMapper objectMapper) {
+    /**
+     * @param queueInfrastructureMetrics 복구·DLT 처리 건수를 Micrometer에 기록하기 위한 공용 빈
+     */
+    public QueueJoinFallbackKafkaListener(
+            WaitingQueueService waitingQueueService,
+            ObjectMapper objectMapper,
+            QueueInfrastructureMetrics queueInfrastructureMetrics
+    ) {
         this.waitingQueueService = waitingQueueService;
         this.objectMapper = objectMapper;
+        this.queueInfrastructureMetrics = queueInfrastructureMetrics;
     }
 
     /**
-     * Redis 장애 시 대기열 진입 의도를 Kafka로 발행한다.
+     * 재시도 토픽 설정
+     * @param attempts 재시도 횟수
+     * @param backoff 재시도 백오프
+     * @param kafkaTemplate 카프카 템플릿
+     * @param topicSuffixingStrategy 토픽 접미사 전략
+     * @param dltStrategy DLT 토픽 메시지 처리 방법 지정
      */
     @RetryableTopic(
             attempts = "4",
@@ -44,13 +61,13 @@ public class QueueJoinFallbackKafkaListener {
             topicSuffixingStrategy = TopicSuffixingStrategy.SUFFIX_WITH_INDEX_VALUE,
             dltStrategy = DltStrategy.FAIL_ON_ERROR
     )
-    /**
-     * Kafka 대기열 진입 의도를 수신한다.
-     */
     @KafkaListener(
             topics = "${queue.fallback.topic-name:queue-join-fallback}",
             groupId = "${queue.fallback.consumer-group:loopers-queue-join-fallback-consumer}"
     )
+    /**
+     * Kafka에서 복구 커맨드를 수신해 Redis 대기열에 반영한다.
+     */
     public void onMessage(ConsumerRecord<Object, Object> record, Acknowledgment acknowledgment) {
         Envelope envelope = parse(record.value());
         if (!EVENT_TYPE.equals(envelope.eventType())) {
@@ -62,14 +79,16 @@ public class QueueJoinFallbackKafkaListener {
         long userId = data.path("userId").asLong();
         long score = data.path("score").asLong();
         waitingQueueService.joinQueueFromRecovery(eventId, userId, score);
+        queueInfrastructureMetrics.recordKafkaJoinFallbackRecovered();
         acknowledgment.acknowledge();
     }
-
+    
     /**
      * Kafka 대기열 진입 의도를 수신 실패 시 DLQ로 넘긴다.
      */
     @DltHandler
     public void onDlt(ConsumerRecord<Object, Object> record, Acknowledgment acknowledgment) {
+        queueInfrastructureMetrics.recordKafkaJoinFallbackDlt();
         acknowledgment.acknowledge();
     }
 
