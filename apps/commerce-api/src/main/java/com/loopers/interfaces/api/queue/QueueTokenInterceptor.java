@@ -17,12 +17,13 @@ import org.springframework.web.servlet.HandlerInterceptor;
 // WebMvcConfig에서 /api/v1/orders 경로에 등록되어 POST 요청에만 동작한다.
 //
 // 동작 흐름:
-// [preHandle] 주문 생성(POST) 요청 시 토큰 보유 여부를 검증한다.
+// [preHandle] 주문 생성(POST) 요청 시 토큰을 원자적으로 소모(GETDEL)한다.
 //   - 대기열이 비활성 상태이면 토큰 없이도 통과시킨다.
-//   - 대기열이 활성 상태이면 입장 토큰이 없는 유저의 요청을 거부한다.
+//   - 대기열이 활성 상태이면 토큰을 GETDEL로 소모하고, 없으면 거부한다.
+//   - 동시 요청 시 GETDEL의 원자성으로 하나만 통과한다.
 //
-// [afterCompletion] 주문이 성공(2xx)하면 사용된 토큰을 삭제하여 1회성 사용을 보장한다.
-//   - 주문 실패 시 토큰을 유지하여 유저가 재시도할 수 있도록 한다.
+// [afterCompletion] 주문이 실패(non-2xx 또는 예외)하면 토큰을 재발급하여 재시도 기회를 제공한다.
+//   - 주문 성공 시 아무 작업도 하지 않는다 (preHandle에서 이미 소모됨).
 @Slf4j
 @RequiredArgsConstructor
 @Component
@@ -35,6 +36,10 @@ public class QueueTokenInterceptor implements HandlerInterceptor {
     // preHandle에서 설정하고 afterCompletion에서 참조하기 위한 대기열 활성화 상태 attribute 키.
     // preHandle과 afterCompletion 사이에 피처 플래그가 변경되는 race condition을 방지한다.
     private static final String QUEUE_ENABLED_ATTRIBUTE = "queueEnabled";
+
+    // preHandle에서 토큰이 소모되었음을 afterCompletion에 전달하기 위한 attribute 키.
+    // 주문 실패 시 토큰 재발급 여부를 판단하는 데 사용된다.
+    private static final String TOKEN_CONSUMED_ATTRIBUTE = "tokenConsumed";
 
     private final QueueService queueService;
     private final QueueTokenService queueTokenService;
@@ -61,18 +66,19 @@ public class QueueTokenInterceptor implements HandlerInterceptor {
             throw new CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 필요합니다.");
         }
 
-        // Redis에서 해당 유저의 입장 토큰 존재 여부를 확인한다.
-        // 토큰이 없거나 TTL 만료된 경우 주문을 거부한다.
-        if (!queueTokenService.hasToken(member.getId())) {
+        // GETDEL로 토큰을 원자적으로 소모한다.
+        // 동시 요청 시 하나만 토큰 값을 받고, 나머지는 empty로 차단된다.
+        if (queueTokenService.consumeToken(member.getId()).isEmpty()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "입장 토큰이 없습니다. 대기열에 먼저 진입해주세요.");
         }
 
+        request.setAttribute(TOKEN_CONSUMED_ATTRIBUTE, true);
         return true;
     }
 
     // 주문 요청 처리 완료 후 호출된다.
-    // 주문이 성공(2xx, 예외 없음)한 경우에만 토큰을 삭제하여 1회성 사용을 보장한다.
-    // 주문 실패 시 토큰을 유지하여 TTL 내에서 재시도할 수 있도록 한다.
+    // preHandle에서 토큰이 이미 소모(GETDEL)되었으므로, 성공 시 추가 작업이 필요 없다.
+    // 주문 실패(non-2xx 또는 예외) 시 토큰을 재발급하여 재시도 기회를 제공한다.
     //
     // 안전성 참고:
     // ApiControllerAdvice(@RestControllerAdvice)가 예외를 처리하면 ex는 null이 될 수 있으나,
@@ -89,6 +95,11 @@ public class QueueTokenInterceptor implements HandlerInterceptor {
             return;
         }
 
+        Boolean tokenConsumed = (Boolean) request.getAttribute(TOKEN_CONSUMED_ATTRIBUTE);
+        if (!Boolean.TRUE.equals(tokenConsumed)) {
+            return;
+        }
+
         Member member = getMember(request);
         if (member == null) {
             return;
@@ -96,8 +107,15 @@ public class QueueTokenInterceptor implements HandlerInterceptor {
 
         boolean isSuccess = ex == null && response.getStatus() >= 200 && response.getStatus() < 300;
         if (isSuccess) {
-            queueTokenService.deleteToken(member.getId());
-            log.info("주문 완료 후 토큰 삭제 memberId={}, status={}", member.getId(), response.getStatus());
+            log.info("주문 성공, 토큰 소모 완료 memberId={}, status={}", member.getId(), response.getStatus());
+        } else {
+            // 주문 실패 시 토큰을 재발급하여 재시도 기회를 제공한다.
+            try {
+                queueTokenService.issueToken(member.getId());
+                log.info("주문 실패, 토큰 재발급 memberId={}, status={}", member.getId(), response.getStatus());
+            } catch (Exception restoreEx) {
+                log.error("주문 실패 후 토큰 재발급도 실패 memberId={}", member.getId(), restoreEx);
+            }
         }
     }
 

@@ -28,9 +28,15 @@ public class QueueTokenService {
     }
 
     // 유저에게 유효한 토큰이 존재하는지 확인한다.
-    // QueueTokenInterceptor에서 주문 API 접근 권한 검증에 사용된다.
     public boolean hasToken(Long userId) {
         return queueTokenRepository.hasToken(userId);
+    }
+
+    // 유저의 토큰을 원자적으로 소모한다 (GETDEL).
+    // 토큰 값을 반환하면서 동시에 삭제하여, 동시 요청 시 하나만 성공하도록 보장한다.
+    // QueueTokenInterceptor.preHandle에서 주문 API 진입 시 호출된다.
+    public Optional<String> consumeToken(Long userId) {
+        return queueTokenRepository.consumeToken(userId);
     }
 
     // 유저의 토큰을 조회한다. TTL 만료 시 Optional.empty()를 반환한다.

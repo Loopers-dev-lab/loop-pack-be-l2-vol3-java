@@ -17,7 +17,10 @@ public interface QueueTokenRepository {
     // 유저에게 유효한 입장 토큰이 존재하는지 확인한다.
     boolean hasToken(Long userId);
 
+    // 유저의 입장 토큰을 원자적으로 소모한다 (GETDEL).
+    // 토큰 값을 반환하면서 동시에 삭제하여, 동시 요청 시 하나만 성공하도록 보장한다.
+    Optional<String> consumeToken(Long userId);
+
     // 유저의 입장 토큰을 명시적으로 삭제한다.
-    // 주문 성공 후 인터셉터(QueueTokenInterceptor)에서 호출하여 토큰을 회수한다.
     void delete(Long userId);
 }

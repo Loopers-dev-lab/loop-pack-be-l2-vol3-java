@@ -51,7 +51,15 @@ public class QueueTokenRedisRepository implements QueueTokenRepository {
         return Boolean.TRUE.equals(redisTemplate.hasKey(tokenKey(userId)));
     }
 
-    // DEL: 토큰을 명시적으로 삭제한다. 주문 성공 후 토큰 회수에 사용된다.
+    // GETDEL: 토큰을 원자적으로 조회하면서 삭제한다.
+    // 동시 요청 시 하나만 토큰 값을 받고, 나머지는 empty를 받아 1회성 사용을 보장한다.
+    @Override
+    public Optional<String> consumeToken(Long userId) {
+        String token = redisTemplate.opsForValue().getAndDelete(tokenKey(userId));
+        return Optional.ofNullable(token);
+    }
+
+    // DEL: 토큰을 명시적으로 삭제한다.
     @Override
     public void delete(Long userId) {
         redisTemplate.delete(tokenKey(userId));
