@@ -33,7 +33,7 @@ class QueueSchedulerTest {
         waitingQueueService = mock(WaitingQueueService.class);
         entryTokenService = mock(EntryTokenService.class);
         schedulerHealthChecker = mock(SchedulerHealthChecker.class);
-        QueueProperties queueProperties = new QueueProperties(true, 14, 100, 300, 140, 100000);
+        QueueProperties queueProperties = new QueueProperties(true, 14, 100, 300, 140, 100000, 2);
         throughputTracker = new ThroughputTracker(queueProperties);
         queueScheduler = new QueueScheduler(waitingQueueService, entryTokenService, queueProperties, throughputTracker, schedulerHealthChecker);
     }
@@ -82,7 +82,7 @@ class QueueSchedulerTest {
     @DisplayName("queue.enabled=false이면 아무 동작 안 함")
     void issueTokens_disabled_noop() {
         // given
-        QueueProperties disabledProperties = new QueueProperties(false, 14, 100, 300, 140, 100000);
+        QueueProperties disabledProperties = new QueueProperties(false, 14, 100, 300, 140, 100000, 2);
         ThroughputTracker disabledTracker = new ThroughputTracker(disabledProperties);
         QueueScheduler disabledScheduler = new QueueScheduler(waitingQueueService, entryTokenService, disabledProperties, disabledTracker, schedulerHealthChecker);
 

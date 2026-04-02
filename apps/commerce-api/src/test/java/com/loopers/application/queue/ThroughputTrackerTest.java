@@ -14,7 +14,7 @@ class ThroughputTrackerTest {
 
     @BeforeEach
     void setUp() {
-        QueueProperties properties = new QueueProperties(true, 14, 100, 300, 140, 100000);
+        QueueProperties properties = new QueueProperties(true, 14, 100, 300, 140, 100000, 2);
         tracker = new ThroughputTracker(properties);
     }
 

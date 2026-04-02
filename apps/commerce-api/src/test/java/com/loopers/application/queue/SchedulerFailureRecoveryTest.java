@@ -31,7 +31,7 @@ class SchedulerFailureRecoveryTest {
         entryTokenService = mock(EntryTokenService.class);
         queueModeRepository = mock(QueueModeRepository.class);
         schedulerHealthChecker = mock(SchedulerHealthChecker.class);
-        QueueProperties queueProperties = new QueueProperties(true, 14, 100, 300, 140, 100000);
+        QueueProperties queueProperties = new QueueProperties(true, 14, 100, 300, 140, 100000, 2);
         ThroughputTracker throughputTracker = new ThroughputTracker(queueProperties);
         queueApp = new QueueApp(waitingQueueService, entryTokenService, queueProperties,
                 throughputTracker, queueModeRepository, schedulerHealthChecker);

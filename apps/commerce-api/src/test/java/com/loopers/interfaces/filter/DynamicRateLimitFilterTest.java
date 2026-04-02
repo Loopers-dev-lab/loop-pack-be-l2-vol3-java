@@ -23,7 +23,7 @@ class DynamicRateLimitFilterTest {
     void setUp() {
         evaluator = mock(RateLimitModeEvaluator.class);
         RateLimitProperties properties = new RateLimitProperties(
-                true, 0.85, 0.60, 10, 1000, 3, 10
+                true, 0.85, 0.60, 10, 1000, 3, 10, 1, 2
         );
         filter = new DynamicRateLimitFilter(evaluator, properties);
     }
@@ -105,7 +105,7 @@ class DynamicRateLimitFilterTest {
     @DisplayName("enabled=false이면 필터 비활성")
     void disabled_allPass() throws Exception {
         RateLimitProperties disabledProps = new RateLimitProperties(
-                false, 0.85, 0.60, 10, 1000, 1, 10
+                false, 0.85, 0.60, 10, 1000, 1, 10, 1, 2
         );
         DynamicRateLimitFilter disabledFilter = new DynamicRateLimitFilter(evaluator, disabledProps);
         when(evaluator.isActive()).thenReturn(true);
