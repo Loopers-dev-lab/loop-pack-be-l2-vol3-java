@@ -11,27 +11,32 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.loopers.support.entry.EntryTokenStore;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.support.queue.QueueProperties;
 import com.loopers.support.queue.WaitingQueue;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ReadQueuePositionUseCase 단위 테스트")
 class ReadQueuePositionUseCaseTest {
 
-    @InjectMocks
-    private ReadQueuePositionUseCase useCase;
-
     @Mock
     private WaitingQueue waitingQueue;
 
     @Mock
     private EntryTokenStore entryTokenStore;
+
+    private final QueuePositionCalculator queuePositionCalculator = new QueuePositionCalculator(
+            new QueueProperties(true, 2, 400)
+    );
+
+    private ReadQueuePositionUseCase useCase() {
+        return new ReadQueuePositionUseCase(waitingQueue, entryTokenStore, queuePositionCalculator);
+    }
 
     @DisplayName("대기열 순번을 조회할 때,")
     @Nested
@@ -46,7 +51,7 @@ class ReadQueuePositionUseCaseTest {
             given(waitingQueue.getTotalCount()).willReturn(200L);
 
             // act
-            QueuePositionResult result = useCase.execute(userId);
+            QueuePositionResult result = useCase().execute(userId);
 
             // assert — position 121, ceil(121/5) = 25초
             assertAll(
@@ -66,7 +71,7 @@ class ReadQueuePositionUseCaseTest {
             given(waitingQueue.getTotalCount()).willReturn(100L);
 
             // act
-            QueuePositionResult result = useCase.execute(userId);
+            QueuePositionResult result = useCase().execute(userId);
 
             // assert — position 60, 60/5 = 12초
             assertAll(
@@ -84,7 +89,7 @@ class ReadQueuePositionUseCaseTest {
             given(entryTokenStore.getToken(userId)).willReturn(Optional.of("test-token"));
 
             // act
-            QueuePositionResult result = useCase.execute(userId);
+            QueuePositionResult result = useCase().execute(userId);
 
             // assert
             assertAll(
@@ -103,7 +108,7 @@ class ReadQueuePositionUseCaseTest {
             given(entryTokenStore.getToken(userId)).willReturn(Optional.empty());
 
             // act & assert
-            assertThatThrownBy(() -> useCase.execute(userId))
+            assertThatThrownBy(() -> useCase().execute(userId))
                 .isInstanceOf(CoreException.class)
                 .hasFieldOrPropertyWithValue("errorType", ErrorType.QUEUE_NOT_ENTERED);
         }

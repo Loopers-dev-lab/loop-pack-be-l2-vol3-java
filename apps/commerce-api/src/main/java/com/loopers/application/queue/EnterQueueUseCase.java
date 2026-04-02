@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 public class EnterQueueUseCase {
 
     private final WaitingQueue waitingQueue;
+    private final QueuePositionCalculator queuePositionCalculator;
 
     /**
      * @param userId 대기열에 진입할 사용자 ID
@@ -24,6 +25,6 @@ public class EnterQueueUseCase {
         waitingQueue.enter(userId);
         Long rank = waitingQueue.getPosition(userId);
         long totalWaiting = waitingQueue.getTotalCount();
-        return QueuePositionCalculator.calculate(rank, totalWaiting);
+        return queuePositionCalculator.calculate(rank, totalWaiting);
     }
 }

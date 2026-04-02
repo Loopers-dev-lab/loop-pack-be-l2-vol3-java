@@ -3,10 +3,10 @@ package com.loopers.support.queue;
 import java.util.List;
 
 /**
- * 대기열에서 입장열로의 원자적 전환을 위한 포트 인터페이스.
+ * 대기열에서 입장열로의 전환을 위한 포트 인터페이스.
  *
- * <p>대기열 조회 → 입장열 추가 → 대기열 제거를 하나의 원자적 연산으로 수행하여
- * 중간 장애로 인한 상태 불일치를 방지한다.</p>
+ * <p>대기열 조회 → 토큰 발급(SET NX) → 대기열 제거를 순차 실행한다.
+ * SET NX의 멱등성으로 중간 장애 시에도 다음 사이클에서 자연 복구된다.</p>
  */
 public interface WaitingQueueAdmitter {
 

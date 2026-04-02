@@ -19,6 +19,7 @@ public class ReadQueuePositionUseCase {
 
     private final WaitingQueue waitingQueue;
     private final EntryTokenStore entryTokenStore;
+    private final QueuePositionCalculator queuePositionCalculator;
 
     /**
      * @param userId 대기열 순번을 조회할 사용자 ID
@@ -29,7 +30,7 @@ public class ReadQueuePositionUseCase {
         Long rank = waitingQueue.getPosition(userId);
         if (Objects.nonNull(rank)) {
             long totalWaiting = waitingQueue.getTotalCount();
-            return QueuePositionCalculator.calculate(rank, totalWaiting);
+            return queuePositionCalculator.calculate(rank, totalWaiting);
         }
 
         return entryTokenStore.getToken(userId)

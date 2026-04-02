@@ -28,6 +28,9 @@ import com.loopers.interfaces.api.product.v1.ProductSteps;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
 
+import org.springframework.test.context.TestPropertySource;
+
+@TestPropertySource(properties = "queue.enabled=true")
 @DisplayName("대기열 → 입장 토큰 발급 → 주문 E2E 테스트")
 class QueueOrderFlowE2ETest extends BaseE2ETest {
 

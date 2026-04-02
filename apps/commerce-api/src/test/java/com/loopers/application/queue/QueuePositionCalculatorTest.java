@@ -7,8 +7,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import com.loopers.support.queue.QueueProperties;
+
 @DisplayName("QueuePositionCalculator 단위 테스트")
 class QueuePositionCalculatorTest {
+
+    private final QueuePositionCalculator calculator = new QueuePositionCalculator(
+            new QueueProperties(true, 2, 400)
+    );
 
     @DisplayName("대기열 순번 결과를 계산할 때,")
     @Nested
@@ -18,7 +24,7 @@ class QueuePositionCalculatorTest {
         @Test
         void returnsPosition1_whenRankIsZero() {
             // act
-            QueuePositionResult result = QueuePositionCalculator.calculate(0, 1);
+            QueuePositionResult result = calculator.calculate(0, 1);
 
             // assert — position 1, ceil(1/5) = 1초
             assertAll(
@@ -34,7 +40,7 @@ class QueuePositionCalculatorTest {
         @Test
         void returnsExactSeconds_whenDivisible() {
             // act — rank 59 → position 60, 60/5 = 12초
-            QueuePositionResult result = QueuePositionCalculator.calculate(59, 100);
+            QueuePositionResult result = calculator.calculate(59, 100);
 
             // assert
             assertAll(
@@ -48,7 +54,7 @@ class QueuePositionCalculatorTest {
         @Test
         void returnsSoonPolling_whenPositionInSoonTier() {
             // act — rank 120 → position 121
-            QueuePositionResult result = QueuePositionCalculator.calculate(120, 200);
+            QueuePositionResult result = calculator.calculate(120, 200);
 
             // assert — ceil(121/5) = 25초, SOON 구간
             assertAll(
