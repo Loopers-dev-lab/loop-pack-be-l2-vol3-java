@@ -12,6 +12,7 @@ import com.loopers.domain.member.vo.MemberId;
 import com.loopers.domain.member.vo.Name;
 import com.loopers.domain.member.vo.Password;
 import com.loopers.application.order.OrderAppService;
+import com.loopers.application.queue.TokenService;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.Option;
 import com.loopers.domain.product.OptionRepository;
@@ -65,23 +66,28 @@ class AdminOrderApiE2ETest {
     private OrderAppService orderAppService;
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+    @Autowired
+    private TokenService tokenService;
 
     private Option testOption;
+    private Member testMember;
 
     @BeforeEach
     void setUp() {
         Brand brand = brandRepository.save(Brand.create("테스트 브랜드"));
         Product product = productRepository.save(Product.create(brand.getId(), "테스트 상품", Money.of(BigDecimal.valueOf(10000))));
         testOption = optionRepository.save(Option.create(product.getId(), "기본 옵션", Money.of(BigDecimal.valueOf(1000)), 100));
-        createTestMember("testuser", TEST_PASSWORD);
+        testMember = createTestMember("testuser", TEST_PASSWORD);
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        tokenService.delete(testMember.getId());
     }
 
     private Long createOrder() {
+        tokenService.issue(testMember.getId());
         OrderDto.CreateDirectRequest request = new OrderDto.CreateDirectRequest(testOption.getId(), 2);
         HttpEntity<OrderDto.CreateDirectRequest> httpEntity = createUserHttpEntity(request, "testuser", TEST_PASSWORD);
         ResponseEntity<ApiResponse<OrderDto.OrderResponse>> response = testRestTemplate.exchange(

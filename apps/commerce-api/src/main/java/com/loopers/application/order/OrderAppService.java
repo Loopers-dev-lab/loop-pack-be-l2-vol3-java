@@ -3,6 +3,7 @@ package com.loopers.application.order;
 import com.loopers.application.cart.CartAppService;
 import com.loopers.application.coupon.CouponAppService;
 import com.loopers.application.product.ProductAppService;
+import com.loopers.application.queue.TokenService;
 import com.loopers.domain.cart.CartItem;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.coupon.IssuedCoupon;
@@ -35,6 +36,7 @@ public class OrderAppService {
     private final CouponAppService couponAppService;
     private final CartAppService cartAppService;
     private final ApplicationEventPublisher eventPublisher;
+    private final TokenService tokenService;
 
     @Transactional
     public Order createOrder(OrderCreateCommand command) {
@@ -95,6 +97,9 @@ public class OrderAppService {
         // 6. 주문 생성 이벤트 발행
         eventPublisher.publishEvent(new OrderCreatedEvent(
                 order.getId(), command.getUserId(), productIds, ZonedDateTime.now()));
+
+        // 7. 입장 토큰 삭제
+        tokenService.delete(command.getUserId());
 
         return order;
     }
