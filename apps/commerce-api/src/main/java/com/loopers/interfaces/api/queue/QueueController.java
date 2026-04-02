@@ -13,7 +13,8 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/queue")
 public class QueueController {
 
-    private static final double ADMISSION_RATE = 140.0;
+    private static final double ADMISSION_RATE = 80.0;
+    private static final long MAX_QUEUE_SIZE = 48_000;
 
     private final WaitingQueueRedisRepository waitingQueueRedisRepository;
     private final EntryTokenRedisRepository entryTokenRedisRepository;
@@ -26,6 +27,12 @@ public class QueueController {
             long ttl = entryTokenRedisRepository.getRemainingTtl(memberId);
             return ApiResponse.success(new QueueDto.EnterResponse(
                 "ADMITTED", null, null, ttl
+            ));
+        }
+
+        if (waitingQueueRedisRepository.size() >= MAX_QUEUE_SIZE) {
+            return ApiResponse.success(new QueueDto.EnterResponse(
+                "QUEUE_FULL", null, null, null
             ));
         }
 

@@ -69,6 +69,20 @@ public class WaitingQueueRedisRepository {
     }
 
     /**
+     * 대기 시간 초과 엔트리 일괄 제거.
+     *
+     * <p>score(진입 시각 millis) 기준으로 cutoff 이전에 진입한 엔트리를 제거한다.
+     * ZREMRANGEBYSCORE queue:waiting:order -inf {cutoffTimeMillis}</p>
+     *
+     * @return 제거된 엔트리 수
+     */
+    public long removeExpiredEntries(long cutoffTimeMillis) {
+        Long removed = writeTemplate.opsForZSet()
+            .removeRangeByScore(KEY, Double.NEGATIVE_INFINITY, cutoffTimeMillis);
+        return removed != null ? removed : 0;
+    }
+
+    /**
      * 특정 유저 제거.
      */
     public void remove(Long memberId) {

@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 class QueueAdmissionSchedulerTest {
@@ -35,7 +36,7 @@ class QueueAdmissionSchedulerTest {
         tuples.add(new DefaultTypedTuple<>("2", 1001.0));
         tuples.add(new DefaultTypedTuple<>("3", 1002.0));
 
-        when(waitingQueueRedisRepository.popMin(14)).thenReturn(tuples);
+        when(waitingQueueRedisRepository.popMin(8)).thenReturn(tuples);
 
         scheduler.admitUsers();
 
@@ -48,20 +49,40 @@ class QueueAdmissionSchedulerTest {
     @DisplayName("빈 큐 → 토큰 발급 없음")
     @Test
     void admitUsers_emptyQueue_noTokenIssued() {
-        when(waitingQueueRedisRepository.popMin(14)).thenReturn(Collections.emptySet());
+        when(waitingQueueRedisRepository.popMin(8)).thenReturn(Collections.emptySet());
 
         scheduler.admitUsers();
 
         verifyNoInteractions(entryTokenRedisRepository);
     }
 
-    @DisplayName("14명 배치 크기로 ZPOPMIN 호출")
+    @DisplayName("8명 배치 크기로 ZPOPMIN 호출")
     @Test
-    void admitUsers_requestsBatchSizeOf14() {
-        when(waitingQueueRedisRepository.popMin(14)).thenReturn(Collections.emptySet());
+    void admitUsers_requestsBatchSizeOf8() {
+        when(waitingQueueRedisRepository.popMin(8)).thenReturn(Collections.emptySet());
 
         scheduler.admitUsers();
 
-        verify(waitingQueueRedisRepository).popMin(14);
+        verify(waitingQueueRedisRepository).popMin(8);
+    }
+
+    @DisplayName("타임아웃 정리: 만료 엔트리 제거 호출")
+    @Test
+    void removeExpiredEntries_callsRepositoryWithCutoff() {
+        when(waitingQueueRedisRepository.removeExpiredEntries(anyLong())).thenReturn(5L);
+
+        scheduler.removeExpiredEntries();
+
+        verify(waitingQueueRedisRepository).removeExpiredEntries(anyLong());
+    }
+
+    @DisplayName("타임아웃 정리: 제거 대상 없으면 로그 미출력 (정상 동작)")
+    @Test
+    void removeExpiredEntries_noneExpired_noException() {
+        when(waitingQueueRedisRepository.removeExpiredEntries(anyLong())).thenReturn(0L);
+
+        scheduler.removeExpiredEntries();
+
+        verify(waitingQueueRedisRepository).removeExpiredEntries(anyLong());
     }
 }

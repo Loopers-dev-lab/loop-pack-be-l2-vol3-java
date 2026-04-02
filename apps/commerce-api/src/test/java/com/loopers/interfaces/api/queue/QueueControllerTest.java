@@ -72,6 +72,22 @@ class QueueControllerTest {
         assertThat(data.position()).isEqualTo(11L);
     }
 
+    @DisplayName("enter: 대기열 가득 참 → QUEUE_FULL 반환")
+    @Test
+    void enter_queueFull_returnsQueueFull() {
+        when(entryTokenRedisRepository.exists(1L)).thenReturn(false);
+        when(waitingQueueRedisRepository.size()).thenReturn(48_000L);
+
+        ApiResponse<QueueDto.EnterResponse> response = controller.enter(member);
+
+        QueueDto.EnterResponse data = response.data();
+        assertThat(data.status()).isEqualTo("QUEUE_FULL");
+        assertThat(data.position()).isNull();
+        assertThat(data.estimatedWaitSeconds()).isNull();
+        assertThat(data.tokenRemainingSeconds()).isNull();
+        verify(waitingQueueRedisRepository, never()).add(anyLong());
+    }
+
     @DisplayName("position: 대기 중 → WAITING + 순번")
     @Test
     void position_waiting_returnsWaitingWithPosition() {
