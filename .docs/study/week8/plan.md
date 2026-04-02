@@ -112,32 +112,48 @@ estimatedWaitSeconds 이상   → 5초
 
 ---
 
-### 3. 스케줄러 설계: 최대 토큰 수 기반
+### 3. 스케줄러 설계: 순수 게이트식
 
-**결정**: N초마다 batch_size명씩 발급 (게이트식), 단 활성 토큰 수가 MAX_TOKEN_COUNT 이상이면 발급 skip (안전장치)
+**결정**: N초마다 무조건 batch_size명씩 발급 (조건 없음)
 
-**두 가지를 함께 쓰는 이유**:
-- 게이트식(N초마다 N명)만 쓰면 발급 속도는 제어되지만, 토큰 미사용 누적 시 동시 활성 토큰 수가 서버 한계를 초과할 수 있음
-- MAX_TOKEN_COUNT 상한만 쓰면 빈 슬롯이 생길 때마다 채우는 은행창구식이 되어 발급 패턴이 불규칙해짐
-- 게이트식 + 상한으로 **발급 속도와 동시 처리 수를 함께 제어**
+**MAX_TOKEN_COUNT 방식을 선택하지 않은 이유**:
+- `ZCARD >= MAX → skip` 조건은 사실상 은행창구식 (자리가 있으면 발급)
+- 조건을 추가해도 MAX 초과가 가능 (active=160, batch=18 → 178) 하고, MAX 근처에선 발급을 통째로 skip → 처리량 저하
+- 순수 은행창구 대비 장점이 없음
+
+**설정값 산정 공식**:
+```
+safe_TPS = 한계_TPS * 0.7
+N * (TTL / T) ≤ safe_TPS
+→ 설정값 자체가 안전장치 역할
+```
+- 최악의 케이스(활성 토큰 보유자가 TTL 내에 동시에 요청) 기준으로 계산
+- 실제 운영 중 여유가 있으면 T를 줄이거나 N을 늘려 처리량 증가
+
+**설정값 산정 근거**:
+```
+커넥션 풀 = 50
+평균 처리 시간 ≈ 0.2초
+이론적 최대 TPS = 50 / 0.2 = 250
+safe_TPS = 250 * 0.7 = 175
+
+N * (TTL / T) ≤ 175
+→ T=1s, N=1: 1 * (180/1) = 180  (이론적 최악치 기준 아슬아슬 초과,
+  실제 운영에서 180명이 동시에 1초에 요청하는 일은 없으므로 허용)
+```
 
 **설정값**:
 ```
-batch-size: 18           # 스케줄러 1회 발급 수
-scheduler-interval-ms: 1000  # 스케줄러 주기
-max-token-count: 175     # 활성 토큰 상한 (안전장치)
-token-ttl-seconds: 300   # 토큰 TTL
+batch-size: 1            # 스케줄러 1회 발급 수
+scheduler-interval-ms: 1000   # 스케줄러 주기 (1초)
+token-ttl-seconds: 180   # 토큰 TTL (3분)
 ```
-
-**Thundering Herd가 문제되지 않는 이유**:
-- batch_size(18명)씩 발급하므로 한 번에 몰리는 인원이 제한됨
-- MAX_TOKEN_COUNT(175)는 안전 TPS 이내이므로 전원이 동시에 주문해도 서버 보호
+※ 실제 운영에서 여유가 확인되면 N을 늘려 처리량 증가
 
 **실행 로직**:
 ```
-1. ZREMRANGEBYSCORE queue:active 0 now        → 만료 항목 정리
-2. ZCARD queue:active >= MAX_TOKEN_COUNT       → 상한 초과 시 발급 skip
-3. Lua 스크립트:
+1. ZREMRANGEBYSCORE queue:active 0 now        → 만료 항목 정리 (housekeeping)
+2. Lua 스크립트:
      ZRANGE queue:waiting 0 batch_size-1      → 앞에서 N명 peek
      for each userId: ZADD queue:active expiry userId  → active로 먼저 등록
      ZREM queue:waiting userId...             → waiting에서 제거
@@ -269,10 +285,9 @@ try-catch 위치: Repository는 예외를 그대로 throw, 각 호출부에서 �
 - DB 커넥션 풀 크기 확인 (`application.yml` or `jpa.yml`)
 - 산정 공식:
   ```
-  이론적 최대 TPS = 커넥션 풀 / 평균 처리 시간(초)
-  안전 TPS = 이론적 최대 TPS * 0.7
-  MAX_TOKEN_COUNT = 안전 TPS
-  batch_size = MAX_TOKEN_COUNT / (token_ttl / scheduler_interval)
+  safe_TPS = 한계_TPS * 0.7
+  token-ttl-seconds = 180  (평균 주문 소요 시간 3분)
+  N * (TTL / T) ≤ safe_TPS  →  N, T 결정
   ```
 - 측정 결과 기반으로 `application.yml` 설정값 확정
 - 산정 근거 문서화 (quest 체크리스트 항목)
@@ -288,12 +303,13 @@ boolean isInWaiting(long userId);                       // queue:waiting ZSCORE 
 boolean isInActive(long userId);                        // queue:active ZSCORE > now 여부
 Optional<Long> getRank(long userId);                    // ZRANK queue:waiting
 Optional<String> findToken(long userId);                // GET queue:token:{userId}
-long getActiveCount();                                  // ZCARD queue:active
 void removeExpiredActive();                             // ZREMRANGEBYSCORE 0 now
 List<Long> moveToActive(int count, long expiry);        // Lua: ZRANGE waiting → ZADD active → ZREM waiting
 Optional<String> issueTokenIfAbsent(long userId, String uuid, long ttl); // SET NX → 발급 or 기존 UUID 반환
 void removeToken(long userId);                          // ZREM active + DEL token
 ```
+
+**제거된 메서드**: `getActiveCount()` — MAX_TOKEN_COUNT 상한 체크 제거로 불필요
 
 **QueueFacade 주요 메서드**:
 ```java
@@ -377,17 +393,16 @@ void removeToken(long userId);                    // QueueEventListener 호출
 - `apps/commerce-api/src/main/resources/application.yml` — queue 설정 추가
   ```yaml
   queue:
-    batch-size: 18
-    max-token-count: 175
+    batch-size: 1
     scheduler-interval-ms: 1000
-    token-ttl-seconds: 300
+    token-ttl-seconds: 180
   ```
 - `apps/commerce-api/src/main/java/com/loopers/infrastructure/queue/QueueProperties.java` — `@ConfigurationProperties(prefix = "queue")` record
   ```java
   @ConfigurationProperties(prefix = "queue")
-  public record QueueProperties(int batchSize, int maxTokenCount, long schedulerIntervalMs, long tokenTtlSeconds) {}
+  public record QueueProperties(int batchSize, long schedulerIntervalMs, long tokenTtlSeconds) {}
   ```
-  - 설정값 4개 이상 + 여러 클래스(QueueFacade, QueueScheduler)에서 공유 → `@Value` 대신 단일 Properties 클래스로 관리
+  - 설정값 여러 클래스(QueueFacade, QueueScheduler)에서 공유 → `@Value` 대신 단일 Properties 클래스로 관리
   - `@EnableConfigurationProperties(QueueProperties.class)` 또는 `@ConfigurationPropertiesScan` 등록 필요
 
 ### 참고 (패턴 재사용)

@@ -30,6 +30,11 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+queue:
+  batch-size: 1
+  scheduler-interval-ms: 1000
+  token-ttl-seconds: 180
+
 resilience4j:
   circuitbreaker:
     circuitBreakerAspectOrder: 1  # outer — CB(outer) → Retry(inner)
