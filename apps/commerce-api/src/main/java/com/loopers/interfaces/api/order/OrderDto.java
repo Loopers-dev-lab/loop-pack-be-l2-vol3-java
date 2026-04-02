@@ -119,6 +119,26 @@ public class OrderDto {
         }
     }
 
+    public record OrderQueueRealtimeStatusResponse(
+            boolean enabled,
+            long rank,
+            long displayWaitingOrder,
+            long estimatedWaitSeconds,
+            long recommendedPollingIntervalSeconds,
+            String admissionState
+    ) {
+        public static OrderQueueRealtimeStatusResponse from(com.loopers.application.order.queue.OrderQueueRealtimeStatusResult result) {
+            return new OrderQueueRealtimeStatusResponse(
+                    result.enabled(),
+                    result.rank(),
+                    result.displayWaitingOrder(),
+                    result.estimatedWaitSeconds(),
+                    result.recommendedPollingIntervalSeconds(),
+                    result.admissionState()
+            );
+        }
+    }
+
     public record OrderListResponse(
             List<OrderResponse> items,
             int page,

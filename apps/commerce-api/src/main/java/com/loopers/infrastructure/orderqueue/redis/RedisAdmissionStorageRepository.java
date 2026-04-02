@@ -37,6 +37,11 @@ public class RedisAdmissionStorageRepository implements AdmissionStorageReposito
     }
 
     @Override
+    public boolean hasActiveClaim(String memberId) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(claimKey(memberId)));
+    }
+
+    @Override
     public boolean issueToken(String memberId, long nowMillis, long tokenTtlMillis) {
         Boolean issued = redisTemplate.opsForValue().setIfAbsent(
                 tokenKey(memberId),

@@ -32,4 +32,13 @@ public class OrderQueueController {
         final OrderQueueStatusResult result = orderQueueApplicationService.getStatus(member.id().value());
         return ApiResponse.success(OrderDto.OrderQueueStatusResponse.from(result));
     }
+
+    @GetMapping("/me/realtime")
+    public ApiResponse<OrderDto.OrderQueueRealtimeStatusResponse> getRealtimeStatus(@AuthMember Member member) {
+        return ApiResponse.success(
+                OrderDto.OrderQueueRealtimeStatusResponse.from(
+                        orderQueueApplicationService.getRealtimeStatus(member.id().value())
+                )
+        );
+    }
 }

@@ -6,6 +6,8 @@ public interface AdmissionStorageRepository {
 
     boolean hasValidToken(String memberId);
 
+    boolean hasActiveClaim(String memberId);
+
     boolean issueToken(String memberId, long nowMillis, long tokenTtlMillis);
 
     long countActiveTokens(long nowMillis);

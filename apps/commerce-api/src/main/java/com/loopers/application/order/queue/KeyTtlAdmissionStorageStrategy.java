@@ -23,6 +23,11 @@ public class KeyTtlAdmissionStorageStrategy implements AdmissionStorageStrategy 
     }
 
     @Override
+    public boolean hasActiveClaim(String memberId) {
+        return admissionStorageRepository.hasActiveClaim(memberId);
+    }
+
+    @Override
     public boolean issueToken(String memberId, long nowMillis, long tokenTtlMillis) {
         return admissionStorageRepository.issueToken(memberId, nowMillis, tokenTtlMillis);
     }
