@@ -11,11 +11,11 @@ import com.loopers.interfaces.api.ApiResponse;
 
 public class QueueSteps {
 
-    public static ResponseEntity<ApiResponse<Object>> enterQueue(
+    public static ResponseEntity<ApiResponse<QueueDto.PositionResponse>> enterQueue(
             TestRestTemplate testRestTemplate,
             HttpHeaders headers
     ) {
-        ParameterizedTypeReference<ApiResponse<Object>> responseType = new ParameterizedTypeReference<>() {
+        ParameterizedTypeReference<ApiResponse<QueueDto.PositionResponse>> responseType = new ParameterizedTypeReference<>() {
         };
         return testRestTemplate.exchange(
                 "/api/v1/queue/enter",

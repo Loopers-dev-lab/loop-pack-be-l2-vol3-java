@@ -23,9 +23,9 @@ public class QueueV1Api implements QueueV1ApiSpec {
 
     @PostMapping("/enter")
     @Override
-    public ApiResponse<Object> enterQueue(@LoginUser Long userId) {
-        enterQueueUseCase.execute(userId);
-        return ApiResponse.success();
+    public ApiResponse<QueueDto.PositionResponse> enterQueue(@LoginUser Long userId) {
+        QueuePositionResult result = enterQueueUseCase.execute(userId);
+        return ApiResponse.success(QueueDto.PositionResponse.from(result));
     }
 
     @GetMapping("/position")

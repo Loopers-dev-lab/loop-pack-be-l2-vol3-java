@@ -10,9 +10,9 @@ public interface QueueV1ApiSpec {
 
     @Operation(
             summary = "대기열 진입",
-            description = "주문 대기열에 진입합니다. 이미 대기 중인 경우 400 에러를 반환합니다."
+            description = "주문 대기열에 진입합니다. 이미 대기 중인 경우에도 정상 응답을 반환합니다."
     )
-    ApiResponse<Object> enterQueue(Long userId);
+    ApiResponse<QueueDto.PositionResponse> enterQueue(Long userId);
 
     @Operation(
             summary = "대기열 순번 조회",

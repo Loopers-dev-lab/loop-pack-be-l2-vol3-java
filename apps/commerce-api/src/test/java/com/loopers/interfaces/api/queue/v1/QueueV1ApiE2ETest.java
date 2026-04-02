@@ -37,9 +37,9 @@ class QueueV1ApiE2ETest extends BaseE2ETest {
     @Nested
     class EnterQueue {
 
-        @DisplayName("인증된 사용자가 대기열에 진입하면, 200 성공 응답을 받는다.")
+        @DisplayName("인증된 사용자가 대기열에 진입하면, 200 성공 응답과 순번 정보를 받는다.")
         @Test
-        void returnsSuccess_whenAuthenticated() {
+        void returnsSuccessWithPosition_whenAuthenticated() {
             // act
             var response = enterQueue(testRestTemplate, userHeaders);
 
@@ -47,13 +47,17 @@ class QueueV1ApiE2ETest extends BaseE2ETest {
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody()).isNotNull(),
-                    () -> assertThat(response.getBody().meta().errorCode()).isNull()
+                    () -> assertThat(response.getBody().meta().errorCode()).isNull(),
+                    () -> assertThat(response.getBody().data().position()).isEqualTo(1),
+                    () -> assertThat(response.getBody().data().totalWaiting()).isEqualTo(1),
+                    () -> assertThat(response.getBody().data().estimatedWaitSeconds()).isEqualTo(1),
+                    () -> assertThat(response.getBody().data().pollingIntervalMs()).isEqualTo(1000)
             );
         }
 
-        @DisplayName("이미 대기열에 진입한 사용자가 재진입하면, 400 ALREADY_IN_QUEUE 에러 응답을 받는다.")
+        @DisplayName("이미 대기열에 진입한 사용자가 재진입하면, 멱등하게 200 성공 응답과 순번 정보를 받는다.")
         @Test
-        void returnsBadRequest_whenAlreadyInQueue() {
+        void returnsSuccessWithPosition_whenAlreadyInQueue() {
             // arrange
             enterQueue(testRestTemplate, userHeaders);
 
@@ -61,7 +65,13 @@ class QueueV1ApiE2ETest extends BaseE2ETest {
             var response = enterQueue(testRestTemplate, userHeaders);
 
             // assert
-            assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.ALREADY_IN_QUEUE);
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody()).isNotNull(),
+                    () -> assertThat(response.getBody().meta().errorCode()).isNull(),
+                    () -> assertThat(response.getBody().data().position()).isEqualTo(1),
+                    () -> assertThat(response.getBody().data().totalWaiting()).isEqualTo(1)
+            );
         }
 
         @DisplayName("인증 헤더가 없으면, 401 UNAUTHORIZED 응답을 받는다.")

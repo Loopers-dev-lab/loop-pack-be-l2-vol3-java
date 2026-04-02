@@ -17,8 +17,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReadQueuePositionUseCase {
 
-    private static final long THROUGHPUT_PER_SECOND = 5;
-
     private final WaitingQueue waitingQueue;
     private final EntryTokenStore entryTokenStore;
 
@@ -30,11 +28,8 @@ public class ReadQueuePositionUseCase {
     public QueuePositionResult execute(Long userId) {
         Long rank = waitingQueue.getPosition(userId);
         if (Objects.nonNull(rank)) {
-            long position = rank + 1;
             long totalWaiting = waitingQueue.getTotalCount();
-            long estimatedWaitSeconds = (long) Math.ceil((double) position / THROUGHPUT_PER_SECOND);
-            long pollingIntervalMs = QueuePollingPolicy.calculateIntervalMs(position);
-            return new QueuePositionResult(position, totalWaiting, estimatedWaitSeconds, pollingIntervalMs, null);
+            return QueuePositionCalculator.calculate(rank, totalWaiting);
         }
 
         return entryTokenStore.getToken(userId)
