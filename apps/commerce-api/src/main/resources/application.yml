@@ -15,8 +15,6 @@ spring:
     web-application-type: servlet
   application:
     name: commerce-api
-  profiles:
-    active: local
   config:
     import:
       - jpa.yml
@@ -85,7 +83,21 @@ resilience4j:
 spring:
   config:
     activate:
-      on-profile: local, test
+      on-profile: local
+
+queue:
+  scheduler:
+    enabled: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+queue:
+  scheduler:
+    enabled: false
 
 ---
 spring:
