@@ -84,6 +84,12 @@ public class WaitingQueueRedisRepository implements WaitingQueueRepository {
     }
 
     @Override
+    public boolean remove(Long memberId) {
+        Long removed = redisTemplate.opsForZSet().remove(KEY, String.valueOf(memberId));
+        return removed != null && removed > 0;
+    }
+
+    @Override
     public void clear() {
         redisTemplate.delete(KEY);
     }

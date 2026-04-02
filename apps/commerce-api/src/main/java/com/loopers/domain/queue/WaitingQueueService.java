@@ -44,6 +44,12 @@ public class WaitingQueueService {
         return waitingQueueRepository.popNWithScore(count);
     }
 
+    public void reEnter(Long memberId) {
+        waitingQueueRepository.remove(memberId);
+        double score = System.currentTimeMillis() * 1000.0 + ThreadLocalRandom.current().nextInt(1000);
+        waitingQueueRepository.enter(memberId, score);
+    }
+
     public void clear() {
         waitingQueueRepository.clear();
     }

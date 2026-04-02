@@ -1,10 +1,10 @@
 package com.loopers.application.queue;
 
-import com.loopers.config.QueueProperties;
 import com.loopers.domain.queue.EntryTokenService;
 import com.loopers.domain.queue.QueueMode;
 import com.loopers.domain.queue.QueueModeRepository;
 import com.loopers.domain.queue.WaitingQueueService;
+import com.loopers.infrastructure.queue.QueueStatusLuaRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -20,13 +20,13 @@ import java.util.Optional;
 public class QueueApp {
 
     private static final String CB_NAME = "queue-redis";
+    private static final String SCHEDULER_NAME = "queue-scheduler";
 
     private final WaitingQueueService waitingQueueService;
     private final EntryTokenService entryTokenService;
-    private final QueueProperties queueProperties;
     private final ThroughputTracker throughputTracker;
     private final QueueModeRepository queueModeRepository;
-    private final SchedulerHealthChecker schedulerHealthChecker;
+    private final QueueStatusLuaRepository queueStatusLuaRepository;
 
     @CircuitBreaker(name = CB_NAME, fallbackMethod = "enterQueueFallback")
     public QueueInfo enterQueue(Long memberId) {
@@ -58,23 +58,22 @@ public class QueueApp {
 
     @CircuitBreaker(name = CB_NAME, fallbackMethod = "getQueueStatusFallback")
     public QueueInfo getQueueStatus(Long memberId) {
-        boolean healthy = schedulerHealthChecker.isAliveByHeartbeat();
+        QueueStatusLuaRepository.QueueStatusResult result = queueStatusLuaRepository.getStatus(memberId, SCHEDULER_NAME);
 
-        Optional<String> token = entryTokenService.findToken(memberId);
-        if (token.isPresent()) {
-            return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, waitingQueueService.getTotalCount(), token.get(), healthy);
+        if ("TOKEN".equals(result.status())) {
+            return new QueueInfo(QueueStatus.TOKEN_ISSUED, 0, 0, result.totalInQueue(), result.token(), result.healthy());
         }
-
-        Optional<Long> position = waitingQueueService.getPosition(memberId);
-        if (position.isEmpty()) {
+        if ("NOT_FOUND".equals(result.status())) {
             throw new CoreException(ErrorType.QUEUE_NOT_FOUND);
         }
 
-        long pos = position.get();
-        long totalInQueue = waitingQueueService.getTotalCount();
-        long estimatedWait = throughputTracker.estimateWait(pos);
+        long estimatedWait = throughputTracker.estimateWait(result.position());
+        return new QueueInfo(QueueStatus.WAITING, result.position(), estimatedWait, result.totalInQueue(), null, result.healthy());
+    }
 
-        return new QueueInfo(QueueStatus.WAITING, pos, estimatedWait, totalInQueue, null, healthy);
+    public void resetPosition(Long memberId) {
+        waitingQueueService.reEnter(memberId);
+        log.warn("[QUEUE_ABUSE] 순번 리셋 — 폴링 어뷰징 감지. memberId={}", memberId);
     }
 
     @CircuitBreaker(name = CB_NAME, fallbackMethod = "validateTokenFallback")

@@ -72,6 +72,8 @@ queue:
     per-user-window-seconds: 10
     polling-max-requests: 1
     polling-window-seconds: 2
+    abuse-reset-threshold: 3
+    abuse-reset-window-seconds: 10
 
 commerce-api:
   callback-base-url: http://localhost:8080

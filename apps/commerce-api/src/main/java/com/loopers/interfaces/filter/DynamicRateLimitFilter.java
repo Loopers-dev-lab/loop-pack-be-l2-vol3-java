@@ -1,5 +1,6 @@
 package com.loopers.interfaces.filter;
 
+import com.loopers.application.queue.QueueApp;
 import com.loopers.application.queue.RateLimitModeEvaluator;
 import com.loopers.config.RateLimitProperties;
 import jakarta.servlet.FilterChain;
@@ -7,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -14,16 +16,20 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DynamicRateLimitFilter extends OncePerRequestFilter {
 
     private final RateLimitModeEvaluator rateLimitModeEvaluator;
     private final RateLimitProperties rateLimitProperties;
+    private final QueueApp queueApp;
 
     private final ConcurrentHashMap<String, WindowCounter> counters = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<String, WindowCounter> pollingCounters = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<String, WindowCounter> abuseCounters = new ConcurrentHashMap<>();
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -42,6 +48,7 @@ public class DynamicRateLimitFilter extends OncePerRequestFilter {
         if (isPollingEndpoint(request)) {
             WindowCounter pollingCounter = pollingCounters.computeIfAbsent(userId, k -> new WindowCounter());
             if (!pollingCounter.incrementAndCheck(rateLimitProperties.pollingMaxRequests(), rateLimitProperties.pollingWindowSeconds())) {
+                recordAbuseAndMaybeReset(userId);
                 response.setStatus(429);
                 response.setContentType("application/json");
                 response.setHeader("Retry-After", String.valueOf(rateLimitProperties.pollingWindowSeconds()));
@@ -62,6 +69,24 @@ public class DynamicRateLimitFilter extends OncePerRequestFilter {
             response.setStatus(429);
             response.setContentType("application/json");
             response.getWriter().write("{\"meta\":{\"result\":\"FAIL\",\"errorCode\":\"TOO_MANY_REQUESTS\",\"message\":\"요청이 너무 많습니다. 잠시 후 다시 시도해주세요.\"}}");
+        }
+    }
+
+    private void recordAbuseAndMaybeReset(String userId) {
+        int threshold = rateLimitProperties.abuseResetThreshold();
+        int windowSeconds = rateLimitProperties.abuseResetWindowSeconds();
+        if (threshold <= 0) {
+            return;
+        }
+
+        WindowCounter abuseCounter = abuseCounters.computeIfAbsent(userId, k -> new WindowCounter());
+        if (!abuseCounter.incrementAndCheck(threshold, windowSeconds)) {
+            try {
+                queueApp.resetPosition(Long.parseLong(userId));
+                abuseCounter.reset();
+            } catch (Exception e) {
+                log.debug("[RATE_LIMIT] 순번 리셋 실패 — userId={}", userId, e);
+            }
         }
     }
 
@@ -90,6 +115,11 @@ public class DynamicRateLimitFilter extends OncePerRequestFilter {
                 }
             }
             return count.incrementAndGet() <= maxRequests;
+        }
+
+        void reset() {
+            count.set(0);
+            windowStartMs = System.currentTimeMillis();
         }
     }
 }

@@ -17,5 +17,7 @@ public interface WaitingQueueRepository {
 
     List<Map.Entry<Long, Double>> popNWithScore(int count);
 
+    boolean remove(Long memberId);
+
     void clear();
 }

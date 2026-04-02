@@ -12,6 +12,8 @@ public record RateLimitProperties(
         int perUserMaxRequests,
         int perUserWindowSeconds,
         int pollingMaxRequests,
-        int pollingWindowSeconds
+        int pollingWindowSeconds,
+        int abuseResetThreshold,
+        int abuseResetWindowSeconds
 ) {
 }

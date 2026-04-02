@@ -23,7 +23,7 @@ class RateLimitModeEvaluatorTest {
     @BeforeEach
     void setUp() {
         RateLimitProperties properties = new RateLimitProperties(
-                true, 0.85, 0.60, 0, 1000, 10, 10, 1, 2
+                true, 0.85, 0.60, 0, 1000, 10, 10, 1, 2, 3, 10
         );
         meterRegistry = new SimpleMeterRegistry();
         currentThreads = new AtomicLong(0);
@@ -92,7 +92,7 @@ class RateLimitModeEvaluatorTest {
         @DisplayName("cooldown 기간 중에는 비활성화하지 않음")
         void cooldown_preventsDeactivation() {
             RateLimitProperties propsWithCooldown = new RateLimitProperties(
-                    true, 0.85, 0.60, 60, 1000, 10, 10, 1, 2
+                    true, 0.85, 0.60, 60, 1000, 10, 10, 1, 2, 3, 10
             );
             RateLimitModeEvaluator evalWithCooldown = new RateLimitModeEvaluator(propsWithCooldown, meterRegistry);
 
@@ -110,7 +110,7 @@ class RateLimitModeEvaluatorTest {
     @DisplayName("enabled=false이면 평가하지 않음")
     void disabled_noEvaluation() {
         RateLimitProperties disabledProps = new RateLimitProperties(
-                false, 0.85, 0.60, 0, 1000, 10, 10, 1, 2
+                false, 0.85, 0.60, 0, 1000, 10, 10, 1, 2, 3, 10
         );
         RateLimitModeEvaluator disabledEval = new RateLimitModeEvaluator(disabledProps, meterRegistry);
 
