@@ -13,7 +13,13 @@ public enum ErrorType {
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, HttpStatus.UNAUTHORIZED.getReasonPhrase(), "인증에 실패했습니다."),
     NOT_FOUND(HttpStatus.NOT_FOUND, HttpStatus.NOT_FOUND.getReasonPhrase(), "존재하지 않는 요청입니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, HttpStatus.FORBIDDEN.getReasonPhrase(), "접근 권한이 없습니다."),
-    CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다.");
+    CONFLICT(HttpStatus.CONFLICT, HttpStatus.CONFLICT.getReasonPhrase(), "이미 존재하는 리소스입니다."),
+
+    QUEUE_FULL(HttpStatus.TOO_MANY_REQUESTS, "Queue Full", "현재 대기열이 가득 찼습니다."),
+    QUEUE_NOT_FOUND(HttpStatus.NOT_FOUND, "Queue Not Found", "대기열에 없습니다. 다시 진입해주세요."),
+    QUEUE_TOKEN_REQUIRED(HttpStatus.FORBIDDEN, "Queue Token Required", "대기열 입장 토큰이 필요합니다."),
+    QUEUE_TOKEN_INVALID(HttpStatus.FORBIDDEN, "Queue Token Invalid", "유효하지 않은 입장 토큰입니다."),
+    QUEUE_TOKEN_TOO_EARLY(HttpStatus.TOO_MANY_REQUESTS, "Queue Token Too Early", "토큰 발급 후 최소 대기 시간이 지나지 않았습니다.");
 
     private final HttpStatus status;
     private final String code;
