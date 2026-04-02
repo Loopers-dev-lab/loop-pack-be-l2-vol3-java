@@ -102,6 +102,10 @@ queue:
     require-entry-token: true
   position:
     throughput-tps: 175
+    rate-limit:
+      enabled: true
+      max-requests-per-second: 5
+      window-seconds: 1
   fallback:
     enabled: true
     topic-name: queue-join-fallback
@@ -119,6 +123,9 @@ queue:
     require-entry-token: false
   fallback:
     enabled: false
+  position:
+    rate-limit:
+      enabled: false
 ---
 spring:
   config:
