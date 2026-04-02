@@ -27,7 +27,7 @@ public class SchedulerLockRepositoryImpl implements SchedulerLockRepository {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Override
-    public void release(String lockKey) {
-        schedulerLockJpaRepository.release(lockKey);
+    public void release(String lockKey, String instanceId) {
+        schedulerLockJpaRepository.release(lockKey, instanceId);
     }
 }

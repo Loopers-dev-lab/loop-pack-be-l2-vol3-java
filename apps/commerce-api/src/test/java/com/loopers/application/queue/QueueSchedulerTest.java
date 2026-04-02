@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -255,7 +256,7 @@ class QueueSchedulerTest {
             queueScheduler.processQueue();
 
             // then
-            verify(schedulerLockRepository).release("QUEUE_SCHEDULER");
+            verify(schedulerLockRepository).release(eq("QUEUE_SCHEDULER"), anyString());
         }
 
         @Test
@@ -273,7 +274,28 @@ class QueueSchedulerTest {
             }
 
             // then
-            verify(schedulerLockRepository).release("QUEUE_SCHEDULER");
+            verify(schedulerLockRepository).release(eq("QUEUE_SCHEDULER"), anyString());
+        }
+
+        @Test
+        @DisplayName("성공 - 락 해제 시 자신의 instanceId를 함께 전달한다")
+        void processQueue_releases_lock_with_own_instance_id() {
+            // given
+            when(queueService.isQueueEnabled()).thenReturn(true);
+            givenLockAcquired();
+            when(queueRepository.popFront(18)).thenReturn(List.of());
+
+            // when
+            queueScheduler.processQueue();
+
+            // then: tryAcquire와 release에 동일한 instanceId가 전달되는지 검증
+            var acquireCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+            verify(schedulerLockRepository).tryAcquire(eq("QUEUE_SCHEDULER"), acquireCaptor.capture(), eq(30L));
+
+            var releaseCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+            verify(schedulerLockRepository).release(eq("QUEUE_SCHEDULER"), releaseCaptor.capture());
+
+            assertThat(acquireCaptor.getValue()).isEqualTo(releaseCaptor.getValue());
         }
     }
 }

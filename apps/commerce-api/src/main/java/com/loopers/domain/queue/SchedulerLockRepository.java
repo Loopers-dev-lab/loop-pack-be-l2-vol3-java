@@ -9,6 +9,7 @@ public interface SchedulerLockRepository {
     // 원자적 UPDATE로 동시 접근 시 하나의 인스턴스만 성공한다.
     boolean tryAcquire(String lockKey, String instanceId, long expireSeconds);
 
-    // 락을 해제한다. 스케줄러 실행 완료 후 호출한다.
-    void release(String lockKey);
+    // 락을 해제한다. 자신이 소유한 락만 해제할 수 있다.
+    // 락 만료 후 다른 인스턴스가 재획득한 경우, 이전 소유자의 해제 요청은 무시된다.
+    void release(String lockKey, String instanceId);
 }

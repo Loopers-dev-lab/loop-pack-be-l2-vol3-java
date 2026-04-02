@@ -17,8 +17,8 @@ public interface SchedulerLockJpaRepository extends JpaRepository<SchedulerLock,
                    @Param("instanceId") String instanceId,
                    @Param("expireThreshold") java.time.LocalDateTime expireThreshold);
 
-    // 락 해제: locked=false, instanceId=null로 초기화.
+    // 락 해제: 자신이 소유한 락만 해제한다. instanceId가 일치하지 않으면 UPDATE 0건.
     @Modifying
-    @Query("UPDATE SchedulerLock s SET s.locked = false, s.instanceId = null WHERE s.lockKey = :lockKey")
-    int release(@Param("lockKey") String lockKey);
+    @Query("UPDATE SchedulerLock s SET s.locked = false, s.instanceId = null WHERE s.lockKey = :lockKey AND s.instanceId = :instanceId")
+    int release(@Param("lockKey") String lockKey, @Param("instanceId") String instanceId);
 }

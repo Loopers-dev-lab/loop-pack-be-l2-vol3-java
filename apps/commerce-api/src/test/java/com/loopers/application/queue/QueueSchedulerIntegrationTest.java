@@ -21,11 +21,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import java.util.Optional;
 import java.util.Set;
 
 import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 
 // [통합 테스트 - 처리량 초과]
@@ -79,9 +80,8 @@ class QueueSchedulerIntegrationTest {
     void setUp() {
         cleanupRedis();
         featureFlagJpaRepository.save(new FeatureFlag("QUEUE_ENABLED", true));
-        if (schedulerLockJpaRepository.count() == 0) {
-            schedulerLockJpaRepository.save(new SchedulerLock("QUEUE_SCHEDULER"));
-        }
+        schedulerLockJpaRepository.deleteAll();
+        schedulerLockJpaRepository.save(new SchedulerLock("QUEUE_SCHEDULER"));
         testScheduler = new QueueScheduler(queueService, queueTokenService, queueRepository, schedulerLockRepository);
     }
 
@@ -234,6 +234,26 @@ class QueueSchedulerIntegrationTest {
         // then: userId=3도 토큰을 발급받아 대기열이 비워진다
         assertThat(queueRepository.getTotalCount()).isEqualTo(0);
         assertThat(queueTokenRepository.hasToken(3L)).isTrue();
+    }
+
+    @Test
+    @DisplayName("락 만료 후 새 인스턴스가 락을 획득하면, 이전 인스턴스는 해제할 수 없다")
+    void release_by_previous_owner_does_not_affect_new_owner() {
+        // given: 이전 소유자(instanceA)가 락을 획득
+        String instanceA = "aaaaaaaa";
+        String instanceB = "bbbbbbbb";
+        assertThat(schedulerLockRepository.tryAcquire("QUEUE_SCHEDULER", instanceA, 30)).isTrue();
+
+        // instanceB가 만료된 락을 재획득하는 상황을 시뮬레이션한다.
+        // expireSeconds=-1 → expireThreshold = now + 1초 → lockedAt < expireThreshold이 항상 성립
+        assertThat(schedulerLockRepository.tryAcquire("QUEUE_SCHEDULER", instanceB, -1)).isTrue();
+
+        // when: 이전 소유자(instanceA)가 락 해제 시도
+        schedulerLockRepository.release("QUEUE_SCHEDULER", instanceA);
+
+        // then: 새 소유자(instanceB)의 락은 여전히 유지되어야 한다
+        // instanceA로 다시 획득 시도하면 실패해야 한다 (instanceB가 소유 중)
+        assertThat(schedulerLockRepository.tryAcquire("QUEUE_SCHEDULER", instanceA, 30)).isFalse();
     }
 
     @Test

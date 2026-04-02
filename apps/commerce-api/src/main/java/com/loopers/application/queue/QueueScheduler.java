@@ -57,7 +57,7 @@ public class QueueScheduler {
         try {
             processBatch();
         } finally {
-            schedulerLockRepository.release(LOCK_KEY);
+            schedulerLockRepository.release(LOCK_KEY, instanceId);
         }
     }
 
