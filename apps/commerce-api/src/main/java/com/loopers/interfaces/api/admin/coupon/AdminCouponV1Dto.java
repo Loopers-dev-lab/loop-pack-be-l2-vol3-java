@@ -26,7 +26,10 @@ public class AdminCouponV1Dto {
         Integer minOrderAmount,
 
         @NotNull(message = "만료일은 필수입니다")
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+
+        @Min(value = 1, message = "최대 발급 수량은 1 이상이어야 합니다")
+        Integer maxIssuanceCount  // null이면 무제한
     ) {
     }
 
@@ -56,7 +59,9 @@ public class AdminCouponV1Dto {
         DiscountType discountType,
         Integer discountValue,
         Integer minOrderAmount,
-        ZonedDateTime expiredAt
+        ZonedDateTime expiredAt,
+        Integer maxIssuanceCount,
+        Integer issuedCount
     ) {
         public static CouponTemplateResponse from(CouponTemplateInfo info) {
             return new CouponTemplateResponse(
@@ -65,7 +70,9 @@ public class AdminCouponV1Dto {
                 info.discountType(),
                 info.discountValue(),
                 info.minOrderAmount(),
-                info.expiredAt()
+                info.expiredAt(),
+                info.maxIssuanceCount(),
+                info.issuedCount()
             );
         }
     }

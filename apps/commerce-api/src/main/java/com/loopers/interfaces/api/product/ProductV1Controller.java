@@ -5,10 +5,12 @@ import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductSearchCommand;
 import com.loopers.domain.product.ProductSortType;
+import com.loopers.domain.product.ProductViewedEvent;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductV1Controller {
 
     private final ProductFacade productFacade;
+    private final ApplicationEventPublisher eventPublisher;
 
     @PostMapping
     public ApiResponse<ProductV1Dto.CreateProductResponse> createProducts(
@@ -40,6 +43,8 @@ public class ProductV1Controller {
         @PathVariable Long productId
     ) {
         ProductInfo info = productFacade.getProduct(productId);
+        eventPublisher.publishEvent(new ProductViewedEvent(productId));
+        productFacade.recordView(productId);
         return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info));
     }
 

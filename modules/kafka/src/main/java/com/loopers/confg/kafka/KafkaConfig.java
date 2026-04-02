@@ -8,10 +8,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.support.converter.BatchMessagingMessageConverter;
 import org.springframework.kafka.support.converter.ByteArrayJsonMessageConverter;
+import org.apache.kafka.clients.admin.NewTopic;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +30,21 @@ public class KafkaConfig {
     public static final int SESSION_TIMEOUT_MS = 60 * 1000; // session timeout = 1m
     public static final int HEARTBEAT_INTERVAL_MS = 20 * 1000; // heartbeat interval = 20s ( 1/3 of session_timeout )
     public static final int MAX_POLL_INTERVAL_MS = 2 * 60 * 1000; // max poll interval = 2m
+
+    @Bean
+    public NewTopic catalogEventsTopic() {
+        return TopicBuilder.name("catalog-events").partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic orderEventsTopic() {
+        return TopicBuilder.name("order-events").partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic couponIssueRequestsTopic() {
+        return TopicBuilder.name("coupon-issue-requests").partitions(3).replicas(1).build();
+    }
 
     @Bean
     public ProducerFactory<Object, Object> producerFactory(KafkaProperties kafkaProperties) {

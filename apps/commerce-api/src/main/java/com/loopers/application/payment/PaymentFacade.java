@@ -1,7 +1,14 @@
 package com.loopers.application.payment;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.OutboxEventHelper;
 import com.loopers.domain.order.Order;
+import java.time.ZonedDateTime;
+import com.loopers.domain.order.OrderConfirmedEvent;
+import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventRepository;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentService;
@@ -11,9 +18,11 @@ import com.loopers.domain.payment.PgPaymentResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorMessage;
 import com.loopers.support.error.ErrorType;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +35,9 @@ public class PaymentFacade {
     private final PaymentService paymentService;
     private final PaymentRepository paymentRepository;
     private final PgClient pgClient;
+    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.callback-url:http://localhost:8080/api/v1/payments/callback}")
     private String callbackUrl;
@@ -85,6 +97,18 @@ public class PaymentFacade {
 
             order.confirm();
             orderRepository.save(order);
+            eventPublisher.publishEvent(new OrderConfirmedEvent(order.getId(), order.getRefUserId()));
+            outboxEventRepository.save(OutboxEvent.create(
+                "order-events",
+                OutboxEventHelper.toJson(objectMapper, Map.of(
+                    "type", "ORDER_CONFIRMED",
+                    "orderId", order.getId(),
+                    "userId", order.getRefUserId(),
+                    "productIds", order.getItems().stream().map(OrderItem::refProductId).toList(),
+                    "occurredAt", ZonedDateTime.now().toString()
+                )),
+                String.valueOf(order.getId())
+            ));
 
             log.info("결제 성공. orderId={}, transactionKey={}", command.orderId(), command.transactionKey());
         } else {
@@ -101,4 +125,5 @@ public class PaymentFacade {
         return orderRepository.findById(orderId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, ErrorMessage.Order.ORDER_NOT_FOUND));
     }
+
 }

@@ -10,7 +10,9 @@ public record CouponTemplateInfo(
     DiscountType discountType,
     Integer discountValue,
     Integer minOrderAmount,
-    ZonedDateTime expiredAt
+    ZonedDateTime expiredAt,
+    Integer maxIssuanceCount,
+    Integer issuedCount
 ) {
     public static CouponTemplateInfo from(CouponTemplate template) {
         return new CouponTemplateInfo(
@@ -19,7 +21,9 @@ public record CouponTemplateInfo(
             template.getType(),
             template.getDiscountValue(),
             template.getMinOrderAmount().value(),
-            template.getExpiredAt()
+            template.getExpiredAt(),
+            template.getMaxIssuanceCount(),
+            template.getIssuedCount()
         );
     }
 }

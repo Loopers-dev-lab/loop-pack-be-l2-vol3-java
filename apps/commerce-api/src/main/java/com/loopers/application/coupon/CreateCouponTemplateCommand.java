@@ -8,6 +8,7 @@ public record CreateCouponTemplateCommand(
     DiscountType discountType,
     Integer discountValue,
     Integer minOrderAmount,
-    ZonedDateTime expiredAt
+    ZonedDateTime expiredAt,
+    Integer maxIssuanceCount
 ) {
 }

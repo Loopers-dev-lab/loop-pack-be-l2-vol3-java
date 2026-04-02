@@ -52,7 +52,7 @@ public class AdminCouponV1Controller {
         @Valid @RequestBody AdminCouponV1Dto.CreateCouponTemplateRequest request
     ) {
         CreateCouponTemplateCommand command = new CreateCouponTemplateCommand(
-            request.name(), request.discountType(), request.discountValue(), request.minOrderAmount(), request.expiredAt()
+            request.name(), request.discountType(), request.discountValue(), request.minOrderAmount(), request.expiredAt(), request.maxIssuanceCount()
         );
         CouponTemplateInfo templateInfo = couponFacade.createCouponTemplate(command);
         return ApiResponse.success(AdminCouponV1Dto.CouponTemplateResponse.from(templateInfo));

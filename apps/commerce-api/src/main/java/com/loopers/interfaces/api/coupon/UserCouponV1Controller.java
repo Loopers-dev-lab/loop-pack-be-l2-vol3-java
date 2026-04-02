@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.application.coupon.CouponInfo;
+import com.loopers.application.coupon.CouponIssueRequestInfo;
 import com.loopers.application.user.AuthUserPrincipal;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.AuthUser;
@@ -33,5 +34,23 @@ public class UserCouponV1Controller {
     ) {
         List<CouponInfo> couponInfos = couponFacade.getMyCoupons(user.getId());
         return ApiResponse.success(UserCouponV1Dto.MyCouponListResponse.from(couponInfos));
+    }
+
+    @PostMapping("/api/v1/coupons/{templateId}/issue/requests")
+    public ApiResponse<UserCouponV1Dto.CouponIssueRequestResponse> requestCouponIssue(
+        @AuthUser AuthUserPrincipal user,
+        @PathVariable Long templateId
+    ) {
+        CouponIssueRequestInfo info = couponFacade.requestCouponIssue(user.getId(), templateId);
+        return ApiResponse.success(UserCouponV1Dto.CouponIssueRequestResponse.from(info));
+    }
+
+    @GetMapping("/api/v1/coupon-issue-requests/{requestId}")
+    public ApiResponse<UserCouponV1Dto.CouponIssueRequestResponse> getCouponIssueRequest(
+        @AuthUser AuthUserPrincipal user,
+        @PathVariable Long requestId
+    ) {
+        CouponIssueRequestInfo info = couponFacade.getCouponIssueRequest(user.getId(), requestId);
+        return ApiResponse.success(UserCouponV1Dto.CouponIssueRequestResponse.from(info));
     }
 }

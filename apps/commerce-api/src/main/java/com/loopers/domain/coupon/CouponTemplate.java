@@ -18,32 +18,36 @@ public class CouponTemplate {
     private Integer discountValue; // FIXED: 할인 금액, RATE: 할인율(%)
     private Money minOrderAmount;
     private ZonedDateTime expiredAt;
+    private final Integer maxIssuanceCount; // null이면 무제한
+    private final Integer issuedCount;
 
-    private CouponTemplate(Long id, Name name, DiscountType type, Integer discountValue, Money minOrderAmount, ZonedDateTime expiredAt) {
+    private CouponTemplate(Long id, Name name, DiscountType type, Integer discountValue, Money minOrderAmount, ZonedDateTime expiredAt, Integer maxIssuanceCount, Integer issuedCount) {
         this.id = id;
         this.name = name;
         this.type = type;
         this.discountValue = discountValue;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.maxIssuanceCount = maxIssuanceCount;
+        this.issuedCount = issuedCount;
     }
 
-    public static CouponTemplate create(String name, DiscountType discountType, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt) {
+    public static CouponTemplate create(String name, DiscountType discountType, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt, Integer maxIssuanceCount) {
         validateDiscountType(discountType);
         validateExpiredAt(expiredAt);
 
-        return new CouponTemplate(null, new Name(name), discountType, discountValue, new Money(minOrderAmount), expiredAt);
+        return new CouponTemplate(null, new Name(name), discountType, discountValue, new Money(minOrderAmount), expiredAt, maxIssuanceCount, 0);
     }
 
     public CouponTemplate updateTemplate(String name, DiscountType discountType, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt) {
         validateDiscountType(discountType);
         validateExpiredAt(expiredAt);
 
-        return new CouponTemplate(this.id, new Name(name), discountType, discountValue, new Money(minOrderAmount), expiredAt);
+        return new CouponTemplate(this.id, new Name(name), discountType, discountValue, new Money(minOrderAmount), expiredAt, this.maxIssuanceCount, this.issuedCount);
     }
 
-    public static CouponTemplate restore(Long id, String name, DiscountType type, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt) {
-        return new CouponTemplate(id, new Name(name), type, discountValue, new Money(minOrderAmount), expiredAt);
+    public static CouponTemplate restore(Long id, String name, DiscountType type, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt, Integer maxIssuanceCount, Integer issuedCount) {
+        return new CouponTemplate(id, new Name(name), type, discountValue, new Money(minOrderAmount), expiredAt, maxIssuanceCount, issuedCount);
     }
 
     private static void validateDiscountType(DiscountType discountType) {
@@ -67,4 +71,7 @@ public class CouponTemplate {
     public Integer getDiscountValue() { return discountValue; }
     public Money getMinOrderAmount() { return minOrderAmount; }
     public ZonedDateTime getExpiredAt() { return expiredAt; }
+    public Integer getMaxIssuanceCount() { return maxIssuanceCount; }
+    public Integer getIssuedCount() { return issuedCount; }
+    public boolean hasIssuanceLimit() { return maxIssuanceCount != null; }
 }

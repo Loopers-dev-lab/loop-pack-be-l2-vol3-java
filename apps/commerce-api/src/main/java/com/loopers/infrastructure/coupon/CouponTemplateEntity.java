@@ -41,12 +41,22 @@ public class CouponTemplateEntity extends BaseEntity {
     @Column(name = "expired_at", nullable = false, updatable = false)
     private ZonedDateTime expiredAt;
 
-    private CouponTemplateEntity(String name, DiscountType type, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt) {
+    @Comment("최대 발급 수량 (null이면 무제한)")
+    @Column(name = "max_issuance_count")
+    private Integer maxIssuanceCount;
+
+    @Comment("현재 발급된 수량")
+    @Column(name = "issued_count", nullable = false)
+    private Integer issuedCount = 0;
+
+    private CouponTemplateEntity(String name, DiscountType type, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt, Integer maxIssuanceCount) {
         this.name = name;
         this.type = type;
         this.discountValue = discountValue;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.maxIssuanceCount = maxIssuanceCount;
+        this.issuedCount = 0;
     }
 
     public static CouponTemplateEntity create(CouponTemplate template) {
@@ -55,12 +65,13 @@ public class CouponTemplateEntity extends BaseEntity {
             template.getType(),
             template.getDiscountValue(),
             template.getMinOrderAmount().value(),
-            template.getExpiredAt()
+            template.getExpiredAt(),
+            template.getMaxIssuanceCount()
         );
     }
 
     public CouponTemplate toDomain() {
-        return CouponTemplate.restore(this.getId(), this.name, this.type, this.discountValue, this.minOrderAmount, this.expiredAt);
+        return CouponTemplate.restore(this.getId(), this.name, this.type, this.discountValue, this.minOrderAmount, this.expiredAt, this.maxIssuanceCount, this.issuedCount);
     }
 
     public void updateFrom(CouponTemplate template) {

@@ -16,8 +16,8 @@ public class CouponTemplateService {
     private final CouponTemplateRepository couponTemplateRepository;
 
     @Transactional
-    public CouponTemplate create(String name, DiscountType discountType, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt) {
-        CouponTemplate template = CouponTemplate.create(name, discountType, discountValue, minOrderAmount, expiredAt);
+    public CouponTemplate create(String name, DiscountType discountType, Integer discountValue, Integer minOrderAmount, ZonedDateTime expiredAt, Integer maxIssuanceCount) {
+        CouponTemplate template = CouponTemplate.create(name, discountType, discountValue, minOrderAmount, expiredAt, maxIssuanceCount);
         return couponTemplateRepository.save(template);
     }
 

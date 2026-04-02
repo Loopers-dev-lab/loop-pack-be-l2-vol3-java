@@ -4,10 +4,12 @@ import com.loopers.application.order.OrderCommand;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.user.AuthUserPrincipal;
+import com.loopers.domain.order.OrderRequestedEvent;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.AuthUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,12 +21,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderV1Controller {
 
     private final OrderFacade orderFacade;
+    private final ApplicationEventPublisher eventPublisher;
 
     @PostMapping
     public ApiResponse<OrderV1Dto.CreateOrderResponse> createOrder(
         @AuthUser AuthUserPrincipal user,
         @Valid @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
+        eventPublisher.publishEvent(new OrderRequestedEvent(user.getId()));
         OrderCommand command = new OrderCommand(
             user.getId(),
             request.toProductQuantities(),

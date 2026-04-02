@@ -125,6 +125,9 @@ public final class ErrorMessage {
         public static final String COUPON_EXPIRED = "만료된 쿠폰입니다.";
         public static final String COUPON_NOT_OWNED = "본인 소유의 쿠폰이 아닙니다.";
         public static final String MIN_ORDER_AMOUNT_NOT_MET = "최소 주문 금액을 충족하지 않습니다.";
+        public static final String COUPON_ISSUE_LIMIT_EXCEEDED = "쿠폰 발급 수량이 초과되었습니다.";
+        public static final String COUPON_ALREADY_ISSUED = "이미 발급된 쿠폰입니다.";
+        public static final String COUPON_ISSUE_REQUEST_NOT_FOUND = "쿠폰 발급 요청을 찾을 수 없습니다.";
     }
 
     /**
