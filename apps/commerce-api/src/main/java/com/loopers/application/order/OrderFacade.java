@@ -21,11 +21,8 @@ public class OrderFacade {
         Long refUserCouponId = null;
 
         if (userCouponId != null) {
-            // 원래 주문금액 계산 (재고 차감 전 조회)
             BigDecimal originalAmount = orderApp.calculateOriginalAmount(items);
-            // 할인 금액 계산 (소유권 포함 검증)
             discountAmount = couponApp.calculateDiscount(userCouponId, memberId, originalAmount);
-            // 쿠폰 사용 처리 → PK 반환
             refUserCouponId = couponApp.useUserCoupon(userCouponId);
         }
 
@@ -35,7 +32,6 @@ public class OrderFacade {
     @Transactional
     public OrderInfo cancelOrder(Long memberId, String orderId) {
         OrderInfo info = orderApp.cancelOrder(memberId, orderId);
-        // 쿠폰이 있었던 경우 복원
         if (info.refUserCouponId() != null) {
             couponApp.restoreUserCoupon(info.refUserCouponId());
         }
