@@ -7,6 +7,7 @@ import com.loopers.application.order.OrderSummary;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AuthenticatedUser;
 import com.loopers.interfaces.auth.CurrentUser;
+import com.loopers.interfaces.auth.EntryTokenRequired;
 import com.loopers.interfaces.auth.LoginRequired;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ public class OrderController {
     private final OrderFacade orderFacade;
 
     @LoginRequired
+    @EntryTokenRequired
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/api/v1/orders")
     public ApiResponse<OrderDto.CreateOrderResponse> createOrder(@CurrentUser AuthenticatedUser user,
