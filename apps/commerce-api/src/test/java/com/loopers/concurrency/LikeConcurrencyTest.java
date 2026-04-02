@@ -1,6 +1,7 @@
 package com.loopers.concurrency;
 
 import com.loopers.application.like.LikeApplicationService;
+import com.loopers.config.TestRedisConfiguration;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -21,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
+@Import(TestRedisConfiguration.class)
 @DisplayName("좋아요 동시성 테스트")
 class LikeConcurrencyTest {
 

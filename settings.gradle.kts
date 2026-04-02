@@ -4,12 +4,14 @@ include(
     ":apps:commerce-api",
     ":apps:commerce-streamer",
     ":apps:commerce-batch",
+    ":apps:commerce-collector",
     ":modules:jpa",
     ":modules:redis",
     ":modules:kafka",
     ":supports:jackson",
     ":supports:logging",
     ":supports:monitoring",
+    ":supports:kafka-events",
 )
 
 // configurations

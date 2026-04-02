@@ -1,5 +1,7 @@
 package com.loopers.application.order;
 
+import com.loopers.application.event.OrderCompletedEvent;
+import com.loopers.application.event.UserActionEvent;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.IssuedCoupon;
@@ -8,6 +10,8 @@ import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.point.UserPoint;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.Stock;
+import com.loopers.domain.useraction.ActionType;
+import com.loopers.fake.FakeApplicationEventPublisher;
 import com.loopers.fake.FakeCouponTemplateRepository;
 import com.loopers.fake.FakeIssuedCouponRepository;
 import com.loopers.fake.FakeOrderRepository;
@@ -34,6 +38,7 @@ class OrderApplicationServiceTest {
     private FakeCouponTemplateRepository fakeCouponTemplateRepository;
     private FakeIssuedCouponRepository fakeIssuedCouponRepository;
     private FakeUserPointRepository fakeUserPointRepository;
+    private FakeApplicationEventPublisher fakeEventPublisher;
     private OrderApplicationService orderApplicationService;
 
     @BeforeEach
@@ -43,12 +48,14 @@ class OrderApplicationServiceTest {
         fakeCouponTemplateRepository = new FakeCouponTemplateRepository();
         fakeIssuedCouponRepository = new FakeIssuedCouponRepository();
         fakeUserPointRepository = new FakeUserPointRepository();
+        fakeEventPublisher = new FakeApplicationEventPublisher();
         orderApplicationService = new OrderApplicationService(
             fakeProductRepository,
             fakeOrderRepository,
             fakeCouponTemplateRepository,
             fakeIssuedCouponRepository,
-            fakeUserPointRepository
+            fakeUserPointRepository,
+            fakeEventPublisher
         );
     }
 
@@ -87,6 +94,52 @@ class OrderApplicationServiceTest {
             // 재고 차감 확인
             Product updatedProduct = fakeProductRepository.findById(product.getId()).orElseThrow();
             assertThat(updatedProduct.getStock().quantity()).isEqualTo(98); // 100 - 2
+        }
+
+        @Test
+        @DisplayName("성공 - 주문 완료 시 OrderCompletedEvent 발행")
+        void 주문_완료_시_이벤트_발행() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 10000, 100);
+            Long userId = 1L;
+            List<OrderItemRequest> items = List.of(
+                new OrderItemRequest(product.getId(), 2)
+            );
+
+            // Act
+            OrderResult result = orderApplicationService.placeOrder(userId, items);
+
+            // Assert
+            assertThat(fakeEventPublisher.hasEventOfType(OrderCompletedEvent.class)).isTrue();
+            List<OrderCompletedEvent> events = fakeEventPublisher.getEventsOfType(OrderCompletedEvent.class);
+            assertThat(events).hasSize(1);
+            OrderCompletedEvent event = events.get(0);
+            assertThat(event.orderId()).isEqualTo(result.id());
+            assertThat(event.userId()).isEqualTo(userId);
+            assertThat(event.totalAmount()).isEqualTo(20000L);
+        }
+
+        @Test
+        @DisplayName("성공 - 주문 완료 시 UserActionEvent 발행")
+        void 주문_완료_시_사용자_행동_이벤트_발행() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 10000, 100);
+            Long userId = 1L;
+            List<OrderItemRequest> items = List.of(
+                new OrderItemRequest(product.getId(), 2)
+            );
+
+            // Act
+            OrderResult result = orderApplicationService.placeOrder(userId, items);
+
+            // Assert
+            assertThat(fakeEventPublisher.hasEventOfType(UserActionEvent.class)).isTrue();
+            List<UserActionEvent> events = fakeEventPublisher.getEventsOfType(UserActionEvent.class);
+            assertThat(events).hasSize(1);
+            UserActionEvent event = events.get(0);
+            assertThat(event.userId()).isEqualTo(userId);
+            assertThat(event.actionType()).isEqualTo(ActionType.ORDER);
+            assertThat(event.targetId()).isEqualTo(result.id());
         }
 
         @Test
@@ -309,6 +362,34 @@ class OrderApplicationServiceTest {
             // 쿠폰 사용 처리 확인
             IssuedCoupon usedCoupon = fakeIssuedCouponRepository.findById(issued.getId()).orElseThrow();
             assertThat(usedCoupon.getStatus()).isEqualTo(IssuedCouponStatus.USED);
+        }
+
+        @Test
+        @DisplayName("성공 - 할인 주문 완료 시 이벤트 발행")
+        void 할인_주문_완료_시_이벤트_발행() {
+            // Arrange
+            Product product = createAndSaveProduct("테스트 상품", 50000, 100);
+            Long userId = 1L;
+
+            CouponTemplate template = fakeCouponTemplateRepository.save(
+                CouponTemplate.createFixed("5000원 할인", new Money(5000), new Money(10000), 100, ZonedDateTime.now().plusDays(7))
+            );
+            IssuedCoupon issued = fakeIssuedCouponRepository.save(
+                IssuedCoupon.create(userId, template)
+            );
+
+            var request = new PlaceOrderWithDiscountRequest(
+                List.of(new OrderItemRequest(product.getId(), 1)),
+                issued.getId(),
+                null
+            );
+
+            // Act
+            OrderResult result = orderApplicationService.placeOrderWithDiscount(userId, request);
+
+            // Assert
+            assertThat(fakeEventPublisher.hasEventOfType(OrderCompletedEvent.class)).isTrue();
+            assertThat(fakeEventPublisher.hasEventOfType(UserActionEvent.class)).isTrue();
         }
 
         @Test

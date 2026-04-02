@@ -1,5 +1,7 @@
 package com.loopers.application.order;
 
+import com.loopers.application.event.OrderCompletedEvent;
+import com.loopers.application.event.UserActionEvent;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.CouponTemplateRepository;
@@ -12,9 +14,11 @@ import com.loopers.domain.point.UserPoint;
 import com.loopers.domain.point.UserPointRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.useraction.ActionType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +38,7 @@ public class OrderApplicationService {
     private final CouponTemplateRepository couponTemplateRepository;
     private final IssuedCouponRepository issuedCouponRepository;
     private final UserPointRepository userPointRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 주문 생성.
@@ -74,6 +79,9 @@ public class OrderApplicationService {
         // 4) Order 생성/저장
         Order order = Order.create(userId, orderItems);
         Order saved = orderRepository.save(order);
+
+        // 5) 이벤트 발행
+        publishOrderEvents(saved, userId, items);
 
         return OrderResult.from(saved);
     }
@@ -205,6 +213,23 @@ public class OrderApplicationService {
         Order order = Order.createWithDiscount(userId, orderItems, couponId, couponDiscount, pointDiscount);
         Order saved = orderRepository.save(order);
 
+        // 8. 이벤트 발행
+        publishOrderEvents(saved, userId, request.items());
+
         return OrderResult.from(saved);
+    }
+
+    private void publishOrderEvents(Order order, Long userId, List<OrderItemRequest> items) {
+        int totalQuantity = items.stream().mapToInt(OrderItemRequest::quantity).sum();
+        Long firstProductId = items.isEmpty() ? null : items.get(0).productId();
+
+        eventPublisher.publishEvent(OrderCompletedEvent.of(
+            order.getId(),
+            userId,
+            firstProductId,
+            totalQuantity,
+            order.getTotalPrice().amount()
+        ));
+        eventPublisher.publishEvent(UserActionEvent.of(userId, ActionType.ORDER, order.getId()));
     }
 }
