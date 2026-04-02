@@ -179,12 +179,12 @@ class QueueSchedulerIntegrationTest {
     }
 
     @Test
-    @DisplayName("토큰 발급 실패 시 원래 score로 대기열에 재삽입되어 순서가 보존된다")
+    @DisplayName("토큰 발급 실패 시 원래 score로 대기열에 재삽입되어 미처리 유저보다 앞선 순서를 유지한다")
     void processQueue_failure_reinserts_with_original_score() {
-        // given: 5명 대기 (score 순서 = userId 순서)
-        enterUsers(5);
+        // given: 20명 대기 (score = userId, 배치 크기 18명 초과)
+        enterUsers(20);
 
-        // QueueTokenService를 spy로 감싸서 userId=2에 대해 예외 발생
+        // userId=2 토큰 발급 실패 설정
         QueueTokenService spyTokenService = Mockito.spy(queueTokenService);
         doThrow(new RuntimeException("Redis connection error"))
                 .when(spyTokenService).issueToken(2L);
@@ -192,22 +192,28 @@ class QueueSchedulerIntegrationTest {
         QueueScheduler failScheduler = new QueueScheduler(
                 queueService, spyTokenService, queueRepository, schedulerLockRepository);
 
-        // when: 스케줄러 1회 실행
+        // when: 스케줄러 1회 실행 (18명 처리, userId=2 실패로 재삽입)
         failScheduler.processQueue();
 
-        // then: 실패한 userId=2는 대기열에 재삽입되어 있어야 한다
-        assertThat(queueRepository.getRank(2L)).isPresent();
-        // 대기열에 userId=2만 남아 있어야 한다 (나머지 4명은 토큰 발급 성공)
-        assertThat(queueRepository.getTotalCount()).isEqualTo(1);
+        // then: 대기열에 3명 남아야 한다 (재삽입된 userId=2 + 미처리 userId=19, 20)
+        assertThat(queueRepository.getTotalCount()).isEqualTo(3);
 
-        // 성공한 유저들은 토큰을 보유한다
-        assertThat(queueTokenRepository.hasToken(1L)).isTrue();
-        assertThat(queueTokenRepository.hasToken(3L)).isTrue();
-        assertThat(queueTokenRepository.hasToken(4L)).isTrue();
-        assertThat(queueTokenRepository.hasToken(5L)).isTrue();
+        // 재삽입된 userId=2의 rank가 미처리 유저(19, 20)보다 앞서야 한다
+        // score=2로 재삽입되었으므로 score=19, 20보다 앞선 rank=0이어야 한다
+        assertThat(queueRepository.getRank(2L)).isPresent().hasValue(0L);
+        assertThat(queueRepository.getRank(19L)).isPresent();
+        assertThat(queueRepository.getRank(20L)).isPresent();
+        assertThat(queueRepository.getRank(2L).get()).isLessThan(queueRepository.getRank(19L).get());
+        assertThat(queueRepository.getRank(2L).get()).isLessThan(queueRepository.getRank(20L).get());
 
         // 실패한 유저는 토큰이 없다
         assertThat(queueTokenRepository.hasToken(2L)).isFalse();
+
+        // 성공한 유저들(1, 3~18)은 토큰을 보유한다
+        assertThat(queueTokenRepository.hasToken(1L)).isTrue();
+        for (int i = 3; i <= 18; i++) {
+            assertThat(queueTokenRepository.hasToken((long) i)).isTrue();
+        }
     }
 
     @Test
