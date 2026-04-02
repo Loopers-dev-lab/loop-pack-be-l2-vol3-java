@@ -53,9 +53,9 @@ class QueueRepositoryImplTest {
         }
     }
 
-    @DisplayName("moveToActive 호출 시, ")
+    @DisplayName("issueTokens 호출 시, ")
     @Nested
-    class MoveToActive {
+    class IssueTokens {
 
         @DisplayName("count 만큼 waiting 에서 꺼내고 각 유저에게 토큰이 발급된다.")
         @Test
@@ -67,7 +67,7 @@ class QueueRepositoryImplTest {
             List<String> uuids = List.of("uuid-1", "uuid-2");
 
             // act
-            List<Long> moved = queueRepository.moveToActive(2, 180L, uuids);
+            List<Long> moved = queueRepository.issueTokens(2, 180L, uuids);
 
             // assert
             assertThat(moved).containsExactly(1L, 2L);
@@ -82,7 +82,7 @@ class QueueRepositoryImplTest {
         @Test
         void returnsEmptyList_whenWaitingIsEmpty() {
             // act
-            List<Long> moved = queueRepository.moveToActive(5, 180L, List.of("uuid-1"));
+            List<Long> moved = queueRepository.issueTokens(5, 180L, List.of("uuid-1"));
 
             // assert
             assertThat(moved).isEmpty();
@@ -110,7 +110,7 @@ class QueueRepositoryImplTest {
         void deletesTokenKey() {
             // arrange
             queueRepository.enter(1L, 1000.0);
-            queueRepository.moveToActive(1, 180L, List.of("uuid-1"));
+            queueRepository.issueTokens(1, 180L, List.of("uuid-1"));
 
             // act
             queueRepository.removeToken(1L);

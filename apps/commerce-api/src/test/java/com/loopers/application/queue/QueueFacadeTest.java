@@ -8,12 +8,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -124,6 +128,91 @@ class QueueFacadeTest {
             assertThatThrownBy(() -> queueFacade.getPosition(userId))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
+        }
+    }
+
+    @DisplayName("토큰 발급 시, ")
+    @Nested
+    class IssueTokens {
+
+        @Test
+        @DisplayName("설정된 batch size와 ttl로 repository에 발급을 위임한다.")
+        @SuppressWarnings("unchecked")
+        void delegatesIssueTokensWithConfiguredValues() {
+            // act
+            queueFacade.issueTokens();
+
+            // assert
+            org.mockito.ArgumentCaptor<List<String>> uuidsCaptor = org.mockito.ArgumentCaptor.forClass(List.class);
+            verify(queueRepository).issueTokens(eq(1), eq(180L), uuidsCaptor.capture());
+            List<String> issuedUuids = uuidsCaptor.getValue();
+            assertThat(issuedUuids).hasSize(1);
+            assertThatCode(() -> UUID.fromString(issuedUuids.get(0))).doesNotThrowAnyException();
+        }
+    }
+
+    @DisplayName("토큰 검증 시, ")
+    @Nested
+    class ValidateToken {
+
+        @Test
+        @DisplayName("저장된 토큰과 일치하면 true를 반환한다.")
+        void returnsTrue_whenTokenMatches() {
+            // arrange
+            long userId = 1L;
+            when(queueRepository.findToken(userId)).thenReturn(Optional.of("valid-token"));
+
+            // act
+            boolean result = queueFacade.validateToken(userId, "valid-token");
+
+            // assert
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("저장된 토큰과 다르면 false를 반환한다.")
+        void returnsFalse_whenTokenDoesNotMatch() {
+            // arrange
+            long userId = 1L;
+            when(queueRepository.findToken(userId)).thenReturn(Optional.of("valid-token"));
+
+            // act
+            boolean result = queueFacade.validateToken(userId, "other-token");
+
+            // assert
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("저장된 토큰이 없으면 false를 반환한다.")
+        void returnsFalse_whenTokenDoesNotExist() {
+            // arrange
+            long userId = 1L;
+            when(queueRepository.findToken(userId)).thenReturn(Optional.empty());
+
+            // act
+            boolean result = queueFacade.validateToken(userId, "any-token");
+
+            // assert
+            assertThat(result).isFalse();
+        }
+    }
+
+    @DisplayName("토큰 삭제 시, ")
+    @Nested
+    class RemoveToken {
+
+        @Test
+        @DisplayName("repository에 삭제를 위임한다.")
+        void delegatesTokenRemoval() {
+            // arrange
+            long userId = 1L;
+
+            // act
+            queueFacade.removeToken(userId);
+
+            // assert
+            verify(queueRepository).removeToken(userId);
         }
     }
 }

@@ -60,7 +60,7 @@ public class QueueRepositoryImpl implements QueueRepository {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Long> moveToActive(int count, long ttlSeconds, List<String> uuids) {
+    public List<Long> issueTokens(int count, long ttlSeconds, List<String> uuids) {
         List<String> argv = new ArrayList<>();
         argv.add(String.valueOf(count));
         argv.add(String.valueOf(ttlSeconds));

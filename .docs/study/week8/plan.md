@@ -36,8 +36,8 @@ infrastructure/queue/
 
 **도메인 객체를 값 객체(record)로 두는 이유**:
 - `EntryToken.isValid()` — 만료 판단 로직을 도메인에 캡슐화 (Facade가 epoch_ms를 직접 다루지 않음)
-- `QueuePosition.estimatedWaitSeconds(schedulerIntervalSeconds, maxTokenCount)` — 대기 시간 계산은 대기열 비즈니스 규칙이므로 도메인에 캡슐화. 설정값은 의존이 아닌 입력값으로 받아 도메인 순수성 유지
-- `QueuePosition.nextPollAfter(schedulerIntervalSeconds, maxTokenCount)` — estimatedWaitSeconds 기반 폴링 주기 계산도 같은 맥락의 도메인 규칙
+- `QueuePosition.estimatedWaitSeconds(schedulerIntervalMs, batchSize)` — 대기 시간 계산은 대기열 비즈니스 규칙이므로 도메인에 캡슐화. 설정값은 의존이 아닌 입력값으로 받아 도메인 순수성 유지
+- `QueuePosition.nextPollAfter(schedulerIntervalMs, batchSize)` — estimatedWaitSeconds 기반 폴링 주기 계산도 같은 맥락의 도메인 규칙
 - JPA Entity가 아닌 record — Redis에서 조회한 값을 도메인 언어로 표현하는 용도
 
 ---
@@ -47,7 +47,7 @@ infrastructure/queue/
 #### POST /queue/enter
 - `@LoginRequired`
 - 대기열 진입 (Sorted Set에 userId, score=진입 timestamp 추가)
-- 중복 진입 방지 — `queue:waiting` 또는 `queue:active`에 이미 존재하면 200 반환 (멱등 처리)
+- 중복 진입 방지 — `queue:waiting` 또는 `queue:token:{userId}`에 이미 존재하면 200 반환 (멱등 처리)
 - 응답: 200 OK (body 없음)
 
 #### GET /queue/position
@@ -90,17 +90,17 @@ sealed interface QueuePositionResult {
 - 따라서 토큰 존재 여부를 먼저 확인해 `ENTERED` / `WAITING`을 판별해야 함
 
 **내부 로직**:
-1. `isInActive(userId)` → true이면: `issueTokenIfAbsent(userId, uuid, ttl)` → ENTERED 응답 (token 포함)
+1. `findToken(userId)` → present이면: ENTERED 응답 (token 포함)
 2. `getRank(userId)` → present이면: WAITING 응답 (rank, estimatedWaitSeconds, nextPollAfter)
 3. 둘 다 없음 → `404 NOT_FOUND` `"대기열에 진입하지 않은 사용자입니다."`
 
 **예상 대기 시간 계산**:
 ```
-estimatedWaitSeconds = rank * (스케줄러_주기_초 / MAX_TOKEN_COUNT)
+estimatedWaitSeconds = rank * (스케줄러_주기_초 / batch_size)
 ```
 - 정확한 계산이 아닌 추정치이며, UX 목적("대략 몇 분")에 충분
-- 현재 빈 슬롯 수를 반영하면 추정치가 다소 나아지지만, 어차피 추정치인데 복잡도를 올리는 건 의미 없음
-- 스케줄러 주기와 MAX_TOKEN_COUNT는 설정값으로 관리
+- 현재 시점의 실제 발급량까지 반영하면 추정치는 조금 나아질 수 있지만, 어차피 추정치인데 복잡도를 올리는 건 의미 없음
+- 스케줄러 주기와 batch_size는 설정값으로 관리
 
 **nextPollAfter 계산**:
 ```
@@ -108,7 +108,7 @@ estimatedWaitSeconds < 30   → 1초
 estimatedWaitSeconds < 120  → 3초
 estimatedWaitSeconds 이상   → 5초
 ```
-- rank 기준이 아닌 estimatedWaitSeconds 기준을 사용하는 이유: rank는 절대 순번이라 설정값(MAX_TOKEN_COUNT, 스케줄러 주기)에 따라 같은 rank여도 실제 대기 시간이 달라지지만, estimatedWaitSeconds는 이미 그 계산이 반영된 값이라 구간 기준으로 적합
+- rank 기준이 아닌 estimatedWaitSeconds 기준을 사용하는 이유: rank는 절대 순번이라 설정값(batch_size, 스케줄러 주기)에 따라 같은 rank여도 실제 대기 시간이 달라지지만, estimatedWaitSeconds는 이미 그 계산이 반영된 값이라 구간 기준으로 적합
 
 ---
 
@@ -152,23 +152,23 @@ token-ttl-seconds: 180   # 토큰 TTL (3분)
 
 **실행 로직**:
 ```
-1. ZREMRANGEBYSCORE queue:active 0 now        → 만료 항목 정리 (housekeeping)
+1. QueueFacade가 batch_size만큼 UUID 생성
 2. Lua 스크립트:
-     ZRANGE queue:waiting 0 batch_size-1      → 앞에서 N명 peek
-     for each userId: ZADD queue:active expiry userId  → active로 먼저 등록
+     ZRANGE queue:waiting 0 batch_size-1      → 앞에서 N명 조회
+     for each userId: SET queue:token:{userId} uuid EX ttl
      ZREM queue:waiting userId...             → waiting에서 제거
      return userId 목록
 ```
 
-**순서를 "옮기고 → 꺼내기"로 한 이유**:
-- ZPOPMIN(꺼내고) → ZADD active(옮기기) 순서면 중간 장애 시 userId 유실 (waiting에도 active에도 없음)
-- ZADD active(옮기고) → ZREM waiting(꺼내기) 순서면 중간 장애 시 userId가 양쪽에 존재 → 폴링 시 isInActive → true → ENTERED 응답으로 자연 복구
-- Lua 스크립트로 전체 원자적 처리 → 장애 자체를 방지
+**스케줄러에서 즉시 토큰 발급하는 이유**:
+- 이 설계의 게이트는 "T초마다 N명 입장"이지, 별도 active 슬롯 카운팅이 아님
+- 폴링 시 lazy 발급으로 미루면 실제 입장 시점이 폴링 타이밍에 종속되어 스케줄러 게이트 의미가 흐려짐
+- Lua 스크립트로 `SET token` + `ZREM waiting`을 원자적으로 처리하면 중간 장애로 인한 유실/중복 발급을 방지할 수 있음
 
-**토큰 발급은 스케줄러가 아닌 폴링 시 lazy하게**:
-- 스케줄러는 waiting → active 이동만 담당
-- `GET /queue/position`에서 isInActive → true 확인 후 `SET NX queue:token:{userId} UUID EX ttl` 발급
-- `SET NX`(없을 때만 SET): 동시 폴링 시 첫 번째만 발급, 이후 요청은 기존 UUID 반환 → 멱등 보장
+**서비스 보호 방식**:
+- `MAX_TOKEN_COUNT` 같은 동시 활성 수 상한은 두지 않음
+- 대신 `N * (TTL / T)`가 시스템 safe TPS를 넘지 않도록 `batch-size`, `scheduler-interval-ms`, `token-ttl-seconds`를 설정값으로 관리
+- 이 프로젝트의 대기열은 놀이공원식 게이트로 보고, 발급 주기와 배치 크기 튜닝으로 서버 부하를 제어
 
 **대기열이 전역 단일인 이유**:
 - 처음엔 상품별 대기열 분리를 고려했으나, 여러 상품 대기열이 있으면 전체 활성 토큰 수가 서버 TPS를 초과할 수 있음
@@ -182,17 +182,16 @@ token-ttl-seconds: 180   # 토큰 TTL (3분)
 #### Redis Key 구조
 ```
 queue:waiting              # 전역 대기열 (Sorted Set, score=진입 timestamp, member=userId)
-queue:active               # 활성 토큰 목록 (Sorted Set, score=만료 epoch_ms, member=userId) — 카운팅 & 만료 관리
 queue:token:{userId}       # 입장 토큰 UUID 값 (String, TTL) — 클라이언트 반환 + 인터셉터 검증용
 ```
 
 **설계 근거**:
 
-처음에는 `queue:active:count` 카운터로 활성 수를 관리하려 했으나 TTL 만료 시 카운터 drift 문제가 있어 `queue:active` Sorted Set으로 카운팅을 대체했다. 이후 클라이언트에 토큰 값을 내려줘야 한다는 요구사항에 따라 UUID를 저장하는 `queue:token:{userId}` String 키를 추가했다.
+이 설계에서는 별도 active 집합 없이, 스케줄러가 정해진 주기마다 정해진 수의 사용자에게 즉시 토큰을 발급한다. 클라이언트에 토큰 값을 내려줘야 하므로 UUID를 저장하는 `queue:token:{userId}` String 키를 사용한다.
 
-- **`queue:active`**: 카운팅 및 만료 정리 전담. `ZREMRANGEBYSCORE`로 만료 항목 정리 → `ZCARD`로 O(1) 활성 수 조회. drift 없음.
-- **`queue:token:{userId}`**: UUID 토큰 값 저장. 클라이언트에 반환하고 인터셉터가 헤더 값과 대조 검증. TTL은 키 정리 목적 (카운팅은 `queue:active`에 의존).
-- **원자성**: Lua 스크립트로 `ZADD queue:active` + `SET queue:token:{userId}` 동시 처리.
+- **`queue:waiting`**: 순서 보장 전담. 입장 전 사용자만 포함하며, 스케줄러가 발급한 사용자는 제거된다.
+- **`queue:token:{userId}`**: UUID 토큰 값 저장. 클라이언트에 반환하고 인터셉터가 헤더 값과 대조 검증한다. TTL은 토큰 만료와 키 정리를 동시에 담당한다.
+- **원자성**: Lua 스크립트로 `SET queue:token:{userId}` + `ZREM queue:waiting`을 한 번에 처리한다.
 
 #### 인터셉터 검증 흐름
 ```
@@ -203,23 +202,23 @@ queue:token:{userId}       # 입장 토큰 UUID 값 (String, TTL) — 클라이�
 4. 일치하면 허용, 없거나 불일치 시 403
 ```
 
-**`queue:active` 만료 체크를 인터셉터에서 하지 않는 이유**:
-- 토큰은 스케줄러가 active로 이동시킨 시점에 만료 epoch가 결정되지만, 토큰(UUID)은 첫 폴링 시 lazy하게 발급됨
-- `queue:active` score와 `queue:token:{userId}` TTL의 시작 시점이 달라 drift 발생 가능 → active 체크가 오히려 유효한 토큰을 거부할 수 있음
-- `queue:token:{userId}` TTL을 만료 기준으로 삼음: 키가 존재하면 유효, 없으면 만료. `queue:active`는 카운팅 전용
+**토큰 만료를 token key만으로 판단하는 이유**:
+- 별도 active 상태를 두지 않으므로 검증 기준은 `queue:token:{userId}` 하나면 충분하다
+- 키가 존재하면 유효, 없으면 만료로 해석하면 인터셉터 로직이 단순하고 일관된다
+- 만료 판단이 분산되지 않아 구현/테스트 복잡도가 낮다
 
 #### 만료 처리 흐름
-- 유저가 토큰 받고 아무것도 안 함 → TTL로 `queue:token:{userId}` 자동 삭제, 다음 스케줄러 실행 시 `ZREMRANGEBYSCORE`로 `queue:active` 정리 → 슬롯 반환
-- 주문 완료 시 → `OrderCreatedEvent` 발행 → `QueueEventListener`에서 `ZREM queue:active userId` + `DEL queue:token:{userId}` (슬롯 즉시 반환)
+- 유저가 토큰 받고 아무것도 안 함 → TTL로 `queue:token:{userId}` 자동 삭제
+- 주문 완료 시 → `OrderCreatedEvent` 발행 → `QueueEventListener`에서 `DEL queue:token:{userId}`
 
 **주문 완료 후 토큰 삭제 설계**:
-- `@TransactionalEventListener(phase = BEFORE_COMMIT)` 사용
-- 토큰 삭제 실패 시 예외를 삼켜 DB 트랜잭션 롤백 방지 (주문은 정상 처리)
-- 삭제 실패 시 슬롯은 `queue:active` score(만료 시각)까지 점유 후 스케줄러가 정리
+- `@TransactionalEventListener(phase = AFTER_COMMIT)` 사용
+- 주문이 실제로 커밋된 뒤에만 토큰을 삭제해 "성공한 주문만 토큰 소멸" 의미를 보장
+- 삭제 실패 시 토큰은 TTL 만료 시각까지 유지되며, 이후 자동 정리됨
 
-**`AFTER_COMMIT`을 선택하지 않은 이유**:
-- `AFTER_COMMIT`이면 DB 커밋 후 토큰 삭제 실패 시 슬롯이 TTL 만료 시각까지 낭비
-- `BEFORE_COMMIT` + 예외 삼킴으로 주문 롤백 없이 best-effort 삭제 시도
+**`BEFORE_COMMIT`을 선택하지 않은 이유**:
+- `BEFORE_COMMIT`이면 이후 커밋 실패 시 주문은 실패했는데 토큰만 먼저 사라질 수 있음
+- token-only 모델에서는 커밋 전에 토큰을 지워서 얻는 이점보다, 커밋 결과와 토큰 소멸 시점을 맞추는 것이 더 중요함
 
 #### 토큰 검증 위치: 인터셉터
 
@@ -244,7 +243,7 @@ queue:token:{userId}       # 입장 토큰 UUID 값 (String, TTL) — 클라이�
 **핵심 근거**:
 - OrderFacade가 직접 Queue를 호출하면 단일 책임 원칙 위반, 테스트 복잡도 증가
 - 이벤트를 통한 간접 연결로 Order → Queue 의존성 제거
-- `@TransactionalEventListener(phase = BEFORE_COMMIT)` + 예외 삼킴으로 토큰 삭제 실패가 주문 롤백으로 이어지지 않음
+- `@TransactionalEventListener(phase = AFTER_COMMIT)`으로 주문 성공 이후에만 토큰을 제거함
 
 ---
 
@@ -300,36 +299,31 @@ try-catch 위치: Repository는 예외를 그대로 throw, 각 호출부에서 �
 ```java
 void enter(long userId, double score);                  // queue:waiting ZADD
 boolean isInWaiting(long userId);                       // queue:waiting ZSCORE 존재 여부
-boolean isInActive(long userId);                        // queue:active ZSCORE > now 여부
 Optional<Long> getRank(long userId);                    // ZRANK queue:waiting
 Optional<String> findToken(long userId);                // GET queue:token:{userId}
-void removeExpiredActive();                             // ZREMRANGEBYSCORE 0 now
-List<Long> moveToActive(int count, long expiry);        // Lua: ZRANGE waiting → ZADD active → ZREM waiting
-Optional<String> issueTokenIfAbsent(long userId, String uuid, long ttl); // SET NX → 발급 or 기존 UUID 반환
-void removeToken(long userId);                          // ZREM active + DEL token
+List<Long> issueTokens(int count, long ttlSeconds, List<String> uuids); // Lua: ZRANGE waiting → SET token EX ttl → ZREM waiting
+void removeToken(long userId);                          // DEL token
 ```
 
-**제거된 메서드**: `getActiveCount()` — MAX_TOKEN_COUNT 상한 체크 제거로 불필요
+**제거된 메서드**: `getActiveCount()`, `isInActive()`, `removeExpiredActive()`, `issueTokenIfAbsent()` — token-only 게이트 모델에서는 불필요
 
 **QueueFacade 주요 메서드**:
 ```java
 void enter(long userId);                          // POST /queue/enter
 QueuePositionResult getPosition(long userId);     // GET /queue/position
-void moveToActive();                              // 스케줄러 호출
+void issueTokens();                              // 스케줄러 호출
 boolean validateToken(long userId, String uuid);  // EntryTokenInterceptor 호출 — findToken → uuid 비교
 void removeToken(long userId);                    // QueueEventListener 호출
 ```
 
-**중복 체크 방식**: `enter` 시 Facade에서 `isInWaiting` + `isInActive` 순차 호출 (명확성 우선)
-**`moveToActive` 설계 근거**: 옮기고(ZADD active) → 꺼내기(ZREM waiting) 순서로 장애 시 유실 방지. Lua로 원자적 처리
-**`issueTokenIfAbsent` 설계 근거**: `SET NX`로 동시 폴링 시 첫 번째만 발급, 이후는 기존 UUID 반환. `GET /queue/position`에서 호출
+**중복 체크 방식**: `enter` 시 Facade에서 `isInWaiting` + `findToken` 순차 호출 (명확성 우선)
+**`issueTokens` 설계 근거**: 스케줄러가 토큰 발급과 waiting 제거를 함께 책임진다. Lua로 원자적 처리해 중간 장애 시 유실/중복을 방지한다.
 
 ### Task 1b. QueueRepositoryImpl 구현
-- Redis Sorted Set 활용 (`queue:waiting`, `queue:active`, `queue:token:{userId}`)
+- Redis 자료구조 활용 (`queue:waiting`, `queue:token:{userId}`)
 - 스케줄러 발급 로직은 Lua 스크립트로 원자적 처리
 - 테스트: Redis Testcontainers 활용 (`RedisTestContainersConfig`, `RedisCleanUp` — `testFixtures(modules:redis)`)
   - `queue:waiting` ZADD/ZRANK
-  - `queue:active` ZADD/ZSCORE/ZREMRANGEBYSCORE/ZCARD
   - `queue:token:{userId}` SET/GET/DEL
 
 ### Task 2. 대기열 진입 API (`POST /queue/enter`)
@@ -343,10 +337,10 @@ void removeToken(long userId);                    // QueueEventListener 호출
 - 테스트: 토큰 있을 때 ENTERED, 대기열에 있을 때 WAITING, 둘 다 없을 때 에러
 
 ### Task 4. 스케줄러 + QueueEventListener
-- `QueueFacade.moveToActive()` — batch_size만큼 waiting → active 이동, MAX_TOKEN_COUNT 초과 시 skip
+- `QueueFacade.issueTokens()` — batch_size만큼 waiting 앞에서 꺼내 토큰 발급 후 제거
 - `QueueScheduler` — `@Scheduled(fixedDelay = ...)` 사용 (fixedRate 사용 시 처리 겹침으로 double-move 위험)
-- `QueueEventListener` — `OrderCreatedEvent` 구독, `@TransactionalEventListener(phase = BEFORE_COMMIT)` + 예외 삼킴
-- 테스트: batch_size만큼 정확히 이동됨, 활성 토큰 수가 MAX_TOKEN_COUNT 이상이면 이동 skip
+- `QueueEventListener` — `OrderCreatedEvent` 구독, `@TransactionalEventListener(phase = AFTER_COMMIT)`
+- 테스트: batch_size만큼 정확히 토큰 발급됨, waiting 선두부터 제거됨, 주문 완료 이벤트 시 토큰 삭제됨
 
 ### Task 5. 인터셉터 (`@EntryTokenRequired`)
 - `@EntryTokenRequired` 어노테이션 추가

@@ -13,7 +13,7 @@ public interface QueueRepository {
 
     Optional<String> findToken(long userId);
 
-    List<Long> moveToActive(int count, long ttlSeconds, List<String> uuids);
+    List<Long> issueTokens(int count, long ttlSeconds, List<String> uuids);
 
     void removeToken(long userId);
 }

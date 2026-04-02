@@ -9,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.IntStream;
 
 @RequiredArgsConstructor
 @Component
@@ -42,5 +45,25 @@ public class QueueFacade {
                     );
                 })
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "대기열에 진입하지 않은 사용자입니다."));
+    }
+
+    @Transactional
+    public void issueTokens() {
+        List<String> uuids = IntStream.range(0, queueProperties.batchSize())
+                .mapToObj(ignored -> UUID.randomUUID().toString())
+                .toList();
+        queueRepository.issueTokens(queueProperties.batchSize(), queueProperties.tokenTtlSeconds(), uuids);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean validateToken(long userId, String token) {
+        return queueRepository.findToken(userId)
+                .filter(token::equals)
+                .isPresent();
+    }
+
+    @Transactional
+    public void removeToken(long userId) {
+        queueRepository.removeToken(userId);
     }
 }
