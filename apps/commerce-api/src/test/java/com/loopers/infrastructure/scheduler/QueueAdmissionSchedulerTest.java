@@ -1,16 +1,12 @@
 package com.loopers.infrastructure.scheduler;
 
-import com.loopers.infrastructure.redis.EntryTokenRedisRepository;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.data.redis.core.DefaultTypedTuple;
-import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 
 import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
@@ -19,51 +15,44 @@ class QueueAdmissionSchedulerTest {
 
     private QueueAdmissionScheduler scheduler;
     private WaitingQueueRedisRepository waitingQueueRedisRepository;
-    private EntryTokenRedisRepository entryTokenRedisRepository;
 
     @BeforeEach
     void setUp() {
         waitingQueueRedisRepository = mock(WaitingQueueRedisRepository.class);
-        entryTokenRedisRepository = mock(EntryTokenRedisRepository.class);
-        scheduler = new QueueAdmissionScheduler(waitingQueueRedisRepository, entryTokenRedisRepository);
+        scheduler = new QueueAdmissionScheduler(waitingQueueRedisRepository);
     }
 
-    @DisplayName("배치 크기만큼 POP하여 토큰 발급")
+    @DisplayName("배치 크기만큼 원자적 POP + 토큰 발급 (Lua)")
     @Test
-    void admitUsers_popsAndIssuesTokens() {
-        Set<TypedTuple<String>> tuples = new LinkedHashSet<>();
-        tuples.add(new DefaultTypedTuple<>("1", 1000.0));
-        tuples.add(new DefaultTypedTuple<>("2", 1001.0));
-        tuples.add(new DefaultTypedTuple<>("3", 1002.0));
-
-        when(waitingQueueRedisRepository.popMin(8)).thenReturn(tuples);
+    void admitUsers_popsAndIssuesTokensAtomically() {
+        when(waitingQueueRedisRepository.popMinAndIssueTokens(8))
+            .thenReturn(List.of("1", "2", "3"));
 
         scheduler.admitUsers();
 
-        verify(entryTokenRedisRepository).issue(1L);
-        verify(entryTokenRedisRepository).issue(2L);
-        verify(entryTokenRedisRepository).issue(3L);
-        verifyNoMoreInteractions(entryTokenRedisRepository);
+        verify(waitingQueueRedisRepository).popMinAndIssueTokens(8);
     }
 
-    @DisplayName("빈 큐 → 토큰 발급 없음")
+    @DisplayName("빈 큐 → 입장 처리 없음")
     @Test
-    void admitUsers_emptyQueue_noTokenIssued() {
-        when(waitingQueueRedisRepository.popMin(8)).thenReturn(Collections.emptySet());
+    void admitUsers_emptyQueue_noAdmission() {
+        when(waitingQueueRedisRepository.popMinAndIssueTokens(8))
+            .thenReturn(Collections.emptyList());
 
         scheduler.admitUsers();
 
-        verifyNoInteractions(entryTokenRedisRepository);
+        verify(waitingQueueRedisRepository).popMinAndIssueTokens(8);
     }
 
-    @DisplayName("8명 배치 크기로 ZPOPMIN 호출")
+    @DisplayName("8명 배치 크기로 원자적 입장 호출")
     @Test
     void admitUsers_requestsBatchSizeOf8() {
-        when(waitingQueueRedisRepository.popMin(8)).thenReturn(Collections.emptySet());
+        when(waitingQueueRedisRepository.popMinAndIssueTokens(8))
+            .thenReturn(Collections.emptyList());
 
         scheduler.admitUsers();
 
-        verify(waitingQueueRedisRepository).popMin(8);
+        verify(waitingQueueRedisRepository).popMinAndIssueTokens(8);
     }
 
     @DisplayName("타임아웃 정리: 만료 엔트리 제거 호출")

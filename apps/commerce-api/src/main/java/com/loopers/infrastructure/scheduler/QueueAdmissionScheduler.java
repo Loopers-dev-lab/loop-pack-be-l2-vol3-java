@@ -1,14 +1,13 @@
 package com.loopers.infrastructure.scheduler;
 
-import com.loopers.infrastructure.redis.EntryTokenRedisRepository;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 대기열 입장 스케줄러.
@@ -21,6 +20,10 @@ import java.util.Set;
  *
  * <p>타임아웃 정리: 10초 주기로 600초(10분) 이상 대기한 엔트리를 제거한다.
  * max_queue = 80 TPS × 600초 = 48,000명.</p>
+ *
+ * <p>Redis 장애 대비: 에러 로그를 10초에 1회로 쓰로틀링한다.
+ * admitUsers()가 100ms마다 실행되므로, 장애 시 분당 600회 예외가 발생하는데,
+ * 매번 로그를 찍으면 로그 시스템에 부하가 걸리고 중요한 에러가 묻힌다.</p>
  */
 @Slf4j
 @Component
@@ -29,30 +32,44 @@ public class QueueAdmissionScheduler {
 
     private static final int BATCH_SIZE = 8;
     private static final long MAX_WAIT_SECONDS = 600;
+    private static final long ERROR_LOG_INTERVAL_MILLIS = 10_000;
 
     private final WaitingQueueRedisRepository waitingQueueRedisRepository;
-    private final EntryTokenRedisRepository entryTokenRedisRepository;
+
+    private final AtomicLong lastAdmitErrorLogTime = new AtomicLong(0);
+    private final AtomicLong lastCleanupErrorLogTime = new AtomicLong(0);
 
     @Scheduled(fixedRate = 100)
     public void admitUsers() {
-        Set<TypedTuple<String>> admitted = waitingQueueRedisRepository.popMin(BATCH_SIZE);
-        if (admitted.isEmpty()) {
-            return;
+        try {
+            List<String> admitted = waitingQueueRedisRepository.popMinAndIssueTokens(BATCH_SIZE);
+            if (admitted.isEmpty()) {
+                return;
+            }
+            log.debug("대기열 입장 처리: {}명", admitted.size());
+        } catch (Exception e) {
+            throttledWarn(lastAdmitErrorLogTime, "입장 처리", e);
         }
-
-        for (TypedTuple<String> tuple : admitted) {
-            entryTokenRedisRepository.issue(Long.parseLong(tuple.getValue()));
-        }
-
-        log.debug("대기열 입장 처리: {}명", admitted.size());
     }
 
     @Scheduled(fixedRate = 10_000)
     public void removeExpiredEntries() {
-        long cutoff = System.currentTimeMillis() - (MAX_WAIT_SECONDS * 1000);
-        long removed = waitingQueueRedisRepository.removeExpiredEntries(cutoff);
-        if (removed > 0) {
-            log.info("대기열 타임아웃 정리: {}명 제거", removed);
+        try {
+            long cutoff = System.currentTimeMillis() - (MAX_WAIT_SECONDS * 1000);
+            long removed = waitingQueueRedisRepository.removeExpiredEntries(cutoff);
+            if (removed > 0) {
+                log.info("대기열 타임아웃 정리: {}명 제거", removed);
+            }
+        } catch (Exception e) {
+            throttledWarn(lastCleanupErrorLogTime, "타임아웃 정리", e);
+        }
+    }
+
+    private void throttledWarn(AtomicLong lastLogTime, String operation, Exception e) {
+        long now = System.currentTimeMillis();
+        long last = lastLogTime.get();
+        if (now - last >= ERROR_LOG_INTERVAL_MILLIS && lastLogTime.compareAndSet(last, now)) {
+            log.warn("대기열 {} Redis 장애: {}", operation, e.getMessage());
         }
     }
 }

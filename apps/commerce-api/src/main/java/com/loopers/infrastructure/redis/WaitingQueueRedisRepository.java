@@ -2,11 +2,14 @@ package com.loopers.infrastructure.redis;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations.TypedTuple;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -20,16 +23,39 @@ import java.util.Set;
 public class WaitingQueueRedisRepository {
 
     private static final String KEY = "queue:waiting:order";
+    private static final String TOKEN_KEY_PREFIX = "queue:token:";
 
+    /**
+     * ZPOPMIN + 토큰 발급을 원자적으로 실행하는 Lua 스크립트.
+     *
+     * <p>KEYS[1] = queue:waiting:order</p>
+     * <p>ARGV[1] = 배치 크기, ARGV[2] = 토큰 TTL(초)</p>
+     * <p>반환: 발급된 memberId 목록</p>
+     */
+    private static final String POP_AND_ISSUE_SCRIPT =
+        "local members = redis.call('ZPOPMIN', KEYS[1], ARGV[1]) " +
+        "local issued = {} " +
+        "for i = 1, #members, 2 do " +
+        "    local memberId = members[i] " +
+        "    redis.call('SET', '" + TOKEN_KEY_PREFIX + "' .. memberId, '1', 'EX', ARGV[2]) " +
+        "    issued[#issued + 1] = memberId " +
+        "end " +
+        "return issued";
+
+    private final DefaultRedisScript<List> popAndIssueScript;
+    private final long tokenTtlSeconds;
     private final RedisTemplate<String, String> readTemplate;
     private final RedisTemplate<String, String> writeTemplate;
 
     public WaitingQueueRedisRepository(
+        @Value("${queue.token.ttl-seconds:900}") long tokenTtlSeconds,
         RedisTemplate<String, String> readTemplate,
         @Qualifier("redisTemplateMaster") RedisTemplate<String, String> writeTemplate
     ) {
+        this.tokenTtlSeconds = tokenTtlSeconds;
         this.readTemplate = readTemplate;
         this.writeTemplate = writeTemplate;
+        this.popAndIssueScript = new DefaultRedisScript<>(POP_AND_ISSUE_SCRIPT, List.class);
     }
 
     /**
@@ -66,6 +92,26 @@ public class WaitingQueueRedisRepository {
     public Set<TypedTuple<String>> popMin(int count) {
         Set<TypedTuple<String>> result = writeTemplate.opsForZSet().popMin(KEY, count);
         return result != null ? result : Collections.emptySet();
+    }
+
+    /**
+     * 대기열에서 N명을 꺼내면서 동시에 토큰을 발급한다 (Lua 스크립트, 원자적).
+     *
+     * <p>ZPOPMIN과 SET EX를 하나의 Lua 스크립트로 실행하여,
+     * "대기열에서 빠짐 = 토큰 발급됨"을 보장한다.
+     * 중간에 서버 크래시가 발생해도 유저가 유실되지 않는다.</p>
+     *
+     * @return 토큰이 발급된 memberId 목록
+     */
+    @SuppressWarnings("unchecked")
+    public List<String> popMinAndIssueTokens(int count) {
+        List<String> result = writeTemplate.execute(
+            popAndIssueScript,
+            List.of(KEY),
+            String.valueOf(count),
+            String.valueOf(tokenTtlSeconds)
+        );
+        return result != null ? result : Collections.emptyList();
     }
 
     /**
