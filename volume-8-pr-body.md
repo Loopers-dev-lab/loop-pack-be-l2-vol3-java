@@ -1,317 +1,227 @@
-## 📌 리뷰 포인트
-
-> 구현 과정에서 확신이 없었던 부분 3가지입니다. 각 항목마다 **설계 의도 → 불확실한 부분 → 질문** 순으로 정리했습니다.
-
----
-
-### 1. 스케줄러 Lua 스크립트 — 토큰 보유 중 대기열 재진입 시 이상 상태가 남습니다
-
-**설계 의도**: 스케줄러가 `ZRANGE → EXISTS → ZREM`을 Lua 스크립트로 원자적으로 실행합니다. 상위 N명 중 이미 토큰을 가진 유저는 스킵하고, 토큰 없는 유저만 대기열에서 꺼내 UUID 토큰을 발급합니다.
-
-**불확실한 부분**: 토큰을 받은 유저가 주문을 완료하지 않고 대기열에 다시 진입하면(`ZADD NX`로 등록), 대기열에는 있지만 `EXISTS token:{userId} == 1`이라 스케줄러가 스킵합니다. 이 유저는 토큰이 만료(300초)될 때까지 대기열에 남아 순번을 차지하는 이상 상태가 됩니다.
-
-**질문**: 진입 시점에 기존 토큰 존재 여부를 체크해서 차단하는 것이 맞을까요, 아니면 스케줄러에서 토큰 보유자를 대기열에서 즉시 제거하는 것이 더 자연스러운 흐름일까요?
-
-→ [`TokenScheduler.java`](apps/commerce-api/src/main/java/com/loopers/domain/queue/TokenScheduler.java) · [`QueueRepositoryImpl.java`](apps/commerce-api/src/main/java/com/loopers/infrastructure/queue/QueueRepositoryImpl.java)
-
----
-
-### 2. 분산 락 TTL — `tryLock(0, 4, SECONDS)` 4초 기준이 적절한지 모르겠습니다
-
-**설계 의도**: 스케줄러 주기가 5초(`fixedDelay`)이므로, 락 TTL을 4초로 잡아 이전 실행이 비정상 종료돼도 다음 주기에 락이 자동 해제되도록 했습니다.
-
-**불확실한 부분**: 실제 처리 시간이 4초를 넘는 경우(대기열 인원 폭증, Redis 지연) 락이 먼저 만료되고 다른 인스턴스가 동시에 실행될 수 있습니다. 반대로 4초가 너무 보수적이라면 정상 종료 후에도 락이 남아 다음 주기를 지연시킬 수 있습니다.
-
-**질문**: 이런 경우 락 TTL을 주기보다 짧게 가져가는 게 일반적인 선택인가요? 처리 시간이 락 TTL을 초과할 경우를 대비한 보호 장치가 따로 필요한가요?
-
-→ [`TokenScheduler.java:46`](apps/commerce-api/src/main/java/com/loopers/domain/queue/TokenScheduler.java)
-
----
-
-### 3. 이탈 감지 미구현 — 설계에는 있지만 코드에 없습니다
-
-**설계 의도**: CONTEXT.md에 "Polling 없으면 이탈로 간주 후 ZREM"으로 결정을 남겼습니다. 유령 유저가 대기열에 쌓이면 실제 대기자의 순번이 왜곡됩니다.
-
-**불확실한 부분**: 구현 범위를 Step 1~3(대기열 진입, 토큰 발급, 순번 조회)으로 한정하면서 이탈 감지 로직을 넣지 않았습니다. 마지막 Polling 시각을 Redis에 별도 키로 관리하는 방식을 생각했는데, 키 하나 더 늘어나는 것 대비 실질적인 효과가 있는지 확신이 없습니다.
-
-**질문**: 대기열 이탈 감지를 이 규모에서 구현하는 게 유의미한가요? 실무에서는 어떤 방식으로 처리하는지 방향을 듣고 싶습니다.
-
----
-
 ## 📌 Summary
 
-- **배경**: Black Friday 주문 API에 트래픽이 몰리면 HikariCP 커넥션 풀이 고갈되고 DB가 다운된다. Rate Limiting(거절)은 사용자가 재시도를 반복하며 오히려 부하가 증가하는 Thundering Herd 문제를 일으킨다.
-- **목표**: Redis Sorted Set 기반 대기열로 번호표를 발급해, 처리 가능한 수(N=80)만큼만 주문 API에 진입할 수 있도록 Back-pressure를 구현한다.
-- **결과**: 3단계(대기열 진입 → 입장 토큰 발급 → Adaptive Polling 순번 조회)로 구현 완료. 동시 진입, 토큰 TTL 만료, 처리량 초과 검증 테스트 19개 통과.
+- **배경**: Black Friday 주문 API에 트래픽이 집중되면 HikariCP 커넥션 풀이 고갈되어 DB가 다운된다. Rate Limiting(즉시 거절)은 사용자가 재시도를 반복해 오히려 Thundering Herd 문제를 유발한다.
+- **목표**: Redis Sorted Set 기반 대기열로 번호표를 발급하고, 처리 가능한 수(N=80)만큼만 주문 API에 진입할 수 있도록 Back-pressure를 구현한다.
+- **결과**: 대기열 진입 → 입장 토큰 발급(스케줄러) → 토큰 검증(인터셉터) → Adaptive Polling 순번 조회의 3단계 파이프라인 구현 완료. 동시 진입, 토큰 TTL 만료, 처리량 초과 검증 포함 19개 테스트 통과.
 
 ---
 
 ## 🧭 Context & Decision
 
-### 문제 정의
+### 1. 대기열 중복 진입을 어떻게 방지할 것인가?
 
-```
-[Before]
-사용자 → 주문 API → DB (HikariCP 커넥션 10개)
-트래픽 200 VU → 커넥션 고갈 → Connection is not available → 서버 다운
+| 항목 | ZSCORE 조회 후 분기 | ZADD NX (채택) |
+|------|-------------------|---------------|
+| 원자성 | ZSCORE → ZADD 사이 끼어들기 가능 (TOCTOU) | 단일 명령어로 원자적 처리 |
+| 순번 조회 | O(N) 스캔 | O(log N) ZRANK |
+| 코드 복잡도 | 2단계 | 1단계 |
 
-[After]
-사용자 → 대기열 진입 (번호표 발급) → 스케줄러가 N명 선발 → 토큰 발급
-         ↓ Adaptive Polling (순번 조회)
-토큰 보유자만 → 주문 API 진입 (N명씩 처리, 커넥션 안전)
-```
+- **결정**: `ZADD NX` (`addIfAbsent`)
+- **근거**: Redis 싱글스레드 특성상 확인+추가가 원자적으로 처리된다. ZSCORE 후 분기는 두 명령 사이에 다른 요청이 끼어드는 TOCTOU 문제가 발생한다.
+- **트레이드오프**: 동일 밀리초에 진입한 사용자 간 순서가 undefined이다. 같은 밀리초 내 순서는 비즈니스상 무의미하므로 허용한다.
 
-### 핵심 결정 요약
+> **리뷰 포인트**: 이탈 감지(`Polling 없으면 ZREM`)를 구현 범위에서 제외했다. 대기열에 유령 유저가 쌓이면 실제 대기자의 순번이 왜곡될 수 있다. 이 규모에서 이탈 감지 구현이 유의미한지, 실무에서 어떤 방식으로 처리하는지 의견을 듣고 싶다. → [`QueueRepositoryImpl.enter()`][queue-repo-enter]
 
-| # | 결정 항목 | 최종 선택 | 핵심 근거 |
-|---|-----------|-----------|-----------|
-| 1 | 자료구조 | Redis Sorted Set | score 기반 순서 보장 + ZADD NX 중복 방지 |
-| 2 | score 기준 | `currentTimeMillis()` | 밀리초 충돌은 극히 드물고 비즈니스상 무의미 |
-| 3 | 중복 진입 방지 | ZADD NX | 단일 명령 원자적 처리, TOCTOU 방지 |
-| 4 | 토큰 값 | UUID | userId만 알아도 위조 불가 |
-| 5 | 토큰 검증 위치 | Interceptor | Spring Bean + URL 패턴 + ControllerAdvice |
-| 6 | 스케줄러 원자성 | Lua 스크립트 | ZRANGE + EXISTS + ZREM 3단계를 원자적으로 |
-| 7 | 중복 실행 방지 | Redisson 분산 락 | 멀티 인스턴스 환경 기준 |
-| 8 | Polling 방식 | Adaptive Polling | `nextPollAfterSeconds`로 클라이언트 주기 제어 |
+### 2. 토큰을 어떻게 설계할 것인가?
 
----
+| 항목 | 단순 값 ("1") | UUID + Redis String TTL (채택) |
+|------|-------------|-------------------------------|
+| 위조 방지 | userId만 알면 토큰 추측 가능 | userId 알아도 UUID 값 모르면 차단 |
+| 만료 처리 | 직접 관리 | Redis TTL 자동 만료 |
+| 검증 방식 | 존재 여부만 확인 | 존재 + 값 일치 이중 확인 |
 
-### 결정 1 · 2 · 3 — Redis Sorted Set + ZADD NX
+- **결정**: UUID + Redis String (TTL 300초)
+- **근거**: 주문 API는 userId 헤더만 있으면 누구나 호출할 수 있다. UUID로 토큰 값을 모르면 위조가 불가능하다. Redis TTL로 만료를 자동 처리해 DB 커넥션 소모 없이 빠른 조회가 가능하다.
+- **트레이드오프**: 클라이언트가 토큰 값을 저장해야 하고, TTL(300초) 안에 주문을 완료해야 한다. 결제 중 만료되면 403이 반환된다.
 
-**의도**: 진입 순서 보장과 중복 방지를 단일 자료구조로 해결한다.
+### 3. 토큰 검증을 어디에서 수행할 것인가?
 
-**Before**: List(`LPUSH`)는 중복 방지 없음, 순번 조회 O(N) 스캔.
+| 항목 | Filter (Servlet) | Interceptor (채택) | AOP |
+|------|-----------------|-------------------|-----|
+| Spring Bean 주입 | 불편 (수동 getBean) | 가능 | 가능 |
+| URL 패턴 적용 | 가능 | 가능 | 불가 (메서드 레벨) |
+| ControllerAdvice 연동 | 불가 | **가능** | 가능 |
 
-**After**: Sorted Set + ZADD NX
+- **결정**: `HandlerInterceptor`
+- **근거**: Redis 조회에 `TokenService` Spring Bean이 필요하고, `/api/v1/orders/**` URL 패턴 적용과 `CoreException → ControllerAdvice` 처리 연동이 동시에 필요하다. Filter는 ControllerAdvice가 예외를 잡지 못한다.
+- **트레이드오프**: Filter 대비 Spring MVC에 의존한다. 단, 대기열 토큰은 Spring 컨텍스트 내에서 처리가 필요하므로 허용 가능한 의존성이다.
 
-```java
-// score = currentTimeMillis() → 먼저 들어올수록 낮은 rank
-redisTemplate.opsForZSet().addIfAbsent(QUEUE_KEY, userId, System.currentTimeMillis());
-Long rank = redisTemplate.opsForZSet().rank(QUEUE_KEY, userId); // O(log N)
-return rank + 1; // 1-indexed
-```
+### 4. 스케줄러 배치 팝의 원자성을 어떻게 보장할 것인가?
 
-**대안 비교**
+| 항목 | Java 3단계 분리 | Lua 스크립트 (채택) |
+|------|---------------|-------------------|
+| ZRANGE → EXISTS → ZREM 사이 | 중간 실패 시 유령 상태 발생 | 단일 스크립트로 원자적 실행 |
+| 중간 단계 끼어들기 | 가능 | 불가 (Redis 싱글스레드) |
+| 디버깅 | 쉬움 | 어려움 |
 
-| 전략 | 장점 | 단점 | 선택 이유 |
-|------|------|------|-----------|
-| List (LPUSH) | 단순 | 중복 허용, O(N) 순번 조회 | 탈락 |
-| Sorted Set + ZSCORE 조회 후 분기 | 직관적 | ZSCORE-ZADD 사이 TOCTOU 발생 | 탈락 |
-| **Sorted Set + ZADD NX** | 원자적 중복 방지, O(log N) 순번 조회 | score 밀리초 충돌 가능(무시) | **채택** |
+- **결정**: Lua 스크립트로 `ZRANGE + EXISTS + ZREM` 원자적 처리
+- **근거**: 3단계를 분리하면 ZREM 성공 후 토큰 발급 실패 시 대기열에서는 제거됐지만 토큰이 없는 유령 상태가 된다. Lua는 Redis에서 단일 명령으로 실행되어 중간 실패가 구조적으로 불가능하다.
+- **트레이드오프**: Lua 디버깅이 어렵고 Java 상수(`QueueConstants.TOKEN_KEY_PREFIX`)를 직접 참조할 수 없어 `'token:'`을 스크립트에 하드코딩했다. 주석으로 상수와 연결을 명시했다.
 
-```mermaid
-sequenceDiagram
-    actor User
-    participant Controller
-    participant QueueFacade
-    participant QueueService
-    participant Redis
+> **리뷰 포인트**: 토큰을 보유한 유저가 주문을 완료하지 않고 대기열에 재진입하면, Lua에서 `EXISTS == 1`이라 스킵되어 TTL(300초) 만료까지 대기열에 머문다. 진입 시점에 토큰 존재 여부를 체크해 차단하는 것이 맞을지, 아니면 스케줄러에서 즉시 ZREM하는 것이 나은지 판단이 서지 않는다. → [`TokenScheduler.executeIssue()`][scheduler-execute]
 
-    User->>Controller: POST /api/v1/queue/enter?userId=user-1
-    Controller->>QueueFacade: enter(userId)
-    QueueFacade->>QueueService: enter(userId)
-    QueueService->>Redis: ZADD queue:waiting NX currentTimeMillis() user-1
-    Redis-->>QueueService: 1(신규) or 0(기존)
-    QueueService->>Redis: ZRANK queue:waiting user-1
-    Redis-->>QueueService: rank (0-indexed)
-    QueueService-->>QueueFacade: position (rank+1)
-    QueueFacade->>Redis: ZCARD queue:waiting
-    Redis-->>QueueFacade: totalCount
-    QueueFacade-->>Controller: QueueInfo(position, totalCount)
-    Controller-->>User: { position: 1, totalCount: 1 }
-```
+### 5. 멀티 인스턴스 환경에서 스케줄러 중복 실행을 어떻게 방지할 것인가?
 
-**관련 클래스**
+| 항목 | @ConditionalOnSingleCandidate | Redisson 분산 락 (채택) |
+|------|------------------------------|----------------------|
+| 멀티 인스턴스 | 인스턴스마다 실행 | 락 획득한 1개만 실행 |
+| 락 TTL | 없음 | 4초 (비정상 종료 시 자동 해제) |
+| 구현 복잡도 | 낮음 | 중간 |
 
-| 컴포넌트 | 파일 | 메서드 | 역할 |
-|----------|------|--------|------|
-| QueueService | `domain/queue/QueueService.java` | `enter(userId)` | score에 currentTimeMillis 주입 |
-| QueueRepositoryImpl | `infrastructure/queue/QueueRepositoryImpl.java` | `enter(userId, score)` | ZADD NX + ZRANK |
-| QueueFacade | `application/queue/QueueFacade.java` | `enter(userId)` | position + totalCount 조합 |
+- **결정**: Redisson 분산 락 (`tryLock(0, 4, SECONDS)`)
+- **근거**: 단일 인스턴스는 문제가 없지만, 멀티 인스턴스 환경에서 스케줄러가 동시에 실행되면 같은 userId에게 토큰이 중복 발급된다. Lua 스크립트의 EXISTS 체크가 1차 방어이지만, 스케줄러 자체를 직렬화하는 것이 더 근본적이다.
+- **트레이드오프**: 락 TTL(4초)이 실제 처리 시간보다 짧으면 락이 만료되어 중복 실행 가능성이 생긴다. 대기열 인원 폭증 시 처리 시간이 4초를 초과할 수 있다.
 
----
+> **리뷰 포인트**: 스케줄러 주기(5초)보다 짧은 락 TTL(4초)을 선택했다. 처리 시간이 4초를 초과하는 케이스에서 락이 먼저 만료되면 다른 인스턴스가 진입할 수 있다. 실무에서 락 TTL을 주기보다 짧게 설정하는 것이 일반적인지, 보완 전략이 있는지 조언을 구하고 싶다. → [`TokenScheduler.issueTokens()`][scheduler-issue]
 
-### 결정 4 · 5 · 7 — UUID 토큰 + Interceptor 검증 + Redisson 분산 락
+### 6. 대기자에게 Polling 주기를 어떻게 안내할 것인가?
 
-**의도**: 대기열을 우회한 직접 주문을 차단하고, 멀티 인스턴스 환경에서 토큰 중복 발급을 방지한다.
+| 항목 | 고정 주기 | Adaptive Polling (채택) |
+|------|---------|------------------------|
+| 순번 멀 때 | 불필요한 요청 반복 | 긴 주기(30초)로 부하 절감 |
+| 순번 가까울 때 | 늦게 반응 | 짧은 주기(5초)로 빠른 반응 |
+| 클라이언트 구현 | 단순 | `nextPollAfterSeconds` 필드 필요 |
 
-**토큰 흐름**
-
-```java
-// 발급: UUID 저장 (TTL 300초)
-String token = UUID.randomUUID().toString();
-redisTemplate.opsForValue().set("token:" + userId, token, 300, TimeUnit.SECONDS);
-
-// 검증: 값 일치 여부 (존재만으로 충분하지 않음)
-String saved = redisTemplate.opsForValue().get("token:" + userId);
-return saved != null && saved.equals(requestToken);
-```
-
-**왜 Interceptor인가**
-
-| 위치 | Spring Bean 주입 | URL 패턴 | ControllerAdvice 연동 | 선택 |
-|------|-----------------|----------|----------------------|------|
-| Filter | 불편 (수동 getBean) | 가능 | 불가 | 탈락 |
-| **Interceptor** | 가능 | 가능 | 가능 | **채택** |
-| AOP | 가능 | 불가 (메서드 레벨) | 가능 | 탈락 |
-
-```java
-// WebMvcConfig.java
-registry.addInterceptor(queueTokenInterceptor)
-        .addPathPatterns("/api/v1/orders/**");
-
-// QueueTokenInterceptor.java
-String userId = request.getHeader("X-User-Id");
-String token  = request.getHeader("X-Queue-Token");
-if (!tokenService.isValid(userId, token)) {
-    throw new CoreException(ErrorType.QUEUE_TOKEN_INVALID);
-}
-```
-
-**Redisson 분산 락 — 스케줄러 중복 실행 방지**
-
-```java
-RLock lock = redissonClient.getLock("lock:token-scheduler");
-boolean acquired = lock.tryLock(0, 4, TimeUnit.SECONDS); // 대기 0초, TTL 4초
-if (!acquired) return; // 다른 인스턴스 실행 중 → 스킵
-```
-
----
-
-### 결정 6 — Lua 스크립트로 원자적 배치 팝
-
-**의도**: ZRANGE → EXISTS → ZREM이 분리되면 중간 단계에서 실패 시 대기열에서 제거됐지만 토큰 없는 유령 상태가 발생한다.
-
-**Before (비원자적)**
-```
-1. ZRANGE → userId 목록
-2. (중간 실패 가능)
-3. ZREM
-4. SET token:{userId} UUID  ← 여기서 실패하면 대기열에서만 제거된 상태
-```
-
-**After (Lua 원자적)**
-```lua
-local members = redis.call('ZRANGE', KEYS[1], 0, ARGV[1])
-local eligible = {}
-for i, member in ipairs(members) do
-    if redis.call('EXISTS', 'token:' .. member) == 0 then
-        redis.call('ZREM', KEYS[1], member)
-        table.insert(eligible, member)
-    end
-end
-return eligible
--- Redis 싱글스레드: 이 블록 전체가 원자적으로 실행됨
-```
-
-```mermaid
-sequenceDiagram
-    participant Scheduler as TokenScheduler
-    participant Redisson
-    participant Redis
-    participant TokenService
-
-    Note over Scheduler: @Scheduled fixedDelay=5000
-    Scheduler->>Redisson: tryLock(0, 4s)
-    alt 락 획득 실패
-        Redisson-->>Scheduler: false → skip
-    else 락 획득 성공
-        Scheduler->>Redis: Lua(ZRANGE+EXISTS+ZREM, N=80)
-        Redis-->>Scheduler: eligible userId 목록
-        loop eligible 각 userId
-            Scheduler->>TokenService: issue(userId)
-            TokenService->>Redis: SET token:{userId} UUID EX 300
-        end
-        Scheduler->>Redisson: unlock()
-    end
-```
-
----
-
-### 결정 8 — Adaptive Polling
-
-**의도**: 모든 대기자가 고정 주기로 Polling하면 순번이 멀어도 불필요한 요청이 발생한다.
-
-```java
-// QueueFacade.java — nextPollAfterSeconds 계산
-private long calculateNextPollAfter(long position) {
-    if (position <= 10)  return 5;   // 곧 차례
-    if (position <= 50)  return 15;  // 중간
-    return 30;                       // 뒤쪽
-}
-
-// 예상 대기 시간: 내 순번 / N × 주기
-private long calculateEstimatedWait(long position) {
-    return (long) Math.ceil((double) position / BATCH_SIZE * SCHEDULER_INTERVAL_SECONDS);
-}
-```
-
-**응답 예시**
-```json
-{
-  "position": 45,
-  "totalCount": 200,
-  "estimatedWaitSeconds": 30,
-  "nextPollAfterSeconds": 15,
-  "token": null
-}
-```
-
-클라이언트는 `token` 필드가 채워질 때까지 `nextPollAfterSeconds` 후에 재요청.
+- **결정**: `nextPollAfterSeconds`를 응답에 포함하는 Adaptive Polling
+- **근거**: 모든 대기자가 동일 주기로 Polling하면 순번이 먼 사용자도 불필요한 요청을 반복한다. 서버가 주기를 제어함으로써 Thundering Herd 없이 부하를 분산한다.
+- **트레이드오프**: 클라이언트가 고정 주기 대신 응답의 `nextPollAfterSeconds`를 따라야 한다. 수치(≤10→5초, ≤50→15초, >50→30초)는 시뮬레이션 전 초기값이며 실측 후 조정이 필요하다.
 
 ---
 
 ## 🏗️ Design Overview
 
-**신규 추가**
+### 변경 범위
 
-| 패키지 | 파일 | 역할 |
-|--------|------|------|
-| `domain/queue` | `QueueService` | 대기열 진입/조회 |
-| `domain/queue` | `TokenService` | 토큰 발급/검증/폐기 |
-| `domain/queue` | `TokenScheduler` | @Scheduled + Lua + Redisson 락 |
-| `domain/queue` | `QueueConstants` | QUEUE_KEY, TOKEN_KEY_PREFIX, BATCH_SIZE, SCHEDULER_INTERVAL_SECONDS |
-| `domain/queue` | `QueueRepository` / `TokenRepository` | 인터페이스 |
-| `infrastructure/queue` | `QueueRepositoryImpl` | Redis Sorted Set |
-| `infrastructure/queue` | `TokenRepositoryImpl` | Redis String |
-| `application/queue` | `QueueFacade` | 진입·순번 조회 use case 조합 |
-| `application/queue` | `QueuePositionInfo` | position, totalCount, estimatedWait, nextPollAfter, token |
-| `interfaces/api/queue` | `QueueV1Controller` | POST /enter, GET /position |
-| `interfaces/api/queue` | `QueueTokenInterceptor` | X-User-Id + X-Queue-Token 검증 |
+| 커밋 | 분류 | 변경 요약 |
+|------|------|----------|
+| [`8a8b4a7`][commit-step1] | feat | Step 1 — Redis Sorted Set 대기열 진입 + 순번 조회 |
+| [`15cf54a`][commit-step2-token] | feat | Step 2 — 입장 토큰 & 스케줄러 (Lua + Redisson) |
+| [`3ce5c1a`][commit-step2-interceptor] | feat | Step 2 — 토큰 검증 인터셉터 |
+| [`26d73178`][commit-step3] | feat | Step 3 — Adaptive Polling 순번 조회 |
+| [`7e6725e`][commit-test] | test | Step 2/3 — 통합·E2E·동시성·검증 테스트 |
+| [`2013bf6`][commit-fix] | fix | KafkaConfig 제네릭 타입 수정 |
 
-**기존 변경**
+### Step 1 — 대기열 진입 + 순번 조회
 
-| 파일 | 변경 내용 |
-|------|-----------|
-| `config/WebMvcConfig.java` | `QueueTokenInterceptor` → `/api/v1/orders/**` 등록 |
-| `support/error/ErrorType.java` | `QUEUE_TOKEN_INVALID(403)` 추가 |
-| `build.gradle.kts` | `redisson-spring-boot-starter:3.27.2` 추가 |
+```java
+// QueueRepositoryImpl.java
+public long enter(String userId, long score) {
+    redisTemplate.opsForZSet().addIfAbsent(QUEUE_KEY, userId, score); // ZADD NX
+    Long rank = redisTemplate.opsForZSet().rank(QUEUE_KEY, userId);   // ZRANK
+    return rank + 1; // 1-indexed
+}
+```
+
+| 컴포넌트 | 파일 | 메서드 | 역할 |
+|----------|------|--------|------|
+| `QueueService` | [`domain/queue/`][queue-service] | `enter()`, `getPosition()` | score에 currentTimeMillis 주입, NOT_FOUND 예외 |
+| `QueueRepositoryImpl` | [`infrastructure/queue/`][queue-repo] | `enter()`, `findPosition()` | ZADD NX + ZRANK + ZCARD |
+| `QueueFacade` | [`application/queue/`][queue-facade] | `enter()`, `getPosition()` | position + totalCount 조합 |
+| `QueueV1Controller` | [`interfaces/api/queue/`][queue-controller] | `POST /enter`, `GET /position` | 진입/순번 조회 API |
+
+### Step 2 — 입장 토큰 & 스케줄러
+
+```java
+// TokenScheduler.java — Lua로 원자적 팝
+private static final String POP_ELIGIBLE_USERS_SCRIPT = """
+    local members = redis.call('ZRANGE', KEYS[1], 0, ARGV[1])
+    for i, member in ipairs(members) do
+        if redis.call('EXISTS', 'token:' .. member) == 0 then
+            redis.call('ZREM', KEYS[1], member)
+            table.insert(eligible, member)
+        end
+    end
+    return eligible
+    """;
+
+// TokenService.java — UUID 발급
+String token = UUID.randomUUID().toString();
+tokenRepository.save(userId, token, 300, TimeUnit.SECONDS); // EX 300
+```
+
+| 컴포넌트 | 파일 | 메서드 | 역할 |
+|----------|------|--------|------|
+| `TokenScheduler` | [`domain/queue/`][scheduler] | `issueTokens()` | @Scheduled(5초) + Redisson 락 + Lua 팝 |
+| `TokenService` | [`domain/queue/`][token-service] | `issue()`, `isValid()`, `revoke()` | UUID 발급 · 검증 · 폐기 |
+| `TokenRepositoryImpl` | [`infrastructure/queue/`][token-repo] | `save()`, `findToken()` | Redis String EX 300 |
+| `QueueTokenInterceptor` | [`interfaces/api/queue/`][interceptor] | `preHandle()` | X-User-Id + X-Queue-Token 검증 → 403 |
+| `QueueConstants` | [`domain/queue/`][constants] | — | QUEUE_KEY, TOKEN_KEY_PREFIX, BATCH_SIZE, SCHEDULER_INTERVAL_SECONDS |
+
+### Step 3 — Adaptive Polling 순번 조회
+
+```java
+// QueueFacade.java
+private long calculateEstimatedWait(long position) {
+    return (long) Math.ceil((double) position / BATCH_SIZE * SCHEDULER_INTERVAL_SECONDS);
+}
+private long calculateNextPollAfter(long position) {
+    if (position <= 10) return 5;   // 곧 차례
+    if (position <= 50) return 15;  // 중간
+    return 30;                      // 뒤쪽
+}
+```
+
+응답 예시:
+```json
+{ "position": 45, "totalCount": 200,
+  "estimatedWaitSeconds": 30, "nextPollAfterSeconds": 15, "token": null }
+```
+
+---
+
+## 🧪 테스트
+
+| # | 테스트 클래스 | 전략 | 검증 항목 |
+|---|-------------|------|----------|
+| 1 | [`QueueServiceIntegrationTest`][test-queue-service] | 통합 | 진입·순번·전체 인원·NOT_FOUND 예외 |
+| 2 | [`TokenSchedulerIntegrationTest`][test-scheduler] | 통합 | 배치 발급, 중복 발급 방지, 배치 크기 초과 |
+| 3 | [`QueueTokenInterceptorE2ETest`][test-interceptor] | E2E | 토큰 없음/만료/불일치 → 403, 유효 토큰 → 주문 API 통과 |
+| 4 | [`QueuePositionIntegrationTest`][test-position] | 통합 | estimatedWait·nextPollAfter 계산, 토큰 발급 후 응답 포함 |
+| 5 | [`QueueVerificationTest`][test-verification] | 동시성 | 같은 userId 10스레드 → 1건만 등록 |
+| 6 | [`QueueVerificationTest`][test-verification] | 동시성 | 20명 동시 진입 → 각자 고유 순번 |
+| 7 | [`QueueVerificationTest`][test-verification] | TTL | TTL 1초 강제 후 2초 대기 → 토큰 무효화 |
+| 8 | [`QueueVerificationTest`][test-verification] | 처리량 | 100명 진입, N=80 → 1회 실행 후 20명 잔여 |
+| 9 | [`QueueVerificationTest`][test-verification] | 처리량 | 2회 실행 → 전원 처리, 대기열 비어있음 |
 
 ---
 
 ## 🔁 Flow Diagram
 
 ```mermaid
-flowchart TD
-    A[사용자] -->|POST /queue/enter| B[대기열 등록\nZADD NX]
-    B --> C[번호표 발급\nposition, totalCount]
-    C -->|Adaptive Polling\nGET /queue/position| D{토큰 발급됨?}
-    D -- No --> E[대기 중\nnextPollAfterSeconds 후 재요청]
-    E --> D
-    D -- Yes --> F[토큰 수신\ntoken: UUID]
-    F -->|POST /orders\nX-User-Id + X-Queue-Token| G[QueueTokenInterceptor]
-    G -->|isValid| H{유효?}
-    H -- No --> I[403 FORBIDDEN]
-    H -- Yes --> J[주문 API 처리]
-    J --> K[주문 완료\nTokenService.revoke]
-    K --> L[DEL token:userId]
+sequenceDiagram
+    actor User
+    participant Controller as QueueV1Controller
+    participant Facade as QueueFacade
+    participant Redis
 
-    subgraph scheduler [TokenScheduler @5초]
-        M[Redisson tryLock] --> N{락 획득?}
-        N -- No --> O[skip]
-        N -- Yes --> P[Lua: ZRANGE+EXISTS+ZREM\n상위 80명 중 토큰 없는 유저]
-        P --> Q[SET token:userId UUID EX 300\n각 eligible userId]
-        Q --> R[unlock]
+    User->>Controller: POST /api/v1/queue/enter?userId=user-1
+    Controller->>Facade: enter(userId)
+    Facade->>Redis: ZADD queue:waiting NX currentTimeMillis() user-1
+    Facade->>Redis: ZRANK queue:waiting user-1
+    Facade->>Redis: ZCARD queue:waiting
+    Facade-->>Controller: QueueInfo(position, totalCount)
+    Controller-->>User: { position: 1, totalCount: 1 }
+
+    Note over Facade,Redis: @Scheduled fixedDelay=5000ms
+
+    loop TokenScheduler (Redisson 락 획득 시)
+        Facade->>Redis: Lua(ZRANGE+EXISTS+ZREM, N=80)
+        Redis-->>Facade: eligible userId 목록
+        Facade->>Redis: SET token:{userId} UUID EX 300
+    end
+
+    User->>Controller: GET /api/v1/queue/position?userId=user-1
+    Controller->>Facade: getPosition(userId)
+    Facade->>Redis: ZRANK + ZCARD + GET token:{userId}
+    Facade-->>User: { position, estimatedWaitSeconds, nextPollAfterSeconds, token }
+
+    User->>Controller: POST /api/v1/orders (X-User-Id + X-Queue-Token)
+    Controller->>Redis: GET token:{userId} → 값 일치 확인
+    alt 유효
+        Controller-->>User: 200 OK
+        Controller->>Redis: DEL token:{userId}
+    else 무효/만료
+        Controller-->>User: 403 FORBIDDEN
     end
 ```
 
@@ -320,25 +230,56 @@ flowchart TD
 ## ✅ Checklist
 
 ### Step 1 — 대기열
-- [x] `POST /queue/enter` — Redis Sorted Set 기반 대기열 진입 (ZADD NX)
-- [x] `GET /queue/position` — 순번 + 전체 대기 인원 조회
+- [x] `POST /queue/enter` — Redis Sorted Set 기반 대기열 진입 (ZADD NX) → [`QueueRepositoryImpl.enter()`][queue-repo-enter]
+- [x] `GET /queue/position` — 순번 + 전체 대기 인원 조회 → [`QueueFacade.getPosition()`][facade-get-position]
 - [x] userId 중복 진입 방지 (ZADD NX 원자적 처리)
 - [x] 전체 대기 인원 조회 (ZCARD)
 
 ### Step 2 — 입장 토큰 & 스케줄러
-- [x] 스케줄러: 5초마다 상위 80명에게 UUID 토큰 발급 (Lua 스크립트 + Redisson 락)
+- [x] 5초마다 상위 80명에게 UUID 토큰 발급 (Lua 스크립트 + Redisson 락) → [`TokenScheduler`][scheduler]
 - [x] 토큰 TTL 300초 (Redis String EX)
-- [x] 주문 API 진입 시 토큰 검증 (Interceptor)
-- [x] 주문 완료 후 토큰 삭제 (`TokenService.revoke`)
+- [x] 주문 API 진입 시 토큰 검증 → [`QueueTokenInterceptor.preHandle()`][interceptor-prehandle]
+- [x] 주문 완료 후 토큰 삭제 → [`TokenService.revoke()`][token-revoke]
 
 ### Step 3 — 실시간 순번 조회
-- [x] 예상 대기 시간: `순번 / N × 주기`
-- [x] Adaptive Polling: `nextPollAfterSeconds` 응답 포함
-- [x] 토큰 발급 시 `GET /position` 응답에 토큰 포함
+- [x] 예상 대기 시간: `순번 / N × 주기` → [`QueueFacade.calculateEstimatedWait()`][facade-estimated]
+- [x] Adaptive Polling: `nextPollAfterSeconds` 응답 포함 → [`QueueFacade.calculateNextPollAfter()`][facade-next-poll]
+- [x] 토큰 발급 시 `GET /position` 응답에 token 포함
 
-### 검증 테스트
-- [x] 동시 진입 — 같은 userId 10개 스레드 동시 진입 → 1건만 등록
-- [x] 동시 진입 — N명 동시 진입 → 각자 고유 순번
-- [x] 토큰 만료 — TTL 1초 강제 후 2초 대기 → 토큰 무효화
-- [x] 처리량 초과 — 100명 진입, N=80 → 스케줄러 1회 실행 후 20명 잔여
-- [x] 처리량 초과 — 스케줄러 2회 실행 → 전원 처리, 대기열 비어있음
+---
+
+<!-- Reference Links -->
+
+<!-- Commits -->
+[commit-step1]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/commit/8a8b4a7
+[commit-step2-token]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/commit/15cf54a
+[commit-step2-interceptor]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/commit/3ce5c1a
+[commit-step3]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/commit/26d73178
+[commit-test]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/commit/7e6725e
+[commit-fix]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/commit/2013bf6
+
+<!-- Source -->
+[queue-service]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/QueueService.java
+[queue-repo]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/infrastructure/queue/QueueRepositoryImpl.java
+[queue-repo-enter]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/infrastructure/queue/QueueRepositoryImpl.java#L18-L22
+[queue-facade]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/application/queue/QueueFacade.java
+[queue-controller]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/interfaces/api/queue/QueueV1Controller.java
+[scheduler]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/TokenScheduler.java
+[scheduler-issue]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/TokenScheduler.java#L42-L60
+[scheduler-execute]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/TokenScheduler.java#L62-L77
+[token-service]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/TokenService.java
+[token-revoke]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/TokenService.java#L36-L38
+[token-repo]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/infrastructure/queue/TokenRepositoryImpl.java
+[interceptor]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/interfaces/api/queue/QueueTokenInterceptor.java
+[interceptor-prehandle]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/interfaces/api/queue/QueueTokenInterceptor.java#L22-L30
+[constants]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/QueueConstants.java
+[facade-get-position]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/application/queue/QueueFacade.java#L29-L36
+[facade-estimated]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/application/queue/QueueFacade.java#L38-L40
+[facade-next-poll]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/application/queue/QueueFacade.java#L42-L49
+
+<!-- Tests -->
+[test-queue-service]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/domain/queue/QueueServiceIntegrationTest.java
+[test-scheduler]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/domain/queue/TokenSchedulerIntegrationTest.java
+[test-interceptor]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/interfaces/api/QueueTokenInterceptorE2ETest.java
+[test-position]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/domain/queue/QueuePositionIntegrationTest.java
+[test-verification]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/domain/queue/QueueVerificationTest.java
