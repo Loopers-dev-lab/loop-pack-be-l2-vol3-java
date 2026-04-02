@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.application.queue.QueuePositionInfo;
+import com.loopers.application.queue.QueueService;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
@@ -11,6 +13,8 @@ import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -21,6 +25,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.Import;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -30,9 +35,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(RedisTestContainersConfig.class)
 class OrderAdminV1ApiE2ETest {
 
     private static final String ENDPOINT_ADMIN_ORDERS = "/api-admin/v1/orders";
+    private static final String HEADER_QUEUE_TOKEN = "X-Queue-Token";
 
     private final TestRestTemplate testRestTemplate;
     private final UserJpaRepository userJpaRepository;
@@ -41,6 +48,8 @@ class OrderAdminV1ApiE2ETest {
     private final OrderJpaRepository orderJpaRepository;
     private final PasswordEncoder passwordEncoder;
     private final DatabaseCleanUp databaseCleanUp;
+    private final RedisCleanUp redisCleanUp;
+    private final QueueService queueService;
 
     @Autowired
     public OrderAdminV1ApiE2ETest(
@@ -50,7 +59,9 @@ class OrderAdminV1ApiE2ETest {
         ProductJpaRepository productJpaRepository,
         OrderJpaRepository orderJpaRepository,
         PasswordEncoder passwordEncoder,
-        DatabaseCleanUp databaseCleanUp
+        DatabaseCleanUp databaseCleanUp,
+        RedisCleanUp redisCleanUp,
+        QueueService queueService
     ) {
         this.testRestTemplate = testRestTemplate;
         this.userJpaRepository = userJpaRepository;
@@ -59,11 +70,14 @@ class OrderAdminV1ApiE2ETest {
         this.orderJpaRepository = orderJpaRepository;
         this.passwordEncoder = passwordEncoder;
         this.databaseCleanUp = databaseCleanUp;
+        this.redisCleanUp = redisCleanUp;
+        this.queueService = queueService;
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     private OrderModel createOrder() {
@@ -78,6 +92,12 @@ class OrderAdminV1ApiE2ETest {
         HttpHeaders headers = new HttpHeaders();
         headers.set("X-Loopers-LoginId", "testuser");
         headers.set("X-Loopers-LoginPw", "Test1234!");
+        QueuePositionInfo entered = queueService.enter("testuser", "Test1234!");
+        if (entered.token() == null) {
+            queueService.admitNextBatch(1);
+            entered = queueService.getPosition("testuser", "Test1234!");
+        }
+        headers.set(HEADER_QUEUE_TOKEN, entered.token());
 
         PlaceOrderRequest request = new PlaceOrderRequest(
             List.of(new PlaceOrderItemRequest(product.getId(), 2))

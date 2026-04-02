@@ -1,0 +1,12 @@
+### 대기열 진입
+POST {{commerce-api}}/api/v1/queue/enter
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!
+
+### 대기 순번 조회
+GET {{commerce-api}}/api/v1/queue/position
+X-Loopers-LoginId: testuser
+X-Loopers-LoginPw: Test1234!
+
+### 전체 대기 인원 조회
+GET {{commerce-api}}/api/v1/queue/count

@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.application.queue.QueuePositionInfo;
+import com.loopers.application.queue.QueueService;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.coupon.CouponType;
@@ -15,6 +17,8 @@ import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,6 +29,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.context.annotation.Import;
 
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
@@ -35,12 +40,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Import(RedisTestContainersConfig.class)
 class OrderV1ApiE2ETest {
 
     private static final String ENDPOINT_ORDERS = "/api/v1/orders";
     private static final String ENDPOINT_COUPON_ISSUE = "/api/v1/coupons/{couponId}/issue";
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
+    private static final String HEADER_QUEUE_TOKEN = "X-Queue-Token";
 
     private final TestRestTemplate testRestTemplate;
     private final UserJpaRepository userJpaRepository;
@@ -51,6 +58,8 @@ class OrderV1ApiE2ETest {
     private final UserCouponJpaRepository userCouponJpaRepository;
     private final PasswordEncoder passwordEncoder;
     private final DatabaseCleanUp databaseCleanUp;
+    private final RedisCleanUp redisCleanUp;
+    private final QueueService queueService;
 
     @Autowired
     public OrderV1ApiE2ETest(
@@ -62,7 +71,9 @@ class OrderV1ApiE2ETest {
         CouponJpaRepository couponJpaRepository,
         UserCouponJpaRepository userCouponJpaRepository,
         PasswordEncoder passwordEncoder,
-        DatabaseCleanUp databaseCleanUp
+        DatabaseCleanUp databaseCleanUp,
+        RedisCleanUp redisCleanUp,
+        QueueService queueService
     ) {
         this.testRestTemplate = testRestTemplate;
         this.userJpaRepository = userJpaRepository;
@@ -73,11 +84,14 @@ class OrderV1ApiE2ETest {
         this.userCouponJpaRepository = userCouponJpaRepository;
         this.passwordEncoder = passwordEncoder;
         this.databaseCleanUp = databaseCleanUp;
+        this.redisCleanUp = redisCleanUp;
+        this.queueService = queueService;
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     private UserModel createUser() {
@@ -88,9 +102,28 @@ class OrderV1ApiE2ETest {
     }
 
     private HttpHeaders authHeaders() {
+        return authHeaders("testuser", "Test1234!");
+    }
+
+    private HttpHeaders authHeaders(String loginId, String password) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set(HEADER_LOGIN_ID, "testuser");
-        headers.set(HEADER_LOGIN_PW, "Test1234!");
+        headers.set(HEADER_LOGIN_ID, loginId);
+        headers.set(HEADER_LOGIN_PW, password);
+        return headers;
+    }
+
+    private HttpHeaders orderHeaders() {
+        return orderHeaders("testuser", "Test1234!");
+    }
+
+    private HttpHeaders orderHeaders(String loginId, String password) {
+        HttpHeaders headers = authHeaders(loginId, password);
+        QueuePositionInfo entered = queueService.enter(loginId, password);
+        if (entered.token() == null) {
+            queueService.admitNextBatch(1);
+            entered = queueService.getPosition(loginId, password);
+        }
+        headers.set(HEADER_QUEUE_TOKEN, entered.token());
         return headers;
     }
 
@@ -129,7 +162,7 @@ class OrderV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderDetailResponse>> response = testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, authHeaders()),
+                new HttpEntity<>(request, orderHeaders()),
                 responseType
             );
 
@@ -161,7 +194,7 @@ class OrderV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderDetailResponse>> response = testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, authHeaders()),
+                new HttpEntity<>(request, orderHeaders()),
                 responseType
             );
 
@@ -186,7 +219,7 @@ class OrderV1ApiE2ETest {
             testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, authHeaders()),
+                new HttpEntity<>(request, orderHeaders()),
                 responseType
             );
 
@@ -224,7 +257,7 @@ class OrderV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderDetailResponse>> response = testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, authHeaders()),
+                new HttpEntity<>(request, orderHeaders()),
                 responseType
             );
 
@@ -272,7 +305,7 @@ class OrderV1ApiE2ETest {
             testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(firstOrderRequest, authHeaders()),
+                new HttpEntity<>(firstOrderRequest, orderHeaders()),
                 responseType
             );
 
@@ -285,7 +318,7 @@ class OrderV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderDetailResponse>> secondOrderResponse = testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(secondOrderRequest, authHeaders()),
+                new HttpEntity<>(secondOrderRequest, orderHeaders()),
                 responseType
             );
 
@@ -314,7 +347,7 @@ class OrderV1ApiE2ETest {
             testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, authHeaders()),
+                new HttpEntity<>(request, orderHeaders()),
                 placeType
             );
 
@@ -352,7 +385,7 @@ class OrderV1ApiE2ETest {
             testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, authHeaders()),
+                new HttpEntity<>(request, orderHeaders()),
                 placeType
             );
 
@@ -397,7 +430,7 @@ class OrderV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderDetailResponse>> placeResponse = testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, authHeaders()),
+                new HttpEntity<>(request, orderHeaders()),
                 placeType
             );
             Long orderId = placeResponse.getBody().data().id();
@@ -456,15 +489,11 @@ class OrderV1ApiE2ETest {
                 List.of(new PlaceOrderItemRequest(product.getId(), 1))
             );
 
-            HttpHeaders otherHeaders = new HttpHeaders();
-            otherHeaders.set(HEADER_LOGIN_ID, "otheruser");
-            otherHeaders.set(HEADER_LOGIN_PW, "Other1234!");
-
             ParameterizedTypeReference<ApiResponse<OrderDetailResponse>> placeType = new ParameterizedTypeReference<>() {};
             ResponseEntity<ApiResponse<OrderDetailResponse>> placeResponse = testRestTemplate.exchange(
                 ENDPOINT_ORDERS,
                 HttpMethod.POST,
-                new HttpEntity<>(request, otherHeaders),
+                new HttpEntity<>(request, orderHeaders("otheruser", "Other1234!")),
                 placeType
             );
             Long orderId = placeResponse.getBody().data().id();
