@@ -1,7 +1,7 @@
 package com.loopers.application.queue;
 
 import com.loopers.domain.queue.QueueRepository;
-import com.loopers.infrastructure.queue.QueueProperties;
+import com.loopers.config.QueueProperties;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -112,7 +112,7 @@ class QueueFacadeTest {
             assertThat(result).isInstanceOf(QueuePositionResult.Waiting.class);
             QueuePositionResult.Waiting waiting = (QueuePositionResult.Waiting) result;
             assertThat(waiting.rank()).isEqualTo(5L);
-            assertThat(waiting.estimatedWaitSeconds()).isEqualTo(5L);
+            assertThat(waiting.estimatedWaitSeconds()).isEqualTo(6L);
             assertThat(waiting.nextPollAfter()).isEqualTo(1L);
         }
 

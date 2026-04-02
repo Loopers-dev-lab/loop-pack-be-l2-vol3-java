@@ -96,8 +96,9 @@ sealed interface QueuePositionResult {
 
 **예상 대기 시간 계산**:
 ```
-estimatedWaitSeconds = rank * (스케줄러_주기_초 / batch_size)
+estimatedWaitSeconds = (rank + 1) * (스케줄러_주기_초 / batch_size)
 ```
+- Redis ZRANK는 0-based 반환 → rank=0이면 "다음 배치에서 바로 나감"이므로 +1 필요
 - 정확한 계산이 아닌 추정치이며, UX 목적("대략 몇 분")에 충분
 - 현재 시점의 실제 발급량까지 반영하면 추정치는 조금 나아질 수 있지만, 어차피 추정치인데 복잡도를 올리는 건 의미 없음
 - 스케줄러 주기와 batch_size는 설정값으로 관리
@@ -121,34 +122,41 @@ estimatedWaitSeconds 이상   → 5초
 - 조건을 추가해도 MAX 초과가 가능 (active=160, batch=18 → 178) 하고, MAX 근처에선 발급을 통째로 skip → 처리량 저하
 - 순수 은행창구 대비 장점이 없음
 
-**설정값 산정 공식**:
+**설정값 산정 공식 (Little's Law 대기열 관점)**:
 ```
-safe_TPS = 한계_TPS * 0.7
-N * (TTL / T) ≤ safe_TPS
-→ 설정값 자체가 안전장치 역할
+L = λ * W
+
+L = 서버가 안전하게 수용 가능한 동시 활성 토큰 수 = safe_TPS
+W = 유저 평균 체류 시간 (토큰 수령 후 주문 완료까지)
+λ = 초당 흘려보낼 수 있는 인원 (= 배치 크기 N, T=1s 기준)
+
+→ λ = L / W  →  N = safe_TPS / W
 ```
-- 최악의 케이스(활성 토큰 보유자가 TTL 내에 동시에 요청) 기준으로 계산
-- 실제 운영 중 여유가 있으면 T를 줄이거나 N을 늘려 처리량 증가
+- L을 safe_TPS로 보는 근거: 활성 토큰 보유자가 모두 동시에 요청하는 최악의 경우, 활성 토큰 수 = 순간 TPS. 따라서 활성 토큰 수 상한을 safe_TPS로 맞추면 서버가 버스트에도 버틸 수 있음
+- W는 실측 데이터 없이 가정: 상품 확인 + 옵션 선택 + 배송지/결제 입력 ≈ 평균 60초
 
 **설정값 산정 근거**:
 ```
 커넥션 풀 = 50
 평균 처리 시간 ≈ 0.2초
-이론적 최대 TPS = 50 / 0.2 = 250
+이론적 최대 TPS = 50 / 0.2 = 250   ← Little's Law: λ = L / W = 50 / 0.2
 safe_TPS = 250 * 0.7 = 175
 
-N * (TTL / T) ≤ 175
-→ T=1s, N=1: 1 * (180/1) = 180  (이론적 최악치 기준 아슬아슬 초과,
-  실제 운영에서 180명이 동시에 1초에 요청하는 일은 없으므로 허용)
+W = 60초 (평균 체류 시간 가정)
+N = safe_TPS / W = 175 / 60 ≈ 2.9  →  N = 3
+
+검증 (최대 활성 토큰 수):
+N * (TTL / T) = 3 * (120 / 1) = 360명
+→ 360명 동시 버스트 시 safe_TPS 초과 가능
+→ Resilience4j RateLimiter로 초당 175건 초과 시 대기 처리 (버스트 방어)
 ```
 
 **설정값**:
 ```
-batch-size: 1            # 스케줄러 1회 발급 수
+batch-size: 3            # 스케줄러 1회 발급 수 (= safe_TPS / 평균 체류 시간)
 scheduler-interval-ms: 1000   # 스케줄러 주기 (1초)
-token-ttl-seconds: 180   # 토큰 TTL (3분)
+token-ttl-seconds: 120   # 토큰 TTL (2분, 평균 체류 60초 * 2 여유)
 ```
-※ 실제 운영에서 여유가 확인되면 N을 늘려 처리량 증가
 
 **실행 로직**:
 ```
@@ -354,12 +362,27 @@ void removeToken(long userId);                    // QueueEventListener 호출
 - 기존 `AuthInterceptor` 수정 없이 확장 가능 → 사이드이펙트 없음
 - 인터셉터 등록 순서로 `@LoginRequired` → `@EntryTokenRequired` 실행 순서 보장
 
-### Task 6. Graceful Degradation (Nice-To-Have)
+### Task 6. Rate Limiter (Must-Have)
+- `POST /api/v1/orders`에 Resilience4j RateLimiter 적용
+- `application.yml`에 `order` RateLimiter 인스턴스 추가:
+  ```yaml
+  resilience4j.ratelimiter:
+    instances:
+      order:
+        limitForPeriod: 175       # 초당 허용 요청 수 (= safe_TPS)
+        limitRefreshPeriod: 1s
+        timeoutDuration: 2s       # permit 대기 최대 시간, 초과 시 429
+  ```
+- `OrderController`에 `@RateLimiter(name = "order")` 적용
+- 429 응답 처리: `ErrorType`에 `TOO_MANY_REQUESTS` 추가
+- 테스트: 175건 초과 요청 시 429 반환 확인
+
+### Task 7. Graceful Degradation (Nice-To-Have)
 - Repository는 예외 그대로 throw, 각 호출부(Facade, Interceptor, Scheduler)에서 catch 후 상황별 응답 처리
 - 장애 시 동작: 신규 진입 503, 순번 조회 503, 토큰 검증 실패 403, 스케줄러 발급 skip
 - 테스트: Redis 예외 발생 시 각 상황별 응답 확인
 
-### Task 7. Circuit Breaker (Nice-To-Have)
+### Task 8. Circuit Breaker (Nice-To-Have)
 - `application.yml`에 `queue` CB 인스턴스 추가
 - `QueueRepositoryImpl` Redis 호출부에 Resilience4j CB 적용
 - 테스트: CB open 시 Redis 시도 없이 즉시 fallback 확인
@@ -387,17 +410,18 @@ void removeToken(long userId);                    // QueueEventListener 호출
 - `apps/commerce-api/src/main/resources/application.yml` — queue 설정 추가
   ```yaml
   queue:
-    batch-size: 1
+    batch-size: 3
     scheduler-interval-ms: 1000
-    token-ttl-seconds: 180
+    token-ttl-seconds: 120
   ```
-- `apps/commerce-api/src/main/java/com/loopers/infrastructure/queue/QueueProperties.java` — `@ConfigurationProperties(prefix = "queue")` record
+- `apps/commerce-api/src/main/java/com/loopers/config/QueueProperties.java` — `@ConfigurationProperties(prefix = "queue")` record
   ```java
   @ConfigurationProperties(prefix = "queue")
   public record QueueProperties(int batchSize, long schedulerIntervalMs, long tokenTtlSeconds) {}
   ```
+  - 도메인 비즈니스 규칙이 아닌 운영 튜닝값 → `config/` 패키지에 위치 (WebMvcConfig와 같은 맥락)
   - 설정값 여러 클래스(QueueFacade, QueueScheduler)에서 공유 → `@Value` 대신 단일 Properties 클래스로 관리
-  - `@EnableConfigurationProperties(QueueProperties.class)` 또는 `@ConfigurationPropertiesScan` 등록 필요
+  - `@ConfigurationPropertiesScan`은 이미 `CommerceApiApplication`에 등록되어 있음
 
 ### 참고 (패턴 재사용)
 - `RedisProductCacheStore.java` — Redis 사용 패턴

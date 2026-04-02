@@ -1,4 +1,4 @@
-package com.loopers.infrastructure.queue;
+package com.loopers.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

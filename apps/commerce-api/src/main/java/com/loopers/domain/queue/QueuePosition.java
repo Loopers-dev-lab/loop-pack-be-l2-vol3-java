@@ -3,7 +3,7 @@ package com.loopers.domain.queue;
 public record QueuePosition(long rank) {
 
     public long estimatedWaitSeconds(long schedulerIntervalMs, int batchSize) {
-        return rank * (schedulerIntervalMs / 1000L) / batchSize;
+        return (rank + 1) * (schedulerIntervalMs / 1000L) / batchSize;
     }
 
     public long nextPollAfter(long schedulerIntervalMs, int batchSize) {

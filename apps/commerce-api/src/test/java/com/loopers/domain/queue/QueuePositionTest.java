@@ -15,9 +15,9 @@ class QueuePositionTest {
     @Nested
     class EstimatedWaitSeconds {
 
-        @DisplayName("rank 가 0 이면 0 초를 반환한다.")
+        @DisplayName("rank 가 0 이면 1 초를 반환한다.")
         @Test
-        void returnsZero_whenRankIsZero() {
+        void returnsOne_whenRankIsZero() {
             // arrange
             QueuePosition position = new QueuePosition(0L);
 
@@ -25,12 +25,12 @@ class QueuePositionTest {
             long result = position.estimatedWaitSeconds(SCHEDULER_INTERVAL_MS, BATCH_SIZE);
 
             // assert
-            assertThat(result).isEqualTo(0L);
+            assertThat(result).isEqualTo(1L);
         }
 
-        @DisplayName("rank 가 30 이면 30 초를 반환한다.")
+        @DisplayName("rank 가 30 이면 31 초를 반환한다.")
         @Test
-        void returnsThirty_whenRankIsThirty() {
+        void returnsThirtyOne_whenRankIsThirty() {
             // arrange
             QueuePosition position = new QueuePosition(30L);
 
@@ -38,7 +38,7 @@ class QueuePositionTest {
             long result = position.estimatedWaitSeconds(SCHEDULER_INTERVAL_MS, BATCH_SIZE);
 
             // assert
-            assertThat(result).isEqualTo(30L);
+            assertThat(result).isEqualTo(31L);
         }
     }
 
@@ -50,7 +50,7 @@ class QueuePositionTest {
         @Test
         void returnsOne_whenEstimatedWaitIsLessThanThirty() {
             // arrange
-            QueuePosition position = new QueuePosition(29L);
+            QueuePosition position = new QueuePosition(28L); // (28+1)*1/1 = 29 < 30
 
             // act
             long result = position.nextPollAfter(SCHEDULER_INTERVAL_MS, BATCH_SIZE);
