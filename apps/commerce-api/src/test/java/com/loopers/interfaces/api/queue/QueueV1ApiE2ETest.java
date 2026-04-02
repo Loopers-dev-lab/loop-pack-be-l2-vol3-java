@@ -34,6 +34,7 @@ class QueueV1ApiE2ETest {
     private static final String ENDPOINT_SIGN_UP = "/api/v1/users";
     private static final String ENDPOINT_JOIN_QUEUE = "/api/v1/queue/enter";
     private static final String ENDPOINT_QUEUE_POSITION = "/api/v1/queue/position";
+    private static final String ENDPOINT_QUEUE_STREAM = "/api/v1/queue/position/stream";
 
     @Autowired
     private TestRestTemplate testRestTemplate;
@@ -152,6 +153,129 @@ class QueueV1ApiE2ETest {
                 new ParameterizedTypeReference<>() {});
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @DisplayName("POST /queue/enter — 로그인 헤더 없으면 401")
+    @Test
+    void joinQueue_withoutLoginHeader_shouldReturn401() {
+        ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT_JOIN_QUEUE,
+                HttpMethod.POST,
+                new HttpEntity<>(new HttpHeaders()),
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @DisplayName("GET /queue/position — 로그인 헤더 없으면 401")
+    @Test
+    void getQueuePosition_withoutLoginHeader_shouldReturn401() {
+        ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT_QUEUE_POSITION,
+                HttpMethod.GET,
+                new HttpEntity<>(new HttpHeaders()),
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @DisplayName("GET /queue/position/stream — 로그인 헤더 없으면 401")
+    @Test
+    void streamQueuePosition_withoutLoginHeader_shouldReturn401() {
+        ResponseEntity<String> response = testRestTemplate.exchange(
+                ENDPOINT_QUEUE_STREAM,
+                HttpMethod.GET,
+                new HttpEntity<>(new HttpHeaders()),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+    }
+
+    @DisplayName("GET /queue/position/stream — 미진입 시 not-in-queue 이벤트 후 응답 종료")
+    @Test
+    void streamQueuePosition_whenNotInQueue_shouldEmitNotInQueueEvent() {
+        UserV1Dto.SignUpRequest signUpRequest = new UserV1Dto.SignUpRequest(
+                "qsseser",
+                "SecurePass1!",
+                "qsses@example.com",
+                "1990-01-15",
+                "MALE");
+        testRestTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                new HttpEntity<>(signUpRequest),
+                new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-Loopers-LoginId", "qsseser");
+
+        ResponseEntity<String> response = testRestTemplate.exchange(
+                ENDPOINT_QUEUE_STREAM,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getHeaders().getContentType()).isNotNull();
+        assertThat(response.getHeaders().getContentType().toString()).contains("text/event-stream");
+        assertThat(response.getBody()).contains("not-in-queue");
+    }
+
+    /**
+     * TC-R6-1: 순번은 로그인 유저 본인 기준만. A가 먼저, B가 나중에 진입하면 각자 자기 순번만 조회한다.
+     */
+    @DisplayName("GET /queue/position — 두 유저 각각 본인 순번만 조회 (IDOR 회귀)")
+    @Test
+    void getQueuePosition_whenTwoUsersJoined_eachUserSeesOwnPositionOnly() {
+        UserV1Dto.SignUpRequest userA = new UserV1Dto.SignUpRequest(
+                "qtwouserA", "SecurePass1!", "qtwoA@example.com", "1990-01-15", "MALE");
+        UserV1Dto.SignUpRequest userB = new UserV1Dto.SignUpRequest(
+                "qtwouserB", "SecurePass1!", "qtwoB@example.com", "1990-01-15", "MALE");
+        testRestTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                new HttpEntity<>(userA),
+                new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+        testRestTemplate.exchange(
+                ENDPOINT_SIGN_UP,
+                HttpMethod.POST,
+                new HttpEntity<>(userB),
+                new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignUpResponse>>() {});
+
+        HttpHeaders headersA = new HttpHeaders();
+        headersA.set("X-Loopers-LoginId", "qtwouserA");
+        HttpHeaders headersB = new HttpHeaders();
+        headersB.set("X-Loopers-LoginId", "qtwouserB");
+
+        testRestTemplate.exchange(
+                ENDPOINT_JOIN_QUEUE,
+                HttpMethod.POST,
+                new HttpEntity<>(headersA),
+                new ParameterizedTypeReference<ApiResponse<QueueV1Dto.JoinQueueResponse>>() {});
+        testRestTemplate.exchange(
+                ENDPOINT_JOIN_QUEUE,
+                HttpMethod.POST,
+                new HttpEntity<>(headersB),
+                new ParameterizedTypeReference<ApiResponse<QueueV1Dto.JoinQueueResponse>>() {});
+
+        ResponseEntity<ApiResponse<QueueV1Dto.PositionResponse>> resA = testRestTemplate.exchange(
+                ENDPOINT_QUEUE_POSITION,
+                HttpMethod.GET,
+                new HttpEntity<>(headersA),
+                new ParameterizedTypeReference<>() {});
+        ResponseEntity<ApiResponse<QueueV1Dto.PositionResponse>> resB = testRestTemplate.exchange(
+                ENDPOINT_QUEUE_POSITION,
+                HttpMethod.GET,
+                new HttpEntity<>(headersB),
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(resA.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(resB.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(resA.getBody().data().position()).isEqualTo(0L),
+                () -> assertThat(resB.getBody().data().position()).isEqualTo(1L),
+                () -> assertThat(resA.getBody().data().totalWaiting()).isEqualTo(2L),
+                () -> assertThat(resB.getBody().data().totalWaiting()).isEqualTo(2L));
     }
 }
 

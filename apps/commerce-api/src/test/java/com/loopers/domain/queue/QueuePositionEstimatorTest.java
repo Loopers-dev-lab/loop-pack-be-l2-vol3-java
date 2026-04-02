@@ -16,9 +16,10 @@ class QueuePositionEstimatorTest {
         assertThat(QueuePositionEstimator.estimatedWaitSeconds(176, tps)).isEqualTo(3L);
     }
 
+    /** TC-R2-1: throughputTps=0 → denom=ε(0.001), 결정적 값으로 회귀 고정 */
     @Test
-    @DisplayName("throughputTps가 0에 가까우면 ε으로 나눈다")
-    void estimatedWaitSeconds_withNearZeroTps_shouldUseEpsilon() {
-        assertThat(QueuePositionEstimator.estimatedWaitSeconds(10, 0.0)).isPositive();
+    @DisplayName("throughputTps가 0이면 ε(0.001)로 ceil(position/ε)+1")
+    void estimatedWaitSeconds_withZeroTps_shouldUseEpsilonDenom() {
+        assertThat(QueuePositionEstimator.estimatedWaitSeconds(10, 0.0)).isEqualTo(10_001L);
     }
 }

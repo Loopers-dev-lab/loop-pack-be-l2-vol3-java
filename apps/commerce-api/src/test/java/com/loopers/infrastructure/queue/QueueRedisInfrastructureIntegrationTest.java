@@ -1,10 +1,13 @@
 package com.loopers.infrastructure.queue;
 
 import com.loopers.config.redis.RedisConfig;
+import com.loopers.domain.queue.EntrySchedulerService;
 import com.loopers.domain.queue.EntryTokenRepository;
+import com.loopers.domain.queue.JoinQueueResult;
 import com.loopers.domain.queue.QueuePositionSnapshot;
 import com.loopers.domain.queue.SchedulerLockRepository;
 import com.loopers.domain.queue.WaitingQueueRepository;
+import com.loopers.domain.queue.WaitingQueueService;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
@@ -32,6 +35,12 @@ class QueueRedisInfrastructureIntegrationTest {
 
     @Autowired
     private WaitingQueueRepository waitingQueueRepository;
+
+    @Autowired
+    private WaitingQueueService waitingQueueService;
+
+    @Autowired
+    private EntrySchedulerService entrySchedulerService;
 
     @Autowired
     private EntryTokenRepository entryTokenRepository;
@@ -85,6 +94,39 @@ class QueueRedisInfrastructureIntegrationTest {
         assertThat(waitingQueueRepository.countWaiting(EVENT_ID)).isEqualTo(1L);
     }
 
+    /**
+     * TC-R1-1: 동일 score일 때 Redis ZSET은 멤버 문자열 lex 순으로 정렬한다.
+     * (예: "10" &lt; "2" &lt; "3" — 숫자 크기와 다름)
+     */
+    @DisplayName("동일 score면 pop 순서는 멤버 lex 순(문서화된 Redis 동작)")
+    @Test
+    void sameScore_popOldest_shouldFollowRedisLexMemberOrder() {
+        String eventId = EVENT_ID + "-tie";
+        long sameScore = 9999L;
+        waitingQueueRepository.addIfAbsent(eventId, 2L, sameScore);
+        waitingQueueRepository.addIfAbsent(eventId, 10L, sameScore);
+        waitingQueueRepository.addIfAbsent(eventId, 3L, sameScore);
+
+        List<Long> popped = waitingQueueRepository.popOldest(eventId, 3);
+
+        assertThat(popped).containsExactly(10L, 2L, 3L);
+    }
+
+    /** TC-R4-1: Kafka 복구 경로 재처리 시에도 ZSET에는 유저당 멤버 하나(멱등). */
+    @DisplayName("joinQueueFromRecovery 동일 유저·score 두 번 → 대기 1명·순번 유지")
+    @Test
+    void joinQueueFromRecovery_twiceSameUser_shouldRemainSingleMember() {
+        String eventId = EVENT_ID + "-recovery-idem";
+        long score = 42_000L;
+
+        JoinQueueResult first = waitingQueueService.joinQueueFromRecovery(eventId, 100L, score);
+        JoinQueueResult second = waitingQueueService.joinQueueFromRecovery(eventId, 100L, score);
+
+        assertThat(waitingQueueRepository.countWaiting(eventId)).isEqualTo(1L);
+        assertThat(first.position()).isEqualTo(second.position());
+        assertThat(first.totalWaiting()).isEqualTo(second.totalWaiting());
+    }
+
     @DisplayName("entry token 저장/조회/삭제가 동작한다.")
     @Test
     void entryToken_saveFindDelete_shouldWork() {
@@ -129,6 +171,26 @@ class QueueRedisInfrastructureIntegrationTest {
 
         String value = redisTemplate.opsForValue().get("queue:scheduler:heartbeat");
         assertThat(value).isEqualTo("12345");
+    }
+
+    /**
+     * 분산 락 TTL 동안 연속 틱 시 두 번째는 락 미획득(실제 Redis, MockBean 없음).
+     */
+    @DisplayName("EntrySchedulerService: 락이 풀리기 전 두 번째 releaseEntries는 스킵")
+    @Test
+    void releaseEntries_whenLockStillHeld_secondTickSkips() {
+        String lockKey = "queue:scheduler:lock:contention-it";
+        String heartbeatKey = "queue:scheduler:heartbeat:contention-it";
+        String eventId = EVENT_ID + "-lock-contention";
+
+        EntrySchedulerService.ReleaseResult first = entrySchedulerService.releaseEntries(
+                eventId, 18, 300L, 5L, lockKey, heartbeatKey, 35L);
+        EntrySchedulerService.ReleaseResult second = entrySchedulerService.releaseEntries(
+                eventId, 18, 300L, 5L, lockKey, heartbeatKey, 35L);
+
+        assertThat(first.lockAcquired()).isTrue();
+        assertThat(second.lockAcquired()).isFalse();
+        assertThat(second.releasedCount()).isZero();
     }
 }
 

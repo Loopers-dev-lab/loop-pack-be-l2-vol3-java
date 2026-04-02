@@ -24,7 +24,10 @@ import java.util.concurrent.CompletableFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -156,6 +159,52 @@ class QueueJoinFallbackKafkaMetricsTest {
 
             verify(ack).acknowledge();
             assertThat(meterRegistry.counter("loopers.queue.join.fallback.dlt").count()).isEqualTo(1.0);
+        }
+
+        @DisplayName("eventType이 QUEUE_JOIN_FALLBACK_REQUESTED가 아니면 join 없이 ack만 한다.")
+        @Test
+        void onMessage_whenEventTypeMismatch_shouldAckWithoutRecovery() {
+            QueueJoinFallbackKafkaListener listener = new QueueJoinFallbackKafkaListener(
+                    waitingQueueService,
+                    objectMapper,
+                    metrics
+            );
+
+            String json = """
+                    {
+                      "eventId": "x",
+                      "eventType": "OTHER_EVENT",
+                      "data": { "eventId": "default", "userId": 1, "score": 1 }
+                    }
+                    """;
+            ConsumerRecord<Object, Object> record = new ConsumerRecord<>("queue-join-fallback", 0, 0L, "1", json);
+            Acknowledgment ack = mock(Acknowledgment.class);
+
+            listener.onMessage(record, ack);
+
+            verify(waitingQueueService, never()).joinQueueFromRecovery(anyString(), anyLong(), anyLong());
+            verify(ack).acknowledge();
+            assertThat(meterRegistry.counter("loopers.queue.join.fallback.recovered").count()).isZero();
+        }
+
+        @DisplayName("envelope JSON이 깨지면 IllegalArgumentException (ack 전)")
+        @Test
+        void onMessage_whenPayloadInvalidJson_shouldThrowBeforeAck() {
+            QueueJoinFallbackKafkaListener listener = new QueueJoinFallbackKafkaListener(
+                    waitingQueueService,
+                    objectMapper,
+                    metrics
+            );
+
+            ConsumerRecord<Object, Object> record = new ConsumerRecord<>("queue-join-fallback", 0, 0L, "1", "{ not-json");
+            Acknowledgment ack = mock(Acknowledgment.class);
+
+            assertThatThrownBy(() -> listener.onMessage(record, ack))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("invalid queue join fallback envelope");
+
+            verify(ack, never()).acknowledge();
+            verify(waitingQueueService, never()).joinQueueFromRecovery(anyString(), anyLong(), anyLong());
         }
     }
 }

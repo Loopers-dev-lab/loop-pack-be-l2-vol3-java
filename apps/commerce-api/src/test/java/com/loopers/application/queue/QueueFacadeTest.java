@@ -85,5 +85,21 @@ class QueueFacadeTest {
 
         assertThat(queueFacade.getQueuePosition(99L)).isEmpty();
     }
+
+    @DisplayName("joinQueue: Redis 실패 시 Kafka 접수 경로면 asyncAccepted 정보를 반환한다.")
+    @Test
+    void joinQueue_whenAsyncFallback_shouldReturnQueueInfoWithFallbackRequestId() {
+        Long userId = 7L;
+        when(queueFallbackProperties.enabled()).thenReturn(true);
+        when(waitingQueueService.joinQueue(eq("default"), eq(userId), anyLong(), eq(true)))
+                .thenReturn(JoinQueueResult.asyncAccepted("fallback-req-abc"));
+
+        QueueInfo info = queueFacade.joinQueue(userId);
+
+        assertThat(info.asyncFallbackPending()).isTrue();
+        assertThat(info.fallbackRequestId()).isEqualTo("fallback-req-abc");
+        assertThat(info.position()).isNull();
+        assertThat(info.totalWaiting()).isNull();
+    }
 }
 

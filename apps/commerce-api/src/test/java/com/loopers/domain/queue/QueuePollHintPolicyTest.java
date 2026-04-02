@@ -7,6 +7,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * {@link QueuePollHintPolicy} 테스트
+ */
 class QueuePollHintPolicyTest {
 
     @Nested
@@ -22,7 +25,8 @@ class QueuePollHintPolicyTest {
                 "1000, 3000",
                 "1001, 5000",
                 "10000, 5000",
-                "10001, 10000"
+                "10001, 10000",
+                "9223372036854775807, 10000"
         })
         void shouldMatchRoadmapBands(long position, long expectedMs) {
             assertThat(QueuePollHintPolicy.suggestedPollIntervalMs(position)).isEqualTo(expectedMs);
@@ -41,7 +45,8 @@ class QueuePollHintPolicyTest {
                 "1000, 3",
                 "1001, 5",
                 "10000, 5",
-                "10001, 10"
+                "10001, 10",
+                "9223372036854775807, 10"
         })
         void shouldMatchRoadmapBands(long position, long expectedSec) {
             assertThat(QueuePollHintPolicy.retryAfterSeconds(position)).isEqualTo(expectedSec);
