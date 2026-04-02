@@ -55,6 +55,7 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
@@ -548,11 +549,16 @@ class QueueV1ApiE2ETest {
                     }
                 });
             }
-            latch.await();
-            executor.shutdown();
+            boolean completed;
+            try {
+                completed = latch.await(10, TimeUnit.SECONDS);
+            } finally {
+                executor.shutdownNow();
+            }
 
             // then: 전원 성공, 모두 고유한 순번
             assertAll(
+                    () -> assertThat(completed).isTrue(),
                     () -> assertThat(successCount.get()).isEqualTo(userCount),
                     () -> assertThat(positions).hasSize(userCount),
                     () -> assertThat(positions).doesNotHaveDuplicates());

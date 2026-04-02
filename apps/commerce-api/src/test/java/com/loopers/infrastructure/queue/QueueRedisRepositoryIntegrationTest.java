@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
@@ -270,10 +271,15 @@ class QueueRedisRepositoryIntegrationTest {
                     }
                 });
             }
-            latch.await();
-            executor.shutdown();
+            boolean completed;
+            try {
+                completed = latch.await(10, TimeUnit.SECONDS);
+            } finally {
+                executor.shutdownNow();
+            }
 
             // then
+            assertThat(completed).isTrue();
             assertThat(successCount.get()).isEqualTo(userCount);
             assertThat(queueRepository.getTotalCount()).isEqualTo(userCount);
         }
@@ -301,10 +307,15 @@ class QueueRedisRepositoryIntegrationTest {
                     }
                 });
             }
-            latch.await();
-            executor.shutdown();
+            boolean completed;
+            try {
+                completed = latch.await(10, TimeUnit.SECONDS);
+            } finally {
+                executor.shutdownNow();
+            }
 
             // then
+            assertThat(completed).isTrue();
             assertThat(successCount.get()).isEqualTo(userCount);
             assertThat(queueRepository.getTotalCount()).isEqualTo(userCount);
 

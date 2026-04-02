@@ -257,10 +257,15 @@ class QueueTokenRedisRepositoryIntegrationTest {
                     }
                 });
             }
-            latch.await();
-            executor.shutdown();
+            boolean completed;
+            try {
+                completed = latch.await(10, TimeUnit.SECONDS);
+            } finally {
+                executor.shutdownNow();
+            }
 
             // then (NX 보장 — 하나만 성공)
+            assertThat(completed).isTrue();
             assertThat(successCount.get()).isEqualTo(1);
             assertThat(queueTokenRepository.hasToken(userId)).isTrue();
         }
@@ -287,10 +292,15 @@ class QueueTokenRedisRepositoryIntegrationTest {
                     }
                 });
             }
-            latch.await();
-            executor.shutdown();
+            boolean completed;
+            try {
+                completed = latch.await(10, TimeUnit.SECONDS);
+            } finally {
+                executor.shutdownNow();
+            }
 
             // then
+            assertThat(completed).isTrue();
             assertThat(successCount.get()).isEqualTo(userCount);
         }
     }
