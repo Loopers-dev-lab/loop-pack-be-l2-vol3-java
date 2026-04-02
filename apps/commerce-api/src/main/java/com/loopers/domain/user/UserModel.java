@@ -65,6 +65,24 @@ public class UserModel extends BaseStringIdEntity {
     }
 
     /**
+     * 인증 캐시 HIT 시 DB 조회 없이 UserModel을 복원한다.
+     * 비영속(detached) 객체로 JPA 영속 컨텍스트에 관리되지 않는다.
+     *
+     * @param info 캐시에 저장된 인증 정보
+     * @return 복원된 UserModel (읽기 전용)
+     */
+    public static UserModel fromCachedAuth(AuthCacheService.AuthUserInfo info) {
+        UserModel model = new UserModel();
+        model.userId = info.userId();
+        model.loginId = info.loginId();
+        model.userName = info.userName();
+        model.birthday = info.birthday();
+        model.email = info.email();
+        model.address = info.address();
+        return model;
+    }
+
+    /**
      * 이미 인코딩된 비밀번호로 UserModel 인스턴스를 생성한다.
      * loginId는 영숫자만 허용, userName은 필수값.
      *

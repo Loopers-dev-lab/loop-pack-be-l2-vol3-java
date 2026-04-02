@@ -31,15 +31,24 @@ public class AuthCacheService {
     private final UserService userService;
     private final ObjectMapper objectMapper;
 
-    private static final Duration AUTH_CACHE_TTL = Duration.ofSeconds(30);
+    private static final Duration AUTH_CACHE_TTL = Duration.ofSeconds(300);
     private static final String KEY_PREFIX = "auth:cache:";
 
     /**
      * 캐시에 저장할 인증 정보. JPA Entity 직접 직렬화를 피하기 위한 경량 DTO.
+     *
+     * <p>캐시 HIT 시 DB 조회 없이 {@link UserModel}을 복원하기 위해
+     * Controller에서 사용하는 모든 필드를 포함한다.</p>
      */
-    public record AuthUserInfo(Long userId, String loginId, String userName) {
+    public record AuthUserInfo(
+            Long userId, String loginId, String userName,
+            String birthday, String email, String address
+    ) {
         public static AuthUserInfo from(UserModel user) {
-            return new AuthUserInfo(user.getUserId(), user.getLoginId(), user.getUserName());
+            return new AuthUserInfo(
+                    user.getUserId(), user.getLoginId(), user.getUserName(),
+                    user.getBirthday(), user.getEmail(), user.getAddress()
+            );
         }
     }
 
@@ -66,7 +75,7 @@ public class AuthCacheService {
             String cachedJson = redisTemplateMaster.opsForValue().get(compositeKey);
             if (cachedJson != null) {
                 AuthUserInfo info = objectMapper.readValue(cachedJson, AuthUserInfo.class);
-                return userService.findByUserId(info.userId());
+                return UserModel.fromCachedAuth(info);
             }
         } catch (Exception e) {
             log.warn("인증 캐시 조회 실패, DB fallback: {}", e.getMessage());

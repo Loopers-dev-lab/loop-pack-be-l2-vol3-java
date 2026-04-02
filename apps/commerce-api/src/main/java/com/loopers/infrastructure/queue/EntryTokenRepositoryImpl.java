@@ -42,9 +42,13 @@ public class EntryTokenRepositoryImpl implements EntryTokenRepository {
                     Long.class
             );
 
+    private final RedisTemplate<String, String> redisTemplateReadOnly;
+
     public EntryTokenRepositoryImpl(
-            @Qualifier("redisTemplateMaster") RedisTemplate<String, String> redisTemplateMaster) {
+            @Qualifier("redisTemplateMaster") RedisTemplate<String, String> redisTemplateMaster,
+            RedisTemplate<String, String> redisTemplateReadOnly) {
         this.redisTemplateMaster = redisTemplateMaster;
+        this.redisTemplateReadOnly = redisTemplateReadOnly;
     }
 
     @Override
@@ -54,9 +58,12 @@ public class EntryTokenRepositoryImpl implements EntryTokenRepository {
         return Boolean.TRUE.equals(result);
     }
 
+    /**
+     * Replica 우선 읽기. 순번 조회(getPosition)에서 토큰 존재 확인용.
+     */
     @Override
     public String get(Long userId) {
-        return redisTemplateMaster.opsForValue().get(KEY_PREFIX + userId);
+        return redisTemplateReadOnly.opsForValue().get(KEY_PREFIX + userId);
     }
 
     @Override

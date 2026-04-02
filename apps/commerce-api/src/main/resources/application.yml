@@ -13,6 +13,9 @@ server:
 spring:
   main:
     web-application-type: servlet
+  threads:
+    virtual:
+      enabled: true
   application:
     name: commerce-api
   profiles:

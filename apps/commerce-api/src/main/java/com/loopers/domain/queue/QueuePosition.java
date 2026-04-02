@@ -18,26 +18,30 @@ public record QueuePosition(
         long position,
         long totalWaiting,
         int estimatedWaitSeconds,
-        String token
+        String token,
+        int suggestedPollIntervalMs
 ) {
     /**
      * WAITING 상태 생성. 대기열에 있고 토큰 미발급.
+     * 순번에 따라 polling 간격을 동적 조절: 앞쪽(< 50)은 2초, 뒤쪽은 최대 10초.
      */
     public static QueuePosition waiting(long position, long totalWaiting, int estimatedSeconds) {
-        return new QueuePosition(QueueStatus.WAITING, position, totalWaiting, estimatedSeconds, null);
+        int pollInterval = position < 50 ? 2000 : Math.min(estimatedSeconds * 1000 / 3, 10000);
+        pollInterval = Math.max(pollInterval, 2000);
+        return new QueuePosition(QueueStatus.WAITING, position, totalWaiting, estimatedSeconds, null, pollInterval);
     }
 
     /**
-     * READY 상태 생성. 토큰 발급 완료, 주문 가능.
+     * READY 상태 생성. 토큰 발급 완료, 주문 가능. Polling 불필요.
      */
     public static QueuePosition ready(long totalWaiting, String token) {
-        return new QueuePosition(QueueStatus.READY, 0, totalWaiting, 0, token);
+        return new QueuePosition(QueueStatus.READY, 0, totalWaiting, 0, token, 0);
     }
 
     /**
-     * NOT_IN_QUEUE 상태 생성. 대기열 미등록.
+     * NOT_IN_QUEUE 상태 생성. 대기열 미등록. Polling 불필요.
      */
     public static QueuePosition notInQueue(long totalWaiting) {
-        return new QueuePosition(QueueStatus.NOT_IN_QUEUE, -1, totalWaiting, -1, null);
+        return new QueuePosition(QueueStatus.NOT_IN_QUEUE, -1, totalWaiting, -1, null, 0);
     }
 }

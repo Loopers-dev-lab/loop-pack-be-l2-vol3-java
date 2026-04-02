@@ -41,4 +41,18 @@ public interface QueueRepository {
      * @return 꺼낸 항목 리스트 (비어있을 수 있음)
      */
     List<QueueEntry> popMin(int count);
+
+    /**
+     * 순번, 대기 인원, 토큰을 원자적으로 조회한다 (Lua script 1 RTT).
+     *
+     * @param userId   사용자 ID
+     * @param tokenKey 토큰 Redis 키
+     * @return [rank(Long 또는 null), size(Long), token(String 또는 null)]
+     */
+    PositionSnapshot getPositionSnapshot(Long userId, String tokenKey);
+
+    /**
+     * 순번 조회 스냅샷. Lua script 결과를 담는 record.
+     */
+    record PositionSnapshot(Long rank, long size, String token) {}
 }

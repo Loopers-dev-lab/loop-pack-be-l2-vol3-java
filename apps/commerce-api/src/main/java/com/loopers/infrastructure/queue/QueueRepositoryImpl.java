@@ -5,6 +5,7 @@ import com.loopers.domain.queue.QueueRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,12 +24,32 @@ import java.util.Set;
 public class QueueRepositoryImpl implements QueueRepository {
 
     private final RedisTemplate<String, String> redisTemplateMaster;
+    private final RedisTemplate<String, String> redisTemplateReadOnly;
 
     private static final String QUEUE_KEY = "order:waiting-queue";
 
+    /**
+     * Lua script: ZRANK + ZCARD + GET(토큰)을 원자적 1 RTT로 실행.
+     * 반환: [rank 또는 -1, size, token 또는 빈 문자열]
+     */
+    private static final DefaultRedisScript<List> POSITION_SNAPSHOT_SCRIPT =
+            new DefaultRedisScript<>(
+                    """
+                    local rank = redis.call('zrank', KEYS[1], ARGV[1])
+                    local size = redis.call('zcard', KEYS[1])
+                    local token = redis.call('get', KEYS[2])
+                    if rank == false then rank = -1 end
+                    if token == false then token = '' end
+                    return {rank, size, token}
+                    """,
+                    List.class
+            );
+
     public QueueRepositoryImpl(
-            @Qualifier("redisTemplateMaster") RedisTemplate<String, String> redisTemplateMaster) {
+            @Qualifier("redisTemplateMaster") RedisTemplate<String, String> redisTemplateMaster,
+            RedisTemplate<String, String> redisTemplateReadOnly) {
         this.redisTemplateMaster = redisTemplateMaster;
+        this.redisTemplateReadOnly = redisTemplateReadOnly;
     }
 
     /**
@@ -46,22 +67,48 @@ public class QueueRepositoryImpl implements QueueRepository {
 
     /**
      * ZRANK — 0-based 순번. 대기열에 없으면 null.
-     *
-     * <p>score(타임스탬프)가 작을수록 앞순번. ZRANK는 score 오름차순 기준.</p>
+     * Replica 우선 읽기로 Master 부하 분산.
      */
     @Override
     public Long getRank(Long userId) {
-        return redisTemplateMaster.opsForZSet()
+        return redisTemplateReadOnly.opsForZSet()
                 .rank(QUEUE_KEY, String.valueOf(userId));
     }
 
     /**
      * ZCARD — 전체 대기 인원.
+     * Replica 우선 읽기로 Master 부하 분산.
      */
     @Override
     public long getSize() {
-        Long size = redisTemplateMaster.opsForZSet().size(QUEUE_KEY);
+        Long size = redisTemplateReadOnly.opsForZSet().size(QUEUE_KEY);
         return size != null ? size : 0;
+    }
+
+    /**
+     * Lua script로 ZRANK + ZCARD + GET(토큰)을 1 RTT에 조회.
+     * Replica 우선 읽기 템플릿 사용.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public PositionSnapshot getPositionSnapshot(Long userId, String tokenKey) {
+        List<Object> result = redisTemplateReadOnly.execute(
+                POSITION_SNAPSHOT_SCRIPT,
+                List.of(QUEUE_KEY, tokenKey),
+                String.valueOf(userId)
+        );
+
+        if (result == null || result.size() < 3) {
+            return new PositionSnapshot(null, 0, null);
+        }
+
+        long rankValue = ((Number) result.get(0)).longValue();
+        Long rank = rankValue == -1 ? null : rankValue;
+        long size = ((Number) result.get(1)).longValue();
+        String token = result.get(2).toString();
+        if (token.isEmpty()) token = null;
+
+        return new PositionSnapshot(rank, size, token);
     }
 
     /**

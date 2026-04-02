@@ -75,21 +75,30 @@ public class QueueService {
      * @param userId 사용자 ID
      * @return 순번 조회 결과
      */
-    public QueuePosition getPosition(Long userId) {
-        Long rank = queueRepository.getRank(userId);
-        long totalWaiting = queueRepository.getSize();
-        String token = entryTokenService.getToken(userId);
+    private static final String TOKEN_KEY_PREFIX = "order:entry-token:";
 
-        // QueueStatus.evaluate()로 상태 판단 (Phase 0 Task 0-1)
-        QueueStatus status = QueueStatus.evaluate(rank != null, token != null);
+    /**
+     * 현재 대기 순번을 조회한다.
+     *
+     * <p>Lua script로 ZRANK + ZCARD + GET(토큰)을 1 RTT에 원자적 조회.
+     * Replica 우선 읽기로 Master 부하를 분산한다.</p>
+     *
+     * @param userId 사용자 ID
+     * @return 순번 조회 결과
+     */
+    public QueuePosition getPosition(Long userId) {
+        QueueRepository.PositionSnapshot snapshot =
+                queueRepository.getPositionSnapshot(userId, TOKEN_KEY_PREFIX + userId);
+
+        QueueStatus status = QueueStatus.evaluate(snapshot.rank() != null, snapshot.token() != null);
 
         return switch (status) {
             case WAITING -> {
-                int estimated = queueProperties.calculateEstimatedWaitSeconds(rank);
-                yield QueuePosition.waiting(rank, totalWaiting, estimated);
+                int estimated = queueProperties.calculateEstimatedWaitSeconds(snapshot.rank());
+                yield QueuePosition.waiting(snapshot.rank(), snapshot.size(), estimated);
             }
-            case READY -> QueuePosition.ready(totalWaiting, token);
-            case NOT_IN_QUEUE -> QueuePosition.notInQueue(totalWaiting);
+            case READY -> QueuePosition.ready(snapshot.size(), snapshot.token());
+            case NOT_IN_QUEUE -> QueuePosition.notInQueue(snapshot.size());
         };
     }
 

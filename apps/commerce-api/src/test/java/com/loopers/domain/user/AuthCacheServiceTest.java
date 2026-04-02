@@ -59,30 +59,33 @@ class AuthCacheServiceTest {
         // then
         assertThat(result.getUserId()).isEqualTo(1L);
         verify(userService).authenticate("testuser", "password123");
-        verify(valueOperations).set(anyString(), anyString(), eq(Duration.ofSeconds(30)));
+        verify(valueOperations).set(anyString(), anyString(), eq(Duration.ofSeconds(300)));
     }
 
-    // --- 캐시 히트 → DB PK 조회만 ---
+    // --- 캐시 히트 → DB 조회 없이 캐시에서 복원 ---
 
     @Test
-    @DisplayName("캐시 히트 시 DB authenticate() 호출하지 않고 findByUserId()만 호출")
-    void authenticate_CacheHit_ShouldNotCallAuthenticate() throws Exception {
+    @DisplayName("캐시 히트 시 DB 조회 없이 캐시 데이터로 UserModel을 복원한다")
+    void authenticate_CacheHit_ShouldRestoreFromCacheWithoutDB() throws Exception {
         // given
         given(redisTemplateMaster.opsForValue()).willReturn(valueOperations);
         String cachedJson = objectMapper.writeValueAsString(
-                new AuthCacheService.AuthUserInfo(1L, "testuser", "테스트유저"));
+                new AuthCacheService.AuthUserInfo(1L, "testuser", "테스트유저",
+                        "19900101", "test@test.com", "서울시"));
         given(valueOperations.get(anyString())).willReturn(cachedJson);
-
-        UserModel mockUser = createMockUser(1L, "testuser", "테스트유저");
-        given(userService.findByUserId(1L)).willReturn(mockUser);
 
         // when
         UserModel result = authCacheService.authenticateWithCache("testuser", "password123");
 
-        // then
+        // then — DB 조회 없이 캐시 데이터로 복원
         assertThat(result.getUserId()).isEqualTo(1L);
-        verify(userService).findByUserId(1L);
-        verify(userService, never()).authenticate(anyString(), anyString());
+        assertThat(result.getLoginId()).isEqualTo("testuser");
+        assertThat(result.getUserName()).isEqualTo("테스트유저");
+        assertThat(result.getBirthday()).isEqualTo("19900101");
+        assertThat(result.getEmail()).isEqualTo("test@test.com");
+        assertThat(result.getAddress()).isEqualTo("서울시");
+        verify(userService, never()).findByUserId(any());       // DB PK 조회 안 함
+        verify(userService, never()).authenticate(any(), any()); // DB 인증 안 함
     }
 
     // --- 인증 실패 → 캐시 안 함 ---
@@ -147,6 +150,9 @@ class AuthCacheServiceTest {
         lenient().when(user.getUserId()).thenReturn(userId);
         lenient().when(user.getLoginId()).thenReturn(loginId);
         lenient().when(user.getUserName()).thenReturn(userName);
+        lenient().when(user.getBirthday()).thenReturn("19900101");
+        lenient().when(user.getEmail()).thenReturn("test@test.com");
+        lenient().when(user.getAddress()).thenReturn("서울시");
         return user;
     }
 }

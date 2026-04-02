@@ -46,6 +46,7 @@ public class QueueV1Dto {
         private final long totalWaiting;
         private final int estimatedWaitSeconds;
         private final String token;
+        private final int suggestedPollIntervalMs;
 
         /**
          * QueuePosition → PositionResponse 변환.
@@ -59,6 +60,7 @@ public class QueueV1Dto {
                     .totalWaiting(pos.totalWaiting())
                     .estimatedWaitSeconds(pos.estimatedWaitSeconds())
                     .token(pos.token())
+                    .suggestedPollIntervalMs(pos.suggestedPollIntervalMs())
                     .build();
         }
     }

@@ -15,8 +15,10 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -113,7 +115,9 @@ class QueueServiceTest {
             given(queueProperties.canAccept(100L)).willReturn(true);
             given(queueRepository.addIfAbsent(eq(userId), anyDouble())).willReturn(true);
             given(queueRepository.getRank(userId)).willReturn(null); // ZPOPMIN으로 제거됨
-            given(entryTokenService.getToken(userId)).willReturn(null); // 토큰도 아직 없음
+            // getPosition() 내부에서 Lua 스냅샷 호출
+            given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
+                    .willReturn(new QueueRepository.PositionSnapshot(null, 100, null));
 
             // when
             EnterResult result = queueService.enter(userId);
@@ -133,11 +137,10 @@ class QueueServiceTest {
         @Test
         @DisplayName("대기열에 있는 유저는 WAITING 상태와 순번을 반환한다")
         void getPosition_InQueue_ShouldReturnWaiting() {
-            // given
+            // given — Lua 스냅샷 mock
             Long userId = 1L;
-            given(queueRepository.getRank(userId)).willReturn(50L);
-            given(queueRepository.getSize()).willReturn(200L);
-            given(entryTokenService.getToken(userId)).willReturn(null);
+            given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
+                    .willReturn(new QueueRepository.PositionSnapshot(50L, 200, null));
             given(queueProperties.calculateEstimatedWaitSeconds(50L)).willReturn(1);
 
             // when
@@ -156,9 +159,8 @@ class QueueServiceTest {
         void getPosition_NotInQueue_ShouldReturnNotInQueue() {
             // given
             Long userId = 1L;
-            given(queueRepository.getRank(userId)).willReturn(null);
-            given(queueRepository.getSize()).willReturn(200L);
-            given(entryTokenService.getToken(userId)).willReturn(null);
+            given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
+                    .willReturn(new QueueRepository.PositionSnapshot(null, 200, null));
 
             // when
             QueuePosition position = queueService.getPosition(userId);
@@ -174,9 +176,8 @@ class QueueServiceTest {
         void getPosition_WithToken_ShouldReturnReady() {
             // given
             Long userId = 1L;
-            given(queueRepository.getRank(userId)).willReturn(null);
-            given(queueRepository.getSize()).willReturn(200L);
-            given(entryTokenService.getToken(userId)).willReturn("my-token-uuid");
+            given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
+                    .willReturn(new QueueRepository.PositionSnapshot(null, 200, "my-token-uuid"));
 
             // when
             QueuePosition position = queueService.getPosition(userId);
@@ -192,9 +193,8 @@ class QueueServiceTest {
         void getPosition_BothQueueAndToken_ShouldReturnReady() {
             // given
             Long userId = 1L;
-            given(queueRepository.getRank(userId)).willReturn(50L);
-            given(queueRepository.getSize()).willReturn(200L);
-            given(entryTokenService.getToken(userId)).willReturn("my-token-uuid");
+            given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
+                    .willReturn(new QueueRepository.PositionSnapshot(50L, 200, "my-token-uuid"));
 
             // when
             QueuePosition position = queueService.getPosition(userId);
