@@ -80,8 +80,15 @@ public class QueueScheduler {
             } catch (Exception e) {
                 // 토큰 발급 실패 시 원래 score로 재삽입하여 순서를 보존한다.
                 // ZPOPMIN으로 이미 꺼냈으므로 재삽입하지 않으면 유저가 유실된다.
-                queueRepository.enter(entry.userId(), entry.score());
-                log.warn("토큰 발급 실패, 대기열 재삽입 userId={}", entry.userId(), e);
+                try {
+                    queueRepository.enter(entry.userId(), entry.score());
+                    log.warn("토큰 발급 실패, 대기열 재삽입 userId={}", entry.userId(), e);
+                } catch (Exception reinsertEx) {
+                    // 재삽입마저 실패하면 유저가 대기열에서 유실된다.
+                    // error 레벨로 기록하여 운영에서 수동 복구할 수 있도록 한다.
+                    log.error("토큰 발급 실패 후 대기열 재삽입도 실패, 유저 유실 userId={}, score={}",
+                            entry.userId(), entry.score(), reinsertEx);
+                }
             }
         }
     }

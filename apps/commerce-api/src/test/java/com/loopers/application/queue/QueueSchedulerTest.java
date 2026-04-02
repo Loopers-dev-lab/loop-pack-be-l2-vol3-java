@@ -228,6 +228,31 @@ class QueueSchedulerTest {
         }
 
         @Test
+        @DisplayName("성공 - 토큰 발급과 재삽입이 모두 실패해도 나머지 유저 처리에 영향을 주지 않는다")
+        void processQueue_reinsert_failure_does_not_block_others() {
+            // given
+            when(queueService.isQueueEnabled()).thenReturn(true);
+            givenLockAcquired();
+            List<QueueEntry> entries = List.of(
+                    new QueueEntry(1L, 1000.0),
+                    new QueueEntry(2L, 2000.0),
+                    new QueueEntry(3L, 3000.0));
+            when(queueRepository.popFront(18)).thenReturn(entries);
+            when(queueTokenService.hasToken(anyLong())).thenReturn(false);
+            when(queueTokenService.issueToken(1L)).thenThrow(new RuntimeException("Redis error"));
+            when(queueRepository.enter(1L, 1000.0)).thenThrow(new RuntimeException("Redis reinsert error"));
+            when(queueTokenService.issueToken(2L)).thenReturn(Optional.of("token-2"));
+            when(queueTokenService.issueToken(3L)).thenReturn(Optional.of("token-3"));
+
+            // when
+            queueScheduler.processQueue();
+
+            // then: 재삽입 실패한 유저(1L)가 있어도 나머지(2L, 3L)는 정상 처리
+            verify(queueTokenService).issueToken(2L);
+            verify(queueTokenService).issueToken(3L);
+        }
+
+        @Test
         @DisplayName("성공 - 다른 인스턴스가 실행 중이면 이번 주기를 스킵한다")
         void processQueue_lock_not_acquired_skips() {
             // given
