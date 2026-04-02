@@ -137,6 +137,24 @@ class OrderControllerTest {
                             .header(HEADER_LOGIN_PW, TEST_PASSWORD))
                     .andExpect(status().isNotFound());
         }
+
+        @Test
+        @DisplayName("실시간 조회 시 rank, 표시 순번, polling interval을 반환한다")
+        void getRealtimeStatusReturnsRankAndPollingInterval() throws Exception {
+            mockMvc.perform(post("/api/v1/order-queue")
+                    .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                    .header(HEADER_LOGIN_PW, TEST_PASSWORD));
+
+            mockMvc.perform(get("/api/v1/order-queue/me/realtime")
+                            .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                            .header(HEADER_LOGIN_PW, TEST_PASSWORD))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.rank").value(0))
+                    .andExpect(jsonPath("$.data.displayWaitingOrder").value(1))
+                    .andExpect(jsonPath("$.data.estimatedWaitSeconds").value(0))
+                    .andExpect(jsonPath("$.data.recommendedPollingIntervalSeconds").value(1))
+                    .andExpect(jsonPath("$.data.admissionState").value("WAITING"));
+        }
     }
 
     @Nested
