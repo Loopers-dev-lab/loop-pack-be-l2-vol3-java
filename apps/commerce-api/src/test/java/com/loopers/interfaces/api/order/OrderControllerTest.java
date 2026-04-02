@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.order;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.order.queue.OrderAdmissionApplicationService;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
@@ -53,6 +54,9 @@ class OrderControllerTest {
     @Autowired
     private RedisCleanUp redisCleanUp;
 
+    @Autowired
+    private OrderAdmissionApplicationService orderAdmissionApplicationService;
+
     @BeforeEach
     void setUp() throws Exception {
         // 테스트 유저 등록
@@ -97,7 +101,7 @@ class OrderControllerTest {
         void reEnterQueueMovesUserBack() throws Exception {
             String secondLoginId = "testuser2";
             var secondRegisterRequest = new com.loopers.interfaces.api.member.MemberDto.RegisterRequest(
-                    secondLoginId, TEST_PASSWORD, "테스터2", "19900101", "test2@example.com", "010-9999-5678"
+                    secondLoginId, TEST_PASSWORD, "테스터", "19900101", "test2@example.com", "010-9999-5678"
             );
             mockMvc.perform(post("/api/v1/members")
                     .contentType(MediaType.APPLICATION_JSON)
@@ -166,8 +170,28 @@ class OrderControllerTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 상품 주문 시 404를 반환한다")
-        void createOrderWithNonExistentProductFails() throws Exception {
+        @DisplayName("입장 토큰이 없으면 주문 생성이 403을 반환한다")
+        void createOrderWithoutTokenFails() throws Exception {
+            OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(UUID.randomUUID(), 1))
+            );
+
+            mockMvc.perform(post("/api/v1/orders")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request))
+                            .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                            .header(HEADER_LOGIN_PW, TEST_PASSWORD))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("토큰 발급 후 존재하지 않는 상품 주문 시 404를 반환한다")
+        void createOrderWithTokenAndUnknownProductFailsWithNotFound() throws Exception {
+            mockMvc.perform(post("/api/v1/order-queue")
+                    .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                    .header(HEADER_LOGIN_PW, TEST_PASSWORD));
+            orderAdmissionApplicationService.issueAdmissions();
+
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(UUID.randomUUID(), 1))
             );
