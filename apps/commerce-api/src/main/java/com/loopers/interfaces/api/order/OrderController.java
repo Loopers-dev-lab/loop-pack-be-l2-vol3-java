@@ -9,6 +9,7 @@ import com.loopers.interfaces.auth.AuthenticatedUser;
 import com.loopers.interfaces.auth.CurrentUser;
 import com.loopers.interfaces.auth.EntryTokenRequired;
 import com.loopers.interfaces.auth.LoginRequired;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -25,6 +26,7 @@ public class OrderController {
 
     private final OrderFacade orderFacade;
 
+    @RateLimiter(name = "order")
     @LoginRequired
     @EntryTokenRequired
     @ResponseStatus(HttpStatus.CREATED)
