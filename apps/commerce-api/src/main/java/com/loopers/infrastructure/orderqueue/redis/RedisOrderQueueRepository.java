@@ -7,6 +7,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Set;
+
 @Repository
 @RequiredArgsConstructor
 public class RedisOrderQueueRepository implements OrderQueueRepository {
@@ -24,5 +27,16 @@ public class RedisOrderQueueRepository implements OrderQueueRepository {
     @Override
     public Long rank(String memberId) {
         return redisTemplate.opsForZSet().rank(ORDER_QUEUE_KEY, memberId);
+    }
+
+    @Override
+    public List<String> peek(int limit) {
+        Set<String> members = redisTemplate.opsForZSet().range(ORDER_QUEUE_KEY, 0, limit - 1L);
+        return members == null ? List.of() : List.copyOf(members);
+    }
+
+    @Override
+    public void remove(String memberId) {
+        redisTemplate.opsForZSet().remove(ORDER_QUEUE_KEY, memberId);
     }
 }

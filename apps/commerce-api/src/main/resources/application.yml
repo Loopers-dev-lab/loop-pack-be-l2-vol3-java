@@ -53,6 +53,18 @@ cache:
     jitter-ratio: 0.1
 
 loopers:
+  queue:
+    order:
+      enabled: false
+      throughput-per-second: 1
+      scheduler-enabled: true
+      scheduler-fixed-delay-ms: 1000
+      initial-batch-size: 10
+      max-active-admissions: 100
+      dynamic-adjustment-enabled: true
+      claim-ttl-ms: 5000
+      token-ttl-ms: 30000
+      admission-strategy: key-ttl
   cache:
     brand-category:
       enabled: true
@@ -109,6 +121,21 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+loopers:
+  queue:
+    order:
+      scheduler-fixed-delay-ms: 60000
+  payment:
+    completion:
+      polling:
+        enabled: false
 
 ---
 spring:
