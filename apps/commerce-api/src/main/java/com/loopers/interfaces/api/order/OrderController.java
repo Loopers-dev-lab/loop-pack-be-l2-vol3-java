@@ -2,7 +2,6 @@ package com.loopers.interfaces.api.order;
 
 import com.loopers.application.order.OrderApplicationService;
 import com.loopers.application.order.OrderUseCase;
-import com.loopers.application.order.queue.OrderAdmissionApplicationService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.member.Member;
 import com.loopers.interfaces.api.ApiResponse;
@@ -29,7 +28,6 @@ public class OrderController {
 
     private final OrderApplicationService orderApplicationService;
     private final OrderUseCase orderUseCase;
-    private final OrderAdmissionApplicationService orderAdmissionApplicationService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -37,7 +35,6 @@ public class OrderController {
             @AuthMember Member member,
             @Valid @RequestBody OrderDto.CreateOrderRequest request
     ) {
-        orderAdmissionApplicationService.validateOrderEntry(member.id().value());
         Order order = orderUseCase.create(request.toCommand(member.id().value()));
         return ApiResponse.success(OrderDto.OrderResponse.from(order));
     }
