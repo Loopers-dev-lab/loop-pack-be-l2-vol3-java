@@ -14,6 +14,10 @@ public abstract class RedisTestContainersConfig {
     @SuppressWarnings("resource")
     private static final RedisContainer REDIS_CONTAINER = new RedisContainer(DockerImageName.parse("redis:latest"));
 
+    static {
+        REDIS_CONTAINER.start();
+    }
+
     @DynamicPropertySource
     static void overrideRedisProperties(DynamicPropertyRegistry registry) {
         registry.add("datasource.redis.database", () -> "0");

@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.payment;
 import com.loopers.application.coupon.CouponAdminApplicationService;
 import com.loopers.application.coupon.CouponApplicationService;
 import com.loopers.application.coupon.command.CreateCouponCommand;
+import com.loopers.application.order.queue.OrderAdmissionApplicationService;
 import com.loopers.application.product.ProductApplicationService;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponStatus;
@@ -21,7 +22,9 @@ import com.loopers.interfaces.api.order.OrderDto;
 import com.loopers.interfaces.api.product.ProductDto;
 import com.loopers.infrastructure.payment.PaymentRecoveryRequiredException;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -40,6 +43,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.context.annotation.Import;
 
@@ -53,7 +58,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ImportTestcontainers(MySqlTestContainersConfig.class)
+@ImportTestcontainers({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @ActiveProfiles("test")
 @Import(PaymentApiE2ETest.PaymentGatewayTestConfig.class)
 class PaymentApiE2ETest {
@@ -76,6 +81,9 @@ class PaymentApiE2ETest {
     private DatabaseCleanUp databaseCleanUp;
 
     @Autowired
+    private RedisCleanUp redisCleanUp;
+
+    @Autowired
     private CategoryRepository categoryRepository;
 
     @Autowired
@@ -96,8 +104,18 @@ class PaymentApiE2ETest {
     @Autowired
     private FakePaymentGateway fakePaymentGateway;
 
+    @Autowired
+    private OrderAdmissionApplicationService orderAdmissionApplicationService;
+
     private UUID brandId;
     private UUID categoryId;
+
+    @DynamicPropertySource
+    static void overrideProperties(DynamicPropertyRegistry registry) {
+        registry.add("datasource.mysql-jpa.main.jdbc-url", MySqlTestContainersConfig.MY_SQL_CONTAINER::getJdbcUrl);
+        registry.add("datasource.mysql-jpa.main.username", MySqlTestContainersConfig.MY_SQL_CONTAINER::getUsername);
+        registry.add("datasource.mysql-jpa.main.password", MySqlTestContainersConfig.MY_SQL_CONTAINER::getPassword);
+    }
 
     @BeforeEach
     void setUp() {
@@ -124,6 +142,7 @@ class PaymentApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
         fakePaymentGateway.clear();
     }
 
@@ -527,6 +546,7 @@ class PaymentApiE2ETest {
 
     private UUID createOrderForPayment() {
         UUID productId = createProduct("결제 테스트 상품", 12000, 10);
+        issueAdmissionToken();
 
         OrderDto.CreateOrderRequest createRequest = new OrderDto.CreateOrderRequest(
                 List.of(new OrderDto.OrderItemRequest(productId, 2))
@@ -543,6 +563,16 @@ class PaymentApiE2ETest {
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(created.getBody()).isNotNull();
         return created.getBody().data().id();
+    }
+
+    private void issueAdmissionToken() {
+        testRestTemplate.exchange(
+                "/api/v1/order-queue",
+                HttpMethod.POST,
+                new HttpEntity<>(authHeaders()),
+                new ParameterizedTypeReference<ApiResponse<OrderDto.OrderQueueStatusResponse>>() {}
+        );
+        orderAdmissionApplicationService.issueAdmissions();
     }
 
     private UUID issueCouponToTestMember(String couponName, int discountValue) {

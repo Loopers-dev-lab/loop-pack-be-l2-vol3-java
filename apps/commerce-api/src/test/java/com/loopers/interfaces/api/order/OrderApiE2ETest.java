@@ -26,6 +26,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.util.List;
 
@@ -59,6 +61,13 @@ class OrderApiE2ETest {
     private final OrderAdmissionApplicationService orderAdmissionApplicationService;
     private UUID brandId;
     private UUID categoryId;
+
+    @DynamicPropertySource
+    static void overrideProperties(DynamicPropertyRegistry registry) {
+        registry.add("datasource.mysql-jpa.main.jdbc-url", MySqlTestContainersConfig.MY_SQL_CONTAINER::getJdbcUrl);
+        registry.add("datasource.mysql-jpa.main.username", MySqlTestContainersConfig.MY_SQL_CONTAINER::getUsername);
+        registry.add("datasource.mysql-jpa.main.password", MySqlTestContainersConfig.MY_SQL_CONTAINER::getPassword);
+    }
 
     @Autowired
     public OrderApiE2ETest(

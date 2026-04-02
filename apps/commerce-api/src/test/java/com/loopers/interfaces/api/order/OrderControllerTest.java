@@ -177,6 +177,11 @@ class OrderControllerTest {
         @Test
         @DisplayName("빈 items로 주문하면 400을 반환한다")
         void createOrderWithEmptyItemsFails() throws Exception {
+            mockMvc.perform(post("/api/v1/order-queue")
+                    .header(HEADER_LOGIN_ID, TEST_LOGIN_ID)
+                    .header(HEADER_LOGIN_PW, TEST_PASSWORD));
+            orderAdmissionApplicationService.issueAdmissions();
+
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(List.of());
 
             mockMvc.perform(post("/api/v1/orders")
