@@ -6,6 +6,7 @@ spring:
 
 datasource:
   redis:
+    mode: master-replica
     database: 0
     master:
       host: ${REDIS_MASTER_HOST}
@@ -13,18 +14,44 @@ datasource:
     replicas:
       - host: ${REDIS_REPLICA_1_HOST}
         port: ${REDIS_REPLICA_1_PORT}
+    cluster-nodes: []
 
 ---
 spring.config.activate.on-profile: local, test
 
 datasource:
   redis:
+    mode: master-replica
     master:
       host: localhost
       port: 6379
     replicas:
       - host: localhost
         port: 6380
+
+---
+spring.config.activate.on-profile: cluster
+
+datasource:
+  redis:
+    mode: cluster
+    master:
+      host: localhost
+      port: 7001
+    replicas: []
+    cluster-nodes:
+      - host: localhost
+        port: 7001
+      - host: localhost
+        port: 7002
+      - host: localhost
+        port: 7003
+      - host: localhost
+        port: 7004
+      - host: localhost
+        port: 7005
+      - host: localhost
+        port: 7006
 
 ---
 spring.config.activate.on-profile: dev
