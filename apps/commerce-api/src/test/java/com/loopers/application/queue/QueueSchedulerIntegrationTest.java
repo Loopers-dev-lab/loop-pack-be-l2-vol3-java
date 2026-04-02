@@ -79,6 +79,7 @@ class QueueSchedulerIntegrationTest {
     @BeforeEach
     void setUp() {
         cleanupRedis();
+        queueService.resetCache();
         featureFlagJpaRepository.save(new FeatureFlag("QUEUE_ENABLED", true));
         schedulerLockJpaRepository.deleteAll();
         schedulerLockJpaRepository.save(new SchedulerLock("QUEUE_SCHEDULER"));
