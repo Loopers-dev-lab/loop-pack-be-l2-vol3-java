@@ -49,6 +49,8 @@ resilience4j:
         baseConfig: default
       pg-query:
         baseConfig: default
+      redis-queue:
+        baseConfig: default
 
   retry:
     retryAspectOrder: 2

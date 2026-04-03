@@ -1,5 +1,7 @@
 package com.loopers.domain.member.service;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.model.MemberCommand;
 import com.loopers.domain.member.repository.MemberRepository;
@@ -9,12 +11,19 @@ import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.TimeUnit;
+
 @RequiredArgsConstructor
 @Component
 public class MemberService {
 
     private final MemberRepository memberRepository;
     private final PasswordEncryptor passwordEncryptor;
+
+    private final Cache<String, Member> memberCache = Caffeine.newBuilder()
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .maximumSize(100_000)
+            .build();
 
     public void addMember(MemberCommand.SignUp command) {
         if (memberRepository.existsByLoginId(new LoginId(command.loginId()))) {
@@ -29,6 +38,9 @@ public class MemberService {
     }
 
     public Member findMember(String loginId, String rawPassword) {
+        Member cached = memberCache.getIfPresent(loginId);
+        if (cached != null) return cached;
+
         Member member = memberRepository.findByLoginId(new LoginId(loginId))
             .orElseThrow(() -> new CoreException(ErrorType.UNAUTHORIZED, ErrorType.UNAUTHORIZED.getMessage()));
 
@@ -36,6 +48,7 @@ public class MemberService {
             throw new CoreException(ErrorType.UNAUTHORIZED, ErrorType.UNAUTHORIZED.getMessage());
         }
 
+        memberCache.put(loginId, member);
         return member;
     }
 
@@ -53,6 +66,7 @@ public class MemberService {
 
         Password newPassword = Password.create(command.newPassword(), member.getBirthDate().toFormattedString(), passwordEncryptor);
         memberRepository.updatePassword(member.getLoginId(), newPassword);
+        memberCache.invalidate(command.loginId());
     }
 
 }

@@ -19,6 +19,8 @@ import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.payment.PgPaymentStatus;
 import com.loopers.domain.payment.model.Payment;
 import com.loopers.domain.payment.service.PaymentService;
+import com.loopers.domain.queue.service.EntryTokenService;
+import com.loopers.domain.queue.service.QueueService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +41,8 @@ public class PaymentFacade {
     private final OrderService orderService;
     private final OrderProductService orderProductService;
     private final ApplicationEventPublisher eventPublisher;
+    private final EntryTokenService entryTokenService;
+    private final QueueService queueService;
 
     @Value("${payment.callback-url}")
     private String callbackUrl;
@@ -74,6 +78,8 @@ public class PaymentFacade {
             paymentService.markSuccess(transactionKey);
             orderService.updateOrderStatus(order.getId(), OrderStatus.PAID);
             eventPublisher.publishEvent(new PaymentCompletedEvent(payment.getOrderId(), payment.getId()));
+            entryTokenService.deleteToken(payment.getMemberId());
+            queueService.removeFromQueue(payment.getMemberId());
         } else {
             paymentService.markFailed(transactionKey, status.name());
             orderService.updateOrderStatus(order.getId(), OrderStatus.PAYMENT_FAILED);
