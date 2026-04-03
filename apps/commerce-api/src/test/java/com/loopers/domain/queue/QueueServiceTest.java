@@ -79,6 +79,7 @@ class QueueServiceTest {
             // given
             givenQueueEnabled();
             Long userId = 1L;
+            when(queueTokenService.hasToken(userId)).thenReturn(false);
             when(queueRepository.enter(eq(userId), anyDouble())).thenReturn(true);
             when(queueRepository.getRank(userId)).thenReturn(Optional.of(0L));
 
@@ -96,6 +97,7 @@ class QueueServiceTest {
             // given
             givenQueueEnabled();
             Long userId = 1L;
+            when(queueTokenService.hasToken(userId)).thenReturn(false);
             when(queueRepository.enter(eq(userId), anyDouble())).thenReturn(false);
             when(queueRepository.getRank(userId)).thenReturn(Optional.of(5L));
 
@@ -104,6 +106,22 @@ class QueueServiceTest {
 
             // then (rank=5 → 1-based position=6)
             assertThat(position).isEqualTo(6L);
+        }
+
+        @Test
+        @DisplayName("성공 - 이미 토큰을 보유한 유저는 대기열에 삽입하지 않고 position 0을 반환한다")
+        void enter_with_active_token_returns_zero() {
+            // given
+            givenQueueEnabled();
+            Long userId = 1L;
+            when(queueTokenService.hasToken(userId)).thenReturn(true);
+
+            // when
+            long position = queueService.enter(userId);
+
+            // then
+            assertThat(position).isEqualTo(0L);
+            verify(queueRepository, never()).enter(eq(userId), anyDouble());
         }
 
         @Test

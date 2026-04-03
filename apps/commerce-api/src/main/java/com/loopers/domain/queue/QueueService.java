@@ -35,8 +35,13 @@ public class QueueService {
     // score로 현재 시각(ms)을 사용하여 선착순 정렬을 보장한다.
     // Redis Sorted Set의 NX 옵션으로 이미 대기 중인 유저의 중복 진입을 방지하며,
     // 이 경우에도 현재 순번을 정상적으로 반환한다.
+    // 이미 토큰을 보유한 유저는 대기열에 삽입하지 않고 position 0(입장 가능)을 반환한다.
     public long enter(Long userId) {
         validateQueueEnabled();
+
+        if (queueTokenService.hasToken(userId)) {
+            return 0;
+        }
 
         double score = System.currentTimeMillis();
         queueRepository.enter(userId, score);
