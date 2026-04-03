@@ -3,6 +3,9 @@ package com.loopers.application.queue;
 import com.loopers.domain.queue.QueueConstants;
 import com.loopers.domain.queue.QueueService;
 import com.loopers.domain.queue.TokenService;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -19,14 +22,24 @@ public class QueueFacade {
 
     private final QueueService queueService;
     private final TokenService tokenService;
+    private final MeterRegistry meterRegistry;
+
+    @PostConstruct
+    public void initMetrics() {
+        Gauge.builder("queue.size", queueService, QueueService::getTotalCount)
+                .description("현재 대기열 크기")
+                .register(meterRegistry);
+    }
 
     public QueueInfo enter(String userId) {
         long position = queueService.enter(userId);
         long totalCount = queueService.getTotalCount();
+        meterRegistry.counter("queue.enter.total").increment();
         return new QueueInfo(position, totalCount);
     }
 
     public QueuePositionInfo getPosition(String userId) {
+        queueService.refreshPresence(userId);
         long position = queueService.getPosition(userId);
         long totalCount = queueService.getTotalCount();
         long estimatedWaitSeconds = calculateEstimatedWait(position);

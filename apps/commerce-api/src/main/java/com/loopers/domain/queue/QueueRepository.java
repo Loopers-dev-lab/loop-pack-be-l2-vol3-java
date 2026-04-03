@@ -6,4 +6,6 @@ public interface QueueRepository {
     long enter(String userId, long score);
     Optional<Long> findPosition(String userId);
     long getTotalCount();
+    void savePresence(String userId);
+    void refreshPresence(String userId);
 }

@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 @RequiredArgsConstructor
 @Component
@@ -34,5 +35,21 @@ public class QueueRepositoryImpl implements QueueRepository {
     public long getTotalCount() {
         Long count = redisTemplate.opsForZSet().size(QueueConstants.QUEUE_KEY);
         return count != null ? count : 0L;
+    }
+
+    @Override
+    public void savePresence(String userId) {
+        redisTemplate.opsForValue().set(
+                QueueConstants.PRESENCE_KEY_PREFIX + userId, "1",
+                QueueConstants.PRESENCE_TTL_SECONDS, TimeUnit.SECONDS
+        );
+    }
+
+    @Override
+    public void refreshPresence(String userId) {
+        redisTemplate.expire(
+                QueueConstants.PRESENCE_KEY_PREFIX + userId,
+                QueueConstants.PRESENCE_TTL_SECONDS, TimeUnit.SECONDS
+        );
     }
 }

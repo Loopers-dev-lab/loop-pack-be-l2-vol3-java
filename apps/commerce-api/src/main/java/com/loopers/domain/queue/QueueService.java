@@ -12,7 +12,13 @@ public class QueueService {
     private final QueueRepository queueRepository;
 
     public long enter(String userId) {
-        return queueRepository.enter(userId, System.currentTimeMillis());
+        long position = queueRepository.enter(userId, System.currentTimeMillis());
+        queueRepository.savePresence(userId);
+        return position;
+    }
+
+    public void refreshPresence(String userId) {
+        queueRepository.refreshPresence(userId);
     }
 
     public long getPosition(String userId) {
