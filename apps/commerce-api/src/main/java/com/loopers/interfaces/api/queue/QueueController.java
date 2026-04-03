@@ -5,11 +5,11 @@ import com.loopers.infrastructure.redis.EntryTokenRedisRepository;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthMember;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("/api/v1/queue")
 public class QueueController {
 
@@ -19,18 +19,43 @@ public class QueueController {
     private final WaitingQueueRedisRepository waitingQueueRedisRepository;
     private final EntryTokenRedisRepository entryTokenRedisRepository;
 
+    private final Counter enterQueuedCounter;
+    private final Counter enterAdmittedCounter;
+    private final Counter enterQueueFullCounter;
+
+    public QueueController(
+        WaitingQueueRedisRepository waitingQueueRedisRepository,
+        EntryTokenRedisRepository entryTokenRedisRepository,
+        MeterRegistry meterRegistry
+    ) {
+        this.waitingQueueRedisRepository = waitingQueueRedisRepository;
+        this.entryTokenRedisRepository = entryTokenRedisRepository;
+
+        this.enterQueuedCounter = Counter.builder("queue.enter.status")
+            .tag("status", "QUEUED")
+            .register(meterRegistry);
+        this.enterAdmittedCounter = Counter.builder("queue.enter.status")
+            .tag("status", "ADMITTED")
+            .register(meterRegistry);
+        this.enterQueueFullCounter = Counter.builder("queue.enter.status")
+            .tag("status", "QUEUE_FULL")
+            .register(meterRegistry);
+    }
+
     @PostMapping("/enter")
     public ApiResponse<QueueDto.EnterResponse> enter(@AuthMember Member member) {
         Long memberId = member.getId();
 
         if (entryTokenRedisRepository.exists(memberId)) {
             long ttl = entryTokenRedisRepository.getRemainingTtl(memberId);
+            enterAdmittedCounter.increment();
             return ApiResponse.success(new QueueDto.EnterResponse(
                 "ADMITTED", null, null, ttl, null
             ));
         }
 
         if (waitingQueueRedisRepository.size() >= MAX_QUEUE_SIZE) {
+            enterQueueFullCounter.increment();
             return ApiResponse.success(new QueueDto.EnterResponse(
                 "QUEUE_FULL", null, null, null, null
             ));
@@ -40,20 +65,20 @@ public class QueueController {
         Long rank = waitingQueueRedisRepository.getRank(memberId);
 
         if (rank == null) {
-            // ZADD 후 스케줄러가 이미 POP한 경우 → 토큰 체크
             if (entryTokenRedisRepository.exists(memberId)) {
                 long ttl = entryTokenRedisRepository.getRemainingTtl(memberId);
+                enterAdmittedCounter.increment();
                 return ApiResponse.success(new QueueDto.EnterResponse(
                     "ADMITTED", null, null, ttl, null
                 ));
             }
-            // 토큰도 없으면 재진입 필요 (다음 폴링에서 처리)
             rank = 0L;
         }
 
         long position = rank + 1;
         long estimatedWaitSeconds = (long) Math.ceil(position / ADMISSION_RATE);
 
+        enterQueuedCounter.increment();
         return ApiResponse.success(new QueueDto.EnterResponse(
             "QUEUED", position, estimatedWaitSeconds, null, calculatePollInterval(position)
         ));

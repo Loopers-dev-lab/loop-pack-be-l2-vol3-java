@@ -1,7 +1,8 @@
 package com.loopers.infrastructure.scheduler;
 
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -27,7 +28,6 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class QueueAdmissionScheduler {
 
     private static final int BATCH_SIZE = 8;
@@ -36,8 +36,32 @@ public class QueueAdmissionScheduler {
 
     private final WaitingQueueRedisRepository waitingQueueRedisRepository;
 
+    private final Counter admissionCounter;
+    private final Counter admissionErrorCounter;
+    private final Counter cleanupRemovedCounter;
+    private final AtomicLong waitingSize;
+
     private final AtomicLong lastAdmitErrorLogTime = new AtomicLong(0);
     private final AtomicLong lastCleanupErrorLogTime = new AtomicLong(0);
+
+    public QueueAdmissionScheduler(
+        WaitingQueueRedisRepository waitingQueueRedisRepository,
+        MeterRegistry meterRegistry
+    ) {
+        this.waitingQueueRedisRepository = waitingQueueRedisRepository;
+
+        this.admissionCounter = Counter.builder("queue.admission.count")
+            .description("입장 처리된 유저 수")
+            .register(meterRegistry);
+        this.admissionErrorCounter = Counter.builder("queue.admission.errors")
+            .description("Redis 장애 횟수")
+            .register(meterRegistry);
+        this.cleanupRemovedCounter = Counter.builder("queue.cleanup.removed")
+            .description("타임아웃 정리된 유저 수")
+            .register(meterRegistry);
+        this.waitingSize = new AtomicLong(0);
+        meterRegistry.gauge("queue.waiting.size", waitingSize);
+    }
 
     @Scheduled(fixedRate = 100)
     public void admitUsers() {
@@ -46,9 +70,17 @@ public class QueueAdmissionScheduler {
             if (admitted.isEmpty()) {
                 return;
             }
+            admissionCounter.increment(admitted.size());
             log.debug("대기열 입장 처리: {}명", admitted.size());
         } catch (Exception e) {
+            admissionErrorCounter.increment();
             throttledWarn(lastAdmitErrorLogTime, "입장 처리", e);
+        } finally {
+            try {
+                waitingSize.set(waitingQueueRedisRepository.size());
+            } catch (Exception ignored) {
+                // 대기열 크기 조회 실패는 무시 (메트릭 갱신 실패일 뿐)
+            }
         }
     }
 
@@ -58,6 +90,7 @@ public class QueueAdmissionScheduler {
             long cutoff = System.currentTimeMillis() - (MAX_WAIT_SECONDS * 1000);
             long removed = waitingQueueRedisRepository.removeExpiredEntries(cutoff);
             if (removed > 0) {
+                cleanupRemovedCounter.increment(removed);
                 log.info("대기열 타임아웃 정리: {}명 제거", removed);
             }
         } catch (Exception e) {

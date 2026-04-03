@@ -4,6 +4,7 @@ import com.loopers.domain.member.Member;
 import com.loopers.infrastructure.redis.EntryTokenRedisRepository;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import com.loopers.interfaces.api.ApiResponse;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,13 +17,17 @@ class QueueControllerTest {
     private QueueController controller;
     private WaitingQueueRedisRepository waitingQueueRedisRepository;
     private EntryTokenRedisRepository entryTokenRedisRepository;
+    private SimpleMeterRegistry meterRegistry;
     private Member member;
 
     @BeforeEach
     void setUp() {
         waitingQueueRedisRepository = mock(WaitingQueueRedisRepository.class);
         entryTokenRedisRepository = mock(EntryTokenRedisRepository.class);
-        controller = new QueueController(waitingQueueRedisRepository, entryTokenRedisRepository);
+        meterRegistry = new SimpleMeterRegistry();
+        controller = new QueueController(
+            waitingQueueRedisRepository, entryTokenRedisRepository, meterRegistry
+        );
         member = mock(Member.class);
         when(member.getId()).thenReturn(1L);
     }
@@ -157,5 +162,20 @@ class QueueControllerTest {
     void calculatePollInterval_farBack_returns5000() {
         assertThat(QueueController.calculatePollInterval(1001)).isEqualTo(5000L);
         assertThat(QueueController.calculatePollInterval(48000)).isEqualTo(5000L);
+    }
+
+    // --- 메트릭 검증 ---
+
+    @DisplayName("enter: QUEUED 시 queue.enter.status(QUEUED) 카운터 증가")
+    @Test
+    void enter_queued_incrementsCounter() {
+        when(entryTokenRedisRepository.exists(1L)).thenReturn(false);
+        when(waitingQueueRedisRepository.add(1L)).thenReturn(true);
+        when(waitingQueueRedisRepository.getRank(1L)).thenReturn(0L);
+
+        controller.enter(member);
+
+        double count = meterRegistry.counter("queue.enter.status", "status", "QUEUED").count();
+        assertThat(count).isEqualTo(1.0);
     }
 }
