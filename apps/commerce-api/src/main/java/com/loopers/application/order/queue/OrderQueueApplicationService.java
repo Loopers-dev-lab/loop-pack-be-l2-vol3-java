@@ -24,7 +24,15 @@ public class OrderQueueApplicationService {
 
         final long enteredAt = System.currentTimeMillis();
         orderQueueRepository.upsert(memberId, enteredAt);
-        return getStatus(memberId);
+
+        final Long rank = orderQueueRepository.rank(memberId);
+        if (rank != null) {
+            return createStatus(rank);
+        }
+
+        final long queueSize = orderQueueRepository.size();
+        final long fallbackWaitingOrder = Math.max(1L, queueSize);
+        return new OrderQueueStatusResult(true, fallbackWaitingOrder, estimateWaitSeconds(fallbackWaitingOrder - 1L));
     }
 
     @Transactional(readOnly = true)
@@ -51,8 +59,7 @@ public class OrderQueueApplicationService {
         final long safeRank = rank == null ? -1L : rank;
         final String admissionState = resolveAdmissionState(memberId, rank);
         final long displayWaitingOrder = safeRank < 0 ? 0L : safeRank + 1L;
-        final long throughputPerSecond = orderQueueProperties.effectiveOrderThroughputPerSecond();
-        final long estimatedWaitSeconds = safeRank < 0 ? 0L : safeRank / throughputPerSecond;
+        final long estimatedWaitSeconds = safeRank < 0 ? 0L : estimateWaitSeconds(safeRank);
         final long recommendedPollingIntervalSeconds = orderQueuePollingIntervalPolicy.resolve(
                 displayWaitingOrder,
                 estimatedWaitSeconds,
@@ -80,5 +87,15 @@ public class OrderQueueApplicationService {
             return "WAITING";
         }
         throw new CoreException(ErrorType.NOT_FOUND, "대기열에 진입한 사용자만 조회할 수 있습니다.");
+    }
+
+    @Transactional(readOnly = true)
+    public OrderQueueStatusResult createStatus(long rank) {
+        return new OrderQueueStatusResult(true, rank + 1L, estimateWaitSeconds(rank));
+    }
+
+    @Transactional(readOnly = true)
+    public long estimateWaitSeconds(long rank) {
+        return rank / orderQueueProperties.effectiveOrderThroughputPerSecond();
     }
 }

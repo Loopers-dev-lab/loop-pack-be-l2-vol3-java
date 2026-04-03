@@ -8,6 +8,8 @@ public interface OrderQueueRepository {
 
     Long rank(String memberId);
 
+    long size();
+
     List<String> peek(int limit);
 
     void remove(String memberId);

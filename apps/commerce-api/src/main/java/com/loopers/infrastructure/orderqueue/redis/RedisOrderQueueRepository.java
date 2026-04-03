@@ -30,6 +30,12 @@ public class RedisOrderQueueRepository implements OrderQueueRepository {
     }
 
     @Override
+    public long size() {
+        Long size = redisTemplate.opsForZSet().zCard(ORDER_QUEUE_KEY);
+        return size == null ? 0L : size;
+    }
+
+    @Override
     public List<String> peek(int limit) {
         Set<String> members = redisTemplate.opsForZSet().range(ORDER_QUEUE_KEY, 0, limit - 1L);
         return members == null ? List.of() : List.copyOf(members);
