@@ -111,7 +111,7 @@ public class ApiControllerAdvice {
 
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handle(RequestNotPermitted e) {
-        return failureResponse(ErrorType.TOO_MANY_REQUESTS, null);
+        return failureResponse(ErrorType.SERVICE_UNAVAILABLE, null);
     }
 
     @ExceptionHandler
