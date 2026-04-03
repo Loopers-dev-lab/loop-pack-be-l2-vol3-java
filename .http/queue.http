@@ -1,0 +1,28 @@
+### 대기열 진입
+POST http://localhost:8080/api/v1/queue/bf2024/enter
+X-User-Id: 1
+
+### 순번 조회
+GET http://localhost:8080/api/v1/queue/bf2024/position
+X-User-Id: 1
+
+### 다른 유저 진입
+POST http://localhost:8080/api/v1/queue/bf2024/enter
+X-User-Id: 2
+
+### 다른 유저 순번 조회
+GET http://localhost:8080/api/v1/queue/bf2024/position
+X-User-Id: 2
+
+### 순번 조회 (토큰 포함 응답)
+GET http://localhost:8080/api/v1/queue/bf2024/position
+X-User-Id: 1
+
+### 주문 API (토큰 필요)
+POST http://localhost:8080/api/v1/orders
+X-User-Id: 1
+X-Event-Id: bf2024
+X-Queue-Token: {{token}}
+Content-Type: application/json
+
+{}
