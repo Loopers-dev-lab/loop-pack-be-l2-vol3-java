@@ -36,25 +36,25 @@ This is a **multi-module Gradle project** with three primary categories:
 
 #### `apps/` - Application Modules (Executable)
 
-- **`commerce-api`**: Main REST API application
+- `**commerce-api`**: Main REST API application
   - Layers: `interfaces` (Controllers) → `application` (Facades) → `domain` (Services, Models, Repositories) → `infrastructure` (JPA Implementations)
   - Dependencies: jpa, redis, jackson, logging, monitoring modules
-- **`commerce-batch`**: Spring Batch jobs
+- `**commerce-batch**`: Spring Batch jobs
   - Job configurations, tasklets, listeners
-- **`commerce-streamer`**: Kafka consumer application
+- `**commerce-streamer**`: Kafka consumer application
   - Stream processing, Kafka listeners
 
 #### `modules/` - Infrastructure Modules (Reusable)
 
-- **`jpa`**: JPA configuration, BaseEntity, QueryDSL setup, Testcontainers for MySQL
-- **`redis`**: Redis configuration, Testcontainers for Redis
-- **`kafka`**: Kafka configuration, Testcontainers for Kafka
+- `**jpa**`: JPA configuration, BaseEntity, QueryDSL setup, Testcontainers for MySQL
+- `**redis**`: Redis configuration, Testcontainers for Redis
+- `**kafka**`: Kafka configuration, Testcontainers for Kafka
 
 #### `supports/` - Support Modules (Cross-cutting)
 
-- **`jackson`**: Jackson configuration (datetime, serialization)
-- **`logging`**: Logback configuration, Slack appender
-- **`monitoring`**: Actuator and metrics configuration
+- `**jackson**`: Jackson configuration (datetime, serialization)
+- `**logging**`: Logback configuration, Slack appender
+- `**monitoring**`: Actuator and metrics configuration
 
 ### Domain & Object Design Strategy
 
@@ -88,12 +88,14 @@ infrastructure (JPA, Redis, Kafka impl.)  [Infrastructure]
 
 ### Layer Responsibilities & Package Rules
 
+
 | Layer                         | Responsibility                                                                                                                    | Package rule               |
 | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
 | **Interfaces (Presentation)** | Direct contact with users (Web/Controller). Call Application use cases only. May perform request validation and response mapping. | `/interfaces/api/{domain}` |
 | **Application**               | Orchestrate flows and complete use-case functions. Delegate real business logic to the domain as much as possible.                | `/application/{domain}`    |
 | **Domain**                    | Core business logic. Must not depend on other layers. All dependency arrows point **toward** the domain.                          | `/domain/{domain}`         |
 | **Infrastructure**            | Implement persistence and external tech (JPA, Redis, Kafka). Depends on Domain interfaces; provides what the domain needs.        | `/infrastructure/{domain}` |
+
 
 Each layer has **clear responsibility and concern**. The domain should be **self-contained** so that it is highly testable.
 
@@ -115,76 +117,6 @@ Each layer has **clear responsibility and concern**. The domain should be **self
 - Models (Entities) contain domain rules and validations
 - Repository **interfaces** are defined in **domain**; **implementations** live in **infrastructure**
 
-### User Domain Class Design
-
-User domain features (회원 가입, 내 정보 조회, 포인트 조회, 비밀번호 변경) implementation structure.
-
-#### Project Structure (12 Classes)
-
-```
-apps/commerce-api/src/main/java/com/loopers/
-
-📦 domain/user/                    [Domain Layer - Business Core]
-├── UserModel.java                 # Entity (String fields, domain behavior)
-├── UserService.java               # Business logic (duplicate check, queries)
-├── UserRepository.java            # Repository interface
-├── Password.java                  # VO (validation + encryption, transient)
-├── Email.java                     # VO (validation, transient)
-├── BirthDate.java                 # VO (validation, transient)
-└── Gender.java                    # Enum (value restriction)
-
-📦 application/user/               [Application Layer - Orchestration]
-├── UserFacade.java                # Flow coordination (transaction boundary)
-└── UserInfo.java                  # Response Info (with name masking)
-
-📦 interfaces/api/user/            [Interface Layer - API Entry Point]
-├── UserV1Controller.java          # REST Controller
-├── UserV1Dto.java                 # Request/Response DTO (records)
-└── UserV1ApiSpec.java             # OpenAPI documentation
-
-📦 infrastructure/user/            [Infrastructure Layer - Persistence]
-├── UserJpaRepository.java         # Spring Data JPA
-└── UserRepositoryImpl.java        # Repository implementation
-```
-
-#### Entity Fields Use Primitive/String Types
-
-```java
-@Entity
-public class UserModel extends BaseEntity {
-    private String email;              // Email VO의 value 추출 저장
-    private String birthDate;          // BirthDate VO의 value 추출 저장
-    private String encryptedPassword;  // Password.encrypt() 결과 저장
-    private Gender gender;             // Enum 직접 저장
-    private Long points;
-}
-```
-
-VOs validate on creation, then values are extracted:
-
-```java
-Email emailVO = new Email(emailString);
-this.email = emailVO.value();
-
-Password password = Password.of(raw, birthDate);
-this.encryptedPassword = password.encrypt();
-```
-
-#### Class Responsibilities Summary
-
-| Class           | Type       | Field Types | Lifecycle  | Responsibility                         |
-| --------------- | ---------- | ----------- | ---------- | -------------------------------------- |
-| **Email**       | record     | -           | Transient  | Email format validation (xx@yy.zz)     |
-| **BirthDate**   | record     | -           | Transient  | Date format validation (yyyy-MM-dd)    |
-| **Password**    | class      | String      | Transient  | Password rules + encryption            |
-| **Gender**      | enum       | -           | -          | Gender validation and conversion       |
-| **UserModel**   | @Entity    | String/Long | Persistent | User state management, domain behavior |
-| **UserService** | @Component | -           | Singleton  | Business logic, duplicate check        |
-| **UserFacade**  | @Component | -           | Singleton  | Flow orchestration, transactions       |
-| **UserInfo**    | record     | -           | Transient  | Domain → DTO conversion, masking       |
-
----
-
 ## 2. Development Rules
 
 ### Augmented Coding Workflow
@@ -192,19 +124,17 @@ this.encryptedPassword = password.encrypt();
 **⚠️ CRITICAL PROCESS**: AI agents operate under human supervision with these **NON-NEGOTIABLE** rules:
 
 1. **Direction & Major Decisions**:
-   - You MAY propose architectural changes, major refactoring, or new patterns
-   - You MUST wait for explicit approval before implementing them
-   - Never assume approval; always ask and wait for confirmation
-
+  - You MAY propose architectural changes, major refactoring, or new patterns
+  - You MUST wait for explicit approval before implementing them
+  - Never assume approval; always ask and wait for confirmation
 2. **Interim Reporting Obligation**:
-   - Report progress at key milestones (e.g., after test implementation, before production code)
-   - If you detect you're repeating actions, implementing unrequested features, or deleting tests, **STOP and report immediately**
-   - Developer intervention is required when you deviate from instructions
-
+  - Report progress at key milestones (e.g., after test implementation, before production code)
+  - If you detect you're repeating actions, implementing unrequested features, or deleting tests, **STOP and report immediately**
+  - Developer intervention is required when you deviate from instructions
 3. **Design Authority**:
-   - The human developer retains final authority on all design decisions
-   - Your role is to implement, suggest, and optimize—not to decide unilaterally
-   - Respect existing patterns unless explicitly asked to change them
+  - The human developer retains final authority on all design decisions
+  - Your role is to implement, suggest, and optimize—not to decide unilaterally
+  - Respect existing patterns unless explicitly asked to change them
 
 ### TDD Implementation (Mandatory)
 
@@ -231,20 +161,18 @@ Example: signUp_withDuplicateId_shouldFail()
 ### Core Principles
 
 1. **Respect Layer Boundaries**:
-   - Controllers MUST only delegate to Facades
-   - Facades MUST only orchestrate (no if/else policy branches)
-   - Services MUST contain all business logic
-   - Models MUST enforce domain invariants
-
+  - Controllers MUST only delegate to Facades
+  - Facades MUST only orchestrate (no if/else policy branches)
+  - Services MUST contain all business logic
+  - Models MUST enforce domain invariants
 2. **Maintain Existing Patterns**:
-   - Study existing code before implementing new features
-   - Follow established naming conventions, package structures, and patterns
-   - Consistency > innovation (unless explicitly asked to innovate)
-
+  - Study existing code before implementing new features
+  - Follow established naming conventions, package structures, and patterns
+  - Consistency > innovation (unless explicitly asked to innovate)
 3. **Document-Driven Changes**:
-   - For structural changes (new module, layer, or pattern), update relevant docs FIRST
-   - Ensure `.codeguide/`, `README.md`, and this `AGENTS.md` stay synchronized
-   - **유비쿼터스 언어**: 도메인 용어는 `.docs/design/00-ubiquitous-language.md`를 기준으로 하며, 코드·API·문서에 동일한 단어를 사용한다.
+  - For structural changes (new module, layer, or pattern), update relevant docs FIRST
+  - Ensure `.codeguide/`, `README.md`, and this `AGENTS.md` stay synchronized
+  - **유비쿼터스 언어**: 도메인 용어는 `.docs/design/00-ubiquitous-language.md`를 기준으로 하며, 코드·API·문서에 동일한 단어를 사용한다.
 
 ### Branch & PR Strategy
 
@@ -272,98 +200,85 @@ Example: signUp_withDuplicateId_shouldFail()
 ### ❌ Never Do (Strictly Forbidden)
 
 1. **Non-Functional Code**:
-   - Never create stub methods with `TODO` comments
-   - Never use unnecessary mocks when real implementations exist
-   - Never leave `System.out.println()` or debugging logs
-
+  - Never create stub methods with `TODO` comments
+  - Never use unnecessary mocks when real implementations exist
+  - Never leave `System.out.println()` or debugging logs
 2. **Null Safety Violations**:
-   - Java: Use `Optional<T>` for nullable returns, never return null from public methods
-   - Validate all inputs; fail fast with meaningful exceptions
-
+  - Java: Use `Optional<T>` for nullable returns, never return null from public methods
+  - Validate all inputs; fail fast with meaningful exceptions
 3. **Architecture Violations**:
-   - ❌ Business logic in Controllers
-   - ❌ Policy branches (`if/else` based on business rules) in Facades
-   - ❌ Domain models importing Spring/JPA infrastructure (`@Autowired`, etc.)
-   - ❌ Direct repository calls from Controllers (must go through Facades)
-
+  - ❌ Business logic in Controllers
+  - ❌ Policy branches (`if/else` based on business rules) in Facades
+  - ❌ Domain models importing Spring/JPA infrastructure (`@Autowired`, etc.)
+  - ❌ Direct repository calls from Controllers (must go through Facades)
 4. **Lombok Usage Guidelines**:
-   - **VO/DTO**: Use Java `record` (Lombok not needed)
-   - **Entity**: Lombok allowed (`@Getter`, `@NoArgsConstructor(access = PROTECTED)`)
-   - **Exception/Enum**: Lombok allowed (`@Getter`, `@RequiredArgsConstructor`)
-   - **Service/Facade**: Avoid Lombok in business logic (constructor injection only)
-   - **Rationale**: Balance between code brevity and explicit domain logic
-
+  - **VO/DTO**: Use Java `record` (Lombok not needed)
+  - **Entity**: Lombok allowed (`@Getter`, `@NoArgsConstructor(access = PROTECTED)`)
+  - **Exception/Enum**: Lombok allowed (`@Getter`, `@RequiredArgsConstructor`)
+  - **Service/Facade**: Avoid Lombok in business logic (constructor injection only)
+  - **Rationale**: Balance between code brevity and explicit domain logic
 5. **Test Anti-Patterns**:
-   - Never use random data in tests (breaks reproducibility)
-   - Never delete existing tests without explicit approval
-   - Never skip writing tests to "save time"
-
+  - Never use random data in tests (breaks reproducibility)
+  - Never delete existing tests without explicit approval
+  - Never skip writing tests to "save time"
 6. **Forbidden Shortcuts**:
-   - Never modify `BaseEntity`, `ApiResponse`, `ErrorType`, or authentication headers without approval
-   - Never change shared modules (`modules/`, `supports/`) without discussing impact
-   - Never commit secrets (`.env`, `credentials.json`, etc.)
+  - Never modify `BaseEntity`, `ApiResponse`, `ErrorType`, or authentication headers without approval
+  - Never change shared modules (`modules/`, `supports/`) without discussing impact
+  - Never commit secrets (`.env`, `credentials.json`, etc.)
 
 ### ✅ Recommendations (Best Practices)
 
 1. **Reusable Object Design**:
-   - Prefer composition over inheritance
-   - Create small, focused classes with single responsibilities
-   - Use records for immutable DTOs (Java 17+)
-
+  - Prefer composition over inheritance
+  - Create small, focused classes with single responsibilities
+  - Use records for immutable DTOs (Java 17+)
 2. **Performance Optimization**:
-   - Suggest N+1 query solutions (QueryDSL fetch joins)
-   - Recommend caching strategies (Redis) when appropriate
-   - Flag potential bottlenecks in code reviews
-
+  - Suggest N+1 query solutions (QueryDSL fetch joins)
+  - Recommend caching strategies (Redis) when appropriate
+  - Flag potential bottlenecks in code reviews
 3. **API Documentation**:
-   - After completing API endpoints, document them in `http/{app-name}/*.http` files
-   - Include examples for both success and error cases
-   - Use `http-client.env.json` for environment-specific variables
-
+  - After completing API endpoints, document them in `http/{app-name}/*.http` files
+  - Include examples for both success and error cases
+  - Use `http-client.env.json` for environment-specific variables
 4. **Code Quality**:
-   - Write self-documenting code (clear naming > comments)
-   - Add Javadoc for public APIs and complex logic
-   - Follow Java naming conventions (PascalCase for classes, camelCase for methods/variables)
-
+  - Write self-documenting code (clear naming > comments)
+  - Add Javadoc for public APIs and complex logic
+  - Follow Java naming conventions (PascalCase for classes, camelCase for methods/variables)
 5. **External Integration & Resilience** (결제, PG, 서드파티 API 연동 시):
-   - 외부 호출은 `@Transactional` 메서드 밖에서 수행 (DB 커넥션 점유 방지)
-   - Connection/Read Timeout을 명시적으로 설정 (타임아웃 부재 시 스레드·커넥션 고갈)
-   - Circuit Breaker로 장애 확산 방지, Fallback으로 내부 시스템 정상 응답 유지
-   - 비동기 결제: 콜백 + 결제 상태 조회 API로 복구 가능한 구조 설계
-   - 멱등성 보장 (orderId/Idempotency-Key 기반 중복 방지)
-   - 설계 검증: `skills/analize_external_integration/SKILL.md` 적용
+  - 외부 호출은 `@Transactional` 메서드 밖에서 수행 (DB 커넥션 점유 방지)
+  - Connection/Read Timeout을 명시적으로 설정 (타임아웃 부재 시 스레드·커넥션 고갈)
+  - Circuit Breaker로 장애 확산 방지, Fallback으로 내부 시스템 정상 응답 유지
+  - 비동기 결제: 콜백 + 결제 상태 조회 API로 복구 가능한 구조 설계
+  - 멱등성 보장 (orderId/Idempotency-Key 기반 중복 방지)
+  - 설계 검증: `skills/analize_external_integration/SKILL.md` 적용
 
 ### 🛡️ Priority Checklist (Every Implementation)
 
 Before committing code, verify:
 
-- [ ] **Functionality**: Does it actually work? (Manual/automated testing)
-- [ ] **Null Safety**: All nullable returns wrapped in `Optional`, inputs validated
-- [ ] **Thread Safety**: No shared mutable state, consider concurrency implications
-- [ ] **Testability**: Can this be easily tested? No hidden dependencies?
-- [ ] **Pattern Consistency**: Does this match existing code patterns?
-- [ ] **Layer Separation**: No architecture boundary violations?
+- **Functionality**: Does it actually work? (Manual/automated testing)
+- **Null Safety**: All nullable returns wrapped in `Optional`, inputs validated
+- **Thread Safety**: No shared mutable state, consider concurrency implications
+- **Testability**: Can this be easily tested? No hidden dependencies?
+- **Pattern Consistency**: Does this match existing code patterns?
+- **Layer Separation**: No architecture boundary violations?
 
 ### 🔒 Protected Areas (Do Not Modify)
 
 The following structures are **locked** and require explicit approval to change:
 
-1. **`modules/jpa/src/main/java/com/loopers/domain/BaseEntity.java`**
-   - ID generation strategy, audit fields, lifecycle hooks
-
-2. **`apps/commerce-api/.../interfaces/api/ApiResponse.java`**
-   - Response envelope format: `{ meta: { result, errorCode, message }, data }`
-
-3. **`apps/commerce-api/.../support/error/ErrorType.java`**
-   - Standard error codes and HTTP status mappings
-
+1. `**modules/jpa/src/main/java/com/loopers/domain/BaseEntity.java`**
+  - ID generation strategy, audit fields, lifecycle hooks
+2. `**apps/commerce-api/.../interfaces/api/ApiResponse.java**`
+  - Response envelope format: `{ meta: { result, errorCode, message }, data }`
+3. `**apps/commerce-api/.../support/error/ErrorType.java**`
+  - Standard error codes and HTTP status mappings
 4. **Authentication Headers**:
-   - **대고객** (user_required): `X-Loopers-LoginId`, `X-Loopers-LoginPw` — 로그인 ID/비밀번호로 유저 식별. 인증/인가는 주요 스코프가 아니므로 구현하지 않으며, 유저는 타 유저 정보에 직접 접근할 수 없음.
-   - **어드민** (ldap_required): `X-Loopers-Ldap` — LDAP(회사 사내 어드민)으로 식별.
-
+  - **대고객** (user_required): `X-Loopers-LoginId`, `X-Loopers-LoginPw` — 로그인 ID/비밀번호로 유저 식별. 인증/인가는 주요 스코프가 아니므로 구현하지 않으며, 유저는 타 유저 정보에 직접 접근할 수 없음.
+  - **어드민** (ldap_required): `X-Loopers-Ldap` — LDAP(회사 사내 어드민)으로 식별.
 5. **Shared Infrastructure Modules**:
-   - `modules/jpa`, `modules/redis`, `modules/kafka`
-   - `supports/jackson`, `supports/logging`, `supports/monitoring`
+  - `modules/jpa`, `modules/redis`, `modules/kafka`
+  - `supports/jackson`, `supports/logging`, `supports/monitoring`
 
 ---
 
@@ -371,15 +286,17 @@ The following structures are **locked** and require explicit approval to change:
 
 ### API Prefix & Authentication
 
-| API Type          | Prefix          | Auth Header(s)                           | Example                                      |
-| ----------------- | --------------- | ---------------------------------------- | -------------------------------------------- |
+
+| API Type       | Prefix          | Auth Header(s)                           | Example                                      |
+| -------------- | --------------- | ---------------------------------------- | -------------------------------------------- |
 | 대고객 (Customer) | `/api/v1`       | `X-Loopers-LoginId`, `X-Loopers-LoginPw` | `POST /api/v1/users`, `GET /api/v1/users/me` |
 | 어드민 (Admin)    | `/api-admin/v1` | `X-Loopers-Ldap`                         | `GET /api-admin/v1/orders`                   |
+
 
 - **대고객**: user_required인 기능은 `X-Loopers-LoginId`(및 필요 시 `X-Loopers-LoginPw`)로 유저 식별. 인증/인가는 주요 스코프가 아니므로 구현하지 않음.
 - **어드민**: ldap_required인 기능은 `X-Loopers-Ldap`으로 어드민 식별.
 - **CustomerAuthInterceptor**: 로그인이 필요한 고객 API 경로에만 적용. 상품·브랜드 조회 등 비회원 허용 경로는 제외. `.docs/design/02-sequence-diagrams.md` §0, `01-requirements.md` §4.2 참조.
-- **AdminAuthInterceptor**: `/api-admin/**` 경로 전 구간 적용.
+- **AdminAuthInterceptor**: `/api-admin/`** 경로 전 구간 적용.
 
 ### Standard Response Format
 
@@ -415,12 +332,14 @@ The following structures are **locked** and require explicit approval to change:
 
 **Defined in**: `com.loopers.support.error.ErrorType`
 
+
 | ErrorType        | HTTP Status | Usage                                      |
 | ---------------- | ----------- | ------------------------------------------ |
 | `BAD_REQUEST`    | 400         | Invalid input, validation failures         |
 | `NOT_FOUND`      | 404         | Resource not found                         |
 | `CONFLICT`       | 409         | Duplicate resource, business rule conflict |
 | `INTERNAL_ERROR` | 500         | Unexpected system errors                   |
+
 
 **Throwing Exceptions**:
 
@@ -452,322 +371,6 @@ Content-Type: application/json
 
 ---
 
-## 5. Feature Implementation Guidelines
-
-Based on `.codeguide/loopers-1-week.md` and project requirements, follow these checklists:
-
-### 🔐 User Sign-Up
-
-**Business Rules**:
-
-- User ID: Alphanumeric, max 10 characters
-- Email: Must match `xx@yy.zz` format
-- Birth Date: Must match `yyyy-MM-dd` format
-- Password: 8-16 characters, MUST NOT contain birth date substring
-- Password MUST be encrypted (BCrypt or similar)
-- User ID MUST be unique (check before insertion)
-- Gender: Required field
-
-**Implementation Checklist**:
-
-- [ ] **Unit Tests**:
-  - [ ] User creation fails if userId format is invalid
-  - [ ] User creation fails if email format is invalid
-  - [ ] User creation fails if birthDate format is invalid
-  - [ ] User creation fails if password contains birthDate
-- [ ] **Integration Tests**:
-  - [ ] Sign-up performs User save operation (verify with spy)
-  - [ ] Sign-up fails if userId already exists
-- [ ] **E2E Tests**:
-  - [ ] Sign-up returns created user info on success
-  - [ ] Sign-up returns `400 Bad Request` if gender is missing
-
-**Endpoint**: `POST /api/v1/users`
-
-**Response**:
-
-```json
-{
-  "meta": { "result": "SUCCESS", "errorCode": null, "message": null },
-  "data": {
-    "userId": "testuser01",
-    "email": "test@example.com",
-    "birthDate": "1990-01-15",
-    "gender": "MALE"
-  }
-}
-```
-
-### 👤 My Info Retrieval
-
-**Business Rules**:
-
-- User ID: Alphanumeric characters only
-- Name Masking: Replace last character with `*` (e.g., "홍길동" → "홍길*", "John" → "Joh*")
-
-**Implementation Checklist**:
-
-- [ ] **Integration Tests**:
-  - [ ] Returns user info if user exists
-  - [ ] Returns null if user does not exist
-- [ ] **E2E Tests**:
-  - [ ] Returns masked user info on success
-  - [ ] Returns `404 Not Found` if user does not exist
-
-**Endpoint**: `GET /api/v1/users/me`
-
-**Headers**: `X-Loopers-LoginId: {userId}`
-
-**Response**:
-
-```json
-{
-  "meta": { "result": "SUCCESS", "errorCode": null, "message": null },
-  "data": {
-    "userId": "testuser01",
-    "name": "홍길*",
-    "email": "test@example.com",
-    "birthDate": "1990-01-15",
-    "gender": "MALE"
-  }
-}
-```
-
-### 💰 Point Retrieval
-
-**Business Rules**:
-
-- Points are associated with User entity
-- Only authenticated users can view their own points
-
-**Implementation Checklist**:
-
-- [ ] **Integration Tests**:
-  - [ ] Returns point balance if user exists
-  - [ ] Returns null if user does not exist
-- [ ] **E2E Tests**:
-  - [ ] Returns point balance on success
-  - [ ] Returns `400 Bad Request` if `X-Loopers-LoginId` header is missing
-
-**Endpoint**: `GET /api/v1/users/me/points`
-
-**Headers**: `X-Loopers-LoginId: {userId}` (user_required)
-
-**Response**:
-
-```json
-{
-  "meta": { "result": "SUCCESS", "errorCode": null, "message": null },
-  "data": {
-    "userId": "testuser01",
-    "points": 10000
-  }
-}
-```
-
-### 🔄 Password Update
-
-**Business Rules**:
-
-- New password MUST be different from current password
-- New password MUST follow same validation rules as sign-up (8-16 chars, no birth date substring)
-- Current password MUST be verified before update
-
-**Implementation Checklist**:
-
-- [ ] Verify current password matches stored encrypted password
-- [ ] Validate new password meets requirements
-- [ ] Ensure new password differs from current password
-- [ ] Encrypt new password before saving
-
-**Endpoint**: `PUT /api/v1/users/password`
-
-**Request**:
-
-```json
-{
-  "currentPassword": "OldPass123!",
-  "newPassword": "NewSecurePass456!"
-}
-```
-
-### 💳 Payment (PG 결제 연동)
-
-**Business Rules**:
-
-- 주문에 대한 결제는 ORDERED 상태에서만 가능하다.
-- PG-Simulator는 **비동기 결제** (요청 접수 60%, 처리 1~5초, 콜백으로 결과 수신).
-- 재고 차감은 **결제 완료(PAID) 시점**에 수행한다 (01-requirements §3.1).
-
-**Implementation Checklist**:
-
-- [ ] PG 연동: RestTemplate 또는 FeignClient, Connection/Read Timeout 설정 (예: 500ms / 2s)
-- [ ] 외부 호출은 `@Transactional` 밖에서 수행 (트랜잭션 경계 분리)
-- [ ] Circuit Breaker + Retry + Fallback 적용 (Resilience4j)
-- [ ] 콜백 + PG 결제 조회 API로 상태 복구 (콜백 미수신 시 폴링/수동 API)
-- [ ] orderId 기반 멱등성 (중복 결제 요청 차단, 콜백 중복 처리 방지)
-- [ ] Fallback: PG 장애 시에도 내부 시스템 정상 응답 (PENDING 저장, "잠시 후 다시 시도" 안내)
-
-**Endpoint**: `POST /api/v1/payments`
-
-**Request**:
-
-```json
-{
-  "orderId": 1351039135,
-  "cardType": "SAMSUNG",
-  "cardNo": "1234-5678-9814-1451"
-}
-```
-
-**참고**: 상세 구현 계획은 `.docs/design/06-payment-implementation-plan.md`를 따른다. 외부 연동 설계 검증 시 `skills/analize_external_integration/SKILL.md`를 적용한다.
-
-### Domain & Architecture Implementation Checklist
-
-Use this checklist to verify design and implementation alignment. **구현 시 유의**: (1) 고객 식별은 API에서 X-Loopers-LoginId(문자열); Facade에서 User.id(Long)로 변환 후 도메인/Service에 전달(01 §4.6, 04 §5). (2) Brand/Product soft-delete는 BaseEntity.deletedAt 사용, isDeleted() = getDeletedAt() != null(03 §0, 04 §5). (3) validateProducts/restoreStock 등 Service 파라미터는 도메인·application 전용 타입만 사용, interfaces DTO 재사용 금지(03 §0). (4) optionId는 option 테이블 없음—존재 검증 제외, 값 보존만(01 §4.6). (5) 도메인 구현 순서: Brand → Product(이후 Brand 연쇄 삭제 연결) → Like → Order. 상세는 03-class-diagram, 04-erd 참고.
-
-#### Product / Brand domain
-
-- [ ] Product representation includes brand information and like count where required.
-- [ ] Product list supports sort options (`latest`, `price_asc`, `likes_desc`) in the design.
-- [ ] Product has stock; **stock is decremented at payment completion** (not at order creation); order creation only validates availability (see 01-requirements §3.1).
-- [ ] Negative stock is prevented at the **domain** level (e.g. in Entity or Domain Service).
-
-#### Like domain
-
-- [ ] Like is a separate domain representing the user–product relationship.
-- [ ] Like count is provided with product detail/list responses where specified (e.g. via LikeRepository count by product).
-- [ ] Unit tests cover like add/remove flows.
-
-#### Order domain
-
-- [ ] An order can contain multiple products with explicit quantities.
-- [ ] Order creation **validates** stock; stock **decrement** happens at payment completion (01-requirements §3.1).
-- [ ] Design covers insufficient-stock exception flow.
-- [ ] Unit tests cover both success and exception order flows.
-- [ ] Payment: ORDERED → PAID 전이, `OrderService.completePayment`, 콜백 멱등성 (06-payment-implementation-plan 참고).
-
-#### Domain Service
-
-- [ ] Internal domain rules live in Domain Service (or Entity/VO where appropriate).
-- [ ] Product detail combining Product + Brand is handled in the **Application** layer (orchestration).
-- [ ] Complex use cases are orchestrated in the Application layer; domain logic is delegated.
-- [ ] Domain Services are stateless and collaborate with domain objects within the same bounded context.
-
-#### Software architecture & design
-
-- [ ] Overall structure follows **Presentation → Application → Domain ← Infrastructure**.
-- [ ] Application layer orchestrates domain objects and does not embed core business logic.
-- [ ] Core business logic resides in Entity, VO, and Domain Service.
-- [ ] Repository interface is in the Domain layer; implementation is in Infrastructure.
-- [ ] Packages are organized by layer and domain (e.g. `/domain/order`, `/application/like`).
-- [ ] Tests isolate external dependencies and use Fakes/Stubs so unit tests remain focused and fast.
-
-### 🎟 Coupon & Order Assignment
-
-The following describes the main implementation points for introducing the coupon domain and applying coupons at order time. **Before implementing APIs**, follow the coupon design in `.docs/design/01-requirements.md`, `03-class-diagram.md`, and `04-erd.md`.
-
-#### Requirements Summary
-
-- **Coupon at order**: Users apply a coupon they own for a discount. **FIXED** (fixed amount) and **RATE** (percentage) types exist; **single-use only** (no reuse).
-- **Failure conditions**: Order **fails** when the request uses a non-existent or invalid coupon (already used, expired, or owned by another user).
-- **Customer API**: `POST /api/v1/coupons/{couponId}/issue` (issue), `GET /api/v1/users/me/coupons` (my coupon list; include AVAILABLE / USED / EXPIRED status).
-- **Admin API**: Coupon template CRUD, `GET /api-admin/v1/coupons/{couponId}/issues` (issue history). Template registration: name, type (FIXED | RATE), value, minOrderAmount (optional), expiredAt.
-- **Order API change**: Request body may include nullable `couponId`. At most one coupon per order. On success the coupon is set to USED immediately; order snapshot includes amount before discount, discount amount, and final payment amount.
-
-#### Assignment (Transaction & Concurrency)
-
-- **Transaction**: Ensure atomicity for the full order flow. Maintain consistency across stock, coupon, and order domains. **Application layer (e.g. OrderFacade)** defines the transaction boundary.
-- **Concurrency**: Apply **optimistic or pessimistic locking** to avoid lost updates. All tests for concurrency-sensitive behaviour must pass.
-- **Order flow example**: (1) Order request → (2) Coupon validation and use (concurrency-sensitive) and product stock check and deduction (concurrency-sensitive), order of (2) irrelevant → (3) Create and persist order entity.
-- **Transaction and query review**: When implementing, apply the checklist in `skills/analize-query/SKILL.md` and refer to `.docs/design/05-transaction-query.md` for transaction boundaries, N+1, locking, and coupon orchestration.
-
-#### Consistency: Stock / Coupon / Order
-
-**Single transaction at OrderFacade**
-
-- One `@Transactional` on the order placement method (e.g. `OrderFacade.placeOrder()`). Inside it, only orchestrate; delegate to domain services:
-  - `couponService.validateAndUse(issuedCouponId, userId, orderAmount)` — validate and mark coupon USED
-  - `productService.decreaseStockWithLock(orderItems)` — decrease stock with lock
-  - `orderService.createOrder(userId, orderItems, couponSnapshot)` — create order with snapshot
-- If any step fails, the whole transaction rolls back (coupon state, stock, order).
-
-**Lock strategy (Lost Update prevention)**
-
-- **Stock**: Use **pessimistic lock** (e.g. `SELECT ... FOR UPDATE`, `@Lock(PESSIMISTIC_WRITE)`). One transaction at a time can read and decrease stock so concurrent orders do not overwrite each other.
-- **Issued coupon**: Prefer **pessimistic lock** (e.g. `findByIdForUpdate`). Only one order can succeed to use the same coupon; others wait then see USED and fail. Optimistic lock (`@Version`) is possible but requires retry on conflict.
-- **Order**: No lock on the order entity. Order is created once per request; consistency is achieved by the single transaction and locks on stock/coupon.
-
-**Domain invariants (last line of defense)**
-
-- **Coupon**: `IssuedCoupon.use()` (or equivalent) checks: status is AVAILABLE, not expired, and order amount ≥ minOrderAmount. Throw if invalid. Keep these rules in the domain, not in the Facade.
-- **Product**: `ProductModel.decreaseStock(quantity)` (or ProductService) throws if stock would go negative. Enforce in the domain.
-- **Order**: Snapshot stores amount before discount, discount amount, final amount, and `issuedCouponId` so state can be restored or audited after rollback.
-
-#### CouponFacade role
-
-- **Order consistency** is handled inside **OrderFacade** (transaction + calls to CouponService, ProductService, OrderService). **CouponFacade is not involved** in the order flow; OrderFacade calls CouponService directly.
-- **CouponFacade** is the **Application-layer entry point for coupon-only use cases**: issue coupon, list my coupons, admin template CRUD, issue history. It exists for layering and a single entry point for those APIs, not for order consistency. One CouponFacade can hold both customer and admin methods.
-
-**Exception and edge cases**
-
-- For **coupon use** (validation failures, concurrency, transaction rollback, discount calculation, cancel policy, template deletion): see `.docs/design/01-requirements.md` §3.8.1.
-- For **coupon issuance** (duplicate issue, template expired/deleted at issue time): see 01 §3.8.2.
-- **First-come-first-served issuance**: optional. If a template has a total issue cap (e.g. `maxIssueCount`), enforce it at issue time with a lock to avoid over-issuing; see 01 §3.8.3.
-
-#### Checklist
-
-**Coupon domain**
-
-- [ ] Coupons are owned by users; already-used coupons cannot be used.
-- [ ] Coupon types are FIXED and RATE; implement discount logic for each.
-- [ ] Each issued coupon can be used at most once.
-
-**Order**
-
-- [ ] Full order flow is atomic.
-- [ ] Order fails when coupon is invalid or missing.
-- [ ] Order fails when stock is missing or insufficient.
-- [ ] If coupon, stock, or order processing fails, everything is rolled back.
-- [ ] On successful order, all updates are applied correctly.
-
-**Concurrency tests**
-
-- [ ] **Like**: Multiple users like/unlike the same product; the product's like count is reflected correctly. (05-transaction-query §12.3)
-- [ ] **Coupon**: When the same issued coupon is used for concurrent orders from multiple devices, the coupon is used only once.
-- [ ] **Stock**: When multiple orders for the same product are requested concurrently, stock is decreased correctly (never below zero).
-- [ ] Concurrency test approach: use `CountDownLatch` + `ExecutorService` or `CompletableFuture`; assert success/failure counts and final DB state. (`.docs/design/05-transaction-query.md` §12)
-
-#### 05-transaction-query.md — Exception & implementation checklist
-
-The following items are exception scenarios and implementation requirements based on `.docs/design/05-transaction-query.md`. Verify fulfillment via implementation and tests.
-
-**Lock & transaction**
-
-- [ ] Order flow execution order: coupon (lock/read) → stock (product ID ascending lock) → order creation. (§2.1)
-- [ ] Coupon use: follow document strategy (optimistic `@Version` or pessimistic lock). (§3)
-- [ ] Stock decrease/restore: pessimistic lock; acquire locks in product ID ascending order to avoid deadlock. (§3.2)
-- [ ] DB lock wait timeout (3–5s) or retry/503 guidance policy. (§9.1)
-- [ ] No `@Transactional` on Controller; transaction boundary at Facade. (§8.1)
-
-**Edge cases (§10)**
-
-- [ ] Order fails (400 etc.) when coupon min order amount is not met. Compare `minOrderAmount` with order amount.
-- [ ] Rate discount decimal handling: **floor** or round rule applied consistently per currency unit.
-- [ ] When discount exceeds product total: final payment amount **zero** (no negative). `finalAmount = max(0, orderAmount - discountAmount)`.
-
-**Read & query**
-
-- [ ] Apply `@Transactional(readOnly = true)` to read-only APIs. (§8.2)
-- [ ] Consider DTO Projection for high-traffic or highly related areas (coupon, order). (§8.2, SKILL.md)
-
-**Other**
-
-- [ ] On order cancel, coupon remains USED; do not restore. (§9.1)
-- [ ] Domain: apply expiry at read time (e.g. `getActualStatus(now)`) when not using batch for EXPIRED. (§1)
-
----
-
 ## 6. Testing Strategy
 
 ### Test Structure
@@ -775,25 +378,23 @@ The following items are exception scenarios and implementation requirements base
 Each feature MUST have three test levels:
 
 1. **Unit Tests** (`src/test/.../domain/{entity}/*Test.java`):
-   - Focus: Domain models, value objects, business logic
-   - Dependencies: None (pure Java, no Spring context)
-   - Example: `UserModelTest`, `PasswordValidatorTest`
-
+  - Focus: Domain models, value objects, business logic
+  - Dependencies: None (pure Java, no Spring context)
+  - Example: `UserModelTest`, `PasswordValidatorTest`
 2. **Integration Tests** (`src/test/.../domain/{entity}/*IntegrationTest.java`):
-   - Focus: Service layer with real database (Testcontainers)
-   - Dependencies: `@SpringBootTest`, JPA repositories, database
-   - Example: `UserServiceIntegrationTest`
-
+  - Focus: Service layer with real database (Testcontainers)
+  - Dependencies: `@SpringBootTest`, JPA repositories, database
+  - Example: `UserServiceIntegrationTest`
 3. **E2E Tests** (`src/test/.../interfaces/api/*E2ETest.java`):
-   - Focus: HTTP request/response, full application context
-   - Dependencies: `@SpringBootTest`, `@AutoConfigureMockMvc`, MockMvc
-   - Example: `UserV1ApiE2ETest`
+  - Focus: HTTP request/response, full application context
+  - Dependencies: `@SpringBootTest`, `@AutoConfigureMockMvc`, MockMvc
+  - Example: `UserV1ApiE2ETest`
 
 ### Test Data Management
 
 - Use **Instancio** for generating test data (avoid randomness for reproducibility)
-- Use **`DatabaseCleanUp`** utility (from `jpa` module testFixtures) to clean DB between tests
-- Use **`RedisCleanUp`** utility (from `redis` module testFixtures) to clean Redis between tests
+- Use `**DatabaseCleanUp`** utility (from `jpa` module testFixtures) to clean DB between tests
+- Use `**RedisCleanUp**` utility (from `redis` module testFixtures) to clean Redis between tests
 
 ### Test Configuration
 
@@ -811,8 +412,7 @@ Each feature MUST have three test levels:
 2. Read `TDD.md` if implementing tests
 3. Read `.codeguide/{relevant-guide}.md` for feature-specific requirements
 4. Study existing code patterns in the same layer/domain
-5. **결제·외부 연동** 구현 시: `.docs/design/06-payment-implementation-plan.md` 및 `skills/analize_external_integration/SKILL.md` 참고
-6. Propose your implementation plan and wait for approval
+5. Propose your implementation plan and wait for approval
 
 ### During Implementation
 
@@ -885,3 +485,4 @@ Each feature MUST have three test levels:
 - ✅ Layer boundaries are sacred
 - ✅ Consistency over cleverness
 - ✅ Report progress, don't work in silence
+
