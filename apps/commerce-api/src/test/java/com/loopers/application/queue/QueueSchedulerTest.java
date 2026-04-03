@@ -253,6 +253,28 @@ class QueueSchedulerTest {
         }
 
         @Test
+        @DisplayName("성공 - issueToken이 Optional.empty()를 반환하면 재삽입 없이 스킵한다")
+        void processQueue_issue_token_nx_failure_skips_without_reinsert() {
+            // given
+            when(queueService.isQueueEnabled()).thenReturn(true);
+            givenLockAcquired();
+            List<QueueEntry> entries = List.of(
+                    new QueueEntry(1L, 1000.0),
+                    new QueueEntry(2L, 2000.0));
+            when(queueRepository.popFront(18)).thenReturn(entries);
+            when(queueTokenService.hasToken(anyLong())).thenReturn(false);
+            when(queueTokenService.issueToken(1L)).thenReturn(Optional.empty()); // NX 실패
+            when(queueTokenService.issueToken(2L)).thenReturn(Optional.of("token-2"));
+
+            // when
+            queueScheduler.processQueue();
+
+            // then: NX 실패한 유저는 이미 토큰 보유 중이므로 재삽입하지 않는다
+            verify(queueRepository, never()).enter(eq(1L), anyDouble());
+            verify(queueRepository, never()).enter(eq(2L), anyDouble());
+        }
+
+        @Test
         @DisplayName("성공 - 다른 인스턴스가 실행 중이면 이번 주기를 스킵한다")
         void processQueue_lock_not_acquired_skips() {
             // given

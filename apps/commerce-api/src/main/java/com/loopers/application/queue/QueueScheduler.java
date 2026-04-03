@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 // 대기열에서 유저를 순차적으로 꺼내 입장 토큰을 발급하는 스케줄러.
@@ -76,7 +77,12 @@ public class QueueScheduler {
                 if (queueTokenService.hasToken(entry.userId())) {
                     continue;
                 }
-                queueTokenService.issueToken(entry.userId());
+                Optional<String> token = queueTokenService.issueToken(entry.userId());
+                if (token.isEmpty()) {
+                    // NX 실패 = 이미 토큰 존재. hasToken과의 미세한 시간차로 발생 가능.
+                    // 유저는 토큰을 보유 중이므로 재삽입 불필요.
+                    log.info("토큰 발급 NX 실패 (이미 존재), 스킵 userId={}", entry.userId());
+                }
             } catch (Exception e) {
                 // 토큰 발급 실패 시 원래 score로 재삽입하여 순서를 보존한다.
                 // ZPOPMIN으로 이미 꺼냈으므로 재삽입하지 않으면 유저가 유실된다.
