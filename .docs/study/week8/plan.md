@@ -185,7 +185,32 @@ token-ttl-seconds: 120   # 토큰 TTL (2분, 평균 체류 60초 * 2 여유)
 
 ---
 
-### 4. 입장 토큰 설계
+### 4. Rate Limiter 설계
+
+#### 동작 방식 비교
+
+| 방식 | 버스트 허용 | 구현 복잡도 | 균일성 |
+|------|------------|------------|--------|
+| Fixed Window | 경계에서 2배 버스트 | 낮음 | 낮음 |
+| Sliding Window | 없음 | 중간 | 높음 |
+| Token Bucket | 일정량 허용 | 중간 | 중간 |
+| Leaky Bucket | 없음 | 중간 | 매우 높음 |
+
+**Fixed Window 경계 버스트**:
+```
+T=0.9s: 175개 요청 → permit 소진
+T=1.0s: permit 175개 리필
+T=1.0s: 175개 요청 → 즉시 소진
+→ 0.1초 사이에 350개 요청 처리 가능
+```
+
+**Token Bucket과의 차이**:
+- Fixed Window: 윈도우 경계에서 일괄 리필 → 경계 버스트
+- Token Bucket: 일정 속도로 지속 충전, 버킷에 쌓인 만큼 버스트 허용 → 순간 spike 자연스럽게 흡수
+
+---
+
+### 5. 입장 토큰 설계
 
 #### Redis Key 구조
 ```
@@ -255,7 +280,7 @@ queue:token:{userId}       # 입장 토큰 UUID 값 (String, TTL) — 클라이�
 
 ---
 
-### 5. Graceful Degradation: Degraded Mode
+### 6. Graceful Degradation: Degraded Mode
 
 **결정**: Redis 장애 시 신규 진입 차단, 기존 토큰 보유자는 허용
 
