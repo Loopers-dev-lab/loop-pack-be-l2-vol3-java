@@ -9,12 +9,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.test.context.TestPropertySource;
 
 import com.loopers.config.redis.RedisConfig;
 import com.loopers.support.BaseIntegrationTest;
 import com.loopers.support.queue.WaitingQueue;
 
 @DisplayName("QueueAdmissionScheduler 통합 테스트")
+@TestPropertySource(properties = "queue.enabled=true")
 class QueueAdmissionSchedulerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired

@@ -109,7 +109,7 @@ class QueueV1ApiE2ETest extends BaseE2ETest {
             );
         }
 
-        @DisplayName("��러 사용자가 대기열에 있을 때, 자신의 순번과 전체 인원이 정확히 반환된다.")
+        @DisplayName("여러 사용자가 대기열에 있을 때, 자신의 순번과 전체 인원이 정확히 반환된다.")
         @Test
         void returnsCorrectPositionAndTotal_whenMultipleUsersInQueue() {
             // arrange — 다른 사용자 먼저 진입

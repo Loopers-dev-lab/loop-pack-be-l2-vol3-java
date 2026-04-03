@@ -36,6 +36,10 @@ public class RedisWaitingQueueAdmitter implements WaitingQueueAdmitter {
 
     @Override
     public List<Long> admit(int count) {
+        if (count <= 0) {
+            return Collections.emptyList();
+        }
+
         Set<String> members = fetchWaitingMembers(count);
         if (members == null || members.isEmpty()) {
             return Collections.emptyList();

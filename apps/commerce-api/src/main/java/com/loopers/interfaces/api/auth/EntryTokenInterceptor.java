@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.auth;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -33,18 +34,20 @@ public class EntryTokenInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        if (!queueProperties.enabled() || !HttpMethod.POST.matches(request.getMethod())) {
+            return true;
+        }
+
         String entryToken = request.getHeader(HEADER_ENTRY_TOKEN);
         if (entryToken == null) {
-            if (queueProperties.enabled()) {
-                throw new CoreException(ErrorType.INVALID_ENTRY_TOKEN);
-            }
-            return true;
+            throw new CoreException(ErrorType.INVALID_ENTRY_TOKEN);
         }
 
         Long userId = (Long) request.getAttribute(USER_ID_ATTRIBUTE);
         if (userId == null) {
-            userId = Long.valueOf(request.getParameter("userId"));
+            throw new CoreException(ErrorType.UNAUTHORIZED);
         }
+
         entryTokenStore.validate(userId, entryToken);
         return true;
     }

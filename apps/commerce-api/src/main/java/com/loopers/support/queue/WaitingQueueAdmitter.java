@@ -11,7 +11,8 @@ import java.util.List;
 public interface WaitingQueueAdmitter {
 
     /**
-     * 대기열 선두에서 최대 count명을 입장열로 원자적으로 이동시킨다.
+     * 대기열 선두에서 최대 count명을 입장열로 멱등하게 이동시킨다.
+     * 부분 실패 시 다음 스케줄링 사이클에서 복구된다.
      *
      * @param count 이동할 최대 인원 수
      * @return 이동된 사용자 ID 목록

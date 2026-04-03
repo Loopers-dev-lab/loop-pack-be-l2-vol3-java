@@ -3,9 +3,11 @@ package com.loopers.infrastructure.shared.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 
 import java.time.Duration;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -136,16 +138,14 @@ class RedisEntryTokenStoreIntegrationTest extends BaseIntegrationTest {
 
         @DisplayName("TTL이 지나면, 토큰이 조회되지 않는다.")
         @Test
-        void returnsEmpty_whenTtlExpired() throws InterruptedException {
+        void returnsEmpty_whenTtlExpired() {
             // arrange
             redisTemplate.opsForValue().set("entry-token:1", "test-token", Duration.ofSeconds(1));
 
-            // act
-            Thread.sleep(1100);
-
-            // assert
-            Optional<String> result = entryTokenStore.getToken(1L);
-            assertThat(result).isEmpty();
+            // act & assert
+            await().atMost(3, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(entryTokenStore.getToken(1L)).isEmpty()
+            );
         }
     }
 }

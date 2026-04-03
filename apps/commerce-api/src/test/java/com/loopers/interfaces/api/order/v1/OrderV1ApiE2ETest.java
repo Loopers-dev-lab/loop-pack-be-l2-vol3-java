@@ -46,6 +46,9 @@ import com.loopers.interfaces.api.product.v1.ProductSteps;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
 
+import org.springframework.test.context.TestPropertySource;
+
+@TestPropertySource(properties = "queue.enabled=true")
 class OrderV1ApiE2ETest extends BaseE2ETest {
 
     private static final String ENTRY_TOKEN_KEY_PREFIX = "entry-token:";
@@ -81,6 +84,9 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                 testRestTemplate,
                 new ProductDto.CreateProductRequest(brandId, "테스트 상품", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
         );
+
+        String entryToken = seedEntryToken(userId);
+        userHeaders.set(HEADER_ENTRY_TOKEN, entryToken);
     }
 
     private String seedEntryToken(Long targetUserId) {
