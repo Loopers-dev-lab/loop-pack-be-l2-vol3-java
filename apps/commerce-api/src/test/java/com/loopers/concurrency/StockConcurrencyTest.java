@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -42,6 +43,9 @@ class StockConcurrencyTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
@@ -62,6 +66,8 @@ class StockConcurrencyTest {
         for (int i = 0; i < threadCount; i++) {
             final long memberId = i + 1;
             memberRepository.save(new Member("user" + memberId, "password", "사용자" + memberId, "2000-01-01", "user" + memberId + "@test.com"));
+            // 대기열 입장 허가 키 세팅 (동시성 테스트에서 대기열 검증 통과용)
+            redisTemplate.opsForValue().set("entered:" + memberId, "1", 300, java.util.concurrent.TimeUnit.SECONDS);
             executorService.submit(() -> {
                 try {
                     orderService.placeOrder(memberId, List.of(
@@ -101,6 +107,7 @@ class StockConcurrencyTest {
         for (int i = 0; i < threadCount; i++) {
             final long memberId = i + 1;
             memberRepository.save(new Member("user" + memberId, "password", "사용자" + memberId, "2000-01-01", "user" + memberId + "@test.com"));
+            redisTemplate.opsForValue().set("entered:" + memberId, "1", 300, java.util.concurrent.TimeUnit.SECONDS);
             executorService.submit(() -> {
                 try {
                     orderService.placeOrder(memberId, List.of(

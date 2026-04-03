@@ -28,7 +28,10 @@ public class QueueSseRegistry {
      * onCompletion/onTimeout/onError: 레지스트리에서 자동 제거.
      */
     public void register(String userId, SseEmitter emitter) {
-        emitters.put(userId, emitter);
+        SseEmitter previous = emitters.put(userId, emitter);
+        if (previous != null) {
+            try { previous.complete(); } catch (Exception ignored) {}
+        }
         emitter.onCompletion(() -> emitters.remove(userId));
         emitter.onTimeout(() -> emitters.remove(userId));
         emitter.onError(e -> emitters.remove(userId));

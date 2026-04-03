@@ -20,6 +20,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -55,6 +56,9 @@ class CouponConcurrencyTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
@@ -75,6 +79,9 @@ class CouponConcurrencyTest {
         );
         IssuedCoupon issuedCoupon = issuedCouponRepository.save(new IssuedCoupon(template.getId(), memberId));
         Long couponId = issuedCoupon.getId();
+
+        // 대기열 입장 허가 키 세팅 (동시성 테스트에서 대기열 검증 통과용)
+        redisTemplate.opsForValue().set("entered:" + memberId, "1", 300, java.util.concurrent.TimeUnit.SECONDS);
 
         int threadCount = 5;
         ExecutorService executorService = Executors.newFixedThreadPool(threadCount);

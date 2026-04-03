@@ -42,6 +42,8 @@ public class QueueService {
             return new QueueInfo.EnterInfo(token.token(), rank, totalSize);
         } catch (CoreException e) {
             throw e;
+        } catch (IllegalArgumentException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST);
         } catch (Exception e) {
             log.error("[Queue] Redis 장애 — enter() 실패. userId={}", userId, e);
             throw new CoreException(ErrorType.QUEUE_SERVICE_UNAVAILABLE);

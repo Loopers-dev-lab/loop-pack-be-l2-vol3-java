@@ -14,6 +14,8 @@ import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -125,8 +127,19 @@ public class OrderService {
             .collect(Collectors.toList());
 
         // 주문 완료 후 entered 키 삭제 — 슬롯 즉시 반환 (TTL 만료 대기 없이)
-        // 트랜잭션 커밋 후에도 실행되도록 마지막에 배치 (삭제 실패 시에도 주문 롤백 안 됨)
-        queueService.deleteEntered(memberId);
+        // 트랜잭션 커밋 후 실행: 커밋 실패 시 Redis 키가 먼저 삭제되는 문제 방지
+        // 삭제 실패해도 TTL(300초) 만료로 자연 정리되므로 주문에 영향 없음
+        final Long enteredUserId = memberId;
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    queueService.deleteEntered(enteredUserId);
+                }
+            });
+        } else {
+            queueService.deleteEntered(enteredUserId);
+        }
 
         return new OrderResult(
             order.getId(), order.getStatus(),
