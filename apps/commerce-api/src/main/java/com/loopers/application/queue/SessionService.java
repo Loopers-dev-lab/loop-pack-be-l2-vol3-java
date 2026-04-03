@@ -68,9 +68,10 @@ public class SessionService {
         try {
             session = getSession(userId);
         } catch (Exception e) {
-            // Redis 장애 + Grace Period → 소프트 바이패스
-            if (modeManager.isInGracePeriod()) {
-                log.warn("Grace Period 소프트 바이패스: userId={}, Redis 장애", userId, e);
+            // Redis 장애 → fallbackMode 또는 Grace Period 시 소프트 바이패스
+            if (modeManager.isFallbackMode() || modeManager.isInGracePeriod()) {
+                log.warn("Redis 장애 소프트 바이패스: userId={}, fallback={}, gracePeriod={}",
+                        userId, modeManager.isFallbackMode(), modeManager.isInGracePeriod(), e);
                 return SessionValidation.allowed();
             }
             log.error("세션 조회 실패: userId={}", userId, e);

@@ -25,6 +25,7 @@ public class ModeManager {
 
     private final QueueProperties queueProperties;
     private volatile ModeState state = ModeState.normal();
+    private volatile boolean fallbackMode = false;
 
     public ModeManager(QueueProperties queueProperties) {
         this.queueProperties = queueProperties;
@@ -37,6 +38,12 @@ public class ModeManager {
     public boolean isEvent() { return state.isEvent(); }
     public boolean isDrain() { return state.isDrain(); }
     public boolean isInGracePeriod() { return state.isInGracePeriod(); }
+
+    // Redis 장애 fallback
+
+    public boolean isFallbackMode() { return fallbackMode; }
+    public void enterFallbackMode() { this.fallbackMode = true; }
+    public void exitFallbackMode() { this.fallbackMode = false; }
 
     // 원자적 전환 — volatile write 1회
 

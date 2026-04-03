@@ -44,6 +44,7 @@ public class EarlyRejectionFilter extends OncePerRequestFilter {
         // DRAIN 모드: 새 진입 거부
         if (modeManager.isDrain()) {
             meterRegistry.counter("early.rejection.total", "reason", "DRAIN").increment();
+            response.setHeader("Retry-After", "30");
             reject(response, HttpStatus.SERVICE_UNAVAILABLE, "DRAIN", "대기열이 마감되었습니다");
             return;
         }

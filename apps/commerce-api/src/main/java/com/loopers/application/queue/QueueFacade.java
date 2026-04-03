@@ -36,6 +36,11 @@ public class QueueFacade {
     // Command
 
     public QueueEntryResponse enter(Long userId) {
+        // Redis 장애 시 대기열 진입 불가 (Redis 없이 대기열 동작 불가)
+        if (modeManager.isFallbackMode()) {
+            throw new CoreException(ErrorType.SERVICE_UNAVAILABLE, "일시적으로 대기열 진입이 불가합니다. 잠시 후 다시 시도해주세요");
+        }
+
         if (!modeManager.isEvent()) {
             if (modeManager.isDrain()) {
                 throw new CoreException(ErrorType.BAD_REQUEST, "대기열이 마감되었습니다");

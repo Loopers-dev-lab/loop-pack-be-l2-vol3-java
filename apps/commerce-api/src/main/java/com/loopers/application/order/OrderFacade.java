@@ -25,6 +25,7 @@ import java.math.BigDecimal;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Semaphore;
 
 @Slf4j
 @Component
@@ -39,14 +40,21 @@ public class OrderFacade {
     private final ModeManager modeManager;
     private final SessionService sessionService;
 
+    /** Redis 장애(fallbackMode) 시 CAS 없이 주문할 때 DB 보호. permits = Hikari poolSize. */
+    private final Semaphore fallbackSemaphore = new Semaphore(30);
+
     // Command
 
     @Transactional
     public OrderInfo placeOrder(Long userId, OrderCommand.Place command) {
-        // EVENT/DRAIN 모드 + Grace Period 아님: CAS (ACTIVE → CONSUMED) — 단건 주문 보장
-        // Grace Period 중: 세션 없이 진입 가능 → CAS skip, 기존 주문 플로우
+        // EVENT/DRAIN 모드 + Grace Period 아님 + Redis 정상: CAS (ACTIVE → CONSUMED) — 단건 주문 보장
+        // fallbackMode 또는 Grace Period: 세션 없이 진입 가능 → CAS skip, Semaphore로 DB 보호
         boolean isEventMode = (modeManager.isEvent() || modeManager.isDrain())
-                && !modeManager.isInGracePeriod();
+                && !modeManager.isInGracePeriod()
+                && !modeManager.isFallbackMode();
+
+        boolean isFallbackOrder = modeManager.isFallbackMode()
+                && (modeManager.isEvent() || modeManager.isDrain());
 
         if (isEventMode) {
             long casResult = sessionService.compareAndSwap(
@@ -57,6 +65,11 @@ public class OrderFacade {
             if (casResult == SessionService.CAS_STATUS_MISMATCH) {
                 throw new CoreException(ErrorType.CONFLICT, "이미 주문이 진행 중입니다");
             }
+        }
+
+        // fallbackMode: Semaphore로 동시 주문 수 제한 (DB 커넥션 보호)
+        if (isFallbackOrder && !fallbackSemaphore.tryAcquire()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "일시적으로 주문이 제한됩니다. 잠시 후 다시 시도해주세요");
         }
 
         try {
@@ -74,6 +87,10 @@ public class OrderFacade {
                 restoreSession(userId);
             }
             throw e;
+        } finally {
+            if (isFallbackOrder) {
+                fallbackSemaphore.release();
+            }
         }
     }
 
