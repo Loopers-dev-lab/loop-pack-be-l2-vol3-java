@@ -2,11 +2,13 @@ package com.loopers.config.redis;
 
 
 import io.lettuce.core.ReadFrom;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 @Configuration
+@Slf4j
 @EnableConfigurationProperties(RedisProperties.class)
 public class RedisConfig{
     private static final String CONNECTION_MASTER = "redisConnectionMaster";
@@ -26,6 +29,11 @@ public class RedisConfig{
 
     public RedisConfig(RedisProperties redisProperties){
         this.redisProperties = redisProperties;
+        log.info("redis config database={} master={}:{} replicas={}",
+                redisProperties.database(),
+                redisProperties.master().host(),
+                redisProperties.master().port(),
+                redisProperties.replicas().size());
     }
 
     @Primary
@@ -45,11 +53,7 @@ public class RedisConfig{
     public LettuceConnectionFactory masterRedisConnectionFactory() {
         int database = redisProperties.database();
         RedisNodeInfo master = redisProperties.master();
-        List<RedisNodeInfo> replicas = redisProperties.replicas();
-        return lettuceConnectionFactory(
-                database, master, replicas,
-                b -> b.readFrom(ReadFrom.MASTER)
-        );
+        return masterOnlyLettuceConnectionFactory(database, master);
     }
 
     @Primary
@@ -97,5 +101,14 @@ public class RedisConfig{
         template.setHashValueSerializer(s);
         template.setConnectionFactory(connectionFactory);
         return template;
+    }
+
+    private LettuceConnectionFactory masterOnlyLettuceConnectionFactory(int database, RedisNodeInfo master) {
+        RedisStandaloneConfiguration standaloneConfiguration = new RedisStandaloneConfiguration(master.host(), master.port());
+        standaloneConfiguration.setDatabase(database);
+        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                .readFrom(ReadFrom.MASTER)
+                .build();
+        return new LettuceConnectionFactory(standaloneConfiguration, clientConfig);
     }
 }

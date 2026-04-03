@@ -12,7 +12,7 @@ public abstract class RedisTestContainersConfig {
 
     @Container
     @SuppressWarnings("resource")
-    private static final RedisContainer REDIS_CONTAINER = new RedisContainer(DockerImageName.parse("redis:latest"));
+    private static final RedisContainer REDIS_CONTAINER = new RedisContainer(DockerImageName.parse("redis:8.0"));
 
     static {
         REDIS_CONTAINER.start();
