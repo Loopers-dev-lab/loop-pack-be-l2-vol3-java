@@ -10,18 +10,20 @@ import org.springframework.stereotype.Component;
  * <b>분리 이유</b>: Micrometer 미터 이름·설명을 API 계층({@link com.loopers.interfaces.api.ApiControllerAdvice}),
  * Kafka 발행({@link com.loopers.infrastructure.queue.KafkaQueueJoinFallbackPublisher}),
  * Kafka 소비({@link com.loopers.infrastructure.queue.QueueJoinFallbackKafkaListener}),
- * 입장 스케줄러 락 스킵({@link QueueSchedulerObservationConfig})에 걸쳐 동일하게 유지하고,
+ * 입장 스케줄러 관측({@link QueueSchedulerObservationConfig})에 걸쳐 동일하게 유지하고,
  * 각 컴포넌트는 카운터 증가만 호출하도록 하기 위함이다. 발행/리스너 안에 카운터를 흩뿌리면 이름 불일치·중복 등록 위험이 있다.
  */
 @Component
 public class QueueInfrastructureMetrics {
 
+    private final MeterRegistry meterRegistry;
     private final Counter apiBackendFailures;
     private final Counter kafkaJoinFallbackPublished;
     private final Counter kafkaJoinFallbackPublishFailed;
     private final Counter kafkaJoinFallbackRecovered;
     private final Counter kafkaJoinFallbackDlt;
     private final Counter schedulerLockSkipped;
+    private final Counter schedulerInvocations;
 
     /**
      * @param meterRegistry 미터(Meter) 및 메트릭(Metrics)을 관리·등록하는 Micrometer의 중앙 저장소 객체
@@ -29,6 +31,7 @@ public class QueueInfrastructureMetrics {
      *                      Spring Boot Actuator, Prometheus 등 외부 시스템에서 수집할 수 있다.
      */
     public QueueInfrastructureMetrics(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
         this.apiBackendFailures = Counter.builder("loopers.queue.backend.failures")
                 .description("API에서 저장소(Redis/DB) 일시 장애로 매핑된 횟수")
                 .tag("layer", "api")
@@ -47,6 +50,9 @@ public class QueueInfrastructureMetrics {
                 .register(meterRegistry);
         this.schedulerLockSkipped = Counter.builder("loopers.queue.scheduler.lock.skipped")
                 .description("입장 스케줄러 틱에서 분산 락 미획득으로 방출을 스킵한 횟수")
+                .register(meterRegistry);
+        this.schedulerInvocations = Counter.builder("loopers.queue.scheduler.invocations")
+                .description("releaseEntries 호출 횟수(스케줄된 틱 시도; 락 성공 여부와 무관)")
                 .register(meterRegistry);
     }
 
@@ -78,5 +84,23 @@ public class QueueInfrastructureMetrics {
     /** 분산 락을 잡지 못해 이번 틱에서 pop·토큰 발급을 하지 않은 경우 1회 증가. */
     public void recordSchedulerLockSkipped() {
         schedulerLockSkipped.increment();
+    }
+
+    /** {@link com.loopers.domain.queue.EntrySchedulerService#releaseEntries} 진입마다 1회 증가. */
+    public void recordSchedulerInvocation() {
+        schedulerInvocations.increment();
+    }
+
+    /**
+     * 락 확보 후 pop·토큰·하트비트까지 끝난 틱마다 1회 증가.
+     * {@code released_empty} 태그로 이번 틱에 방출 인원이 0인지 구분한다(대시보드·알람용).
+     */
+    public void recordSchedulerTickCompleted(int releasedCount) {
+        meterRegistry
+                .counter(
+                        "loopers.queue.scheduler.tick.completed",
+                        "released_empty",
+                        releasedCount == 0 ? "true" : "false")
+                .increment();
     }
 }

@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.queue;
 
+import com.loopers.application.queue.EntryScheduler;
 import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.queue.EntrySchedulerService;
 import com.loopers.domain.queue.EntryTokenRepository;
@@ -20,6 +21,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -30,6 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(properties = "spring.task.scheduling.enabled=false")
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class QueueRedisInfrastructureIntegrationTest {
+
+    /** @Scheduled 틱이 Micrometer·Redis와 테스트를 섞지 않도록 비활성 대체 */
+    @MockBean
+    private EntryScheduler entryScheduler;
 
     /** 스케줄러 기본 event-id(default)와 겹치면 틱이 ZSET을 비울 수 있어 분리한다. */
     private static final String EVENT_ID = "redis-integration-queue";
@@ -171,9 +177,10 @@ class QueueRedisInfrastructureIntegrationTest {
     @DisplayName("heartbeat 갱신 시 redis에 값이 저장된다.")
     @Test
     void schedulerLock_updateHeartbeat_shouldStoreValue() {
-        schedulerLockRepository.updateHeartbeat("queue:scheduler:heartbeat", "12345", 35L);
+        String key = "queue:scheduler:heartbeat:integration-it";
+        schedulerLockRepository.updateHeartbeat(key, "12345", 35L);
 
-        String value = redisTemplate.opsForValue().get("queue:scheduler:heartbeat");
+        String value = redisTemplate.opsForValue().get(key);
         assertThat(value).isEqualTo("12345");
     }
 
@@ -187,6 +194,10 @@ class QueueRedisInfrastructureIntegrationTest {
         String heartbeatKey = "queue:scheduler:heartbeat:contention-it";
         String eventId = EVENT_ID + "-lock-contention";
 
+        double inv0 = meterRegistry.counter("loopers.queue.scheduler.invocations").count();
+        double tickEmpty0 =
+                meterRegistry.counter("loopers.queue.scheduler.tick.completed", "released_empty", "true").count();
+
         EntrySchedulerService.ReleaseResult first = entrySchedulerService.releaseEntries(
                 eventId, 18, 300L, 5L, lockKey, heartbeatKey, 35L);
         double skippedBeforeSecond = meterRegistry.counter("loopers.queue.scheduler.lock.skipped").count();
@@ -198,6 +209,9 @@ class QueueRedisInfrastructureIntegrationTest {
         assertThat(second.releasedCount()).isZero();
         assertThat(meterRegistry.counter("loopers.queue.scheduler.lock.skipped").count())
                 .isEqualTo(skippedBeforeSecond + 1.0);
+        assertThat(meterRegistry.counter("loopers.queue.scheduler.invocations").count()).isEqualTo(inv0 + 2.0);
+        assertThat(meterRegistry.counter("loopers.queue.scheduler.tick.completed", "released_empty", "true").count())
+                .isEqualTo(tickEmpty0 + 1.0);
     }
 }
 

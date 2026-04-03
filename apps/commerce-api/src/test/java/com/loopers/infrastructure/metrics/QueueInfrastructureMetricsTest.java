@@ -54,4 +54,26 @@ class QueueInfrastructureMetricsTest {
 
         assertThat(meterRegistry.counter("loopers.queue.scheduler.lock.skipped").count()).isEqualTo(1.0);
     }
+
+    @DisplayName("recordSchedulerInvocation 호출 시 loopers.queue.scheduler.invocations 카운터가 증가한다.")
+    @Test
+    void recordSchedulerInvocation_shouldIncrementCounter() {
+        metrics.recordSchedulerInvocation();
+        metrics.recordSchedulerInvocation();
+
+        assertThat(meterRegistry.counter("loopers.queue.scheduler.invocations").count()).isEqualTo(2.0);
+    }
+
+    @DisplayName("recordSchedulerTickCompleted는 released_empty 태그별로 카운터를 나눈다.")
+    @Test
+    void recordSchedulerTickCompleted_shouldIncrementByReleasedEmptyTag() {
+        metrics.recordSchedulerTickCompleted(0);
+        metrics.recordSchedulerTickCompleted(0);
+        metrics.recordSchedulerTickCompleted(3);
+
+        assertThat(meterRegistry.counter("loopers.queue.scheduler.tick.completed", "released_empty", "true").count())
+                .isEqualTo(2.0);
+        assertThat(meterRegistry.counter("loopers.queue.scheduler.tick.completed", "released_empty", "false").count())
+                .isEqualTo(1.0);
+    }
 }

@@ -21,7 +21,7 @@ public class EntrySchedulerService {
     private final SchedulerLockRepository schedulerLockRepository;
     private final EntryTokenGenerator entryTokenGenerator;
     private final JitterDelay jitterDelay;
-    private final EntrySchedulerLockObservation lockObservation;
+    private final EntrySchedulerObservation schedulerObservation;
 
     public EntrySchedulerService(
         WaitingQueueRepository waitingQueueRepository,
@@ -29,14 +29,14 @@ public class EntrySchedulerService {
         SchedulerLockRepository schedulerLockRepository,
         EntryTokenGenerator entryTokenGenerator,
         JitterDelay jitterDelay,
-        EntrySchedulerLockObservation lockObservation
+        EntrySchedulerObservation schedulerObservation
     ) {
         this.waitingQueueRepository = waitingQueueRepository;
         this.entryTokenRepository = entryTokenRepository;
         this.schedulerLockRepository = schedulerLockRepository;
         this.entryTokenGenerator = entryTokenGenerator;
         this.jitterDelay = jitterDelay;
-        this.lockObservation = lockObservation;
+        this.schedulerObservation = schedulerObservation;
     }
 
     /**
@@ -60,11 +60,12 @@ public class EntrySchedulerService {
         String heartbeatKey,
         long heartbeatTtlSeconds
     ) {
+        schedulerObservation.onReleaseEntriesInvoked();
         String lockValue = UUID.randomUUID().toString();
         // 분산 락: 동시에 여러 노드가 pop/토큰 발급을 하지 않도록 직렬화
         boolean lockAcquired = schedulerLockRepository.tryAcquireLock(lockKey, lockValue, lockTtlSeconds);
         if (!lockAcquired) {
-            lockObservation.onLockNotAcquired();
+            schedulerObservation.onLockNotAcquired();
             return new ReleaseResult(false, 0);
         }
 
@@ -79,7 +80,9 @@ public class EntrySchedulerService {
         // 운영·모니터링에서 "마지막으로 스케줄러 틱이 성공한 시각" 확인용
         schedulerLockRepository.updateHeartbeat(heartbeatKey, String.valueOf(System.currentTimeMillis()), heartbeatTtlSeconds);
 
-        return new ReleaseResult(true, userIds.size());
+        int released = userIds.size();
+        schedulerObservation.onTickCompleted(released);
+        return new ReleaseResult(true, released);
     }
 
     /**

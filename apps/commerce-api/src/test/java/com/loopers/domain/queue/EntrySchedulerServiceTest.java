@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -36,7 +37,7 @@ class EntrySchedulerServiceTest {
     @Mock
     private JitterDelay jitterDelay;
     @Mock
-    private EntrySchedulerLockObservation lockObservation;
+    private EntrySchedulerObservation schedulerObservation;
 
     @InjectMocks
     private EntrySchedulerService entrySchedulerService;
@@ -52,7 +53,9 @@ class EntrySchedulerServiceTest {
 
         assertThat(result.lockAcquired()).isFalse();
         assertThat(result.releasedCount()).isZero();
-        verify(lockObservation).onLockNotAcquired();
+        verify(schedulerObservation).onReleaseEntriesInvoked();
+        verify(schedulerObservation).onLockNotAcquired();
+        verify(schedulerObservation, never()).onTickCompleted(anyInt());
         verify(waitingQueueRepository, never()).popOldest(anyString(), anyLong());
         verify(entryTokenRepository, never()).saveEntryToken(anyLong(), anyString(), anyLong());
         verify(schedulerLockRepository, never()).updateHeartbeat(anyString(), anyString(), anyLong());
@@ -76,7 +79,9 @@ class EntrySchedulerServiceTest {
         verify(entryTokenRepository).saveEntryToken(20L, "token-2", 300L);
         verify(jitterDelay, times(2)).delay(anyLong());
         verify(schedulerLockRepository).updateHeartbeat(eq(HEARTBEAT_KEY), anyString(), eq(35L));
-        verify(lockObservation, never()).onLockNotAcquired();
+        verify(schedulerObservation).onReleaseEntriesInvoked();
+        verify(schedulerObservation).onTickCompleted(2);
+        verify(schedulerObservation, never()).onLockNotAcquired();
     }
 }
 
