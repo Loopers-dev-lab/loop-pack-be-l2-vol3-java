@@ -7,7 +7,9 @@ import com.loopers.domain.user.UserFixture;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.infrastructure.user.UserJpaRepository;
+import com.loopers.application.queue.OrderQueueReader;
 import com.loopers.application.queue.OrderQueueScheduler;
+import com.loopers.application.queue.OrderQueueWriter;
 import com.loopers.interfaces.api.order.OrderV1Dto;
 import com.loopers.interfaces.api.queue.OrderQueueV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -21,7 +23,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -47,7 +48,6 @@ class OrderQueueE2ETest {
     private static final String QUEUE_ENTER_ENDPOINT = "/api/v1/queue/enter";
     private static final String QUEUE_POSITION_ENDPOINT = "/api/v1/queue/position";
     private static final String ORDERS_ENDPOINT = "/api/v1/orders";
-    private static final String ORDER_QUEUE_ENABLED_KEY = "order:queue:enabled";
     private static final String RAW_PASSWORD = "TestPass1!";
     private static final int BATCH_SIZE = 14;
 
@@ -57,7 +57,8 @@ class OrderQueueE2ETest {
     private final ProductJpaRepository productJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
     private final RedisCleanUp redisCleanUp;
-    private final RedisTemplate<String, String> redisTemplate;
+    private final OrderQueueWriter orderQueueWriter;
+    private final OrderQueueReader orderQueueReader;
     private final OrderQueueScheduler orderQueueScheduler;
     private final BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
@@ -72,7 +73,8 @@ class OrderQueueE2ETest {
             ProductJpaRepository productJpaRepository,
             DatabaseCleanUp databaseCleanUp,
             RedisCleanUp redisCleanUp,
-            RedisTemplate<String, String> redisTemplate,
+            OrderQueueWriter orderQueueWriter,
+            OrderQueueReader orderQueueReader,
             OrderQueueScheduler orderQueueScheduler
     ) {
         this.testRestTemplate = testRestTemplate;
@@ -81,7 +83,8 @@ class OrderQueueE2ETest {
         this.productJpaRepository = productJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
         this.redisCleanUp = redisCleanUp;
-        this.redisTemplate = redisTemplate;
+        this.orderQueueWriter = orderQueueWriter;
+        this.orderQueueReader = orderQueueReader;
         this.orderQueueScheduler = orderQueueScheduler;
     }
 
@@ -119,11 +122,20 @@ class OrderQueueE2ETest {
     }
 
     private void enableQueue() {
-        redisTemplate.opsForValue().set(ORDER_QUEUE_ENABLED_KEY, "true");
+        orderQueueWriter.setEnabled(true);
+        awaitEnabled(true);
     }
 
     private void disableQueue() {
-        redisTemplate.opsForValue().set(ORDER_QUEUE_ENABLED_KEY, "false");
+        orderQueueWriter.setEnabled(false);
+        awaitEnabled(false);
+    }
+
+    private void awaitEnabled(boolean expected) {
+        for (int i = 0; i < 50; i++) {
+            if (orderQueueReader.isEnabled() == expected) return;
+            try { Thread.sleep(10); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        }
     }
 
     private int countTokenIssuedUsers(List<User> users) {
@@ -403,10 +415,8 @@ class OrderQueueE2ETest {
                 testRestTemplate.exchange(QUEUE_ENTER_ENDPOINT, HttpMethod.POST, entity, new ParameterizedTypeReference<ApiResponse<OrderQueueV1Dto.EnterResponse>>() {});
             }
 
-            // act: 대기열 활성화 후 스케줄러를 수동으로 1회만 호출
-            enableQueue();
-            orderQueueScheduler.issueTokens();
-            disableQueue();
+            // act: isEnabled() 체크 없이 배치 로직만 직접 1회 호출 (@Scheduled 경쟁 조건 방지)
+            orderQueueScheduler.issueBatch();
 
             // assert: 첫 번째 배치에서 정확히 BATCH_SIZE만큼 발급되었는지 검증
             final int tokenIssuedCount = countTokenIssuedUsers(users);

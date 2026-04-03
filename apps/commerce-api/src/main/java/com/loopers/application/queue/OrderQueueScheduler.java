@@ -28,7 +28,10 @@ public class OrderQueueScheduler {
         if (!orderQueueReader.isEnabled()) {
             return;
         }
+        issueBatch();
+    }
 
+    public void issueBatch() {
         Set<Long> userIds = waitingQueueRepository.dequeue(BATCH_SIZE);
         for (Long userId : userIds) {
             String token = UUID.randomUUID().toString();

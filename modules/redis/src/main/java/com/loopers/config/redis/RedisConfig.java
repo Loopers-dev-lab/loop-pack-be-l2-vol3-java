@@ -7,10 +7,12 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.util.List;
@@ -20,6 +22,7 @@ import java.util.function.Consumer;
 @EnableConfigurationProperties(RedisProperties.class)
 public class RedisConfig{
     private static final String CONNECTION_MASTER = "redisConnectionMaster";
+    private static final String CONNECTION_PUBSUB = "redisConnectionPubSub";
     public static final String REDIS_TEMPLATE_MASTER = "redisTemplateMaster";
 
     private final RedisProperties redisProperties;
@@ -68,6 +71,23 @@ public class RedisConfig{
         return defaultRedisTemplate(redisTemplate, lettuceConnectionFactory);
     }
 
+    @Qualifier(CONNECTION_PUBSUB)
+    @Bean
+    public LettuceConnectionFactory pubSubRedisConnectionFactory() {
+        RedisNodeInfo master = redisProperties.master();
+        RedisStandaloneConfiguration standaloneConfig = new RedisStandaloneConfiguration(master.host(), master.port());
+        standaloneConfig.setDatabase(redisProperties.database());
+        return new LettuceConnectionFactory(standaloneConfig);
+    }
+
+    @Bean
+    public RedisMessageListenerContainer redisMessageListenerContainer(
+            @Qualifier(CONNECTION_PUBSUB) LettuceConnectionFactory pubSubConnectionFactory
+    ) {
+        RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+        container.setConnectionFactory(pubSubConnectionFactory);
+        return container;
+    }
 
     private LettuceConnectionFactory lettuceConnectionFactory(
             int database,
