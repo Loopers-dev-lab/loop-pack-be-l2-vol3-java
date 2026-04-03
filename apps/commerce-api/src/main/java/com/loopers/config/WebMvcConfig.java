@@ -2,6 +2,7 @@ package com.loopers.config;
 
 import com.loopers.interfaces.interceptor.AdminAuthInterceptor;
 import com.loopers.interfaces.interceptor.AuthInterceptor;
+import com.loopers.interfaces.interceptor.EntryTokenInterceptor;
 import com.loopers.interfaces.resolver.LoginUserArgumentResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -18,6 +19,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final AuthInterceptor authInterceptor;
     private final LoginUserArgumentResolver loginUserArgumentResolver;
     private final AdminAuthInterceptor adminAuthInterceptor;
+    private final EntryTokenInterceptor entryTokenInterceptor;
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -29,6 +31,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .excludePathPatterns("/api/v1/brands/**")
                 // PG 시스템이 호출하는 콜백 엔드포인트 — 사용자 인증 불가
                 .excludePathPatterns("/api/v1/payments/callback");
+
+        // AuthInterceptor 이후 등록 — AuthInterceptor가 먼저 UserInfo를 request에 저장해야 함
+        registry.addInterceptor(entryTokenInterceptor)
+                .addPathPatterns("/api/v1/orders");
 
         registry.addInterceptor(adminAuthInterceptor)
                 .addPathPatterns("/api-admin/**");
