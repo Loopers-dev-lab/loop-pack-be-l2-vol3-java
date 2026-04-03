@@ -35,6 +35,8 @@ class EntrySchedulerServiceTest {
     private EntryTokenGenerator entryTokenGenerator;
     @Mock
     private JitterDelay jitterDelay;
+    @Mock
+    private EntrySchedulerLockObservation lockObservation;
 
     @InjectMocks
     private EntrySchedulerService entrySchedulerService;
@@ -50,6 +52,7 @@ class EntrySchedulerServiceTest {
 
         assertThat(result.lockAcquired()).isFalse();
         assertThat(result.releasedCount()).isZero();
+        verify(lockObservation).onLockNotAcquired();
         verify(waitingQueueRepository, never()).popOldest(anyString(), anyLong());
         verify(entryTokenRepository, never()).saveEntryToken(anyLong(), anyString(), anyLong());
         verify(schedulerLockRepository, never()).updateHeartbeat(anyString(), anyString(), anyLong());
@@ -73,6 +76,7 @@ class EntrySchedulerServiceTest {
         verify(entryTokenRepository).saveEntryToken(20L, "token-2", 300L);
         verify(jitterDelay, times(2)).delay(anyLong());
         verify(schedulerLockRepository).updateHeartbeat(eq(HEARTBEAT_KEY), anyString(), eq(35L));
+        verify(lockObservation, never()).onLockNotAcquired();
     }
 }
 

@@ -21,19 +21,22 @@ public class EntrySchedulerService {
     private final SchedulerLockRepository schedulerLockRepository;
     private final EntryTokenGenerator entryTokenGenerator;
     private final JitterDelay jitterDelay;
+    private final EntrySchedulerLockObservation lockObservation;
 
     public EntrySchedulerService(
         WaitingQueueRepository waitingQueueRepository,
         EntryTokenRepository entryTokenRepository,
         SchedulerLockRepository schedulerLockRepository,
         EntryTokenGenerator entryTokenGenerator,
-        JitterDelay jitterDelay
+        JitterDelay jitterDelay,
+        EntrySchedulerLockObservation lockObservation
     ) {
         this.waitingQueueRepository = waitingQueueRepository;
         this.entryTokenRepository = entryTokenRepository;
         this.schedulerLockRepository = schedulerLockRepository;
         this.entryTokenGenerator = entryTokenGenerator;
         this.jitterDelay = jitterDelay;
+        this.lockObservation = lockObservation;
     }
 
     /**
@@ -61,6 +64,7 @@ public class EntrySchedulerService {
         // 분산 락: 동시에 여러 노드가 pop/토큰 발급을 하지 않도록 직렬화
         boolean lockAcquired = schedulerLockRepository.tryAcquireLock(lockKey, lockValue, lockTtlSeconds);
         if (!lockAcquired) {
+            lockObservation.onLockNotAcquired();
             return new ReleaseResult(false, 0);
         }
 

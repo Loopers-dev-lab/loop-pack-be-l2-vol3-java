@@ -16,6 +16,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -57,6 +58,9 @@ class QueueRedisInfrastructureIntegrationTest {
 
     @Autowired
     private RedisCleanUp redisCleanUp;
+
+    @Autowired
+    private MeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
@@ -185,12 +189,15 @@ class QueueRedisInfrastructureIntegrationTest {
 
         EntrySchedulerService.ReleaseResult first = entrySchedulerService.releaseEntries(
                 eventId, 18, 300L, 5L, lockKey, heartbeatKey, 35L);
+        double skippedBeforeSecond = meterRegistry.counter("loopers.queue.scheduler.lock.skipped").count();
         EntrySchedulerService.ReleaseResult second = entrySchedulerService.releaseEntries(
                 eventId, 18, 300L, 5L, lockKey, heartbeatKey, 35L);
 
         assertThat(first.lockAcquired()).isTrue();
         assertThat(second.lockAcquired()).isFalse();
         assertThat(second.releasedCount()).isZero();
+        assertThat(meterRegistry.counter("loopers.queue.scheduler.lock.skipped").count())
+                .isEqualTo(skippedBeforeSecond + 1.0);
     }
 }
 

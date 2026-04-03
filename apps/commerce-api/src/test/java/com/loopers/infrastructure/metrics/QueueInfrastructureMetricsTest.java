@@ -46,4 +46,12 @@ class QueueInfrastructureMetricsTest {
         assertThat(meterRegistry.counter("loopers.queue.join.fallback.recovered").count()).isEqualTo(1.0);
         assertThat(meterRegistry.counter("loopers.queue.join.fallback.dlt").count()).isEqualTo(1.0);
     }
+
+    @DisplayName("recordSchedulerLockSkipped 호출 시 loopers.queue.scheduler.lock.skipped 카운터가 증가한다.")
+    @Test
+    void recordSchedulerLockSkipped_shouldIncrementCounter() {
+        metrics.recordSchedulerLockSkipped();
+
+        assertThat(meterRegistry.counter("loopers.queue.scheduler.lock.skipped").count()).isEqualTo(1.0);
+    }
 }
