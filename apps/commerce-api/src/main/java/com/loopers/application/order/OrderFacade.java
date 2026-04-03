@@ -5,6 +5,7 @@ import com.loopers.application.coupon.IssuedCouponSnapshot;
 import com.loopers.application.payment.PaymentFacade;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.queue.ModeManager;
+import com.loopers.application.queue.QueueFacade;
 import com.loopers.application.queue.SessionService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
@@ -32,23 +33,22 @@ import java.util.concurrent.Semaphore;
 @RequiredArgsConstructor
 public class OrderFacade {
 
+    private static final int FALLBACK_SEMAPHORE_PERMITS = 30;
+
     private final OrderService orderService;
     private final ProductService productService;
     private final StockService stockService;
     private final IssuedCouponService issuedCouponService;
     private final PaymentFacade paymentFacade;
     private final ModeManager modeManager;
-    private final SessionService sessionService;
+    private final QueueFacade queueFacade;
 
-    /** Redis 장애(fallbackMode) 시 CAS 없이 주문할 때 DB 보호. permits = Hikari poolSize. */
-    private final Semaphore fallbackSemaphore = new Semaphore(30);
+    private final Semaphore fallbackSemaphore = new Semaphore(FALLBACK_SEMAPHORE_PERMITS);
 
     // Command
 
     @Transactional
     public OrderInfo placeOrder(Long userId, OrderCommand.Place command) {
-        // EVENT/DRAIN 모드 + Grace Period 아님 + Redis 정상: CAS (ACTIVE → CONSUMED) — 단건 주문 보장
-        // fallbackMode 또는 Grace Period: 세션 없이 진입 가능 → CAS skip, Semaphore로 DB 보호
         boolean isEventMode = (modeManager.isEvent() || modeManager.isDrain())
                 && !modeManager.isInGracePeriod()
                 && !modeManager.isFallbackMode();
@@ -57,8 +57,7 @@ public class OrderFacade {
                 && (modeManager.isEvent() || modeManager.isDrain());
 
         if (isEventMode) {
-            long casResult = sessionService.compareAndSwap(
-                    userId, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            long casResult = queueFacade.consumeSession(userId);
             if (casResult == SessionService.CAS_KEY_NOT_FOUND) {
                 throw new CoreException(ErrorType.UNAUTHORIZED, "세션이 만료되었습니다. 대기열에 다시 진입해주세요");
             }
@@ -67,7 +66,6 @@ public class OrderFacade {
             }
         }
 
-        // fallbackMode: Semaphore로 동시 주문 수 제한 (DB 커넥션 보호)
         if (isFallbackOrder && !fallbackSemaphore.tryAcquire()) {
             throw new CoreException(ErrorType.BAD_REQUEST, "일시적으로 주문이 제한됩니다. 잠시 후 다시 시도해주세요");
         }
@@ -75,16 +73,14 @@ public class OrderFacade {
         try {
             OrderInfo result = executeOrder(userId, command);
 
-            // TX 커밋 후: 세션 삭제 (퇴장)
             if (isEventMode) {
                 registerSessionDeletion(userId);
             }
 
             return result;
         } catch (Exception e) {
-            // 주문 실패: CONSUMED → ACTIVE 복원
             if (isEventMode) {
-                restoreSession(userId);
+                queueFacade.restoreSession(userId);
             }
             throw e;
         } finally {
@@ -153,7 +149,6 @@ public class OrderFacade {
     }
 
     private OrderInfo executeOrder(Long userId, OrderCommand.Place command) {
-        // 1단계: 검증 + 계산
         Map<Long, Integer> productQuantities = command.toQuantityMap();
         List<Product> products = productService.getActiveProducts(productQuantities.keySet());
 
@@ -164,7 +159,6 @@ public class OrderFacade {
                 ? issuedCouponService.createDiscountSnapshot(command.issuedCouponId(), userId, totalAmount)
                 : IssuedCouponSnapshot.none();
 
-        // 2단계: 상태 변경 (원자적)
         stockService.reserve(productQuantities);
 
         if (couponSnapshot.isApplied()) {
@@ -182,23 +176,8 @@ public class OrderFacade {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                try {
-                    sessionService.deleteSession(userId);
-                } catch (Exception e) {
-                    // 실패해도 Hard TTL이 세션 정리 → 로그만
-                    log.warn("afterCommit 세션 삭제 실패: userId={}", userId, e);
-                }
+                queueFacade.deleteSessionAfterCommit(userId);
             }
         });
-    }
-
-    private void restoreSession(Long userId) {
-        try {
-            sessionService.compareAndSwap(
-                    userId, SessionService.STATUS_CONSUMED, SessionService.STATUS_ACTIVE);
-        } catch (Exception e) {
-            // 복원 실패: CONSUMED 잔류 → SessionGCScheduler가 30초 후 자동 복원
-            log.warn("세션 복원 실패: userId={}, SessionGC가 자동 복원 예정", userId, e);
-        }
     }
 }

@@ -17,8 +17,10 @@ public class QueueService {
     private final QueueRepository queueRepository;
     private final QueueProperties props;
 
-    // 입장 속도 추정
-    private volatile double currentAdmissionRate = 125.0;
+    private static final double DEFAULT_ADMISSION_RATE = 125.0;
+    private static final long MIN_WAIT_SECONDS = 1;
+
+    private volatile double currentAdmissionRate = DEFAULT_ADMISSION_RATE;
 
     public QueueService(QueueRepository queueRepository, QueueProperties props) {
         this.queueRepository = queueRepository;
@@ -58,8 +60,8 @@ public class QueueService {
     public long estimateWaitSeconds(long position) {
         double rate = currentAdmissionRate;
         if (rate <= 0) {
-            return Math.max(1, position / 125);
+            return Math.max(MIN_WAIT_SECONDS, position / (long) DEFAULT_ADMISSION_RATE);
         }
-        return Math.max(1, (long) (position / rate));
+        return Math.max(MIN_WAIT_SECONDS, (long) (position / rate));
     }
 }

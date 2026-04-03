@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.queue.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.queue.ModeManager;
+import com.loopers.application.queue.QueueSizeCache;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.queue.config.QueueProperties;
 import jakarta.servlet.FilterChain;
@@ -25,11 +26,10 @@ import java.io.IOException;
 public class EarlyRejectionFilter extends OncePerRequestFilter {
 
     private final ModeManager modeManager;
+    private final QueueSizeCache queueSizeCache;
     private final QueueProperties props;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
-
-    private volatile long currentQueueSize = 0;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -41,7 +41,6 @@ public class EarlyRejectionFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        // DRAIN 모드: 새 진입 거부
         if (modeManager.isDrain()) {
             meterRegistry.counter("early.rejection.total", "reason", "DRAIN").increment();
             response.setHeader("Retry-After", "30");
@@ -49,8 +48,7 @@ public class EarlyRejectionFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 큐 만석 확인
-        if (currentQueueSize >= props.getMaxQueueSize()) {
+        if (queueSizeCache.get() >= props.getMaxQueueSize()) {
             meterRegistry.counter("early.rejection.total", "reason", "QUEUE_FULL").increment();
             response.setHeader("Retry-After", "10");
             reject(response, HttpStatus.SERVICE_UNAVAILABLE, "QUEUE_FULL", "대기열이 가득 찼습니다. 잠시 후 다시 시도해주세요");
@@ -58,10 +56,6 @@ public class EarlyRejectionFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    public void updateQueueSize(long size) {
-        this.currentQueueSize = size;
     }
 
     private void reject(HttpServletResponse response, HttpStatus status,

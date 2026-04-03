@@ -8,10 +8,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/**
- * Redis 장애 감지 스케줄러.
- * 10초마다 PING → 실패 시 fallbackMode 진입, 연속 3회 성공 시 복구.
- */
 @Slf4j
 @Component
 public class RedisHealthCheckScheduler {
@@ -32,11 +28,8 @@ public class RedisHealthCheckScheduler {
 
     @Scheduled(fixedDelay = 10_000)
     public void checkRedisHealth() {
-        try {
-            RedisConnection connection = redisTemplate.getConnectionFactory().getConnection();
+        try (RedisConnection connection = redisTemplate.getConnectionFactory().getConnection()) {
             String pong = connection.ping();
-            connection.close();
-
             if (pong != null) {
                 onSuccess();
             } else {

@@ -24,6 +24,8 @@ public class QueueFacade {
 
     private static final String LOCK_ADMISSION = "lock:admission";
     private static final String LOCK_SESSION_GC = "lock:session-gc";
+    private static final int LOCK_TTL_SECONDS = 15;
+    private static final long DEFAULT_POSITION = 1;
 
     private final QueueService queueService;
     private final SessionService sessionService;
@@ -72,7 +74,7 @@ public class QueueFacade {
         }
 
         Long position = queueService.getPosition(userId);
-        long pos = (position != null) ? position : 1;
+        long pos = (position != null) ? position : DEFAULT_POSITION;
         long estimatedWait = queueService.estimateWaitSeconds(pos);
         return QueueEntryResponse.waiting(pos, estimatedWait);
     }
@@ -91,7 +93,7 @@ public class QueueFacade {
      */
     public void admitBatch() {
         if (!modeManager.isEvent()) return;
-        if (!lockRepository.tryLock(LOCK_ADMISSION, 15)) return;
+        if (!lockRepository.tryLock(LOCK_ADMISSION, LOCK_TTL_SECONDS)) return;
 
         try {
             int batchSize = props.getAdmissionBatchSize();
@@ -123,13 +125,35 @@ public class QueueFacade {
      */
     public void cleanExpiredSessions() {
         if (!modeManager.isEvent() && !modeManager.isDrain()) return;
-        if (!lockRepository.tryLock(LOCK_SESSION_GC, 15)) return;
+        if (!lockRepository.tryLock(LOCK_SESSION_GC, LOCK_TTL_SECONDS)) return;
 
         try {
             double now = Instant.now().getEpochSecond();
             sessionService.removeExpiredTrackerEntries(now);
         } catch (Exception e) {
             log.error("SessionGC 오류", e);
+        }
+    }
+
+    // 세션 CAS — OrderFacade에서 호출 (크로스 도메인은 Facade 경유)
+
+    public long consumeSession(Long userId) {
+        return sessionService.compareAndSwap(userId, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+    }
+
+    public void restoreSession(Long userId) {
+        try {
+            sessionService.compareAndSwap(userId, SessionService.STATUS_CONSUMED, SessionService.STATUS_ACTIVE);
+        } catch (Exception e) {
+            log.warn("세션 복원 실패: userId={}, Access TTL 만료가 복구 수단", userId, e);
+        }
+    }
+
+    public void deleteSessionAfterCommit(Long userId) {
+        try {
+            sessionService.deleteSession(userId);
+        } catch (Exception e) {
+            log.warn("afterCommit 세션 삭제 실패: userId={}, Hard TTL이 정리", userId, e);
         }
     }
 
