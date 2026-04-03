@@ -10,9 +10,22 @@ public record QueuePositionProperties(
         double throughputTps,
         RateLimit rateLimit
 ) {
+
+    /** YAML 오설정 시 비현실적 대기·오버플로를 막기 위한 상한 (초당 입장 목표 TPS). */
+    public static final double MAX_THROUGHPUT_TPS = 1_000_000.0;
+
     public QueuePositionProperties {
         if (rateLimit == null) {
             rateLimit = new RateLimit(false, 5, 1);
+        }
+        if (!(throughputTps > 0)
+                || throughputTps > MAX_THROUGHPUT_TPS
+                || !Double.isFinite(throughputTps)) {
+            throw new IllegalArgumentException(
+                    "queue.position.throughput-tps must be finite and in (0, "
+                            + (long) MAX_THROUGHPUT_TPS
+                            + "], got: "
+                            + throughputTps);
         }
     }
 
