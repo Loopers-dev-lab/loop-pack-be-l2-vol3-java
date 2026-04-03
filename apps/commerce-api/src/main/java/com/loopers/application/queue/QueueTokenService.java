@@ -37,5 +37,9 @@ public class QueueTokenService {
         }
     }
 
+    public void removeToken(String eventId, Long userId) {
+        queueTokenRepository.removeToken(eventId, userId);
+    }
+
     public record TokenInfo(String token, long expiresIn) {}
 }
