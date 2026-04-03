@@ -7,9 +7,11 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Repository
@@ -115,6 +117,52 @@ public class QueueRedisRepository implements QueueRepository {
     public boolean isEntered(Long userId) {
         // EXISTS entered:{userId}: 없으면 Service API가 403 반환
         return Boolean.TRUE.equals(redisTemplate.hasKey(enteredKey(userId)));
+    }
+
+    /**
+     * Lua 스크립트 — 배치 입장 허가.
+     *
+     * 스케줄러 전용: ZPOPMIN으로 batchSize명을 원자적으로 꺼내 entered 상태로 전환.
+     * 왜 ZPOPMIN인가:
+     * - 대기열 제거(ZREM)와 entered 설정(SET)을 한 번에 처리 → 중간 상태 없음
+     * - score 오름차순(joinedAt) → 먼저 들어온 유저가 먼저 나감 (FIFO)
+     *
+     * KEYS[1] = 대기열 Sorted Set 키
+     * ARGV[1] = batchSize (꺼낼 인원 수)
+     * ARGV[2] = entered TTL (초)
+     *
+     * 반환값: 입장 허가된 userId 목록 (Lua table → Java List<String>)
+     *   ZPOPMIN 결과는 [member, score, member, score, ...] 형태
+     *   홀수 인덱스(1, 3, 5...)가 userId, 짝수 인덱스가 score
+     */
+    @SuppressWarnings("rawtypes")
+    private static final DefaultRedisScript<List> BATCH_ADMIT_SCRIPT = new DefaultRedisScript<>("""
+        local batch = redis.call('ZPOPMIN', KEYS[1], ARGV[1])
+        local userIds = {}
+        for i = 1, #batch, 2 do
+            local userId = batch[i]
+            redis.call('SET', 'entered:' .. userId, '1', 'EX', ARGV[2])
+            userIds[#userIds + 1] = userId
+        end
+        return userIds
+        """, List.class);
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<Long> admitBatch(String queueId, long batchSize) {
+        List<String> result = redisTemplate.execute(
+            BATCH_ADMIT_SCRIPT,
+            List.of(queueKey(queueId)),
+            String.valueOf(batchSize),
+            String.valueOf(ENTERED_TTL_SECONDS)
+        );
+        if (result == null || result.isEmpty()) return Collections.emptyList();
+        return result.stream().map(Long::parseLong).collect(Collectors.toList());
+    }
+
+    @Override
+    public void deleteEntered(Long userId) {
+        redisTemplate.delete(enteredKey(userId));
     }
 
     // --- 키 네이밍 컨벤션 ---

@@ -1,5 +1,6 @@
 package com.loopers.domain.queue;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -54,4 +55,18 @@ public interface QueueRepository {
      * EXISTS entered:{userId} — 없으면 403.
      */
     boolean isEntered(Long userId);
+
+    /**
+     * 배치 입장 허가 — 스케줄러 전용.
+     * Lua 스크립트: ZPOPMIN(batchSize) → 각 userId에 SET entered:{userId} 1 EX TTL
+     * 원자적으로 최대 batchSize명을 대기열에서 꺼내 입장 허가 상태로 전환.
+     * @return 입장 허가된 userId 목록 (SSE push에 활용)
+     */
+    List<Long> admitBatch(String queueId, long batchSize);
+
+    /**
+     * 주문 완료 후 entered 키 삭제.
+     * 5분 TTL 만료 전 명시적 삭제로 슬롯 즉시 반환.
+     */
+    void deleteEntered(Long userId);
 }
