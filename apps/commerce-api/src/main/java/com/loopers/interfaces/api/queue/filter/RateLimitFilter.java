@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.queue.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.queue.ModeManager;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.queue.config.QueueProperties;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -39,6 +40,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private final RedisTemplate<String, String> masterRedisTemplate;
     private final QueueProperties props;
+    private final ModeManager modeManager;
     private final ObjectMapper objectMapper;
     private final MeterRegistry meterRegistry;
     private final ConcurrentHashMap<String, AtomicInteger> ipCounters = new ConcurrentHashMap<>();
@@ -46,11 +48,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
     public RateLimitFilter(
             @Qualifier("redisTemplateMaster") RedisTemplate<String, String> masterRedisTemplate,
             QueueProperties props,
+            ModeManager modeManager,
             ObjectMapper objectMapper,
             MeterRegistry meterRegistry
     ) {
         this.masterRedisTemplate = masterRedisTemplate;
         this.props = props;
+        this.modeManager = modeManager;
         this.objectMapper = objectMapper;
         this.meterRegistry = meterRegistry;
     }
@@ -62,6 +66,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        if (!modeManager.isEvent() && !modeManager.isDrain()) return true;
+
         String uri = request.getRequestURI();
         return !(uri.startsWith("/api/v1/queue")
                 || uri.equals("/api/v1/orders")
