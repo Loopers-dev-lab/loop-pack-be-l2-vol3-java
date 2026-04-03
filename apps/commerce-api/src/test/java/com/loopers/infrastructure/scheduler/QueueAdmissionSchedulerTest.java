@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.scheduler;
 
+import com.loopers.infrastructure.queue.QueueSseEmitterRegistry;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,13 +18,15 @@ class QueueAdmissionSchedulerTest {
 
     private QueueAdmissionScheduler scheduler;
     private WaitingQueueRedisRepository waitingQueueRedisRepository;
+    private QueueSseEmitterRegistry sseEmitterRegistry;
     private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
         waitingQueueRedisRepository = mock(WaitingQueueRedisRepository.class);
+        sseEmitterRegistry = mock(QueueSseEmitterRegistry.class);
         meterRegistry = new SimpleMeterRegistry();
-        scheduler = new QueueAdmissionScheduler(waitingQueueRedisRepository, meterRegistry);
+        scheduler = new QueueAdmissionScheduler(waitingQueueRedisRepository, sseEmitterRegistry, meterRegistry);
     }
 
     @DisplayName("배치 크기만큼 원자적 POP + 토큰 발급 (Lua)")
@@ -114,5 +117,38 @@ class QueueAdmissionSchedulerTest {
 
         double count = meterRegistry.counter("queue.cleanup.removed").count();
         assertThat(count).isEqualTo(5.0);
+    }
+
+    // --- SSE 연동 검증 ---
+
+    @DisplayName("입장 처리 후 SSE registry에 onAdmission 호출")
+    @Test
+    void admitUsers_callsSseOnAdmission() {
+        List<String> admitted = List.of("1", "2", "3");
+        when(waitingQueueRedisRepository.popMinAndIssueTokens(8))
+            .thenReturn(admitted);
+
+        scheduler.admitUsers();
+
+        verify(sseEmitterRegistry).onAdmission(admitted, 3);
+    }
+
+    @DisplayName("빈 큐 입장 시 SSE onAdmission 미호출")
+    @Test
+    void admitUsers_emptyQueue_noSseCall() {
+        when(waitingQueueRedisRepository.popMinAndIssueTokens(8))
+            .thenReturn(Collections.emptyList());
+
+        scheduler.admitUsers();
+
+        verify(sseEmitterRegistry, never()).onAdmission(anyList(), anyInt());
+    }
+
+    @DisplayName("heartbeat 호출 시 SSE registry sendHeartbeat 호출")
+    @Test
+    void sendSseHeartbeat_callsRegistry() {
+        scheduler.sendSseHeartbeat();
+
+        verify(sseEmitterRegistry).sendHeartbeat();
     }
 }

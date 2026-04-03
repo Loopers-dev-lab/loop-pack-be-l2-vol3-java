@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.queue;
 
 import com.loopers.domain.member.Member;
+import com.loopers.infrastructure.queue.QueueSseEmitterRegistry;
 import com.loopers.infrastructure.redis.EntryTokenRedisRepository;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import com.loopers.interfaces.api.ApiResponse;
@@ -8,6 +9,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -17,6 +19,7 @@ class QueueControllerTest {
     private QueueController controller;
     private WaitingQueueRedisRepository waitingQueueRedisRepository;
     private EntryTokenRedisRepository entryTokenRedisRepository;
+    private QueueSseEmitterRegistry sseEmitterRegistry;
     private SimpleMeterRegistry meterRegistry;
     private Member member;
 
@@ -24,9 +27,11 @@ class QueueControllerTest {
     void setUp() {
         waitingQueueRedisRepository = mock(WaitingQueueRedisRepository.class);
         entryTokenRedisRepository = mock(EntryTokenRedisRepository.class);
+        sseEmitterRegistry = mock(QueueSseEmitterRegistry.class);
         meterRegistry = new SimpleMeterRegistry();
         controller = new QueueController(
-            waitingQueueRedisRepository, entryTokenRedisRepository, meterRegistry
+            waitingQueueRedisRepository, entryTokenRedisRepository,
+            sseEmitterRegistry, meterRegistry, 48_000L
         );
         member = mock(Member.class);
         when(member.getId()).thenReturn(1L);
@@ -177,5 +182,43 @@ class QueueControllerTest {
 
         double count = meterRegistry.counter("queue.enter.status", "status", "QUEUED").count();
         assertThat(count).isEqualTo(1.0);
+    }
+
+    // --- SSE stream 엔드포인트 검증 ---
+
+    @DisplayName("stream: 토큰 존재 → admitted 이벤트 후 즉시 닫기")
+    @Test
+    void stream_admitted_returnsEmitterAndCompletes() {
+        when(entryTokenRedisRepository.exists(1L)).thenReturn(true);
+
+        SseEmitter emitter = controller.stream(member);
+
+        assertThat(emitter).isNotNull();
+        verify(sseEmitterRegistry, never()).register(anyLong(), anyLong());
+    }
+
+    @DisplayName("stream: 큐에 없음 → not_in_queue 이벤트 후 즉시 닫기")
+    @Test
+    void stream_notInQueue_returnsEmitterAndCompletes() {
+        when(entryTokenRedisRepository.exists(1L)).thenReturn(false);
+        when(waitingQueueRedisRepository.getRank(1L)).thenReturn(null);
+
+        SseEmitter emitter = controller.stream(member);
+
+        assertThat(emitter).isNotNull();
+        verify(sseEmitterRegistry, never()).register(anyLong(), anyLong());
+    }
+
+    @DisplayName("stream: 대기 중 → registry.register() 호출")
+    @Test
+    void stream_waiting_registersEmitter() {
+        when(entryTokenRedisRepository.exists(1L)).thenReturn(false);
+        when(waitingQueueRedisRepository.getRank(1L)).thenReturn(41L);
+        when(sseEmitterRegistry.register(1L, 42L)).thenReturn(new SseEmitter());
+
+        SseEmitter emitter = controller.stream(member);
+
+        assertThat(emitter).isNotNull();
+        verify(sseEmitterRegistry).register(1L, 42L);
     }
 }

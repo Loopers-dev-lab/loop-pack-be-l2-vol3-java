@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.scheduler;
 
+import com.loopers.infrastructure.queue.QueueSseEmitterRegistry;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -35,6 +36,7 @@ public class QueueAdmissionScheduler {
     private static final long ERROR_LOG_INTERVAL_MILLIS = 10_000;
 
     private final WaitingQueueRedisRepository waitingQueueRedisRepository;
+    private final QueueSseEmitterRegistry sseEmitterRegistry;
 
     private final Counter admissionCounter;
     private final Counter admissionErrorCounter;
@@ -46,9 +48,11 @@ public class QueueAdmissionScheduler {
 
     public QueueAdmissionScheduler(
         WaitingQueueRedisRepository waitingQueueRedisRepository,
+        QueueSseEmitterRegistry sseEmitterRegistry,
         MeterRegistry meterRegistry
     ) {
         this.waitingQueueRedisRepository = waitingQueueRedisRepository;
+        this.sseEmitterRegistry = sseEmitterRegistry;
 
         this.admissionCounter = Counter.builder("queue.admission.count")
             .description("입장 처리된 유저 수")
@@ -71,6 +75,7 @@ public class QueueAdmissionScheduler {
                 return;
             }
             admissionCounter.increment(admitted.size());
+            sseEmitterRegistry.onAdmission(admitted, admitted.size());
             log.debug("대기열 입장 처리: {}명", admitted.size());
         } catch (Exception e) {
             admissionErrorCounter.increment();
@@ -96,6 +101,11 @@ public class QueueAdmissionScheduler {
         } catch (Exception e) {
             throttledWarn(lastCleanupErrorLogTime, "타임아웃 정리", e);
         }
+    }
+
+    @Scheduled(fixedRate = 30_000)
+    public void sendSseHeartbeat() {
+        sseEmitterRegistry.sendHeartbeat();
     }
 
     private void throttledWarn(AtomicLong lastLogTime, String operation, Exception e) {

@@ -1,23 +1,31 @@
 package com.loopers.interfaces.api.queue;
 
 import com.loopers.domain.member.Member;
+import com.loopers.infrastructure.queue.QueueSseEmitterRegistry;
 import com.loopers.infrastructure.redis.EntryTokenRedisRepository;
 import com.loopers.infrastructure.redis.WaitingQueueRedisRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthMember;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import org.springframework.beans.factory.annotation.Value;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/queue")
 public class QueueController {
 
     private static final double ADMISSION_RATE = 80.0;
-    private static final long MAX_QUEUE_SIZE = 48_000;
 
+    private final long maxQueueSize;
     private final WaitingQueueRedisRepository waitingQueueRedisRepository;
     private final EntryTokenRedisRepository entryTokenRedisRepository;
+    private final QueueSseEmitterRegistry sseEmitterRegistry;
 
     private final Counter enterQueuedCounter;
     private final Counter enterAdmittedCounter;
@@ -26,10 +34,14 @@ public class QueueController {
     public QueueController(
         WaitingQueueRedisRepository waitingQueueRedisRepository,
         EntryTokenRedisRepository entryTokenRedisRepository,
-        MeterRegistry meterRegistry
+        QueueSseEmitterRegistry sseEmitterRegistry,
+        MeterRegistry meterRegistry,
+        @Value("${queue.max-size:48000}") long maxQueueSize
     ) {
+        this.maxQueueSize = maxQueueSize;
         this.waitingQueueRedisRepository = waitingQueueRedisRepository;
         this.entryTokenRedisRepository = entryTokenRedisRepository;
+        this.sseEmitterRegistry = sseEmitterRegistry;
 
         this.enterQueuedCounter = Counter.builder("queue.enter.status")
             .tag("status", "QUEUED")
@@ -54,7 +66,7 @@ public class QueueController {
             ));
         }
 
-        if (waitingQueueRedisRepository.size() >= MAX_QUEUE_SIZE) {
+        if (waitingQueueRedisRepository.size() >= maxQueueSize) {
             enterQueueFullCounter.increment();
             return ApiResponse.success(new QueueDto.EnterResponse(
                 "QUEUE_FULL", null, null, null, null
@@ -110,6 +122,44 @@ public class QueueController {
             "WAITING", position, totalQueueSize, estimatedWaitSeconds, null,
             calculatePollInterval(position)
         ));
+    }
+
+    /**
+     * SSE 기반 실시간 순번 Push.
+     *
+     * <p>ADMITTED → admitted 이벤트 후 즉시 닫기.
+     * NOT_IN_QUEUE → not_in_queue 이벤트 후 즉시 닫기.
+     * WAITING → registry.register() 호출 (delta 브로드캐스트 수신).</p>
+     */
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream(@AuthMember Member member) {
+        Long memberId = member.getId();
+
+        if (entryTokenRedisRepository.exists(memberId)) {
+            SseEmitter emitter = new SseEmitter(0L);
+            try {
+                emitter.send(SseEmitter.event().name("admitted").data(Map.of()));
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+            return emitter;
+        }
+
+        Long rank = waitingQueueRedisRepository.getRank(memberId);
+        if (rank == null) {
+            SseEmitter emitter = new SseEmitter(0L);
+            try {
+                emitter.send(SseEmitter.event().name("not_in_queue").data(Map.of()));
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+            return emitter;
+        }
+
+        long position = rank + 1;
+        return sseEmitterRegistry.register(memberId, position);
     }
 
     /**
