@@ -70,7 +70,14 @@ public class QueueV1Controller implements QueueV1ApiSpec {
      * 순번 스냅샷을 SSE({@code text/event-stream})로 밀어준다. 폴링 대신 실시간 갱신이 필요할 때 사용한다.
      * 연결은 {@link QueuePositionStreamService#subscribe} 정책(타임아웃 등)을 따른다.
      */
-    @GetMapping(value = "/position/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    /**
+     * 정상 시 {@code text/event-stream}, 동시 연결 한도 초과 등 예외 시 {@link ApiControllerAdvice}가 JSON을 내려주므로
+     * {@code produces}에 둘 다 허용해 Accept 협상 실패(406/500)를 막는다.
+     */
+    @GetMapping(
+            value = "/position/stream",
+            produces = {MediaType.TEXT_EVENT_STREAM_VALUE, MediaType.APPLICATION_JSON_VALUE}
+    )
     @Override
     public SseEmitter streamQueuePosition(
             @RequestHeader(value = "X-Loopers-LoginId", required = false) String loginId

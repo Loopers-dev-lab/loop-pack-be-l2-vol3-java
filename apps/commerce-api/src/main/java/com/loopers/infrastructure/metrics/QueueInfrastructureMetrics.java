@@ -24,6 +24,7 @@ public class QueueInfrastructureMetrics {
     private final Counter kafkaJoinFallbackDlt;
     private final Counter schedulerLockSkipped;
     private final Counter schedulerInvocations;
+    private final Counter sseConcurrencyRejected;
 
     /**
      * @param meterRegistry 미터(Meter) 및 메트릭(Metrics)을 관리·등록하는 Micrometer의 중앙 저장소 객체
@@ -53,6 +54,9 @@ public class QueueInfrastructureMetrics {
                 .register(meterRegistry);
         this.schedulerInvocations = Counter.builder("loopers.queue.scheduler.invocations")
                 .description("releaseEntries 호출 횟수(스케줄된 틱 시도; 락 성공 여부와 무관)")
+                .register(meterRegistry);
+        this.sseConcurrencyRejected = Counter.builder("loopers.queue.position.sse.concurrency.rejected")
+                .description("순번 SSE 동시 연결 상한으로 연결을 거절한 횟수")
                 .register(meterRegistry);
     }
 
@@ -102,5 +106,10 @@ public class QueueInfrastructureMetrics {
                         "released_empty",
                         releasedCount == 0 ? "true" : "false")
                 .increment();
+    }
+
+    /** SSE 순번 스트림 동시 연결 한도 초과로 요청을 거절한 경우 1회 증가. */
+    public void recordSseConcurrencyRejected() {
+        sseConcurrencyRejected.increment();
     }
 }

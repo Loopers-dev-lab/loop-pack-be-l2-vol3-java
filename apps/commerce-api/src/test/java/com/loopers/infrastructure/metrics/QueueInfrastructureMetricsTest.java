@@ -76,4 +76,12 @@ class QueueInfrastructureMetricsTest {
         assertThat(meterRegistry.counter("loopers.queue.scheduler.tick.completed", "released_empty", "false").count())
                 .isEqualTo(1.0);
     }
+
+    @DisplayName("recordSseConcurrencyRejected 호출 시 loopers.queue.position.sse.concurrency.rejected 카운터가 증가한다.")
+    @Test
+    void recordSseConcurrencyRejected_shouldIncrementCounter() {
+        metrics.recordSseConcurrencyRejected();
+
+        assertThat(meterRegistry.counter("loopers.queue.position.sse.concurrency.rejected").count()).isEqualTo(1.0);
+    }
 }

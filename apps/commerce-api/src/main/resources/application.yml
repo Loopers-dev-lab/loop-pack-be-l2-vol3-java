@@ -104,6 +104,8 @@ queue:
     require-entry-token: true
   position:
     throughput-tps: 175
+    sse-stream:
+      max-concurrent-connections: 10000 # 동시 SSE(/queue/position/stream) 연결 상한; 0이면 무제한
     rate-limit:
       enabled: true
       max-requests-per-second: 5
@@ -128,6 +130,8 @@ queue:
   fallback:
     enabled: false
   position:
+    sse-stream:
+      max-concurrent-connections: 10000
     rate-limit:
       enabled: false
 ---

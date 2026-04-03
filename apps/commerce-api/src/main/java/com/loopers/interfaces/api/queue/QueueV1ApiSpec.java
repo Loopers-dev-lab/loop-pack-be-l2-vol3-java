@@ -33,7 +33,9 @@ public interface QueueV1ApiSpec {
 
     @Operation(
             summary = "대기열 순번 SSE",
-            description = "순번 스냅샷을 주기적으로 text/event-stream으로 전송합니다."
+            description = "순번 스냅샷을 주기적으로 text/event-stream으로 전송합니다. "
+                    + "동시 연결 수는 queue.position.sse-stream.max-concurrent-connections(0이면 무제한)로 제한되며, "
+                    + "한도 초과 시 429(TOO_MANY_REQUESTS)와 Retry-After: 1을 반환합니다."
     )
     SseEmitter streamQueuePosition(
             @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)

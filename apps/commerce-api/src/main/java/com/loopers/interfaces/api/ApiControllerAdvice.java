@@ -11,6 +11,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.RedisSystemException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -51,7 +54,13 @@ public class ApiControllerAdvice {
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handle(CoreException e) {
         log.warn("CoreException : {}", e.getCustomMessage() != null ? e.getCustomMessage() : e.getMessage(), e);
-        return failureResponse(e.getErrorType(), e.getCustomMessage());
+        ErrorType errorType = e.getErrorType();
+        String message = e.getCustomMessage() != null ? e.getCustomMessage() : errorType.getMessage();
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(errorType.getStatus()).contentType(MediaType.APPLICATION_JSON);
+        if (errorType == ErrorType.TOO_MANY_REQUESTS) {
+            builder.header(HttpHeaders.RETRY_AFTER, "1");
+        }
+        return builder.body(ApiResponse.fail(errorType.getCode(), message));
     }
 
     @ExceptionHandler
