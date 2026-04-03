@@ -1,7 +1,10 @@
 package com.loopers.application.like;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -10,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +34,14 @@ class LikeServiceTest {
     void setUp() {
         fakeLikeRepository = new FakeLikeRepository();
         fakeProductRepository = new FakeProductRepository();
-        likeService = new LikeService(fakeLikeRepository, fakeProductRepository);
+        // 7주차 LikeService에 ApplicationEventPublisher, OutboxEventRepository, ObjectMapper 추가됨
+        // 단위 테스트에서는 no-op stub으로 처리
+        ApplicationEventPublisher noOpPublisher = event -> {};
+        OutboxEventRepository noOpOutbox = new OutboxEventRepository() {
+            @Override public OutboxEvent save(OutboxEvent e) { return e; }
+            @Override public List<OutboxEvent> findPending() { return List.of(); }
+        };
+        likeService = new LikeService(fakeLikeRepository, fakeProductRepository, noOpPublisher, noOpOutbox, new ObjectMapper());
     }
 
     @DisplayName("좋아요 등록")
@@ -133,6 +144,11 @@ class LikeServiceTest {
         @Override
         public java.util.List<Product> findAll(com.loopers.domain.product.SortCondition sort) {
             return new ArrayList<>(store.values());
+        }
+
+        @Override
+        public boolean existsById(Long id) {
+            return store.containsKey(id);
         }
     }
 

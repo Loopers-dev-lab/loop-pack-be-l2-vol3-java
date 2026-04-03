@@ -1,5 +1,7 @@
 package com.loopers.application.order;
 
+import com.loopers.application.queue.QueueService;
+import com.loopers.application.queue.QueueSseRegistry;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.CouponTemplateRepository;
 import com.loopers.domain.coupon.CouponType;
@@ -11,6 +13,8 @@ import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.SortCondition;
+import com.loopers.domain.queue.QueueRepository;
+import com.loopers.domain.queue.QueueToken;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +47,9 @@ class OrderServiceTest {
         fakeIssuedCouponRepository = new FakeIssuedCouponRepository();
         fakeCouponTemplateRepository = new FakeCouponTemplateRepository();
         OrderDomainService orderDomainService = new OrderDomainService(fakeProductRepository, fakeOrderRepository);
-        orderService = new OrderService(orderDomainService, fakeIssuedCouponRepository, fakeCouponTemplateRepository);
+        // FakeQueueRepository: isEntered()가 항상 true → 테스트에서 대기열 검증 통과
+        QueueService queueService = new QueueService(new FakeQueueRepository(), new QueueSseRegistry());
+        orderService = new OrderService(orderDomainService, fakeIssuedCouponRepository, fakeCouponTemplateRepository, queueService);
     }
 
     @DisplayName("주문 생성")
@@ -189,6 +195,11 @@ class OrderServiceTest {
         public List<Product> findAll(SortCondition sort) {
             return new ArrayList<>(store.values());
         }
+
+        @Override
+        public boolean existsById(Long id) {
+            return store.containsKey(id);
+        }
     }
 
     static class FakeOrderRepository implements OrderRepository {
@@ -247,6 +258,21 @@ class OrderServiceTest {
         public long countByCouponTemplateId(Long couponTemplateId) {
             return store.values().stream().filter(c -> c.getCouponTemplateId().equals(couponTemplateId)).count();
         }
+    }
+
+    /**
+     * 테스트용 QueueRepository: isEntered()가 항상 true → validateEntry() 통과.
+     * OrderService 단위 테스트에서 대기열 로직을 격리하기 위해 사용.
+     */
+    static class FakeQueueRepository implements QueueRepository {
+        @Override public void enter(QueueToken token) {}
+        @Override public java.util.Optional<Long> getUserIdByToken(String token) { return java.util.Optional.empty(); }
+        @Override public java.util.Optional<Long> getRank(String queueId, Long userId) { return java.util.Optional.of(0L); }
+        @Override public long getTotalSize(String queueId) { return 0L; }
+        @Override public boolean admit(String queueId, Long userId, long threshold) { return true; }
+        @Override public boolean isEntered(Long userId) { return true; } // 항상 입장 허가 상태
+        @Override public java.util.List<Long> admitBatch(String queueId, long batchSize) { return java.util.List.of(); }
+        @Override public void deleteEntered(Long userId) {}
     }
 
     static class FakeCouponTemplateRepository implements CouponTemplateRepository {

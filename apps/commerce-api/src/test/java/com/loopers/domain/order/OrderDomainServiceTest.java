@@ -116,6 +116,11 @@ class OrderDomainServiceTest {
         public List<Product> findAll(SortCondition sort) {
             return new ArrayList<>(store.values());
         }
+
+        @Override
+        public boolean existsById(Long id) {
+            return store.containsKey(id);
+        }
     }
 
     static class FakeOrderRepository implements OrderRepository {
