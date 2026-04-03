@@ -1,8 +1,15 @@
 package com.loopers.application.coupon;
 
 import com.loopers.application.coupon.command.UseCouponCommand;
+import com.loopers.application.coupon.view.CouponIssueRequestView;
+import com.loopers.application.observability.annotation.LogBusinessSuccess;
 import com.loopers.application.coupon.view.MyCouponView;
+import com.loopers.application.outbox.CouponIssueOutboxService;
+import com.loopers.contract.coupon.CouponIssueRequestedEvent;
 import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponIssueRequest;
+import com.loopers.domain.coupon.CouponIssueRequestRepository;
+import com.loopers.domain.coupon.CouponIssueRequestStatus;
 import com.loopers.domain.coupon.CouponRepository;
 import com.loopers.domain.coupon.CouponStatus;
 import com.loopers.domain.coupon.IssuedCoupon;
@@ -25,8 +32,11 @@ public class CouponApplicationService {
 
     private final CouponRepository couponRepository;
     private final IssuedCouponRepository issuedCouponRepository;
+    private final CouponIssueRequestRepository couponIssueRequestRepository;
+    private final CouponIssueOutboxService couponIssueOutboxService;
 
     @Transactional
+    @LogBusinessSuccess(action = "COUPON_ISSUE", domain = "coupon", memberIdArg = "memberId", aggregateIdArg = "couponId")
     public void issue(UUID couponId, String memberId) {
         Coupon coupon = couponRepository.findById(couponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
@@ -49,6 +59,43 @@ public class CouponApplicationService {
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.CONFLICT, "이미 발급된 쿠폰입니다.");
         }
+    }
+
+    @Transactional
+    @LogBusinessSuccess(action = "COUPON_ISSUE_REQUEST", domain = "coupon", memberIdArg = "memberId", aggregateIdArg = "couponId")
+    public CouponIssueRequestView requestIssue(UUID couponId, String memberId) {
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
+
+        if (!coupon.isUsableAt(LocalDateTime.now())) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급할 수 없습니다.");
+        }
+
+        CouponIssueRequest request = couponIssueRequestRepository.save(new CouponIssueRequest(
+                UUID.randomUUID(),
+                memberId,
+                couponId,
+                CouponIssueRequestStatus.PENDING,
+                null,
+                LocalDateTime.now(),
+                null
+        ));
+
+        couponIssueOutboxService.saveCouponIssueRequested(new CouponIssueRequestedEvent(
+                request.requestId(),
+                request.couponId(),
+                request.memberId(),
+                request.requestedAt()
+        ));
+
+        return CouponIssueRequestView.from(request);
+    }
+
+    @Transactional(readOnly = true)
+    public CouponIssueRequestView getIssueRequest(UUID requestId, String memberId) {
+        CouponIssueRequest request = couponIssueRequestRepository.findByRequestIdAndMemberId(requestId, memberId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰 발급 요청을 찾을 수 없습니다."));
+        return CouponIssueRequestView.from(request);
     }
 
     @Transactional(readOnly = true)
@@ -82,6 +129,7 @@ public class CouponApplicationService {
     }
 
     @Transactional
+    @LogBusinessSuccess(action = "COUPON_USE", domain = "coupon", memberIdArg = "command", aggregateIdArg = "command")
     public void use(UseCouponCommand command) {
         IssuedCoupon issuedCoupon = issuedCouponRepository.findByMemberIdAndCouponId(command.memberId(), command.couponId())
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다."));
@@ -101,6 +149,7 @@ public class CouponApplicationService {
     }
 
     @Transactional
+    @LogBusinessSuccess(action = "COUPON_CANCEL_USE", domain = "coupon", memberIdArg = "memberId", aggregateIdArg = "couponId")
     public void cancelUse(UUID couponId, String memberId) {
         IssuedCoupon issuedCoupon = issuedCouponRepository.findByMemberIdAndCouponId(memberId, couponId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급된 쿠폰을 찾을 수 없습니다."));

@@ -19,5 +19,9 @@ public interface CouponRepository {
 
     Map<UUID, Coupon> findAllMapByIdIn(List<UUID> ids);
 
+    int decreaseRemainingQuantityAtomically(UUID couponId, int quantity);
+
+    int increaseRemainingQuantityAtomically(UUID couponId, int quantity);
+
     void delete(Coupon coupon);
 }

@@ -1,7 +1,9 @@
 package com.loopers.application.payment;
 
 import com.loopers.application.payment.command.CompletePaymentCommand;
+import com.loopers.application.outbox.OrderPaymentOutboxService;
 import com.loopers.application.payment.event.PaymentStatusChangedEvent;
+import com.loopers.contract.kafka.PaymentStatusChangedOutboxMessage;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentRepository;
@@ -13,6 +15,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+
 @Service
 @RequiredArgsConstructor
 public class PaymentCompletionApplicationService {
@@ -20,6 +24,7 @@ public class PaymentCompletionApplicationService {
     private final PaymentRepository paymentRepository;
     private final PaymentGateway paymentGateway;
     private final ApplicationEventPublisher applicationEventPublisher;
+    private final OrderPaymentOutboxService orderPaymentOutboxService;
 
     @Transactional
     public Payment complete(CompletePaymentCommand command) {
@@ -91,9 +96,18 @@ public class PaymentCompletionApplicationService {
         }
         Payment saved = paymentRepository.save(resolved);
         if (saved.status() != payment.status()) {
+            Instant changedAt = Instant.now();
             applicationEventPublisher.publishEvent(
-                    new PaymentStatusChangedEvent(saved.memberId(), saved.orderId(), payment.status(), saved.status())
+                    new PaymentStatusChangedEvent(saved.memberId(), saved.orderId(), payment.status(), saved.status(), changedAt)
             );
+            orderPaymentOutboxService.savePaymentStatusChanged(new PaymentStatusChangedOutboxMessage(
+                    java.util.UUID.randomUUID(),
+                    saved.orderId(),
+                    saved.memberId(),
+                    payment.status().name(),
+                    saved.status().name(),
+                    changedAt
+            ));
         }
         return saved;
     }

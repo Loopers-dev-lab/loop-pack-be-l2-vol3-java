@@ -54,6 +54,16 @@ public class CouponRepositoryImpl implements CouponRepository {
     }
 
     @Override
+    public int decreaseRemainingQuantityAtomically(UUID couponId, int quantity) {
+        return couponJpaRepository.decreaseRemainingQuantityAtomically(couponId, quantity);
+    }
+
+    @Override
+    public int increaseRemainingQuantityAtomically(UUID couponId, int quantity) {
+        return couponJpaRepository.increaseRemainingQuantityAtomically(couponId, quantity);
+    }
+
+    @Override
     public void delete(Coupon coupon) {
         Optional<CouponEntity> entity = couponJpaRepository.findByIdAndDeletedAtIsNull(coupon.id());
         if (entity.isPresent()) {

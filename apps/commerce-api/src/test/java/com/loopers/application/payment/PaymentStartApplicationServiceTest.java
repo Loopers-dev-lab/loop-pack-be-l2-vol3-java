@@ -4,7 +4,6 @@ import com.loopers.application.payment.command.StartPaymentCommand;
 import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentGateway;
-import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.payment.PaymentRecoveryRequiredException;
 import org.junit.jupiter.api.DisplayName;
@@ -13,10 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.ZonedDateTime;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,7 +30,10 @@ class PaymentStartApplicationServiceTest {
     private static final String CALLBACK_URL = "https://example.com/callback";
 
     @Mock
-    private PaymentRepository paymentRepository;
+    private PaymentStartPreparationApplicationService paymentStartPreparationApplicationService;
+
+    @Mock
+    private PaymentStartCompletionApplicationService paymentStartCompletionApplicationService;
 
     @Mock
     private PaymentGateway paymentGateway;
@@ -45,7 +45,8 @@ class PaymentStartApplicationServiceTest {
     @DisplayName("중복 요청일 때 기존 REQUESTED 결제를 바로 반환한다")
     void startReturnsExistingPaymentWhenAlreadyRequested() {
         Payment existing = existingPayment();
-        when(paymentRepository.findByMemberIdAndOrderId(MEMBER_ID, ORDER_ID)).thenReturn(Optional.of(existing));
+        when(paymentStartPreparationApplicationService.prepare(startCommand()))
+                .thenReturn(new PaymentStartPreparationResult(existing, false));
 
         Payment actual = paymentStartApplicationService.start(startCommand());
 
@@ -54,12 +55,12 @@ class PaymentStartApplicationServiceTest {
     }
 
     @Test
-    @DisplayName("동시성 충돌 시 DB 제약 예외를 기존 결제 조회로 흡수한다")
-    void startReturnsExistingPaymentWhenInsertConflictOccurs() {
+    @DisplayName("준비 단계가 게이트웨이 호출 불필요로 판단하면 기존 결제를 바로 반환한다")
+    void startReturnsExistingPaymentWhenPreparationMarksGatewayAsUnnecessary() {
         Payment existing = existingPayment();
 
-        when(paymentRepository.findByMemberIdAndOrderId(MEMBER_ID, ORDER_ID)).thenReturn(Optional.empty()).thenReturn(Optional.of(existing));
-        when(paymentRepository.save(any(Payment.class))).thenThrow(new DataIntegrityViolationException("dup"));
+        when(paymentStartPreparationApplicationService.prepare(startCommand()))
+                .thenReturn(new PaymentStartPreparationResult(existing, false));
 
         Payment actual = paymentStartApplicationService.start(startCommand());
 
@@ -72,15 +73,39 @@ class PaymentStartApplicationServiceTest {
     void startKeepsRequestedPaymentWhenRecoveryRequired() {
         Payment saved = existingPayment();
 
-        when(paymentRepository.findByMemberIdAndOrderId(MEMBER_ID, ORDER_ID)).thenReturn(Optional.empty());
-        when(paymentRepository.save(any(Payment.class))).thenReturn(saved);
+        when(paymentStartPreparationApplicationService.prepare(startCommand()))
+                .thenReturn(new PaymentStartPreparationResult(saved, true));
         when(paymentGateway.requestPayment(any())).thenThrow(new PaymentRecoveryRequiredException("request recovery"));
 
         Payment actual = paymentStartApplicationService.start(startCommand());
 
         assertThat(actual).isSameAs(saved);
         assertThat(actual.status()).isEqualTo(PaymentStatus.REQUESTED);
-        verify(paymentRepository).save(any(Payment.class));
+        verify(paymentStartCompletionApplicationService, never()).complete(any(Payment.class), any(PaymentGateway.PaymentGatewayTransaction.class));
+    }
+
+    @Test
+    @DisplayName("PG 호출 성공 후에는 별도 완료 서비스에서 상태를 저장한다")
+    void startCompletesPaymentAfterGatewayRequestOutsidePreparationTransaction() {
+        Payment requested = existingPayment();
+        Payment completed = requested.markSucceeded("tx-123");
+        PaymentGateway.PaymentGatewayTransaction gatewayTransaction = new PaymentGateway.PaymentGatewayTransaction(
+                "tx-123",
+                requested.orderId().toString(),
+                PaymentStatus.SUCCEEDED,
+                null
+        );
+
+        when(paymentStartPreparationApplicationService.prepare(startCommand()))
+                .thenReturn(new PaymentStartPreparationResult(requested, true));
+        when(paymentGateway.requestPayment(any())).thenReturn(gatewayTransaction);
+        when(paymentStartCompletionApplicationService.complete(requested, gatewayTransaction)).thenReturn(completed);
+
+        Payment actual = paymentStartApplicationService.start(startCommand());
+
+        assertThat(actual).isEqualTo(completed);
+        verify(paymentGateway).requestPayment(any());
+        verify(paymentStartCompletionApplicationService).complete(requested, gatewayTransaction);
     }
 
     private Payment existingPayment() {

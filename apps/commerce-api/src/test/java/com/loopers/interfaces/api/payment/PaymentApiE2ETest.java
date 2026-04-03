@@ -581,6 +581,7 @@ class PaymentApiE2ETest {
                 CouponType.FIXED,
                 discountValue,
                 0,
+                100,
                 LocalDateTime.now().plusDays(3)
         ));
         couponApplicationService.issue(coupon.id(), TEST_LOGIN_ID);
