@@ -118,6 +118,51 @@ class ModeManagerTest {
     }
 
     @Nested
+    class Fallback_모드 {
+
+        @Test
+        void 초기_상태에서_fallback은_비활성이다() {
+            ModeManager manager = createManager(60);
+
+            assertThat(manager.isFallbackMode()).isFalse();
+        }
+
+        @Test
+        void enterFallbackMode_호출_시_fallback이_활성화된다() {
+            ModeManager manager = createManager(60);
+
+            manager.enterFallbackMode();
+
+            assertThat(manager.isFallbackMode()).isTrue();
+        }
+
+        @Test
+        void exitFallbackMode_호출_시_fallback이_비활성화된다() {
+            ModeManager manager = createManager(60);
+            manager.enterFallbackMode();
+
+            manager.exitFallbackMode();
+
+            assertThat(manager.isFallbackMode()).isFalse();
+        }
+
+        @Test
+        void fallbackMode는_기존_모드와_독립적이다() {
+            ModeManager manager = createManager(60);
+            manager.switchToEvent();
+            manager.enterFallbackMode();
+
+            assertThat(manager.isEvent()).isTrue();
+            assertThat(manager.isFallbackMode()).isTrue();
+
+            manager.exitFallbackMode();
+
+            assertThat(manager.isEvent()).isTrue();
+            assertThat(manager.isFallbackMode()).isFalse();
+        }
+    }
+
+    @Nested
     class 모드_순환 {
 
         @Test

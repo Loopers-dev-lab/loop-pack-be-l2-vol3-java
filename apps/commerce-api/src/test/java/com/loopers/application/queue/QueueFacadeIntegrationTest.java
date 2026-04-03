@@ -77,6 +77,19 @@ class QueueFacadeIntegrationTest {
         }
 
         @Test
+        void fallbackMode에서_진입하면_SERVICE_UNAVAILABLE_예외가_발생한다() {
+            modeManager.switchToEvent();
+            modeManager.enterFallbackMode();
+
+            assertThatThrownBy(() -> queueFacade.enter(1L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorType())
+                            .isEqualTo(ErrorType.SERVICE_UNAVAILABLE));
+
+            modeManager.exitFallbackMode();
+        }
+
+        @Test
         void CONSUMED_세션이_있는_유저는_세션_삭제_후_진입할_수_있다() {
             modeManager.switchToEvent();
             sessionService.createSession(1L);
