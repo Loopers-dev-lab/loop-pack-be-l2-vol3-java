@@ -215,4 +215,22 @@ class QueueFacadeTest {
             verify(queueRepository).removeToken(userId);
         }
     }
+
+    @DisplayName("Rate Limit 시 토큰 TTL 연장 시, ")
+    @Nested
+    class ExtendTokenIfNearExpiry {
+
+        @Test
+        @DisplayName("임계치(15s)와 연장 시간(15s)을 repository에 위임한다.")
+        void delegatesExtensionWithConfiguredValues() {
+            // arrange
+            long userId = 1L;
+
+            // act
+            queueFacade.extendTokenIfNearExpiry(userId);
+
+            // assert
+            verify(queueRepository).extendTokenIfNearExpiry(userId, 15L, 15L);
+        }
+    }
 }

@@ -16,4 +16,6 @@ public interface QueueRepository {
     List<Long> issueTokens(int count, long ttlSeconds, List<String> uuids);
 
     void removeToken(long userId);
+
+    boolean extendTokenIfNearExpiry(long userId, long thresholdSeconds, long additionalSeconds);
 }

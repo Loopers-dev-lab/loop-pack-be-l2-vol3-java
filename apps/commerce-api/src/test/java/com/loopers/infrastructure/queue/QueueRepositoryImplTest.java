@@ -11,8 +11,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
+import org.springframework.data.redis.core.RedisTemplate;
+
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,6 +28,9 @@ class QueueRepositoryImplTest {
 
     @Autowired
     private RedisCleanUp redisCleanUp;
+
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
 
     @AfterEach
     void tearDown() {
@@ -157,6 +163,53 @@ class QueueRepositoryImplTest {
 
             // assert
             assertThat(queueRepository.findToken(1L)).isEmpty();
+        }
+    }
+
+    @DisplayName("extendTokenIfNearExpiry 호출 시, ")
+    @Nested
+    class ExtendTokenIfNearExpiry {
+
+        @DisplayName("TTL 잔여가 임계치 미만이면 TTL이 연장되고 true를 반환한다.")
+        @Test
+        void extendsTtl_whenRemainingTtlBelowThreshold() {
+            // arrange
+            long userId = 1L;
+            queueRepository.enter(userId, 1000.0);
+            queueRepository.issueTokens(1, 3L, List.of("uuid-1")); // TTL = 3s < threshold = 5s
+
+            // act
+            boolean extended = queueRepository.extendTokenIfNearExpiry(userId, 5L, 10L);
+
+            // assert
+            assertThat(extended).isTrue();
+            Long remaining = redisTemplate.getExpire("queue:token:" + userId, TimeUnit.SECONDS);
+            assertThat(remaining).isGreaterThan(3L); // 원래 3s였으나 +10s 연장
+        }
+
+        @DisplayName("TTL 잔여가 임계치 이상이면 연장되지 않고 false를 반환한다.")
+        @Test
+        void doesNotExtendTtl_whenRemainingTtlAboveThreshold() {
+            // arrange
+            long userId = 1L;
+            queueRepository.enter(userId, 1000.0);
+            queueRepository.issueTokens(1, 30L, List.of("uuid-1")); // TTL = 30s > threshold = 5s
+
+            // act
+            boolean extended = queueRepository.extendTokenIfNearExpiry(userId, 5L, 10L);
+
+            // assert
+            assertThat(extended).isFalse();
+        }
+
+        @DisplayName("토큰이 없으면 false를 반환한다.")
+        @Test
+        void returnsFalse_whenNoToken() {
+            // act
+            boolean extended = queueRepository.extendTokenIfNearExpiry(999L, 5L, 10L);
+
+            // assert
+            assertThat(extended).isFalse();
         }
     }
 

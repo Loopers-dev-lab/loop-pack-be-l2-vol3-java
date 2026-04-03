@@ -60,4 +60,8 @@ public class QueueFacade {
     public void removeToken(long userId) {
         queueRepository.removeToken(userId);
     }
+
+    public void extendTokenIfNearExpiry(long userId) {
+        queueRepository.extendTokenIfNearExpiry(userId, 15L, 15L);
+    }
 }

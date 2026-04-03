@@ -1,7 +1,8 @@
 package com.loopers.infrastructure.queue;
 
+import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.queue.QueueRepository;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
@@ -10,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@RequiredArgsConstructor
 @Component
 public class QueueRepositoryImpl implements QueueRepository {
 
@@ -18,6 +18,7 @@ public class QueueRepositoryImpl implements QueueRepository {
     private static final String TOKEN_KEY_PREFIX = "queue:token:";
 
     private static final DefaultRedisScript<List> MOVE_TO_ACTIVE_SCRIPT;
+    private static final DefaultRedisScript<Long> EXTEND_TOKEN_IF_NEAR_EXPIRY_SCRIPT;
 
     static {
         MOVE_TO_ACTIVE_SCRIPT = new DefaultRedisScript<>();
@@ -32,9 +33,29 @@ public class QueueRepositoryImpl implements QueueRepository {
                 return members
                 """);
         MOVE_TO_ACTIVE_SCRIPT.setResultType(List.class);
+
+        EXTEND_TOKEN_IF_NEAR_EXPIRY_SCRIPT = new DefaultRedisScript<>();
+        EXTEND_TOKEN_IF_NEAR_EXPIRY_SCRIPT.setScriptText("""
+                local ttl = redis.call('TTL', KEYS[1])
+                if ttl > 0 and ttl < tonumber(ARGV[1]) then
+                    redis.call('EXPIRE', KEYS[1], ttl + tonumber(ARGV[2]))
+                    return 1
+                end
+                return 0
+                """);
+        EXTEND_TOKEN_IF_NEAR_EXPIRY_SCRIPT.setResultType(Long.class);
     }
 
     private final RedisTemplate<String, String> redisTemplate;
+    private final RedisTemplate<String, String> masterRedisTemplate;
+
+    public QueueRepositoryImpl(
+            RedisTemplate<String, String> redisTemplate,
+            @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) RedisTemplate<String, String> masterRedisTemplate
+    ) {
+        this.redisTemplate = redisTemplate;
+        this.masterRedisTemplate = masterRedisTemplate;
+    }
 
     @Override
     public void enter(long userId, double score) {
@@ -82,5 +103,17 @@ public class QueueRepositoryImpl implements QueueRepository {
     @Override
     public void removeToken(long userId) {
         redisTemplate.delete(TOKEN_KEY_PREFIX + userId);
+    }
+
+    @Override
+    public boolean extendTokenIfNearExpiry(long userId, long thresholdSeconds, long additionalSeconds) {
+        String key = TOKEN_KEY_PREFIX + userId;
+        Long result = masterRedisTemplate.execute(
+                EXTEND_TOKEN_IF_NEAR_EXPIRY_SCRIPT,
+                List.of(key),
+                String.valueOf(thresholdSeconds),
+                String.valueOf(additionalSeconds)
+        );
+        return Long.valueOf(1L).equals(result);
     }
 }
