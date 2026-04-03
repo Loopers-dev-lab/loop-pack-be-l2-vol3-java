@@ -204,6 +204,10 @@ function runCase2() {
     return;
   }
 
+  // CI 포스트프로세싱용 — 전체 순번 중복 여부는 --out json으로 수집 후 검증
+  const position = enterRes.json('data.position');
+  console.log(JSON.stringify({ case: 'case2', uid, position }));
+
   // 재진입 시도 — 같은 유저가 다시 진입해도 순번이 바뀌지 않음 (ZADD NX)
   const reenterRes = http.post(`${BASE_URL}/api/v1/queue/enter`, null, { headers: authHeaders });
   const pos1 = enterRes.json('data.position');

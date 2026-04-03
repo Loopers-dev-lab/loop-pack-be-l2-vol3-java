@@ -105,17 +105,29 @@ spring:
     activate:
       on-profile: dev
 
+queue:
+  scheduler:
+    enabled: true
+
 ---
 spring:
   config:
     activate:
       on-profile: qa
 
+queue:
+  scheduler:
+    enabled: true
+
 ---
 spring:
   config:
     activate:
       on-profile: prd
+
+queue:
+  scheduler:
+    enabled: true
 
 springdoc:
   api-docs:

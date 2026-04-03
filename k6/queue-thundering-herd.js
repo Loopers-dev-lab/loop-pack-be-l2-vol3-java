@@ -107,7 +107,6 @@ export default function (data) {
   let gotToken = false;
 
   while (Date.now() - waitStart < TOKEN_POLL_MAX_MS) {
-    sleep(TOKEN_POLL_INTERVAL);
     positionPolls.add(1);
 
     const posRes = http.get(`${BASE_URL}/api/v1/queue/position`, { headers: authHeaders });
@@ -115,6 +114,12 @@ export default function (data) {
       gotToken = true;
       break;
     }
+
+    // 서버가 제공한 nextPollIntervalMs 우선 사용 (적응형 폴링), 없으면 고정값 폴백
+    const nextInterval = (posRes.status === 200 && posRes.json('data.nextPollIntervalMs'))
+      ? posRes.json('data.nextPollIntervalMs') / 1000
+      : TOKEN_POLL_INTERVAL;
+    sleep(nextInterval);
   }
 
   tokenWaitMs.add(Date.now() - waitStart);

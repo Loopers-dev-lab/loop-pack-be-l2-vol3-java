@@ -185,10 +185,18 @@ function runCase3(data) {
 // ── Case 4: 부하 한계 탐색 ───────────────────────────────────────
 // arrival-rate 기반 — 단순 진입 + 순번 조회만 반복 (토큰 대기 없음)
 // 목적: API 서버 응답시간 포화 지점 탐색
+// 주의: VU+iteration 기반 고유 uid → 동일 유저 재진입 없이 큐 크기가 실제로 증가함
 function runCase4(data) {
-  const idx = __VU % data.registered.length;
-  const uid = data.registered[idx] || `c4${String(__VU % 300).padStart(5, '0')}`;
+  const uid = `c4${String(__VU).padStart(5, '0')}i${__ITER}`;
   const pw  = 'Password1!';
+
+  // 즉석 회원가입 (이미 존재하면 무시)
+  http.post(
+    `${BASE_URL}/api/v1/members/signup`,
+    JSON.stringify({ memberId: uid, password: pw, name: 'StressUser', email: `${uid}@k6stress.com`, birthDate: '1990-01-01' }),
+    { headers: JSON_HEADERS }
+  );
+
   const authHeaders = { ...JSON_HEADERS, 'X-Loopers-LoginId': uid, 'X-Loopers-LoginPw': pw };
 
   // 대기열 진입

@@ -14,6 +14,7 @@ import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfigu
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
@@ -67,11 +68,12 @@ public class RedisConfig{
 
     @Qualifier(REDIS_TEMPLATE_MASTER)
     @Bean
-    public RedisTemplate<String, String> masterRedisTemplate(
+    public StringRedisTemplate masterRedisTemplate(
             @Qualifier(CONNECTION_MASTER) LettuceConnectionFactory lettuceConnectionFactory
     ) {
-        RedisTemplate<String, String> redisTemplate = new RedisTemplate<>();
-        return defaultRedisTemplate(redisTemplate, lettuceConnectionFactory);
+        StringRedisTemplate redisTemplate = new StringRedisTemplate();
+        redisTemplate.setConnectionFactory(lettuceConnectionFactory);
+        return redisTemplate;
     }
 
 
