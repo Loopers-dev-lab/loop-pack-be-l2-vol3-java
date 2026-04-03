@@ -41,6 +41,7 @@ class QueueControllerTest {
         assertThat(data.position()).isEqualTo(42L);
         assertThat(data.estimatedWaitSeconds()).isNotNull();
         assertThat(data.tokenRemainingSeconds()).isNull();
+        assertThat(data.suggestedPollIntervalMs()).isEqualTo(1000L);
     }
 
     @DisplayName("enter: 토큰 이미 존재 → ADMITTED 반환")
@@ -55,6 +56,7 @@ class QueueControllerTest {
         assertThat(data.status()).isEqualTo("ADMITTED");
         assertThat(data.position()).isNull();
         assertThat(data.tokenRemainingSeconds()).isEqualTo(285L);
+        assertThat(data.suggestedPollIntervalMs()).isNull();
         verify(waitingQueueRedisRepository, never()).add(anyLong());
     }
 
@@ -62,7 +64,7 @@ class QueueControllerTest {
     @Test
     void enter_duplicateEntry_keepsSamePosition() {
         when(entryTokenRedisRepository.exists(1L)).thenReturn(false);
-        when(waitingQueueRedisRepository.add(1L)).thenReturn(false); // 이미 존재
+        when(waitingQueueRedisRepository.add(1L)).thenReturn(false);
         when(waitingQueueRedisRepository.getRank(1L)).thenReturn(10L);
 
         ApiResponse<QueueDto.EnterResponse> response = controller.enter(member);
@@ -85,6 +87,7 @@ class QueueControllerTest {
         assertThat(data.position()).isNull();
         assertThat(data.estimatedWaitSeconds()).isNull();
         assertThat(data.tokenRemainingSeconds()).isNull();
+        assertThat(data.suggestedPollIntervalMs()).isNull();
         verify(waitingQueueRedisRepository, never()).add(anyLong());
     }
 
@@ -102,6 +105,7 @@ class QueueControllerTest {
         assertThat(data.position()).isEqualTo(100L);
         assertThat(data.totalQueueSize()).isEqualTo(1500L);
         assertThat(data.estimatedWaitSeconds()).isNotNull();
+        assertThat(data.suggestedPollIntervalMs()).isEqualTo(1000L);
     }
 
     @DisplayName("position: 토큰 존재 → ADMITTED")
@@ -115,6 +119,7 @@ class QueueControllerTest {
         QueueDto.PositionResponse data = response.data();
         assertThat(data.status()).isEqualTo("ADMITTED");
         assertThat(data.tokenRemainingSeconds()).isEqualTo(200L);
+        assertThat(data.suggestedPollIntervalMs()).isNull();
     }
 
     @DisplayName("position: 큐에 없음 → NOT_IN_QUEUE")
@@ -128,5 +133,29 @@ class QueueControllerTest {
         QueueDto.PositionResponse data = response.data();
         assertThat(data.status()).isEqualTo("NOT_IN_QUEUE");
         assertThat(data.position()).isNull();
+        assertThat(data.suggestedPollIntervalMs()).isNull();
+    }
+
+    // --- 동적 Polling 구간별 검증 ---
+
+    @DisplayName("calculatePollInterval: 1~100 → 1000ms")
+    @Test
+    void calculatePollInterval_nearFront_returns1000() {
+        assertThat(QueueController.calculatePollInterval(1)).isEqualTo(1000L);
+        assertThat(QueueController.calculatePollInterval(100)).isEqualTo(1000L);
+    }
+
+    @DisplayName("calculatePollInterval: 101~1000 → 3000ms")
+    @Test
+    void calculatePollInterval_middle_returns3000() {
+        assertThat(QueueController.calculatePollInterval(101)).isEqualTo(3000L);
+        assertThat(QueueController.calculatePollInterval(1000)).isEqualTo(3000L);
+    }
+
+    @DisplayName("calculatePollInterval: 1001+ → 5000ms")
+    @Test
+    void calculatePollInterval_farBack_returns5000() {
+        assertThat(QueueController.calculatePollInterval(1001)).isEqualTo(5000L);
+        assertThat(QueueController.calculatePollInterval(48000)).isEqualTo(5000L);
     }
 }

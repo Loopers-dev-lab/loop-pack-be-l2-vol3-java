@@ -6,7 +6,8 @@ public class QueueDto {
         String status,
         Long position,
         Long estimatedWaitSeconds,
-        Long tokenRemainingSeconds
+        Long tokenRemainingSeconds,
+        Long suggestedPollIntervalMs
     ) {}
 
     public record PositionResponse(
@@ -14,6 +15,7 @@ public class QueueDto {
         Long position,
         Long totalQueueSize,
         Long estimatedWaitSeconds,
-        Long tokenRemainingSeconds
+        Long tokenRemainingSeconds,
+        Long suggestedPollIntervalMs
     ) {}
 }
