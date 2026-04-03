@@ -30,7 +30,20 @@ public class WaitingQueueService {
     }
 
     /**
-     * 대기열 진입. Redis 오류 시(설정이 켜져 있으면) Kafka로 비동기 접수 결과를 반환한다.
+     * 대기열 진입.
+     * <p>
+     * 정상 시 {@link #joinQueueFromRecovery(String, Long, long)}와 동일하게 Redis에 반영한다.
+     * 복구 가능한 Redis/백엔드 예외이고 {@code fallbackEnabled}이면 Kafka로 진입 의도만 발행하고
+     * {@link JoinQueueResult#asyncAccepted(String)}를 반환한다.
+     * <p>
+     * Kafka {@code publish}가 실패하면 원시 예외 대신 {@link CoreException}({@link ErrorType#INTERNAL_ERROR})으로
+     * 감싸 API 응답 형식을 맞춘다.
+     *
+     * @param eventId         이벤트(대기열) 식별자
+     * @param userId          사용자 ID
+     * @param score           ZSET score(진입 시각 등)
+     * @param fallbackEnabled Redis 장애 시 Kafka 비동기 접수 사용 여부
+     * @return 동기 진입 결과 또는 비동기 접수 안내
      */
     public JoinQueueResult joinQueue(String eventId, Long userId, long score, boolean fallbackEnabled) {
         try {
@@ -45,8 +58,12 @@ public class WaitingQueueService {
                 String requestId = UUID.randomUUID().toString();
                 QueueJoinFallbackPublisher publisher = queueJoinFallbackPublisher
                         .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 fallback publisher가 구성되지 않았습니다."));
-                publisher.publish(eventId, userId, score, requestId);
-                return JoinQueueResult.asyncAccepted(requestId);
+                try {
+                    publisher.publish(eventId, userId, score, requestId);
+                    return JoinQueueResult.asyncAccepted(requestId);
+                } catch (RuntimeException publishException) {
+                    throw new CoreException(ErrorType.INTERNAL_ERROR, "대기열을 일시적으로 사용할 수 없습니다.", publishException);
+                }
             }
             throw new CoreException(ErrorType.INTERNAL_ERROR, "대기열을 일시적으로 사용할 수 없습니다.", e);
         }
@@ -62,19 +79,10 @@ public class WaitingQueueService {
             throw new CoreException(ErrorType.CONFLICT, CAPACITY_FULL_MESSAGE);
         }
 
-        Long rank = waitingQueueRepository.findRank(eventId, userId).orElse(null);
-        if (rank == null) {
-            // 간헐적 Redis 레이스/복제 지연 상황에서 rank 조회가 비는 케이스 방어.
-            WaitingQueueJoinResult retry = waitingQueueRepository.addIfAbsentWithinCapacity(eventId, userId, score, cap);
-            if (retry == WaitingQueueJoinResult.CAPACITY_FULL) {
-                throw new CoreException(ErrorType.CONFLICT, CAPACITY_FULL_MESSAGE);
-            }
-            rank = waitingQueueRepository.findRank(eventId, userId)
-                    .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 순번 조회에 실패했습니다."));
-        }
-        long totalWaiting = waitingQueueRepository.countWaiting(eventId);
+        QueuePositionSnapshot snapshot = waitingQueueRepository.findPositionSnapshot(eventId, userId)
+                .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 순번 조회에 실패했습니다."));
 
-        return JoinQueueResult.synced(rank, totalWaiting);
+        return JoinQueueResult.synced(snapshot.position(), snapshot.totalWaiting());
     }
 
     /**

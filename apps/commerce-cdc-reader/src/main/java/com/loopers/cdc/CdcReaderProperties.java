@@ -6,6 +6,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * CDC binlog reader 설정.
+ * <p>
+ * MySQL 계정은 {@code CDC_READER_MYSQL_USERNAME}, {@code CDC_READER_MYSQL_PASSWORD} 환경 변수로 주입할 수 있으며,
+ * 미설정 시 기본값(root)을 사용한다.
+ */
 @ConfigurationProperties(prefix = "cdc.reader")
 public class CdcReaderProperties {
 
@@ -20,8 +26,14 @@ public class CdcReaderProperties {
     private String topicPrefix = "cdc-app";
     private List<String> includeDatabases = new ArrayList<>();
     private List<String> includeTables = new ArrayList<>();
-    /** Kafka 전송 완료 대기 (미확인 전송 시 binlog 진행으로 유실 방지) */
+    /**
+     * Kafka 전송 완료 대기. 미확인 전송 시 binlog만 진행하면 이벤트 유실이 될 수 있어 동기 대기한다.
+     */
     private Duration sendTimeout = Duration.ofSeconds(30);
+    /** 설정 키: {@code cdc.reader.kafka-send-max-retries}. 상세는 {@link #getKafkaSendMaxRetries()}. */
+    private int kafkaSendMaxRetries = 3;
+    /** 설정 키: {@code cdc.reader.kafka-send-backoff-initial-ms}. 상세는 {@link #getKafkaSendBackoffInitialMs()}. */
+    private long kafkaSendBackoffInitialMs = 100L;
 
     public String getMysqlHost() {
         return mysqlHost;
@@ -109,6 +121,35 @@ public class CdcReaderProperties {
 
     public void setSendTimeout(Duration sendTimeout) {
         this.sendTimeout = sendTimeout;
+    }
+
+    /**
+     * Kafka 전송이 {@link java.util.concurrent.ExecutionException} 또는
+     * {@link java.util.concurrent.TimeoutException}으로 실패했을 때 추가로 시도할 횟수(첫 시도 제외).
+     * 총 전송 시도 횟수는 {@code 1 + kafkaSendMaxRetries}이다.
+     *
+     * @return 추가 재시도 횟수
+     */
+    public int getKafkaSendMaxRetries() {
+        return kafkaSendMaxRetries;
+    }
+
+    public void setKafkaSendMaxRetries(int kafkaSendMaxRetries) {
+        this.kafkaSendMaxRetries = kafkaSendMaxRetries;
+    }
+
+    /**
+     * 재시도 전 대기 시간의 초기값(ms). {@link com.loopers.cdc.MySqlBinlogToKafkaRelay}에서
+     * 매 재시도마다 {@code min(initial * 2^attempt, 10_000)} ms 만큼 대기한다.
+     *
+     * @return 백오프 초기 대기(ms)
+     */
+    public long getKafkaSendBackoffInitialMs() {
+        return kafkaSendBackoffInitialMs;
+    }
+
+    public void setKafkaSendBackoffInitialMs(long kafkaSendBackoffInitialMs) {
+        this.kafkaSendBackoffInitialMs = kafkaSendBackoffInitialMs;
     }
 
     public boolean shouldInclude(String db, String table) {

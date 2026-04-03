@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,8 +51,8 @@ class WaitingQueueServiceTest {
     void joinQueue_withValidInput_shouldReturnPositionAndTotalWaiting() {
         when(waitingQueueRepository.addIfAbsentWithinCapacity(eq(EVENT_ID), eq(USER_ID), eq(SCORE), eq(CAP)))
                 .thenReturn(WaitingQueueJoinResult.ADDED);
-        when(waitingQueueRepository.findRank(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.of(3L));
-        when(waitingQueueRepository.countWaiting(eq(EVENT_ID))).thenReturn(10L);
+        when(waitingQueueRepository.findPositionSnapshot(eq(EVENT_ID), eq(USER_ID)))
+                .thenReturn(Optional.of(new QueuePositionSnapshot(3L, 10L)));
 
         JoinQueueResult outcome = waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true);
 
@@ -59,8 +60,7 @@ class WaitingQueueServiceTest {
         assertThat(outcome.totalWaiting()).isEqualTo(10L);
         assertThat(outcome.asyncFallbackPending()).isFalse();
         verify(waitingQueueRepository).addIfAbsentWithinCapacity(EVENT_ID, USER_ID, SCORE, CAP);
-        verify(waitingQueueRepository).findRank(EVENT_ID, USER_ID);
-        verify(waitingQueueRepository).countWaiting(EVENT_ID);
+        verify(waitingQueueRepository).findPositionSnapshot(EVENT_ID, USER_ID);
     }
 
     @DisplayName("중복 진입이어도 현재 순번과 대기인원을 반환한다.")
@@ -68,8 +68,8 @@ class WaitingQueueServiceTest {
     void joinQueue_withDuplicateUser_shouldReturnCurrentPositionAndTotalWaiting() {
         when(waitingQueueRepository.addIfAbsentWithinCapacity(eq(EVENT_ID), eq(USER_ID), eq(SCORE), eq(CAP)))
                 .thenReturn(WaitingQueueJoinResult.ALREADY_MEMBER);
-        when(waitingQueueRepository.findRank(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.of(1L));
-        when(waitingQueueRepository.countWaiting(eq(EVENT_ID))).thenReturn(5L);
+        when(waitingQueueRepository.findPositionSnapshot(eq(EVENT_ID), eq(USER_ID)))
+                .thenReturn(Optional.of(new QueuePositionSnapshot(1L, 5L)));
 
         JoinQueueResult outcome = waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true);
 
@@ -77,8 +77,7 @@ class WaitingQueueServiceTest {
         assertThat(outcome.totalWaiting()).isEqualTo(5L);
         assertThat(outcome.asyncFallbackPending()).isFalse();
         verify(waitingQueueRepository).addIfAbsentWithinCapacity(EVENT_ID, USER_ID, SCORE, CAP);
-        verify(waitingQueueRepository).findRank(EVENT_ID, USER_ID);
-        verify(waitingQueueRepository).countWaiting(EVENT_ID);
+        verify(waitingQueueRepository).findPositionSnapshot(EVENT_ID, USER_ID);
     }
 
     @DisplayName("정원이 찼으면 CONFLICT CoreException을 던진다.")
@@ -111,6 +110,23 @@ class WaitingQueueServiceTest {
         verify(queueJoinFallbackPublisher).publish(eq(EVENT_ID), eq(USER_ID), eq(SCORE), anyString());
     }
 
+    @DisplayName("Redis 장애 시 Kafka 발행이 실패하면 CoreException(INTERNAL_ERROR)으로 정규화한다.")
+    @Test
+    void joinQueue_whenRedisDownAndKafkaPublishFails_shouldThrowCoreException() {
+        when(waitingQueueRepository.addIfAbsentWithinCapacity(eq(EVENT_ID), eq(USER_ID), eq(SCORE), eq(CAP)))
+                .thenThrow(new RedisConnectionFailureException("down", new RuntimeException("cause")));
+        doThrow(new RuntimeException("broker down"))
+                .when(queueJoinFallbackPublisher).publish(anyString(), anyLong(), anyLong(), anyString());
+
+        assertThatThrownBy(() -> waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true))
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> {
+                    CoreException ce = (CoreException) ex;
+                    assertThat(ce.getErrorType()).isEqualTo(ErrorType.INTERNAL_ERROR);
+                    assertThat(ce.getCause()).isInstanceOf(RuntimeException.class);
+                });
+    }
+
     @DisplayName("findPosition: 순번이 있으면 순번·총 대기 인원을 반환한다.")
     @Test
     void findPosition_whenInQueue_shouldReturnPosition() {
@@ -132,15 +148,19 @@ class WaitingQueueServiceTest {
         assertThat(result).isEmpty();
     }
 
-    @DisplayName("rank를 찾지 못하면 CoreException을 던진다.")
+    @DisplayName("진입 직후 스냅샷이 비면(비정상 상태) INTERNAL_ERROR로 실패한다. 재삽입은 하지 않는다.")
     @Test
-    void joinQueue_whenRankNotFound_shouldThrowCoreException() {
+    void joinQueue_whenSnapshotEmptyAfterAdd_shouldThrowInternalErrorWithoutSecondAdd() {
         when(waitingQueueRepository.addIfAbsentWithinCapacity(eq(EVENT_ID), eq(USER_ID), eq(SCORE), eq(CAP)))
-                .thenReturn(WaitingQueueJoinResult.ADDED, WaitingQueueJoinResult.ALREADY_MEMBER);
-        when(waitingQueueRepository.findRank(eq(EVENT_ID), eq(USER_ID)))
-                .thenReturn(Optional.empty(), Optional.empty());
+                .thenReturn(WaitingQueueJoinResult.ADDED);
+        when(waitingQueueRepository.findPositionSnapshot(eq(EVENT_ID), eq(USER_ID))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> waitingQueueService.joinQueue(EVENT_ID, USER_ID, SCORE, true))
-                .isInstanceOf(CoreException.class);
+                .isInstanceOf(CoreException.class)
+                .satisfies(ex -> {
+                    CoreException ce = (CoreException) ex;
+                    assertThat(ce.getErrorType()).isEqualTo(ErrorType.INTERNAL_ERROR);
+                });
+        verify(waitingQueueRepository).addIfAbsentWithinCapacity(EVENT_ID, USER_ID, SCORE, CAP);
     }
 }
