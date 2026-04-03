@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 @SpringBootTest
 class TokenSchedulerIntegrationTest {
@@ -22,6 +23,9 @@ class TokenSchedulerIntegrationTest {
 
     @Autowired
     private TokenService tokenService;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @Autowired
     private RedisCleanUp redisCleanUp;
@@ -87,6 +91,21 @@ class TokenSchedulerIntegrationTest {
 
             // act & assert
             assertDoesNotThrow(() -> tokenScheduler.issueTokens());
+        }
+
+        @DisplayName("presence 키가 없는 사용자는 토큰 발급 없이 대기열에서 제거된다.")
+        @Test
+        void removesFromQueue_withoutToken_whenPresenceExpired() {
+            // arrange
+            queueService.enter("user-1");
+            redisTemplate.delete("presence:user-1"); // presence 만료 시뮬레이션
+
+            // act
+            tokenScheduler.issueTokens();
+
+            // assert
+            assertThat(tokenService.findToken("user-1")).isEmpty();  // 토큰 없음
+            assertThat(queueService.getTotalCount()).isZero();        // 대기열에서 제거됨
         }
 
         @DisplayName("이미 토큰이 있는 userId는 중복 발급되지 않는다.")

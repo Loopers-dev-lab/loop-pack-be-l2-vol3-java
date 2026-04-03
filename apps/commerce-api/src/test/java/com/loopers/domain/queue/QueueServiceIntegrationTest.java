@@ -12,12 +12,16 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 @SpringBootTest
 class QueueServiceIntegrationTest {
 
     @Autowired
     private QueueService queueService;
+
+    @Autowired
+    private StringRedisTemplate redisTemplate;
 
     @Autowired
     private RedisCleanUp redisCleanUp;
@@ -42,6 +46,19 @@ class QueueServiceIntegrationTest {
 
             // assert
             assertThat(position).isEqualTo(1L);
+        }
+
+        @DisplayName("진입하면 presence 키가 생성된다.")
+        @Test
+        void createsPresenceKey_whenUserEntersQueue() {
+            // arrange
+            String userId = "user-1";
+
+            // act
+            queueService.enter(userId);
+
+            // assert
+            assertThat(redisTemplate.hasKey("presence:" + userId)).isTrue();
         }
 
         @DisplayName("같은 userId로 두 번 진입해도 첫 번째 순번이 유지된다.")
