@@ -1,5 +1,6 @@
 package com.loopers.application.order;
 
+import com.loopers.application.queue.QueueService;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.CouponTemplateRepository;
 import com.loopers.domain.coupon.IssuedCoupon;
@@ -24,6 +25,7 @@ public class OrderService {
     private final OrderDomainService orderDomainService;
     private final IssuedCouponRepository issuedCouponRepository;
     private final CouponTemplateRepository couponTemplateRepository;
+    private final QueueService queueService;
 
     /**
      * 주문 처리: 쿠폰 검증 → 재고 차감 → 주문 생성을 하나의 트랜잭션으로 묶는다.
@@ -66,6 +68,10 @@ public class OrderService {
      */
     @Transactional
     public OrderResult placeOrder(Long memberId, List<OrderLineRequest> items, Long couponId) {
+        // Back-pressure Gate: 대기열 입장 허가 없으면 403
+        // 트랜잭션 시작 전에 체크 → 락 획득 전 빠른 거절로 DB 부하 최소화
+        queueService.validateEntry(memberId);
+
         IssuedCoupon issuedCoupon = null;
         CouponTemplate couponTemplate = null;
 
@@ -117,6 +123,10 @@ public class OrderService {
         List<OrderLineInfo> resultLines = order.getOrderLines().stream()
             .map(ol -> new OrderLineInfo(ol.getProductId(), ol.getQuantity(), ol.getUnitPrice()))
             .collect(Collectors.toList());
+
+        // 주문 완료 후 entered 키 삭제 — 슬롯 즉시 반환 (TTL 만료 대기 없이)
+        // 트랜잭션 커밋 후에도 실행되도록 마지막에 배치 (삭제 실패 시에도 주문 롤백 안 됨)
+        queueService.deleteEntered(memberId);
 
         return new OrderResult(
             order.getId(), order.getStatus(),
