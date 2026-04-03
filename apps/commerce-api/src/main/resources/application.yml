@@ -31,8 +31,11 @@ springdoc:
 
 # 대기열 설정
 queue:
+  max-size: 48000  # 대기열 최대 크기 (Little's Law: 80 TPS × 600초)
   token:
     ttl-seconds: 900  # 토큰 TTL (기본 15분, 블프 시 1800 등으로 조정)
+  fallback:
+    rate-limit: 80    # Redis 장애 시 로컬 Rate Limit (req/sec, 정상 모드 입장 속도와 동일)
 
 # PG 설정
 pg:
