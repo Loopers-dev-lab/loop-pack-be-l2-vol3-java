@@ -22,7 +22,13 @@ public enum ErrorType {
     COUPON_MIN_ORDER_AMOUNT(HttpStatus.BAD_REQUEST, "COUPON_MIN_ORDER_AMOUNT", "최소 주문 금액을 충족하지 않습니다."),
     PAYMENT_CIRCUIT_OPEN(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_CIRCUIT_OPEN", "현재 결제 시스템이 원활하지 않습니다. 잠시 후 다시 시도해주세요."),
     PAYMENT_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PAYMENT_TIMEOUT", "결제 요청이 시간 초과되었습니다. 잠시 후 다시 시도해주세요."),
-    PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "PAYMENT_FAILED", "결제가 실패하였습니다.");
+    PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "PAYMENT_FAILED", "결제가 실패하였습니다."),
+
+    // 대기열 에러
+    // 토큰이 없거나 TTL이 만료된 경우 — 재진입 유도
+    QUEUE_TOKEN_NOT_FOUND(HttpStatus.UNAUTHORIZED, "QUEUE_TOKEN_NOT_FOUND", "대기열 토큰이 유효하지 않습니다. 다시 대기열에 진입해주세요."),
+    // 입장 허가 없이 서비스 API를 직접 호출한 경우 — Gate 2 역할
+    QUEUE_NOT_ENTERED(HttpStatus.FORBIDDEN, "QUEUE_NOT_ENTERED", "입장 허가가 없습니다. 대기열을 통해 입장해주세요.");
 
     private final HttpStatus status;
     private final String code;
