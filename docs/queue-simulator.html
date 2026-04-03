@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redis Queue Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #242834;
+            --border: #2e3345;
+            --text: #e1e4ed;
+            --text-dim: #8b8fa3;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+            --green: #00b894;
+            --yellow: #fdcb6e;
+            --red: #e17055;
+            --blue: #74b9ff;
+            --orange: #f39c12;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header h1 span { color: var(--accent-light); }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .mode-toggle select {
+            background: var(--surface2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        /* Narration Bar */
+        .narration-bar {
+            background: linear-gradient(135deg, rgba(108,92,231,0.15), rgba(162,155,254,0.08));
+            border-bottom: 1px solid rgba(108,92,231,0.3);
+            padding: 14px 32px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-height: 56px;
+            position: sticky;
+            top: 49px;
+            z-index: 99;
+        }
+
+        .narration-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            animation: narratePulse 2s infinite;
+        }
+
+        @keyframes narratePulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(108,92,231,0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(108,92,231,0); }
+        }
+
+        .narration-text {
+            font-size: 15px;
+            font-weight: 500;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .narration-text .highlight {
+            color: var(--accent-light);
+            font-weight: 700;
+        }
+
+        .narration-text .num {
+            color: var(--yellow);
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
+        .narration-text .good { color: var(--green); font-weight: 700; }
+        .narration-text .bad { color: var(--red); font-weight: 700; }
+
+        /* Page layout */
+        .page {
+            padding: 20px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Stats Row - full width */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 14px;
+        }
+
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px 16px;
+            text-align: center;
+        }
+
+        .stat-value { font-size: 32px; font-weight: 700; line-height: 1.2; }
+        .stat-label { font-size: 12px; color: var(--text-dim); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value.green { color: var(--green); }
+        .stat-value.yellow { color: var(--yellow); }
+        .stat-value.red { color: var(--red); }
+        .stat-value.blue { color: var(--blue); }
+        .stat-value.accent { color: var(--accent-light); }
+        .stat-value.orange { color: var(--orange); }
+
+        /* Control Bar */
+        .control-bar {
+            display: flex;
+            gap: 12px;
+            align-items: stretch;
+            flex-wrap: wrap;
+        }
+
+        .control-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .control-section-title {
+            font-size: 11px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            font-weight: 600;
+        }
+
+        .control-input-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .control-input-group label {
+            font-size: 12px;
+            color: var(--text-dim);
+            white-space: nowrap;
+        }
+
+        .control-input-group input {
+            width: 64px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 8px;
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .control-input-group input:focus { outline: none; border-color: var(--accent); }
+
+        .btn {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+
+        .btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+        .btn:active { transform: translateY(0); }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--green); color: white; }
+        .btn-danger { background: var(--red); color: white; }
+        .btn-warning { background: var(--orange); color: white; }
+        .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+        .scheduler-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: pulse 2s infinite;
+        }
+
+        .pulse.stopped { background: var(--red); animation: none; }
+
+        @keyframes pulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(0,184,148,0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(0,184,148,0); }
+        }
+
+        .scheduler-timer {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--accent-light);
+            min-width: 40px;
+        }
+
+        /* Main 3-column row */
+        .main-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            min-height: 380px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 14px;
+            flex-shrink: 0;
+        }
+
+        .panel-scroll {
+            flex: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        /* Queue items */
+        .queue-item {
+            display: grid;
+            grid-template-columns: 36px 1fr auto auto auto;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--surface2);
+            border-radius: 8px;
+            margin-bottom: 4px;
+            font-size: 13px;
+            border-left: 3px solid var(--blue);
+            animation: slideIn 0.25s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-16px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .queue-rank {
+            background: var(--accent);
+            color: white;
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .queue-user { font-weight: 500; }
+        .queue-wait { font-size: 11px; color: var(--text-dim); font-family: monospace; }
+        .queue-eta { font-size: 11px; color: var(--yellow); font-family: monospace; }
+
+        .badge {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+
+        .badge-waiting { background: rgba(253,203,110,0.2); color: var(--yellow); }
+        .badge-active { background: rgba(0,184,148,0.2); color: var(--green); }
+        .badge-expired { background: rgba(225,112,85,0.2); color: var(--red); }
+
+        /* Token items */
+        .token-item {
+            display: grid;
+            grid-template-columns: 1fr 1fr 60px;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: var(--surface2);
+            border-radius: 8px;
+            margin-bottom: 4px;
+            font-size: 13px;
+            animation: slideIn 0.25s ease;
+        }
+
+        .token-bar-wrap {
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .token-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 1s linear;
+        }
+
+        .token-ttl {
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .token-ttl.ok { color: var(--green); }
+        .token-ttl.warning { color: var(--yellow); }
+        .token-ttl.danger { color: var(--red); }
+
+        /* Log items */
+        .log-entry {
+            padding: 3px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            line-height: 1.7;
+            border-bottom: 1px solid rgba(46,51,69,0.3);
+        }
+
+        .log-time { color: var(--text-dim); }
+        .log-enter { color: var(--blue); }
+        .log-token { color: var(--green); }
+        .log-expire { color: var(--red); }
+        .log-order { color: var(--accent-light); }
+        .log-scheduler { color: var(--yellow); }
+
+        /* Chart row */
+        .chart-row {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            height: 300px;
+        }
+
+        .chart-container {
+            height: calc(100% - 36px);
+            position: relative;
+        }
+
+        /* Flow diagram */
+        .flow-bar {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .flow-step.active {
+            box-shadow: 0 0 20px rgba(108,92,231,0.3);
+        }
+
+        .flow-step .flow-icon { font-size: 20px; }
+        .flow-step .flow-count {
+            font-family: monospace;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .flow-arrow {
+            color: var(--text-dim);
+            font-size: 24px;
+            margin: 0 8px;
+            opacity: 0.5;
+        }
+
+        .flow-enter { background: rgba(116,185,255,0.15); color: var(--blue); }
+        .flow-queue { background: rgba(253,203,110,0.15); color: var(--yellow); }
+        .flow-token { background: rgba(0,184,148,0.15); color: var(--green); }
+        .flow-order { background: rgba(162,155,254,0.15); color: var(--accent-light); }
+        .flow-done { background: rgba(108,92,231,0.15); color: var(--accent-light); }
+        .flow-expired { background: rgba(225,112,85,0.15); color: var(--red); }
+
+        .empty-state {
+            color: var(--text-dim);
+            text-align: center;
+            padding: 32px 16px;
+            font-size: 13px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        /* API config modal */
+        .api-config {
+            display: none;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+        }
+
+        .api-config.show { display: block; }
+
+        .api-config input {
+            width: 100%;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .api-config label {
+            font-size: 11px;
+            color: var(--text-dim);
+            display: block;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+    <h1>Redis <span>Queue Simulator</span></h1>
+    <div class="header-right">
+        <div class="mode-toggle">
+            <select id="modeSelect" onchange="switchMode(this.value)">
+                <option value="mock">Mock Simulation</option>
+                <option value="real">Real API</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Narration Bar -->
+<div class="narration-bar">
+    <div class="narration-icon">N</div>
+    <div class="narration-text" id="narrationText">
+        시뮬레이터가 준비되었습니다. <span class="highlight">"대기열 진입"</span> 버튼을 눌러 유저들을 입장시켜 보세요.
+    </div>
+</div>
+
+<!-- Page -->
+<div class="page">
+
+    <!-- Flow Diagram -->
+    <div class="flow-bar">
+        <div class="flow-step flow-enter" id="flowEnter">
+            <span class="flow-icon">IN</span>
+            <span>진입</span>
+            <span class="flow-count" id="flowEnterCount">0</span>
+        </div>
+        <div class="flow-arrow">---></div>
+        <div class="flow-step flow-queue" id="flowQueue">
+            <span class="flow-icon">Q</span>
+            <span>대기열</span>
+            <span class="flow-count" id="flowQueueCount">0</span>
+        </div>
+        <div class="flow-arrow">---></div>
+        <div class="flow-step flow-token" id="flowToken">
+            <span class="flow-icon">T</span>
+            <span>토큰</span>
+            <span class="flow-count" id="flowTokenCount">0</span>
+        </div>
+        <div class="flow-arrow">---></div>
+        <div class="flow-step flow-order" id="flowOrder">
+            <span class="flow-icon">$</span>
+            <span>주문</span>
+            <span class="flow-count" id="flowOrderCount">0</span>
+        </div>
+        <div class="flow-arrow">---></div>
+        <div class="flow-step flow-done">
+            <span class="flow-icon">OK</span>
+            <span>완료</span>
+            <span class="flow-count" id="flowDoneCount">0</span>
+        </div>
+        <div style="margin-left:24px;opacity:0.4">|</div>
+        <div class="flow-step flow-expired" style="margin-left:12px">
+            <span class="flow-icon">X</span>
+            <span>만료</span>
+            <span class="flow-count" id="flowExpiredCount">0</span>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="stat-value yellow" id="statWaiting">0</div>
+            <div class="stat-label">대기 중</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value green" id="statTokens">0</div>
+            <div class="stat-label">토큰 보유</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value accent" id="statCompleted">0</div>
+            <div class="stat-label">주문 완료</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value red" id="statExpired">0</div>
+            <div class="stat-label">토큰 만료</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value blue" id="statAvgWait">0s</div>
+            <div class="stat-label">평균 대기</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value orange" id="statThroughput">0</div>
+            <div class="stat-label">처리량/10s</div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="control-bar">
+        <div class="control-section">
+            <div class="control-section-title">진입</div>
+            <div class="control-input-group">
+                <label>유저 수</label>
+                <input type="number" id="userCount" value="30" min="1" max="500">
+            </div>
+            <button class="btn btn-primary" onclick="simulateEnter()">동시 진입</button>
+            <button class="btn btn-success" onclick="simulateSingleEnter()">+1명</button>
+        </div>
+
+        <div class="control-section">
+            <div class="control-section-title">스케줄러</div>
+            <div class="scheduler-indicator">
+                <div class="pulse" id="schedulerPulse"></div>
+                <span class="scheduler-timer" id="schedulerCountdown">5s</span>
+            </div>
+            <div class="control-input-group">
+                <label>주기</label>
+                <input type="number" id="schedulerInterval" value="5" min="1" max="60">
+                <label>s</label>
+            </div>
+            <div class="control-input-group">
+                <label>배치</label>
+                <input type="number" id="batchSize" value="10" min="1" max="100">
+                <label>명</label>
+            </div>
+            <div class="control-input-group">
+                <label>TTL</label>
+                <input type="number" id="tokenTTL" value="30" min="5" max="600">
+                <label>s</label>
+            </div>
+            <button class="btn btn-warning" onclick="toggleScheduler()">ON/OFF</button>
+        </div>
+
+        <div class="control-section">
+            <div class="control-section-title">주문</div>
+            <div class="control-input-group">
+                <label>처리시간</label>
+                <input type="number" id="avgProcessTime" value="2" min="0.5" max="30" step="0.5">
+                <label>s</label>
+            </div>
+            <button class="btn btn-secondary" onclick="simulateOrders()">주문 처리</button>
+            <button class="btn btn-secondary" onclick="toggleAutoOrder()">자동주문</button>
+        </div>
+
+        <div class="control-section">
+            <button class="btn btn-danger" onclick="resetAll()">초기화</button>
+        </div>
+    </div>
+
+    <!-- API Config (Real mode) -->
+    <div class="api-config" id="apiConfig">
+        <div style="font-size:12px;font-weight:600;color:var(--text-dim);margin-bottom:8px">API ENDPOINTS</div>
+        <label>Base URL</label>
+        <input type="text" id="apiBaseUrl" value="http://localhost:8080">
+        <label>Enter (POST)</label>
+        <input type="text" id="apiEnter" value="/api/v1/queue/enter">
+        <label>Position (GET)</label>
+        <input type="text" id="apiPosition" value="/api/v1/queue/position">
+    </div>
+
+    <!-- Main 3 columns -->
+    <div class="main-row">
+        <!-- Queue -->
+        <div class="panel">
+            <div class="panel-title">SORTED SET (score = timestamp)</div>
+            <div class="panel-scroll" id="queueVisual">
+                <div class="empty-state">대기열이 비어있습니다</div>
+            </div>
+        </div>
+
+        <!-- Tokens -->
+        <div class="panel">
+            <div class="panel-title">ACTIVE TOKENS (TTL countdown)</div>
+            <div class="panel-scroll" id="tokenList">
+                <div class="empty-state">발급된 토큰이 없습니다</div>
+            </div>
+        </div>
+
+        <!-- Event Log -->
+        <div class="panel">
+            <div class="panel-title">EVENT LOG</div>
+            <div class="panel-scroll" id="eventLog"></div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="chart-row">
+        <div class="panel">
+            <div class="panel-title">THROUGHPUT TIMELINE</div>
+            <div class="chart-container">
+                <canvas id="throughputChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ========== State ==========
+const state = {
+    mode: 'mock',
+    queue: [],
+    tokens: [],
+    completed: [],
+    expired: [],
+    userSeq: 0,
+    totalEntered: 0,
+    schedulerRunning: true,
+    schedulerCountdown: 5,
+    autoOrder: false,
+    throughputWindow: [],
+    totalWaitTime: 0,
+    totalWaitCount: 0,
+    orderInProgress: 0,
+};
+
+// ========== Narration ==========
+const narrations = {
+    init: '시뮬레이터가 준비되었습니다. <span class="highlight">"동시 진입"</span> 버튼을 눌러 유저들을 대기열에 넣어보세요.',
+    entering: (n) => `<span class="num">${n}명</span>의 유저가 동시에 대기열에 진입하고 있습니다. Redis <span class="highlight">ZADD</span> 명령으로 Sorted Set에 추가되는 중..`,
+    entered: (n, total) => `진입 완료! 현재 대기열에 <span class="num">${total}명</span>이 줄을 서고 있습니다. score는 timestamp이므로 <span class="highlight">먼저 온 사람이 앞</span>에 섭니다.`,
+    schedulerFire: (batch, remain) => `스케줄러가 동작합니다! 앞에서 <span class="num">${batch}명</span>에게 입장 토큰을 발급했습니다. 남은 대기: <span class="num">${remain}명</span>. 토큰이 있어야 주문 API에 진입할 수 있습니다.`,
+    schedulerEmpty: '스케줄러가 동작했지만 대기열이 비어있습니다. 새로운 유저가 들어오길 기다리는 중..',
+    tokenExpiring: (n) => `<span class="bad">주의!</span> <span class="num">${n}개</span>의 토큰이 곧 만료됩니다. TTL 내에 주문을 완료하지 않으면 토큰이 사라집니다.`,
+    tokenExpired: (n) => `<span class="bad">${n}개 토큰 만료!</span> 유저가 시간 내에 주문하지 않아 토큰이 삭제되었습니다. 실제 서비스에서는 다시 대기열에 넣거나 이탈 처리합니다.`,
+    orderStart: (n) => `<span class="num">${n}명</span>이 주문을 시작합니다. 토큰 검증 후 주문 API로 진입 중..`,
+    orderComplete: (user) => `<span class="good">${user}</span> 주문 완료! 토큰이 삭제됩니다. 이후 이벤트 발행 → Kafka 파이프라인으로 흐릅니다.`,
+    allClear: '<span class="good">모든 처리가 완료되었습니다!</span> 대기열, 토큰 모두 비었습니다.',
+    autoOrderOn: '자동 주문 모드 <span class="good">ON</span> — 토큰을 받은 유저가 자동으로 주문을 진행합니다.',
+    autoOrderOff: '자동 주문 모드 OFF — 수동으로 "주문 처리" 버튼을 눌러야 합니다.',
+    reset: '시뮬레이터가 초기화되었습니다. 처음부터 다시 시작하세요.',
+};
+
+function narrate(text) {
+    const el = document.getElementById('narrationText');
+    el.style.opacity = 0;
+    setTimeout(() => {
+        el.innerHTML = text;
+        el.style.opacity = 1;
+    }, 150);
+    el.style.transition = 'opacity 0.15s';
+}
+
+// ========== Chart ==========
+const ctx = document.getElementById('throughputChart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            { label: '대기 중', data: [], borderColor: '#fdcb6e', backgroundColor: 'rgba(253,203,110,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+            { label: '토큰 보유', data: [], borderColor: '#00b894', backgroundColor: 'rgba(0,184,148,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+            { label: '처리량/10s', data: [], borderColor: '#6c5ce7', backgroundColor: 'rgba(108,92,231,0.08)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2, yAxisID: 'y1' },
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 200 },
+        scales: {
+            x: { grid: { color: 'rgba(46,51,69,0.5)' }, ticks: { color: '#8b8fa3', maxTicksLimit: 20, font: { size: 10 } } },
+            y: { grid: { color: 'rgba(46,51,69,0.5)' }, ticks: { color: '#8b8fa3', font: { size: 10 } }, beginAtZero: true },
+            y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#a29bfe', font: { size: 10 } }, beginAtZero: true },
+        },
+        plugins: {
+            legend: { labels: { color: '#8b8fa3', font: { size: 11 }, usePointStyle: true, pointStyle: 'circle' } }
+        }
+    }
+});
+
+// ========== Mode ==========
+function switchMode(mode) {
+    state.mode = mode;
+    document.getElementById('apiConfig').classList.toggle('show', mode === 'real');
+}
+
+// ========== Enter Queue ==========
+function simulateEnter() {
+    const count = parseInt(document.getElementById('userCount').value);
+    narrate(narrations.entering(count));
+
+    for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+            addToQueue();
+            if (i === count - 1) {
+                narrate(narrations.entered(count, state.queue.length));
+            }
+        }, i * 25);
+    }
+}
+
+function simulateSingleEnter() { addToQueue(); }
+
+function addToQueue() {
+    state.userSeq++;
+    state.totalEntered++;
+    const userId = `user-${String(state.userSeq).padStart(4, '0')}`;
+    const now = Date.now();
+
+    state.queue.push({ userId, score: now + Math.random(), enteredAt: now });
+    state.queue.sort((a, b) => a.score - b.score);
+
+    log('enter', `${userId} 진입 (#${state.queue.length})`);
+    updateUI();
+}
+
+// ========== Scheduler ==========
+function toggleScheduler() {
+    state.schedulerRunning = !state.schedulerRunning;
+    document.getElementById('schedulerPulse').classList.toggle('stopped', !state.schedulerRunning);
+    log('scheduler', state.schedulerRunning ? 'Scheduler ON' : 'Scheduler OFF');
+}
+
+function runSchedulerBatch() {
+    if (!state.schedulerRunning) return;
+    if (state.queue.length === 0) {
+        narrate(narrations.schedulerEmpty);
+        return;
+    }
+
+    const batchSize = parseInt(document.getElementById('batchSize').value);
+    const ttl = parseInt(document.getElementById('tokenTTL').value);
+    const batch = state.queue.splice(0, batchSize);
+    const now = Date.now();
+
+    batch.forEach(user => {
+        const waitTime = (now - user.enteredAt) / 1000;
+        state.totalWaitTime += waitTime;
+        state.totalWaitCount++;
+
+        state.tokens.push({
+            userId: user.userId,
+            token: 'tok_' + Math.random().toString(36).substring(2, 12),
+            issuedAt: now,
+            ttl: ttl * 1000,
+            used: false,
+        });
+
+        log('token', `${user.userId} 토큰 발급 (대기 ${waitTime.toFixed(1)}s)`);
+    });
+
+    narrate(narrations.schedulerFire(batch.length, state.queue.length));
+    log('scheduler', `배치: ${batch.length}명 → 잔여 ${state.queue.length}명`);
+    updateUI();
+
+    if (state.autoOrder) {
+        setTimeout(() => simulateOrders(), 500);
+    }
+}
+
+// ========== Token Expiry ==========
+function checkTokenExpiry() {
+    const now = Date.now();
+    const justExpired = [];
+
+    state.tokens = state.tokens.filter(t => {
+        if (t.used) return false;
+        if (t.ttl - (now - t.issuedAt) <= 0) {
+            justExpired.push(t);
+            return false;
+        }
+        return true;
+    });
+
+    if (justExpired.length > 0) {
+        justExpired.forEach(t => {
+            state.expired.push(t);
+            log('expire', `${t.userId} 토큰 만료`);
+        });
+        narrate(narrations.tokenExpired(justExpired.length));
+        updateUI();
+    }
+
+    // Warn about soon-to-expire
+    const soonExpiring = state.tokens.filter(t => {
+        const remaining = t.ttl - (now - t.issuedAt);
+        return remaining > 0 && remaining < 5000 && !t.used;
+    });
+    if (soonExpiring.length > 0 && justExpired.length === 0) {
+        narrate(narrations.tokenExpiring(soonExpiring.length));
+    }
+}
+
+// ========== Orders ==========
+function simulateOrders() {
+    const avgTime = parseFloat(document.getElementById('avgProcessTime').value);
+    const active = state.tokens.filter(t => !t.used);
+
+    if (active.length === 0) return;
+
+    narrate(narrations.orderStart(active.length));
+    state.orderInProgress = active.length;
+
+    active.forEach((token, i) => {
+        token.used = true;
+        const delay = avgTime * 1000 * (0.5 + Math.random());
+        setTimeout(() => {
+            state.completed.push({ userId: token.userId, completedAt: Date.now() });
+            state.throughputWindow.push(Date.now());
+            state.tokens = state.tokens.filter(t => t !== token);
+            state.orderInProgress--;
+
+            log('order', `${token.userId} 주문 완료`);
+            narrate(narrations.orderComplete(token.userId));
+            updateUI();
+
+            if (state.queue.length === 0 && state.tokens.length === 0 && state.orderInProgress === 0) {
+                setTimeout(() => narrate(narrations.allClear), 500);
+            }
+        }, delay + i * 200);
+    });
+
+    updateUI();
+}
+
+function toggleAutoOrder() {
+    state.autoOrder = !state.autoOrder;
+    narrate(state.autoOrder ? narrations.autoOrderOn : narrations.autoOrderOff);
+}
+
+// ========== Reset ==========
+function resetAll() {
+    state.queue = [];
+    state.tokens = [];
+    state.completed = [];
+    state.expired = [];
+    state.userSeq = 0;
+    state.totalEntered = 0;
+    state.throughputWindow = [];
+    state.totalWaitTime = 0;
+    state.totalWaitCount = 0;
+    state.orderInProgress = 0;
+
+    chart.data.labels = [];
+    chart.data.datasets.forEach(ds => ds.data = []);
+    chart.update();
+
+    document.getElementById('eventLog').innerHTML = '';
+    narrate(narrations.reset);
+    updateUI();
+}
+
+// ========== UI ==========
+function updateUI() {
+    const active = state.tokens.filter(t => !t.used);
+
+    document.getElementById('statWaiting').textContent = state.queue.length;
+    document.getElementById('statTokens').textContent = active.length;
+    document.getElementById('statCompleted').textContent = state.completed.length;
+    document.getElementById('statExpired').textContent = state.expired.length;
+
+    const avgWait = state.totalWaitCount > 0 ? (state.totalWaitTime / state.totalWaitCount).toFixed(1) : '0';
+    document.getElementById('statAvgWait').textContent = avgWait + 's';
+
+    const tenAgo = Date.now() - 10000;
+    const tp = state.throughputWindow.filter(t => t > tenAgo).length;
+    document.getElementById('statThroughput').textContent = tp;
+
+    // Flow counts
+    document.getElementById('flowEnterCount').textContent = state.totalEntered;
+    document.getElementById('flowQueueCount').textContent = state.queue.length;
+    document.getElementById('flowTokenCount').textContent = active.length;
+    document.getElementById('flowOrderCount').textContent = state.orderInProgress;
+    document.getElementById('flowDoneCount').textContent = state.completed.length;
+    document.getElementById('flowExpiredCount').textContent = state.expired.length;
+
+    renderQueue();
+    renderTokens();
+}
+
+function renderQueue() {
+    const el = document.getElementById('queueVisual');
+    if (state.queue.length === 0) {
+        el.innerHTML = '<div class="empty-state">대기열이 비어있습니다</div>';
+        return;
+    }
+
+    const now = Date.now();
+    const batchSize = parseInt(document.getElementById('batchSize').value);
+    const interval = parseInt(document.getElementById('schedulerInterval').value);
+
+    const html = state.queue.slice(0, 80).map((u, i) => {
+        const wait = ((now - u.enteredAt) / 1000).toFixed(0);
+        const eta = (Math.floor(i / batchSize) * interval).toFixed(0);
+        return `<div class="queue-item">
+            <div class="queue-rank">${i + 1}</div>
+            <div class="queue-user">${u.userId}</div>
+            <div class="queue-wait">${wait}s</div>
+            <div class="queue-eta">~${eta}s</div>
+            <div class="badge badge-waiting">WAIT</div>
+        </div>`;
+    }).join('');
+
+    const more = state.queue.length > 80
+        ? `<div class="empty-state">... +${state.queue.length - 80}명</div>` : '';
+
+    el.innerHTML = html + more;
+}
+
+function renderTokens() {
+    const el = document.getElementById('tokenList');
+    const active = state.tokens.filter(t => !t.used);
+
+    if (active.length === 0) {
+        el.innerHTML = '<div class="empty-state">발급된 토큰이 없습니다</div>';
+        return;
+    }
+
+    const now = Date.now();
+    el.innerHTML = active.map(t => {
+        const remain = Math.max(0, t.ttl - (now - t.issuedAt));
+        const pct = (remain / t.ttl) * 100;
+        const sec = (remain / 1000).toFixed(1);
+        let cls = 'ok', color = 'var(--green)';
+        if (pct < 30) { cls = 'danger'; color = 'var(--red)'; }
+        else if (pct < 60) { cls = 'warning'; color = 'var(--yellow)'; }
+
+        return `<div class="token-item">
+            <div class="queue-user">${t.userId}</div>
+            <div class="token-bar-wrap"><div class="token-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+            <div class="token-ttl ${cls}">${sec}s</div>
+        </div>`;
+    }).join('');
+}
+
+// ========== Logging ==========
+function log(type, message) {
+    const el = document.getElementById('eventLog');
+    const time = new Date().toLocaleTimeString('ko-KR', { hour12: false });
+    const cls = { enter: 'log-enter', token: 'log-token', expire: 'log-expire', order: 'log-order', scheduler: 'log-scheduler', system: 'log-time' };
+
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    div.innerHTML = `<span class="log-time">${time}</span> <span class="${cls[type] || ''}">${message}</span>`;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+}
+
+// ========== Tick ==========
+function tick() {
+    if (state.schedulerRunning) {
+        state.schedulerCountdown -= 1;
+        if (state.schedulerCountdown <= 0) {
+            state.schedulerCountdown = parseInt(document.getElementById('schedulerInterval').value);
+            runSchedulerBatch();
+        }
+        document.getElementById('schedulerCountdown').textContent = state.schedulerCountdown + 's';
+    }
+
+    checkTokenExpiry();
+    renderTokens();
+    renderQueue();
+
+    // Chart
+    const label = new Date().toLocaleTimeString('ko-KR', { hour12: false, minute: '2-digit', second: '2-digit' });
+    const tenAgo = Date.now() - 10000;
+    state.throughputWindow = state.throughputWindow.filter(t => t > tenAgo);
+
+    chart.data.labels.push(label);
+    chart.data.datasets[0].data.push(state.queue.length);
+    chart.data.datasets[1].data.push(state.tokens.filter(t => !t.used).length);
+    chart.data.datasets[2].data.push(state.throughputWindow.length);
+
+    if (chart.data.labels.length > 90) {
+        chart.data.labels.shift();
+        chart.data.datasets.forEach(ds => ds.data.shift());
+    }
+    chart.update('none');
+}
+
+// ========== Init ==========
+narrate(narrations.init);
+log('system', 'Queue Simulator ready');
+setInterval(tick, 1000);
+updateUI();
+</script>
+</body>
+</html>

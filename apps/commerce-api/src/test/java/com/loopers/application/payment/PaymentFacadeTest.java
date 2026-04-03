@@ -9,20 +9,24 @@ import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.domain.product.Money;
 import com.loopers.infrastructure.payment.PgPaymentGateway;
 import com.loopers.infrastructure.payment.dto.PgPaymentResponse;
+import com.loopers.domain.payment.event.PaymentCompletedEvent;
 import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +37,7 @@ class PaymentFacadeTest {
     @Mock private OrderService orderService;
     @Mock private PgPaymentGateway pgPaymentGateway;
     @Mock private PgProperties pgProperties;
+    @Mock private ApplicationEventPublisher eventPublisher;
 
     @DisplayName("결제 요청")
     @Nested
@@ -101,7 +106,9 @@ class PaymentFacadeTest {
             // given
             String transactionKey = "20250816:TR:abc123";
             PaymentModel mockPayment = mock(PaymentModel.class);
+            given(mockPayment.getId()).willReturn(1L);
             given(mockPayment.orderId()).willReturn(1L);
+            given(mockPayment.userId()).willReturn(10L);
             given(paymentService.getByTransactionKey(transactionKey)).willReturn(mockPayment);
 
             OrderModel mockOrder = mock(OrderModel.class);
@@ -121,7 +128,9 @@ class PaymentFacadeTest {
             // given
             String transactionKey = "20250816:TR:abc123";
             PaymentModel mockPayment = mock(PaymentModel.class);
+            given(mockPayment.getId()).willReturn(1L);
             given(mockPayment.orderId()).willReturn(1L);
+            given(mockPayment.userId()).willReturn(10L);
             given(paymentService.getByTransactionKey(transactionKey)).willReturn(mockPayment);
 
             OrderModel mockOrder = mock(OrderModel.class);
@@ -133,6 +142,57 @@ class PaymentFacadeTest {
             // then
             verify(mockPayment).markFailed("한도 초과");
             verify(mockOrder).failPayment();
+        }
+
+        @DisplayName("결제 성공 콜백 시 PaymentCompletedEvent(success=true)를 발행한다")
+        @Test
+        void publishesPaymentCompletedEventOnSuccess() {
+            // given
+            String transactionKey = "20250816:TR:abc123";
+            PaymentModel mockPayment = mock(PaymentModel.class);
+            given(mockPayment.getId()).willReturn(1L);
+            given(mockPayment.orderId()).willReturn(2L);
+            given(mockPayment.userId()).willReturn(10L);
+            given(paymentService.getByTransactionKey(transactionKey)).willReturn(mockPayment);
+
+            OrderModel mockOrder = mock(OrderModel.class);
+            given(orderService.getOrderForAdmin(2L)).willReturn(mockOrder);
+
+            // when
+            paymentFacade.handleCallback(transactionKey, "SUCCESS", null);
+
+            // then
+            ArgumentCaptor<PaymentCompletedEvent> captor = ArgumentCaptor.forClass(PaymentCompletedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertAll(
+                () -> assertThat(captor.getValue().paymentId()).isEqualTo(1L),
+                () -> assertThat(captor.getValue().orderId()).isEqualTo(2L),
+                () -> assertThat(captor.getValue().userId()).isEqualTo(10L),
+                () -> assertThat(captor.getValue().success()).isTrue()
+            );
+        }
+
+        @DisplayName("결제 실패 콜백 시 PaymentCompletedEvent(success=false)를 발행한다")
+        @Test
+        void publishesPaymentCompletedEventOnFailure() {
+            // given
+            String transactionKey = "20250816:TR:abc123";
+            PaymentModel mockPayment = mock(PaymentModel.class);
+            given(mockPayment.getId()).willReturn(1L);
+            given(mockPayment.orderId()).willReturn(2L);
+            given(mockPayment.userId()).willReturn(10L);
+            given(paymentService.getByTransactionKey(transactionKey)).willReturn(mockPayment);
+
+            OrderModel mockOrder = mock(OrderModel.class);
+            given(orderService.getOrderForAdmin(2L)).willReturn(mockOrder);
+
+            // when
+            paymentFacade.handleCallback(transactionKey, "FAILED", "한도 초과");
+
+            // then
+            ArgumentCaptor<PaymentCompletedEvent> captor = ArgumentCaptor.forClass(PaymentCompletedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertThat(captor.getValue().success()).isFalse();
         }
     }
 }
