@@ -44,10 +44,6 @@ public class EntryTokenInterceptor implements HandlerInterceptor {
         }
 
         Long userId = (Long) request.getAttribute(USER_ID_ATTRIBUTE);
-        if (userId == null) {
-            throw new CoreException(ErrorType.UNAUTHORIZED);
-        }
-
         entryTokenStore.validate(userId, entryToken);
         return true;
     }
