@@ -21,6 +21,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
   cloud:
@@ -53,6 +54,19 @@ cache:
     jitter-ratio: 0.1
 
 loopers:
+  kafka:
+    topic:
+      product-metrics: commerce.product.metrics.v1
+      product-like-count: commerce.product.like-count.v1
+      outbox-ack: commerce.outbox.ack.v1
+      order-created: commerce.order.created.v1
+      order-cancel-requested: commerce.order.cancel-requested.v1
+      payment-status-changed: commerce.payment.status-changed.v1
+      coupon-issue-requested: commerce.coupon.issue-requested.v1
+  outbox:
+    relay:
+      enabled: true
+      fixed-delay-ms: 1000
   queue:
     order:
       enabled: false
@@ -66,15 +80,17 @@ loopers:
       dynamic-adjustment-enabled: true
       claim-ttl-ms: 5000
       token-ttl-ms: 30000
-      admission-strategy: key-ttl
+      admission-strategy: hash-field-ttl
       minimum-polling-interval-seconds: 1
       maximum-polling-interval-seconds: 5
   cache:
     brand-category:
       enabled: true
   payment:
+    gateway:
+      mode: ${PAYMENT_GATEWAY_MODE:pg-simulator}
     pg-simulator:
-      url: http://localhost:8082
+      url: ${PG_SIMULATOR_URL:http://localhost:8082}
     completion:
       polling:
         enabled: true

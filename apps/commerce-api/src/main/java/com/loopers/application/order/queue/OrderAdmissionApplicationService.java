@@ -4,12 +4,14 @@ import com.loopers.domain.orderqueue.OrderQueueRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class OrderAdmissionApplicationService {
 
@@ -37,32 +39,49 @@ public class OrderAdmissionApplicationService {
         final long nowMillis = System.currentTimeMillis();
         final int batchSize = resolveBatchSize(nowMillis);
         if (batchSize <= 0) {
+            log.info("issueAdmissions skipped batchSize={} activeTokens={} maxActive={}", batchSize, admissionStorageStrategy.countActiveTokens(nowMillis), orderQueueProperties.maxActiveAdmissions());
             return 0;
         }
 
         final List<String> candidates = orderQueueRepository.peek(batchSize);
+        log.info("issueAdmissions candidates.size={} batchSize={}", candidates.size(), batchSize);
         int issuedCount = 0;
         for (String memberId : candidates) {
             if (admissionStorageStrategy.hasValidToken(memberId)) {
+                log.info("issueAdmissions memberId={} already admitted", memberId);
                 orderQueueRepository.remove(memberId);
                 admissionStorageStrategy.clearClaim(memberId);
                 continue;
             }
 
             if (!admissionStorageStrategy.tryClaim(memberId, nowMillis, orderQueueProperties.claimTtlMs())) {
+                log.info("issueAdmissions memberId={} claim failed", memberId);
                 continue;
             }
 
-            if (admissionStorageStrategy.countActiveTokens(nowMillis) >= orderQueueProperties.maxActiveAdmissions()) {
-                admissionStorageStrategy.clearClaim(memberId);
-                break;
-            }
+            try {
+                if (admissionStorageStrategy.countActiveTokens(nowMillis) >= orderQueueProperties.maxActiveAdmissions()) {
+                    log.info("issueAdmissions memberId={} cap reached", memberId);
+                    break;
+                }
 
-            if (admissionStorageStrategy.issueToken(memberId, nowMillis, orderQueueProperties.tokenTtlMs())) {
-                orderQueueRepository.remove(memberId);
-                issuedCount++;
+                boolean issued = admissionStorageStrategy.issueToken(memberId, nowMillis, orderQueueProperties.tokenTtlMs());
+                log.info("issueAdmissions memberId={} issued={}", memberId, issued);
+                if (issued) {
+                    orderQueueRepository.remove(memberId);
+                    issuedCount++;
+                }
+            } catch (RuntimeException e) {
+                log.error("issueAdmissions memberId={} failed", memberId, e);
+                throw e;
+            } finally {
+                try {
+                    admissionStorageStrategy.clearClaim(memberId);
+                } catch (RuntimeException e) {
+                    log.error("issueAdmissions memberId={} clearClaim failed", memberId, e);
+                    throw e;
+                }
             }
-            admissionStorageStrategy.clearClaim(memberId);
         }
         return issuedCount;
     }

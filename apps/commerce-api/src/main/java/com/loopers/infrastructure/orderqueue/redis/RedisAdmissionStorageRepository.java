@@ -2,7 +2,6 @@ package com.loopers.infrastructure.orderqueue.redis;
 
 import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.orderqueue.AdmissionStorageRepository;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -11,15 +10,17 @@ import java.time.Duration;
 import java.util.Set;
 
 @Repository
-@RequiredArgsConstructor
 public class RedisAdmissionStorageRepository implements AdmissionStorageRepository {
 
     private static final String CLAIM_KEY_PREFIX = "order:admission:claim:";
     private static final String TOKEN_KEY_PREFIX = "order:admission:token:";
     private static final String ACTIVE_TOKEN_KEY = "order:admission:active:v1";
 
-    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private final RedisTemplate<String, String> redisTemplate;
+
+    public RedisAdmissionStorageRepository(@Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     @Override
     public boolean tryClaim(String memberId, long nowMillis, long claimTtlMillis) {

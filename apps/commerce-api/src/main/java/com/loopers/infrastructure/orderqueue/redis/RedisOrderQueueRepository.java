@@ -2,7 +2,7 @@ package com.loopers.infrastructure.orderqueue.redis;
 
 import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.orderqueue.OrderQueueRepository;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
@@ -11,13 +11,16 @@ import java.util.List;
 import java.util.Set;
 
 @Repository
-@RequiredArgsConstructor
+@Slf4j
 public class RedisOrderQueueRepository implements OrderQueueRepository {
 
     private static final String ORDER_QUEUE_KEY = "order:queue:v1";
 
-    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private final RedisTemplate<String, String> redisTemplate;
+
+    public RedisOrderQueueRepository(@Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
 
     @Override
     public void upsert(String memberId, long enteredAt) {

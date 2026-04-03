@@ -16,7 +16,7 @@ public record OrderQueueProperties(
         @DefaultValue("true") boolean dynamicAdjustmentEnabled,
         @DefaultValue("5000") long claimTtlMs,
         @DefaultValue("30000") long tokenTtlMs,
-        @DefaultValue("key-ttl") String admissionStrategy,
+        @DefaultValue("hash-field-ttl") String admissionStrategy,
         @DefaultValue("1") long minimumPollingIntervalSeconds,
         @DefaultValue("5") long maximumPollingIntervalSeconds
 ) {
