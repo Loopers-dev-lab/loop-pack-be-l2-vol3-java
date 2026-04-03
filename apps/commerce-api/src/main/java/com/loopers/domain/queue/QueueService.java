@@ -98,7 +98,15 @@ public class QueueService {
                 yield QueuePosition.waiting(snapshot.rank(), snapshot.size(), estimated);
             }
             case READY -> QueuePosition.ready(snapshot.size(), snapshot.token());
-            case NOT_IN_QUEUE -> QueuePosition.notInQueue(snapshot.size());
+            case NOT_IN_QUEUE -> {
+                // Replica 지연 대응: Master에서 토큰 재확인
+                // ZPOPMIN(Master) 직후 토큰 SET(Master)이 Replica에 미반영된 경우 방어
+                String masterToken = queueRepository.getTokenFromMaster(userId);
+                if (masterToken != null) {
+                    yield QueuePosition.ready(snapshot.size(), masterToken);
+                }
+                yield QueuePosition.notInQueue(snapshot.size());
+            }
         };
     }
 

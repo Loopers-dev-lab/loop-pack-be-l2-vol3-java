@@ -1,10 +1,7 @@
 package com.loopers.domain.user;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.support.error.CoreException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -12,6 +9,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 인증 결과를 Redis에 캐시하여 Polling 인증 DB 부하를 줄인다.
@@ -21,18 +21,32 @@ import java.util.HexFormat;
  * 별도 record로 분리한다.</p>
  *
  * <p>Redis 장애 시 DB fallback으로 동작한다 (try-catch).</p>
+ *
+ * <p>읽기는 Replica 우선, 쓰기는 Master로 분산하여 대기열 ZADD/ZPOPMIN과의 경합을 줄인다.</p>
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AuthCacheService {
 
-    private final RedisTemplate<String, String> redisTemplateMaster;
+    private final AuthCacheRepository authCacheRepository;
     private final UserService userService;
     private final ObjectMapper objectMapper;
 
-    private static final Duration AUTH_CACHE_TTL = Duration.ofSeconds(300);
+    public AuthCacheService(
+            AuthCacheRepository authCacheRepository,
+            UserService userService,
+            ObjectMapper objectMapper) {
+        this.authCacheRepository = authCacheRepository;
+        this.userService = userService;
+        this.objectMapper = objectMapper;
+    }
+
+    private static final long AUTH_CACHE_TTL_BASE_SECONDS = 300;
+    private static final long AUTH_CACHE_TTL_JITTER_SECONDS = 30;
     private static final String KEY_PREFIX = "auth:cache:";
+
+    /** Singleflight: 같은 키에 대해 1개 스레드만 DB 조회, 나머지는 대기 후 캐시 재조회 */
+    private final ConcurrentHashMap<String, ReentrantLock> inFlightLocks = new ConcurrentHashMap<>();
 
     /**
      * 캐시에 저장할 인증 정보. JPA Entity 직접 직렬화를 피하기 위한 경량 DTO.
@@ -70,29 +84,61 @@ public class AuthCacheService {
         String passwordHash = sha256Hex(rawPassword);
         String compositeKey = KEY_PREFIX + loginId + ":" + passwordHash;
 
-        // 1. 캐시 히트 체크 — Redis 장애 시 DB fallback
+        // 1. 캐시 히트 체크 — 장애 시 null 반환으로 DB fallback
+        UserModel cached = getFromCache(compositeKey);
+        if (cached != null) {
+            return cached;
+        }
+
+        // 2. 캐시 미스 → singleflight: 같은 키에 대해 1개 스레드만 DB 조회
+        ReentrantLock lock = inFlightLocks.computeIfAbsent(compositeKey, k -> new ReentrantLock());
+        lock.lock();
         try {
-            String cachedJson = redisTemplateMaster.opsForValue().get(compositeKey);
+            // 2-1. 다른 스레드가 이미 캐시에 저장했을 수 있으므로 재조회
+            UserModel rechecked = getFromCache(compositeKey);
+            if (rechecked != null) {
+                return rechecked;
+            }
+
+            // 2-2. DB 인증 (비밀번호 검증 포함)
+            UserModel user = userService.authenticate(loginId, rawPassword);
+
+            // 2-3. 인증 성공 시 캐시 저장 — 장애 시 무시
+            try {
+                String json = objectMapper.writeValueAsString(AuthUserInfo.from(user));
+                authCacheRepository.set(compositeKey, json, ttlWithJitter());
+            } catch (Exception e) {
+                log.warn("인증 캐시 저장 실패: {}", e.getMessage());
+            }
+
+            return user;
+        } finally {
+            lock.unlock();
+            inFlightLocks.remove(compositeKey);
+        }
+    }
+
+    private UserModel getFromCache(String compositeKey) {
+        try {
+            String cachedJson = authCacheRepository.get(compositeKey);
             if (cachedJson != null) {
                 AuthUserInfo info = objectMapper.readValue(cachedJson, AuthUserInfo.class);
                 return UserModel.fromCachedAuth(info);
             }
         } catch (Exception e) {
-            log.warn("인증 캐시 조회 실패, DB fallback: {}", e.getMessage());
+            log.warn("캐시 조회/역직렬화 실패, DB fallback: {}", e.getMessage());
         }
+        return null;
+    }
 
-        // 2. 캐시 미스 → DB 인증 (비밀번호 검증 포함)
-        UserModel user = userService.authenticate(loginId, rawPassword);
-
-        // 3. 인증 성공 시 캐시 저장 — Redis 장애 시 무시
-        try {
-            String json = objectMapper.writeValueAsString(AuthUserInfo.from(user));
-            redisTemplateMaster.opsForValue().set(compositeKey, json, AUTH_CACHE_TTL);
-        } catch (Exception e) {
-            log.warn("인증 캐시 저장 실패: {}", e.getMessage());
-        }
-
-        return user;
+    /**
+     * 캐시 스탬피드 방지를 위해 TTL에 ±30초 jitter를 추가한다.
+     * 동시 warm-up된 캐시가 동시에 만료되는 것을 방지.
+     */
+    private static Duration ttlWithJitter() {
+        long jitter = ThreadLocalRandom.current()
+                .nextLong(-AUTH_CACHE_TTL_JITTER_SECONDS, AUTH_CACHE_TTL_JITTER_SECONDS + 1);
+        return Duration.ofSeconds(AUTH_CACHE_TTL_BASE_SECONDS + jitter);
     }
 
     private static String sha256Hex(String input) {

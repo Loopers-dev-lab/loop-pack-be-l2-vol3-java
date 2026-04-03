@@ -134,6 +134,68 @@ class EntryTokenServiceTest {
     }
 
     // ============================
+    // validate() (검증만, 삭제 없음)
+    // ============================
+    @Nested
+    @DisplayName("validate()")
+    class Validate {
+
+        @Test
+        @DisplayName("유효한 토큰 검증 시 true를 반환한다 (삭제 없음)")
+        void validate_ValidToken_ShouldReturnTrue() {
+            // given
+            Long userId = 1L;
+            String token = "valid-token";
+            given(entryTokenRepository.validate(userId, token)).willReturn(true);
+
+            // when
+            boolean result = entryTokenService.validate(userId, token);
+
+            // then
+            assertThat(result).isTrue();
+            verify(entryTokenRepository, never()).delete(userId);
+            verify(entryTokenRepository, never()).validateAndDelete(userId, token);
+        }
+
+        @Test
+        @DisplayName("잘못된 토큰 검증 시 false를 반환한다")
+        void validate_InvalidToken_ShouldReturnFalse() {
+            // given
+            Long userId = 1L;
+            String token = "wrong-token";
+            given(entryTokenRepository.validate(userId, token)).willReturn(false);
+
+            // when
+            boolean result = entryTokenService.validate(userId, token);
+
+            // then
+            assertThat(result).isFalse();
+        }
+    }
+
+    // ============================
+    // consume() (삭제만)
+    // ============================
+    @Nested
+    @DisplayName("consume()")
+    class Consume {
+
+        @Test
+        @DisplayName("토큰을 삭제한다")
+        void consume_ShouldDeleteToken() {
+            // given
+            Long userId = 1L;
+            given(entryTokenRepository.delete(userId)).willReturn(true);
+
+            // when
+            entryTokenService.consume(userId);
+
+            // then
+            verify(entryTokenRepository).delete(userId);
+        }
+    }
+
+    // ============================
     // getToken() / hasToken()
     // ============================
     @Nested

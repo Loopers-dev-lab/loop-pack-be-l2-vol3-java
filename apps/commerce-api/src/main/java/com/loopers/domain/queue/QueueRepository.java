@@ -55,4 +55,16 @@ public interface QueueRepository {
      * 순번 조회 스냅샷. Lua script 결과를 담는 record.
      */
     record PositionSnapshot(Long rank, long size, String token) {}
+
+    /**
+     * Master에서 토큰을 조회한다. Replica 지연으로 NOT_IN_QUEUE 판정 시 Master 재확인용.
+     *
+     * <p>getPositionSnapshot은 Replica에서 실행되므로, ZPOPMIN 직후 토큰이 SET됐지만
+     * Replica에 아직 반영되지 않은 경우 NOT_IN_QUEUE로 잘못 판정될 수 있다.
+     * 이 메서드로 Master에서 토큰을 재확인하여 READY 상태를 놓치지 않도록 한다.</p>
+     *
+     * @param userId 사용자 ID
+     * @return 토큰 값 또는 null
+     */
+    String getTokenFromMaster(Long userId);
 }

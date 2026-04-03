@@ -34,6 +34,7 @@ class OrderQueueSchedulerIntegrationTest {
     @Autowired private EntryTokenService entryTokenService;
     @Autowired private EntryTokenRepository entryTokenRepository;
     @Autowired private QueueProperties queueProperties;
+    @Autowired private SchedulerLock schedulerLock;
 
     @Autowired
     @Qualifier("redisTemplateMaster")
@@ -120,7 +121,7 @@ class OrderQueueSchedulerIntegrationTest {
     private OrderQueueScheduler createScheduler() {
         return new OrderQueueScheduler(
                 queueService, queueRepository, entryTokenService,
-                queueProperties, redisTemplate
+                queueProperties, schedulerLock
         );
     }
 

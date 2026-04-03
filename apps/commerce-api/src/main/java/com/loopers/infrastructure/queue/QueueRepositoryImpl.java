@@ -112,6 +112,14 @@ public class QueueRepositoryImpl implements QueueRepository {
     }
 
     /**
+     * Master에서 토큰을 직접 조회한다. Replica 지연 시 NOT_IN_QUEUE 재확인용.
+     */
+    @Override
+    public String getTokenFromMaster(Long userId) {
+        return redisTemplateMaster.opsForValue().get("order:entry-token:" + userId);
+    }
+
+    /**
      * ZPOPMIN — 앞에서 count명을 원자적으로 제거하고 반환.
      *
      * <p>스케줄러가 100ms마다 호출. 원자적이므로 다중 인스턴스에서도 중복 추출 없음.</p>

@@ -46,4 +46,16 @@ public interface EntryTokenRepository {
      * @return true=검증 성공 + 삭제됨, false=불일치 또는 없음
      */
     boolean validateAndDelete(Long userId, String token);
+
+    /**
+     * 토큰을 검증만 수행한다 (삭제하지 않음, Lua: GET → 비교).
+     *
+     * <p>Interceptor preHandle에서 검증 후, 주문 성공 시 afterCompletion에서 삭제하는 패턴에 사용.
+     * 주문 실패 시 토큰이 유지되어 TTL 내 재시도가 가능하다.</p>
+     *
+     * @param userId 사용자 ID
+     * @param token  검증할 토큰 값
+     * @return true=검증 성공 (토큰 일치), false=불일치 또는 없음
+     */
+    boolean validate(Long userId, String token);
 }

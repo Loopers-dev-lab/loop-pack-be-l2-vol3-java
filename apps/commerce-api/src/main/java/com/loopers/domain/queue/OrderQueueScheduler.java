@@ -1,15 +1,13 @@
 package com.loopers.domain.queue;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 대기열 → 입장 토큰 발급 스케줄러.
@@ -18,6 +16,12 @@ import java.util.UUID;
  * 다중 인스턴스 환경에서 이중 실행을 방지하기 위해 Redis SETNX 리더 선출을 사용한다.</p>
  *
  * <p>처리량: batchSize(14) × 10회/초 = 140 TPS</p>
+ *
+ * <p>안전장치:
+ * <ul>
+ *   <li>owner 검증 Lua unlock — 다른 인스턴스의 락을 삭제하지 않음</li>
+ *   <li>failedEntries 버퍼 — 보상 실패 시 다음 주기에 재시도</li>
+ * </ul></p>
  */
 @Slf4j
 @Component
@@ -28,22 +32,23 @@ public class OrderQueueScheduler {
     private final QueueRepository queueRepository;
     private final EntryTokenService entryTokenService;
     private final QueueProperties queueProperties;
-    private final RedisTemplate<String, String> redisTemplateMaster;
+    private final SchedulerLock schedulerLock;
 
-    private static final String LOCK_KEY = "queue:scheduler:lock";
-    private final String instanceId = UUID.randomUUID().toString();
+    /** 보상 실패한 유저를 다음 주기에 재시도하기 위한 버퍼. */
+    private final List<QueueEntry> failedEntries =
+            Collections.synchronizedList(new ArrayList<>());
 
     public OrderQueueScheduler(
             QueueService queueService,
             QueueRepository queueRepository,
             EntryTokenService entryTokenService,
             QueueProperties queueProperties,
-            @Qualifier("redisTemplateMaster") RedisTemplate<String, String> redisTemplateMaster) {
+            SchedulerLock schedulerLock) {
         this.queueService = queueService;
         this.queueRepository = queueRepository;
         this.entryTokenService = entryTokenService;
         this.queueProperties = queueProperties;
-        this.redisTemplateMaster = redisTemplateMaster;
+        this.schedulerLock = schedulerLock;
     }
 
     /**
@@ -52,44 +57,40 @@ public class OrderQueueScheduler {
     @Scheduled(fixedRateString = "${queue.scheduler.interval-ms:100}",
                scheduler = "queueTaskScheduler")
     public void processQueue() {
-        // 1. Redis SETNX 리더 선출
-        if (!acquireLock()) {
+        // 1. 리더 선출
+        if (!schedulerLock.tryAcquire()) {
             return;
         }
 
-        // 2. ZPOPMIN으로 배치 추출
-        int batchSize = queueProperties.getSchedulerBatchSize();
-        List<QueueEntry> entries = queueService.popBatch(batchSize);
-
-        if (entries.isEmpty()) {
-            return;
-        }
-
-        // 3. 각각 토큰 발급 + 실패 보상
-        int successCount = 0;
-        for (QueueEntry entry : entries) {
-            try {
-                entryTokenService.issueToken(entry.userId());
-                successCount++;
-            } catch (Exception e) {
-                log.warn("토큰 발급 실패, 대기열 복귀: userId={}", entry.userId(), e);
-                compensateFailure(entry);
-            }
-        }
-
-        if (successCount > 0) {
-            log.debug("토큰 발급 완료: {}명", successCount);
-        }
-    }
-
-    private boolean acquireLock() {
         try {
-            Boolean acquired = redisTemplateMaster.opsForValue()
-                    .setIfAbsent(LOCK_KEY, instanceId, Duration.ofMillis(150));
-            return Boolean.TRUE.equals(acquired);
-        } catch (Exception e) {
-            log.warn("스케줄러 리더 선출 실패 (Redis 장애), 이번 주기 skip: {}", e.getMessage());
-            return false;
+            // 이전 주기 보상 실패분 재시도
+            retryFailedEntries();
+
+            // 2. ZPOPMIN으로 배치 추출
+            int batchSize = queueProperties.getSchedulerBatchSize();
+            List<QueueEntry> entries = queueService.popBatch(batchSize);
+
+            if (entries.isEmpty()) {
+                return;
+            }
+
+            // 3. 각각 토큰 발급 + 실패 보상
+            int successCount = 0;
+            for (QueueEntry entry : entries) {
+                try {
+                    entryTokenService.issueToken(entry.userId());
+                    successCount++;
+                } catch (Exception e) {
+                    log.warn("토큰 발급 실패, 대기열 복귀: userId={}", entry.userId(), e);
+                    compensateFailure(entry);
+                }
+            }
+
+            if (successCount > 0) {
+                log.debug("토큰 발급 완료: {}명", successCount);
+            }
+        } finally {
+            schedulerLock.release();
         }
     }
 
@@ -98,11 +99,28 @@ public class OrderQueueScheduler {
             queueRepository.addIfAbsent(entry.userId(), entry.score());
             log.info("대기열 복귀 완료: userId={}, score={}", entry.userId(), entry.score());
         } catch (Exception e) {
-            log.error("대기열 복귀 실패! userId={}가 유실됨. 수동 복구 필요.", entry.userId(), e);
+            log.error("대기열 복귀 실패, 재시도 버퍼에 저장: userId={}", entry.userId(), e);
+            failedEntries.add(entry);
         }
     }
 
-    String getInstanceId() {
-        return instanceId;
+    private void retryFailedEntries() {
+        if (failedEntries.isEmpty()) {
+            return;
+        }
+
+        List<QueueEntry> snapshot = new ArrayList<>(failedEntries);
+        failedEntries.clear();
+
+        for (QueueEntry entry : snapshot) {
+            try {
+                queueRepository.addIfAbsent(entry.userId(), entry.score());
+                log.info("재시도 복귀 성공: userId={}", entry.userId());
+            } catch (Exception e) {
+                log.error("재시도 복귀 실패: userId={}", entry.userId(), e);
+                failedEntries.add(entry);
+            }
+        }
     }
+
 }

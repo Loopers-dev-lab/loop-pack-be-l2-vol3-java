@@ -118,6 +118,8 @@ class QueueServiceTest {
             // getPosition() 내부에서 Lua 스냅샷 호출
             given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
                     .willReturn(new QueueRepository.PositionSnapshot(null, 100, null));
+            // Master fallback에서도 토큰 없음
+            given(queueRepository.getTokenFromMaster(userId)).willReturn(null);
 
             // when
             EnterResult result = queueService.enter(userId);
@@ -155,12 +157,13 @@ class QueueServiceTest {
         }
 
         @Test
-        @DisplayName("대기열에 없는 유저는 NOT_IN_QUEUE 상태를 반환한다")
+        @DisplayName("대기열에 없고 Master에도 토큰 없으면 NOT_IN_QUEUE를 반환한다")
         void getPosition_NotInQueue_ShouldReturnNotInQueue() {
             // given
             Long userId = 1L;
             given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
                     .willReturn(new QueueRepository.PositionSnapshot(null, 200, null));
+            given(queueRepository.getTokenFromMaster(userId)).willReturn(null);
 
             // when
             QueuePosition position = queueService.getPosition(userId);
@@ -169,6 +172,23 @@ class QueueServiceTest {
             assertThat(position.status()).isEqualTo(QueueStatus.NOT_IN_QUEUE);
             assertThat(position.position()).isEqualTo(-1);
             assertThat(position.token()).isNull();
+        }
+
+        @Test
+        @DisplayName("Replica에서 NOT_IN_QUEUE지만 Master에 토큰이 있으면 READY를 반환한다 (Replica 지연 대응)")
+        void getPosition_ReplicaLag_MasterHasToken_ShouldReturnReady() {
+            // given — Replica: rank=null, token=null / Master: token 존재
+            Long userId = 1L;
+            given(queueRepository.getPositionSnapshot(eq(userId), anyString()))
+                    .willReturn(new QueueRepository.PositionSnapshot(null, 200, null));
+            given(queueRepository.getTokenFromMaster(userId)).willReturn("master-token-uuid");
+
+            // when
+            QueuePosition position = queueService.getPosition(userId);
+
+            // then
+            assertThat(position.status()).isEqualTo(QueueStatus.READY);
+            assertThat(position.token()).isEqualTo("master-token-uuid");
         }
 
         @Test

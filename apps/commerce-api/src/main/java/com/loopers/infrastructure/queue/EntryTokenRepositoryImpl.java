@@ -42,6 +42,21 @@ public class EntryTokenRepositoryImpl implements EntryTokenRepository {
                     Long.class
             );
 
+    /**
+     * Lua script: GET → 값 비교 (삭제 없음). preHandle 검증 전용.
+     */
+    private static final DefaultRedisScript<Long> VALIDATE_ONLY_SCRIPT =
+            new DefaultRedisScript<>(
+                    """
+                    local v = redis.call('get', KEYS[1])
+                    if v == ARGV[1] then
+                        return 1
+                    end
+                    return 0
+                    """,
+                    Long.class
+            );
+
     private final RedisTemplate<String, String> redisTemplateReadOnly;
 
     public EntryTokenRepositoryImpl(
@@ -76,6 +91,16 @@ public class EntryTokenRepositoryImpl implements EntryTokenRepository {
     public boolean validateAndDelete(Long userId, String token) {
         Long result = redisTemplateMaster.execute(
                 VALIDATE_AND_DELETE_SCRIPT,
+                List.of(KEY_PREFIX + userId),
+                token
+        );
+        return result != null && result == 1L;
+    }
+
+    @Override
+    public boolean validate(Long userId, String token) {
+        Long result = redisTemplateMaster.execute(
+                VALIDATE_ONLY_SCRIPT,
                 List.of(KEY_PREFIX + userId),
                 token
         );

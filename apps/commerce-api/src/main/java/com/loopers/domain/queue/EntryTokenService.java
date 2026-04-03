@@ -66,6 +66,29 @@ public class EntryTokenService {
     }
 
     /**
+     * 토큰 검증만 수행 (삭제 없음). Interceptor preHandle에서 사용.
+     *
+     * <p>주문 성공 후 {@link #consume(Long)}으로 삭제한다.
+     * 주문 실패 시 토큰이 유지되어 TTL 내 재시도가 가능하다.</p>
+     *
+     * @param userId 사용자 ID
+     * @param token  검증할 토큰 값
+     * @return true=검증 성공, false=불일치 또는 만료
+     */
+    public boolean validate(Long userId, String token) {
+        return entryTokenRepository.validate(userId, token);
+    }
+
+    /**
+     * 토큰 삭제 (소비). 주문 성공 확정 후 afterCompletion에서 호출.
+     *
+     * @param userId 사용자 ID
+     */
+    public void consume(Long userId) {
+        entryTokenRepository.delete(userId);
+    }
+
+    /**
      * 토큰 조회 (순번 조회 시 READY 상태 판단용).
      *
      * @param userId 사용자 ID
