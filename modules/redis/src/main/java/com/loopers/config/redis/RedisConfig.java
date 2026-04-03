@@ -2,7 +2,6 @@ package com.loopers.config.redis;
 
 
 import io.lettuce.core.ReadFrom;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -19,7 +18,6 @@ import java.util.List;
 import java.util.function.Consumer;
 
 @Configuration
-@Slf4j
 @EnableConfigurationProperties(RedisProperties.class)
 public class RedisConfig{
     private static final String CONNECTION_MASTER = "redisConnectionMaster";
@@ -29,11 +27,6 @@ public class RedisConfig{
 
     public RedisConfig(RedisProperties redisProperties){
         this.redisProperties = redisProperties;
-        log.info("redis config database={} master={}:{} replicas={}",
-                redisProperties.database(),
-                redisProperties.master().host(),
-                redisProperties.master().port(),
-                redisProperties.replicas().size());
     }
 
     @Primary

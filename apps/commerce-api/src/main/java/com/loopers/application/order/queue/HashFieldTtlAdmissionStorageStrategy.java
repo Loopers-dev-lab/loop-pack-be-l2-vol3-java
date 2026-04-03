@@ -3,7 +3,6 @@ package com.loopers.application.order.queue;
 import com.loopers.config.redis.RedisConfig;
 import io.lettuce.core.RedisAsyncCommandsImpl;
 import io.lettuce.core.api.StatefulRedisConnection;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisCallback;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 
 @Component
-@Slf4j
 @ConditionalOnProperty(prefix = "loopers.queue.order", name = "admission-strategy", havingValue = "hash-field-ttl")
 public class HashFieldTtlAdmissionStorageStrategy implements AdmissionStorageStrategy {
 
@@ -60,8 +58,7 @@ public class HashFieldTtlAdmissionStorageStrategy implements AdmissionStorageStr
 
     @Override
     public void clearClaim(String memberId) {
-        Long deleted = redisTemplate.opsForHash().delete(CLAIM_BUCKET_KEY, memberId);
-        log.info("hash-field-ttl clearClaim memberId={} deleted={}", memberId, deleted);
+        redisTemplate.opsForHash().delete(CLAIM_BUCKET_KEY, memberId);
     }
 
     private boolean hasField(String key, String field) {
@@ -80,27 +77,23 @@ public class HashFieldTtlAdmissionStorageStrategy implements AdmissionStorageStr
                 serializedField,
                 serializedValue
         ));
-        log.info("hash-field-ttl put key={} field={} hsetnxResult={}", key, field, result);
         if (toLong(result) != 1L) {
             return false;
         }
 
-        try {
-            Object expireResult = redisTemplate.execute((RedisCallback<Object>) connection -> {
-                Object nativeConnection = connection.getNativeConnection();
-                log.info("hash-field-ttl nativeConnectionClass={}", nativeConnection == null ? "null" : nativeConnection.getClass().getName());
-                @SuppressWarnings("unchecked")
-                StatefulRedisConnection<byte[], byte[]> statefulConnection = nativeConnection instanceof RedisAsyncCommandsImpl<?, ?> asyncCommands
-                        ? ((RedisAsyncCommandsImpl<byte[], byte[]>) asyncCommands).getStatefulConnection()
-                        : (StatefulRedisConnection<byte[], byte[]>) nativeConnection;
-                return statefulConnection.sync().hpexpire(serializedKey, ttlMillis, serializedField);
-            });
-            log.info("hash-field-ttl expire key={} field={} expireResult={}", key, field, expireResult);
-            return true;
-        } catch (RuntimeException e) {
-            log.error("hash-field-ttl expire failed key={} field={}", key, field, e);
-            throw e;
+        Object expireResult = redisTemplate.execute((RedisCallback<Object>) connection -> {
+            Object nativeConnection = connection.getNativeConnection();
+            @SuppressWarnings("unchecked")
+            StatefulRedisConnection<byte[], byte[]> statefulConnection = nativeConnection instanceof RedisAsyncCommandsImpl<?, ?> asyncCommands
+                    ? ((RedisAsyncCommandsImpl<byte[], byte[]>) asyncCommands).getStatefulConnection()
+                    : (StatefulRedisConnection<byte[], byte[]>) nativeConnection;
+            return statefulConnection.sync().hpexpire(serializedKey, ttlMillis, serializedField);
+        });
+        if (toLong(expireResult) != 1L) {
+            redisTemplate.opsForHash().delete(key, field);
+            return false;
         }
+        return true;
     }
 
     private long toLong(Object result) {
