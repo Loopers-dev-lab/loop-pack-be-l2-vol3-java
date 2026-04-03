@@ -1,5 +1,6 @@
 package com.loopers.application.queue;
 
+import com.loopers.application.queue.EntryScheduler;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
@@ -10,14 +11,24 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** 스케줄러가 테스트 중 큐 방출해 테스트 간섭이 발생. 이를 방지하기 위한 스케줄러를 비활성화. */
-@SpringBootTest(properties = "spring.task.scheduling.enabled=false")
+@SpringBootTest(
+    properties = {
+        "spring.task.scheduling.enabled=false",
+        "queue.fallback.enabled=false"
+    }
+)
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class QueueFacadeIntegrationTest {
+
+    @MockBean
+    @SuppressWarnings("unused")
+    private EntryScheduler entryScheduler;
 
     @Autowired
     private QueueFacade queueFacade;

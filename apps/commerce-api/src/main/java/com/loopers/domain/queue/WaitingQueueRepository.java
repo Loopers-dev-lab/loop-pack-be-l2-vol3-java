@@ -5,6 +5,11 @@ import java.util.List;
 
 public interface WaitingQueueRepository {
 
+    /**
+     * 정원을 넘지 않을 때만 ZADD. {@code maxWaiting == 0}이면 정원 검사를 하지 않는다(테스트·하위 호환).
+     */
+    WaitingQueueJoinResult addIfAbsentWithinCapacity(String eventId, Long userId, long score, long maxWaiting);
+
     boolean addIfAbsent(String eventId, Long userId, long score);
 
     Optional<Long> findRank(String eventId, Long userId);

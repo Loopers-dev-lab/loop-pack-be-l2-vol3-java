@@ -1,8 +1,9 @@
 package com.loopers.infrastructure.queue;
 
 import com.loopers.config.redis.RedisConfig;
-import com.loopers.domain.queue.WaitingQueueRepository;
 import com.loopers.domain.queue.QueuePositionSnapshot;
+import com.loopers.domain.queue.WaitingQueueJoinResult;
+import com.loopers.domain.queue.WaitingQueueRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -25,9 +26,33 @@ public class RedisWaitingQueueRepository implements WaitingQueueRepository {
     private static final String WAITING_QUEUE_KEY_PREFIX = "queue:waiting:";
 
     private static final DefaultRedisScript<List<Long>> RANK_AND_COUNT_SCRIPT = new DefaultRedisScript<>();
+    private static final DefaultRedisScript<Long> ADD_WITH_CAPACITY_SCRIPT = new DefaultRedisScript<>();
 
-    /** Lua 스크립트: ZRANK + ZCARD를 한 번에 실행해 레이스 윈도우를 줄인다. */
+    /**
+     * Lua: 이미 멤버면 2, 정원 초과면 0, 신규 추가면 1.
+     * {@code maxWaiting == 0}이면 ZCARD 검사를 생략한다.
+     */
     static {
+        ADD_WITH_CAPACITY_SCRIPT.setScriptText(
+                """
+                        local member = ARGV[1]
+                        local score = tonumber(ARGV[2])
+                        local maxWaiting = tonumber(ARGV[3])
+                        if redis.call('ZSCORE', KEYS[1], member) then
+                          return 2
+                        end
+                        if maxWaiting > 0 then
+                          local card = redis.call('ZCARD', KEYS[1])
+                          if card >= maxWaiting then
+                            return 0
+                          end
+                        end
+                        redis.call('ZADD', KEYS[1], score, member)
+                        return 1
+                        """
+        );
+        ADD_WITH_CAPACITY_SCRIPT.setResultType(Long.class);
+
         RANK_AND_COUNT_SCRIPT.setScriptText(
                 """
                         local rank = redis.call('ZRANK', KEYS[1], ARGV[1])
@@ -52,10 +77,27 @@ public class RedisWaitingQueueRepository implements WaitingQueueRepository {
     }
 
     @Override
+    public WaitingQueueJoinResult addIfAbsentWithinCapacity(
+            String eventId, Long userId, long score, long maxWaiting) {
+        Long code = redisTemplate.execute(
+                ADD_WITH_CAPACITY_SCRIPT,
+                List.of(waitingKey(eventId)),
+                member(userId),
+                String.valueOf(score),
+                String.valueOf(maxWaiting));
+        if (code == null) {
+            throw new IllegalStateException("Redis addIfAbsentWithinCapacity script returned null");
+        }
+        return switch (code.intValue()) {
+            case 1 -> WaitingQueueJoinResult.ADDED;
+            case 2 -> WaitingQueueJoinResult.ALREADY_MEMBER;
+            default -> WaitingQueueJoinResult.CAPACITY_FULL;
+        };
+    }
+
+    @Override
     public boolean addIfAbsent(String eventId, Long userId, long score) {
-        // 동일 userId가 이미 있으면 false. 중복 대기 진입 방지.
-        Boolean added = redisTemplate.opsForZSet().addIfAbsent(waitingKey(eventId), member(userId), score);
-        return Boolean.TRUE.equals(added);
+        return addIfAbsentWithinCapacity(eventId, userId, score, 0L) == WaitingQueueJoinResult.ADDED;
     }
 
     @Override

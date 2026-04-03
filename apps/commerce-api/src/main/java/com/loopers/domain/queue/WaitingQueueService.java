@@ -13,15 +13,20 @@ import java.util.UUID;
 @Component
 public class WaitingQueueService {
 
+    private static final String CAPACITY_FULL_MESSAGE = "대기열 정원이 찼습니다.";
+
     private final WaitingQueueRepository waitingQueueRepository;
     private final Optional<QueueJoinFallbackPublisher> queueJoinFallbackPublisher;
+    private final WaitingQueueCapacityPolicy capacityPolicy;
 
     public WaitingQueueService(
             WaitingQueueRepository waitingQueueRepository,
-            Optional<QueueJoinFallbackPublisher> queueJoinFallbackPublisher
+            Optional<QueueJoinFallbackPublisher> queueJoinFallbackPublisher,
+            WaitingQueueCapacityPolicy capacityPolicy
     ) {
         this.waitingQueueRepository = waitingQueueRepository;
         this.queueJoinFallbackPublisher = queueJoinFallbackPublisher;
+        this.capacityPolicy = capacityPolicy;
     }
 
     /**
@@ -51,12 +56,19 @@ public class WaitingQueueService {
      * Kafka 복구 컨슈머 전용. Redis에 직접 반영하며, 실패 시 예외를 던져 Kafka 재시도/DLT로 넘긴다.
      */
     public JoinQueueResult joinQueueFromRecovery(String eventId, Long userId, long score) {
-        waitingQueueRepository.addIfAbsent(eventId, userId, score);
+        long cap = capacityPolicy.maxWaiting();
+        WaitingQueueJoinResult first = waitingQueueRepository.addIfAbsentWithinCapacity(eventId, userId, score, cap);
+        if (first == WaitingQueueJoinResult.CAPACITY_FULL) {
+            throw new CoreException(ErrorType.CONFLICT, CAPACITY_FULL_MESSAGE);
+        }
 
         Long rank = waitingQueueRepository.findRank(eventId, userId).orElse(null);
         if (rank == null) {
             // 간헐적 Redis 레이스/복제 지연 상황에서 rank 조회가 비는 케이스 방어.
-            waitingQueueRepository.addIfAbsent(eventId, userId, score);
+            WaitingQueueJoinResult retry = waitingQueueRepository.addIfAbsentWithinCapacity(eventId, userId, score, cap);
+            if (retry == WaitingQueueJoinResult.CAPACITY_FULL) {
+                throw new CoreException(ErrorType.CONFLICT, CAPACITY_FULL_MESSAGE);
+            }
             rank = waitingQueueRepository.findRank(eventId, userId)
                     .orElseThrow(() -> new CoreException(ErrorType.INTERNAL_ERROR, "대기열 순번 조회에 실패했습니다."));
         }

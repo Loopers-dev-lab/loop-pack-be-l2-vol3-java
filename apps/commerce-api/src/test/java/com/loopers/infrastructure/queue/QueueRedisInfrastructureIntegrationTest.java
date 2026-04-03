@@ -7,6 +7,7 @@ import com.loopers.domain.queue.EntryTokenRepository;
 import com.loopers.domain.queue.JoinQueueResult;
 import com.loopers.domain.queue.QueuePositionSnapshot;
 import com.loopers.domain.queue.SchedulerLockRepository;
+import com.loopers.domain.queue.WaitingQueueJoinResult;
 import com.loopers.domain.queue.WaitingQueueRepository;
 import com.loopers.domain.queue.WaitingQueueService;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
@@ -89,6 +90,21 @@ class QueueRedisInfrastructureIntegrationTest {
         var snap = waitingQueueRepository.findPositionSnapshot(EVENT_ID, 10L);
 
         assertThat(snap).contains(new QueuePositionSnapshot(0L, 2L));
+    }
+
+    @DisplayName("addIfAbsentWithinCapacity는 정원 초과 시 신규만 거절하고 기존 멤버는 ALREADY_MEMBER")
+    @Test
+    void addIfAbsentWithinCapacity_whenAtCap_shouldRejectOnlyNewMembers() {
+        String eventId = EVENT_ID + "-cap";
+        long cap = 2L;
+        assertThat(waitingQueueRepository.addIfAbsentWithinCapacity(eventId, 1L, 100L, cap))
+                .isEqualTo(WaitingQueueJoinResult.ADDED);
+        assertThat(waitingQueueRepository.addIfAbsentWithinCapacity(eventId, 2L, 200L, cap))
+                .isEqualTo(WaitingQueueJoinResult.ADDED);
+        assertThat(waitingQueueRepository.addIfAbsentWithinCapacity(eventId, 3L, 300L, cap))
+                .isEqualTo(WaitingQueueJoinResult.CAPACITY_FULL);
+        assertThat(waitingQueueRepository.addIfAbsentWithinCapacity(eventId, 1L, 100L, cap))
+                .isEqualTo(WaitingQueueJoinResult.ALREADY_MEMBER);
     }
 
     @DisplayName("popOldest는 score가 작은 순서대로 userId를 꺼낸다.")
