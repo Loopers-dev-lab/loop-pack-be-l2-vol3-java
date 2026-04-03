@@ -20,7 +20,7 @@ import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
-import com.loopers.domain.queue.QueueService;
+import com.loopers.domain.common.event.OrderCompletedEvent;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
@@ -28,6 +28,7 @@ import com.loopers.support.error.PointErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.loopers.infrastructure.outbox.OutboxEventService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,7 +70,7 @@ public class OrderFacade {
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
     private final OutboxEventService outboxEventService;
-    private final QueueService queueService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
@@ -79,7 +80,7 @@ public class OrderFacade {
                        PlatformTransactionManager txManager,
                        OrderCacheManager orderCacheManager,
                        OutboxEventService outboxEventService,
-                       QueueService queueService) {
+                       ApplicationEventPublisher eventPublisher) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -93,7 +94,7 @@ public class OrderFacade {
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
         this.orderCacheManager = orderCacheManager;
-        this.queueService = queueService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -109,7 +110,7 @@ public class OrderFacade {
 
         OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
-        deleteQueueTokenBestEffort(userId);
+        eventPublisher.publishEvent(new OrderCompletedEvent(userId));
         orderCacheManager.evictOrderList(userId);
         return result;
     }
@@ -136,7 +137,7 @@ public class OrderFacade {
 
         OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
-        deleteQueueTokenBestEffort(userId);
+        eventPublisher.publishEvent(new OrderCompletedEvent(userId));
 
         // 장바구니 삭제는 best-effort — 실패해도 주문 성공 응답을 유지한다
         try {
@@ -369,15 +370,4 @@ public class OrderFacade {
             String productName, String brandName,
             int unitPrice, int quantity, int lineTotal) {}
 
-    /**
-     * 대기열 토큰을 best-effort로 삭제한다.
-     * 실패해도 주문 성공에 영향을 주지 않는다 (TTL로 자연 만료).
-     */
-    private void deleteQueueTokenBestEffort(Long userId) {
-        try {
-            queueService.deleteToken(userId);
-        } catch (Exception e) {
-            log.warn("대기열 토큰 삭제 실패 — TTL로 자연 만료 예정 (userId={})", userId, e);
-        }
-    }
 }
