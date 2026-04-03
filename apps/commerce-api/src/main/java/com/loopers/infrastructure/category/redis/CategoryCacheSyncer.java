@@ -67,7 +67,7 @@ public class CategoryCacheSyncer {
             categoryCacheRepository.save(category);
         } catch (RuntimeException e) {
             log.error("카테고리 Redis 읽기 모델 동기화에 실패했습니다. categoryId={}", category.id(), e);
-            cacheSyncFailurePersistence.recordCategoryUpsertFailure(category, e);
+            cacheSyncFailurePersistence.recordCategoryUpsertFailure(category.id(), CategoryCacheDocument.from(category), e);
         }
     }
 

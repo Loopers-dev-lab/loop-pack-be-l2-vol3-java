@@ -52,7 +52,7 @@ public class BrandCacheSyncer {
             brandCacheRepository.save(brand);
         } catch (RuntimeException e) {
             log.error("브랜드 Redis 읽기 모델 동기화에 실패했습니다. brandId={}", brand.id(), e);
-            cacheSyncFailurePersistence.recordBrandUpsertFailure(brand, e);
+            cacheSyncFailurePersistence.recordBrandUpsertFailure(brand.id(), BrandCacheDocument.from(brand), e);
         }
     }
 

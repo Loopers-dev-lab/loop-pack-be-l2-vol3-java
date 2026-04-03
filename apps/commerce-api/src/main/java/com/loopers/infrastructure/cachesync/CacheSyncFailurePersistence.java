@@ -2,14 +2,10 @@ package com.loopers.infrastructure.cachesync;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.brand.Brand;
-import com.loopers.domain.category.Category;
 import com.loopers.domain.cachesync.CacheSyncAggregateType;
 import com.loopers.domain.cachesync.CacheSyncOperationType;
 import com.loopers.domain.cachesync.CacheSyncTask;
 import com.loopers.domain.cachesync.CacheSyncTaskRepository;
-import com.loopers.infrastructure.brand.redis.BrandCacheDocument;
-import com.loopers.infrastructure.category.redis.CategoryCacheDocument;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -25,12 +21,12 @@ public class CacheSyncFailurePersistence {
     private final ObjectMapper objectMapper;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordBrandUpsertFailure(Brand brand, RuntimeException cause) {
+    public void recordBrandUpsertFailure(UUID brandId, Object payload, RuntimeException cause) {
         cacheSyncTaskRepository.save(CacheSyncTask.pending(
                 CacheSyncAggregateType.BRAND,
-                brand.id(),
+                brandId,
                 CacheSyncOperationType.UPSERT,
-                writeValue(BrandCacheDocument.from(brand)),
+                writeValue(payload),
                 trimError(cause)
         ));
     }
@@ -47,12 +43,12 @@ public class CacheSyncFailurePersistence {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void recordCategoryUpsertFailure(Category category, RuntimeException cause) {
+    public void recordCategoryUpsertFailure(UUID categoryId, Object payload, RuntimeException cause) {
         cacheSyncTaskRepository.save(CacheSyncTask.pending(
                 CacheSyncAggregateType.CATEGORY,
-                category.id(),
+                categoryId,
                 CacheSyncOperationType.UPSERT,
-                writeValue(CategoryCacheDocument.from(category)),
+                writeValue(payload),
                 trimError(cause)
         ));
     }

@@ -1,7 +1,7 @@
 package com.loopers.infrastructure.category;
 
 import com.loopers.domain.category.Category;
-import com.loopers.infrastructure.category.redis.CategoryCacheSyncer;
+import com.loopers.application.coupon.category.CategoryCacheSyncPort;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -26,7 +26,7 @@ public class CategorySeedInitializer implements ApplicationRunner {
     );
 
     private final CategoryJpaRepository categoryJpaRepository;
-    private final CategoryCacheSyncer categoryCacheSyncer;
+    private final CategoryCacheSyncPort categoryCacheSyncPort;
 
     @Override
     @Transactional
@@ -41,6 +41,6 @@ public class CategorySeedInitializer implements ApplicationRunner {
         List<Category> savedCategories = categoryJpaRepository.saveAll(seedEntities).stream()
                 .map(CategoryEntity::toDomain)
                 .toList();
-        categoryCacheSyncer.registerUpsertAll(savedCategories);
+        categoryCacheSyncPort.registerUpsertAll(savedCategories);
     }
 }
