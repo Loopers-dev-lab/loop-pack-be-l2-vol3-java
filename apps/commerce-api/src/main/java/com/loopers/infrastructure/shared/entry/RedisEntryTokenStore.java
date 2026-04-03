@@ -14,8 +14,7 @@ import com.loopers.support.error.ErrorType;
 /**
  * Redis 기반 {@link EntryTokenStore} 구현체.
  *
- * <p>{@code entry-token:{userId}} 키로 토큰을 관리하며,
- * {@code GETDEL} 명령을 활용해 원자적 검증+소멸을 지원한다.</p>
+ * <p>{@code entry-token:{userId}} 키로 토큰을 관리한다.</p>
  */
 @Component
 public class RedisEntryTokenStore implements EntryTokenStore {
@@ -37,10 +36,15 @@ public class RedisEntryTokenStore implements EntryTokenStore {
     }
 
     @Override
-    public void validateAndConsume(Long userId, String token) {
-        String storedToken = redisTemplate.opsForValue().getAndDelete(TOKEN_KEY_PREFIX + userId);
+    public void validate(Long userId, String token) {
+        String storedToken = redisTemplate.opsForValue().get(TOKEN_KEY_PREFIX + userId);
         if (storedToken == null || !storedToken.equals(token)) {
             throw new CoreException(ErrorType.INVALID_ENTRY_TOKEN);
         }
+    }
+
+    @Override
+    public void delete(Long userId) {
+        redisTemplate.delete(TOKEN_KEY_PREFIX + userId);
     }
 }

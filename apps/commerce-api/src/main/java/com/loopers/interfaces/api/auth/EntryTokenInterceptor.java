@@ -17,7 +17,8 @@ import lombok.RequiredArgsConstructor;
  * 주문 생성 시 입장 토큰을 검증하는 인터셉터.
  *
  * <p>대기열이 활성 상태({@code queue.enabled=true})이면 {@code X-Entry-Token} 헤더가 필수다.
- * 토큰이 존재하면 {@link EntryTokenStore#validateAndConsume}을 호출하여 검증 후 소멸시킨다.
+ * 토큰이 존재하면 {@link EntryTokenStore#validate}을 호출하여 검증한다.
+ * 토큰 삭제는 주문 성공 후 이벤트 리스너에서 처리한다.
  * 대기열이 비활성 상태이면 토큰 없이도 통과시킨다.</p>
  */
 @Component
@@ -41,7 +42,10 @@ public class EntryTokenInterceptor implements HandlerInterceptor {
         }
 
         Long userId = (Long) request.getAttribute(USER_ID_ATTRIBUTE);
-        entryTokenStore.validateAndConsume(userId, entryToken);
+        if (userId == null) {
+            userId = Long.valueOf(request.getParameter("userId"));
+        }
+        entryTokenStore.validate(userId, entryToken);
         return true;
     }
 }

@@ -16,12 +16,14 @@ public class OrderEvent {
      *
      * @param eventId       이벤트 식별자
      * @param orderId       주문 ID
+     * @param userId        주문자 ID
      * @param orderItems    주문 항목 스냅샷
      * @param ownedCouponId 적용된 쿠폰 ID (nullable)
      */
     public record OrderPlaced(
             UUID eventId,
             Long orderId,
+            Long userId,
             List<OrderItemSnapshot> orderItems,
             Long ownedCouponId
     ) {
@@ -30,6 +32,7 @@ public class OrderEvent {
             return new OrderPlaced(
                     UUID.randomUUID(),
                     order.getId(),
+                    order.getUserId(),
                     OrderItemSnapshot.from(order.getOrderItems()),
                     order.getOwnedCouponId()
             );

@@ -16,13 +16,23 @@ public interface EntryTokenStore {
     Optional<String> getToken(Long userId);
 
     /**
-     * 사용자의 입장 토큰을 검증하고 소멸시킨다.
+     * 사용자의 입장 토큰을 검증한다.
      *
-     * <p>Redis에서 토큰을 원자적으로 조회+삭제한 뒤, 요청 토큰과 비교한다.
+     * <p>저장된 토큰과 요청 토큰을 비교하여 일치 여부를 확인한다.
      * 토큰이 없거나 불일치하면 {@code CoreException(INVALID_ENTRY_TOKEN)}을 던진다.</p>
      *
      * @param userId 사용자 ID
      * @param token  클라이언트가 전달한 진입 토큰
      */
-    void validateAndConsume(Long userId, String token);
+    void validate(Long userId, String token);
+
+    /**
+     * 사용자의 입장 토큰을 삭제한다.
+     *
+     * <p>주문 성공 후 호출되어 토큰을 제거한다.
+     * TTL 만료 전에 삭제되지 않은 토큰은 주문 미처리 유저로 모니터링된다.</p>
+     *
+     * @param userId 사용자 ID
+     */
+    void delete(Long userId);
 }

@@ -1,5 +1,8 @@
 package com.loopers.interfaces.api.order.v1;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.awaitility.Awaitility.await;
+
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.issueCoupon;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
@@ -287,9 +290,9 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.INVALID_ENTRY_TOKEN);
         }
 
-        @DisplayName("진입 토큰을 재사용하면, 403 Forbidden을 반환한다.")
+        @DisplayName("주문 성공 후 토큰이 삭제되면, 동일 토큰으로 재주문 시 403 Forbidden을 반환한다.")
         @Test
-        void failsOrder_whenTokenAlreadyConsumed() {
+        void failsOrder_whenTokenDeletedAfterOrderSuccess() {
             // arrange
             var entryToken = seedEntryToken(userId);
             var request = new OrderDto.CreateOrderRequest(
@@ -299,7 +302,12 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
             var headers = headersWithEntryToken(entryToken);
             createOrder(testRestTemplate, request, headers);
 
-            // act - 동일 토큰으로 재주문
+            // AFTER_COMMIT + @Async로 토큰 삭제 대기
+            await().atMost(5, SECONDS).untilAsserted(() ->
+                    assertThat(redisTemplate.opsForValue().get(ENTRY_TOKEN_KEY_PREFIX + userId)).isNull()
+            );
+
+            // act - 토큰 삭제 후 동일 토큰으로 재주문
             var secondResponse = createOrder(testRestTemplate, request, headers);
 
             // assert

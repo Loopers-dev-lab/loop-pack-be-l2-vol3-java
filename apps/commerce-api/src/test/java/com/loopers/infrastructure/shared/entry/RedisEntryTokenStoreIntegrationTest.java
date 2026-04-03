@@ -58,24 +58,24 @@ class RedisEntryTokenStoreIntegrationTest extends BaseIntegrationTest {
         }
     }
 
-    @DisplayName("토큰을 검증하고 소멸시킬 때,")
+    @DisplayName("토큰을 검증할 때,")
     @Nested
-    class ValidateAndConsume {
+    class Validate {
 
-        @DisplayName("유효한 토큰이면, 예외 없이 토큰이 삭제된다.")
+        @DisplayName("유효한 토큰이면, 예외 없이 통과하고 토큰은 유지된다.")
         @Test
-        void consumesToken_whenValid() {
+        void passesValidation_whenValid() {
             // arrange
             Long userId = 1L;
             String token = "valid-token";
             redisTemplate.opsForValue().set("entry-token:" + userId, token);
 
             // act
-            assertThatCode(() -> entryTokenStore.validateAndConsume(userId, token))
+            assertThatCode(() -> entryTokenStore.validate(userId, token))
                     .doesNotThrowAnyException();
 
             // assert
-            assertThat(redisTemplate.opsForValue().get("entry-token:" + userId)).isNull();
+            assertThat(redisTemplate.opsForValue().get("entry-token:" + userId)).isEqualTo(token);
         }
 
         @DisplayName("토큰이 불일치하면, INVALID_ENTRY_TOKEN 예외가 발생한다.")
@@ -86,7 +86,7 @@ class RedisEntryTokenStoreIntegrationTest extends BaseIntegrationTest {
             redisTemplate.opsForValue().set("entry-token:" + userId, "stored-token");
 
             // act & assert
-            assertThatThrownBy(() -> entryTokenStore.validateAndConsume(userId, "wrong-token"))
+            assertThatThrownBy(() -> entryTokenStore.validate(userId, "wrong-token"))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.INVALID_ENTRY_TOKEN);
@@ -96,10 +96,37 @@ class RedisEntryTokenStoreIntegrationTest extends BaseIntegrationTest {
         @Test
         void throwsException_whenNoTokenExists() {
             // act & assert
-            assertThatThrownBy(() -> entryTokenStore.validateAndConsume(999L, "any-token"))
+            assertThatThrownBy(() -> entryTokenStore.validate(999L, "any-token"))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.INVALID_ENTRY_TOKEN);
+        }
+    }
+
+    @DisplayName("토큰을 삭제할 때,")
+    @Nested
+    class Delete {
+
+        @DisplayName("토큰이 존재하면, 삭제된다.")
+        @Test
+        void deletesToken_whenExists() {
+            // arrange
+            Long userId = 1L;
+            redisTemplate.opsForValue().set("entry-token:" + userId, "token-to-delete");
+
+            // act
+            entryTokenStore.delete(userId);
+
+            // assert
+            assertThat(redisTemplate.opsForValue().get("entry-token:" + userId)).isNull();
+        }
+
+        @DisplayName("토큰이 존재하지 않아도, 예외 없이 성공한다.")
+        @Test
+        void doesNotThrow_whenNoTokenExists() {
+            // act & assert
+            assertThatCode(() -> entryTokenStore.delete(999L))
+                    .doesNotThrowAnyException();
         }
     }
 
