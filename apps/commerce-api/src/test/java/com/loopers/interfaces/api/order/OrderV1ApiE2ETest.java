@@ -7,6 +7,7 @@ import com.loopers.domain.product.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.Quantity;
 import com.loopers.domain.product.Stock;
+import com.loopers.domain.queue.EntryTokenRepository;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.order.OrderJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
@@ -62,6 +63,7 @@ class OrderV1ApiE2ETest {
     private final ProductJpaRepository productJpaRepository;
     private final OrderJpaRepository orderJpaRepository;
     private final UserJpaRepository userJpaRepository;
+    private final EntryTokenRepository entryTokenRepository;
 
     @Autowired
     public OrderV1ApiE2ETest(
@@ -70,7 +72,8 @@ class OrderV1ApiE2ETest {
             BrandJpaRepository brandJpaRepository,
             ProductJpaRepository productJpaRepository,
             OrderJpaRepository orderJpaRepository,
-            UserJpaRepository userJpaRepository
+            UserJpaRepository userJpaRepository,
+            EntryTokenRepository entryTokenRepository
     ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
@@ -78,10 +81,14 @@ class OrderV1ApiE2ETest {
         this.productJpaRepository = productJpaRepository;
         this.orderJpaRepository = orderJpaRepository;
         this.userJpaRepository = userJpaRepository;
+        this.entryTokenRepository = entryTokenRepository;
     }
 
     @AfterEach
     void tearDown() {
+        for (long i = 1; i <= 10; i++) {
+            entryTokenRepository.delete(i);
+        }
         databaseCleanUp.truncateAllTables();
     }
 
@@ -116,7 +123,8 @@ class OrderV1ApiE2ETest {
         @Test
         void returnsOrderResponse_whenOrderCreatedSuccessfully() {
             // arrange
-            signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            Long userId = signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            entryTokenRepository.issueIfAbsent(userId, "test-token", 300L);
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
@@ -174,7 +182,8 @@ class OrderV1ApiE2ETest {
         @Test
         void returnsNotFound_whenProductNotExist() {
             // arrange
-            signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            Long userId = signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            entryTokenRepository.issueIfAbsent(userId, "test-token", 300L);
             OrderV1Dto.OrderCreateRequest request = new OrderV1Dto.OrderCreateRequest(
                     List.of(new OrderV1Dto.OrderItemRequest(NOT_EXISTED_PRODUCT_ID, 1)), null
             );
@@ -199,7 +208,8 @@ class OrderV1ApiE2ETest {
         @Test
         void returnsBadRequest_whenStockIsInsufficient() {
             // arrange
-            signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            Long userId = signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            entryTokenRepository.issueIfAbsent(userId, "test-token", 300L);
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(1)));
@@ -227,7 +237,8 @@ class OrderV1ApiE2ETest {
         @Test
         void decreasesStock_afterOrderCreated() {
             // arrange
-            signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            Long userId = signUpAndGetUserId(VALID_LOGIN_ID, VALID_PASSWORD, "주문유저");
+            entryTokenRepository.issueIfAbsent(userId, "test-token", 300L);
             Brand brand = brandJpaRepository.save(new Brand("나이키"));
             Product product = productJpaRepository.save(
                     new Product(brand.getId(), VALID_PRODUCT_NAME, new Money(VALID_PRICE), new Stock(VALID_STOCK)));
