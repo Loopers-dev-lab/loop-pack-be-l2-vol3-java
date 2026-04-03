@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 @Profile("!test")
 @Slf4j
 @RequiredArgsConstructor
-@Component("pgSimulatorFeignClient")
+@Component("pgExternalPaymentClient")
 public class PgSimulatorFeignClient implements ExternalPaymentClient {
 
     private final PgSimulatorClient pgSimulatorClient;
