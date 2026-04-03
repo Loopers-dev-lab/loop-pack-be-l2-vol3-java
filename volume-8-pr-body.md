@@ -20,7 +20,6 @@
 - **근거**: Redis 싱글스레드 특성상 확인+추가가 원자적으로 처리된다. ZSCORE 후 분기는 두 명령 사이에 다른 요청이 끼어드는 TOCTOU 문제가 발생한다.
 - **트레이드오프**: 동일 밀리초에 진입한 사용자 간 순서가 undefined이다. 같은 밀리초 내 순서는 비즈니스상 무의미하므로 허용한다.
 
-> **리뷰 포인트**: 이탈 감지를 토큰 TTL 만료 방식으로 구현했습니다. 스케줄러가 token:{userId} 존재 여부로 이탈을 판단하므로 TTL 만료 후 최대 5초(스케줄러 주기)간 유령 유저가 대기열에 잔류할 수 있다고 생각합니다. 지금의 프로젝트에서도 이탈 감지 구현이 필요한가 생각이 들었지만, 필요하다 생각되어 구현하였습니다. 나중에  WebSocket ping/pong이나 별도 heartbeat API로 실시간 감지하는 방식 대비 이 접근의 트레이드오프가 궁금합니다. → [`QueueRepositoryImpl.enter()`][queue-repo-enter]
 ![mermaid-diagram.png](docs/image/mermaid-diagram.png)
 **전체 흐름**:
 
@@ -238,6 +237,7 @@ sequenceDiagram
 - [x] `GET /queue/position` — 순번 + 전체 대기 인원 조회 → [`QueueFacade.getPosition()`][facade-get-position]
 - [x] userId 중복 진입 방지 (ZADD NX 원자적 처리)
 - [x] 전체 대기 인원 조회 (ZCARD)
+- [x] 이탈 감지 — `presence:{userId}` TTL(90초) 기반, 폴링 없으면 자동 만료 → 다음 배치에서 ZREM → [`QueueService`][queue-service], [`TokenScheduler`][scheduler]
 
 ### Step 2 — 입장 토큰 & 스케줄러
 - [x] 5초마다 상위 80명에게 UUID 토큰 발급 (Lua 스크립트 + Redisson 락) → [`TokenScheduler`][scheduler]
