@@ -44,6 +44,11 @@ public class ProductRepositoryImpl implements ProductRepository {
         return productJpaRepository.softDeleteByIds(ids);
     }
 
+    @Override
+    public int reconcileLikeCountFromLikes() {
+        return productJpaRepository.reconcileLikeCountFromLikes();
+    }
+
     // Query
     @Override
     public Optional<Product> findById(Long id) {

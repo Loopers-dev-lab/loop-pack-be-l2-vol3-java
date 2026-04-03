@@ -22,8 +22,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -74,9 +76,11 @@ class LikeApiE2ETest {
             ResponseEntity<ApiResponse<Void>> response = postLike(productId);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
-                    getProductList("?status=ACTIVE");
-            assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(1);
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
+                        getProductList("?status=ACTIVE");
+                assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(1);
+            });
         }
 
         @Test
@@ -88,12 +92,12 @@ class LikeApiE2ETest {
             postLike(productId);
             ResponseEntity<ApiResponse<Void>> response = postLike(productId);
 
-            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
-                    getProductList("?status=ACTIVE");
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(1)
-            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
+                        getProductList("?status=ACTIVE");
+                assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(1);
+            });
         }
 
         @Test
@@ -193,9 +197,11 @@ class LikeApiE2ETest {
             ResponseEntity<ApiResponse<Void>> response = deleteLike(productId);
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-            ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
-                    getProductList("?status=ACTIVE");
-            assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(0);
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
+                        getProductList("?status=ACTIVE");
+                assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(0);
+            });
         }
 
         @Test
@@ -224,14 +230,12 @@ class LikeApiE2ETest {
 
             ResponseEntity<ApiResponse<Void>> response = deleteLike(productId);
 
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> {
-                        ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
-                                getProductList("?status=DELETED");
-                        assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(0);
-                    }
-            );
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                ResponseEntity<ApiResponse<PageResponse<ProductAdminV1Dto.ProductResponse>>> productResponse =
+                        getProductList("?status=DELETED");
+                assertThat(productResponse.getBody().data().content().get(0).likeCount()).isEqualTo(0);
+            });
         }
 
         @Test

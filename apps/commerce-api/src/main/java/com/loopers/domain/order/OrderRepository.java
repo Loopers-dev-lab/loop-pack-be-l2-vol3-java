@@ -24,4 +24,8 @@ public interface OrderRepository {
     Page<Order> findAllByProductId(Long productId, Pageable pageable);
 
     List<Order> findAllByStatusWithItems(OrderStatus status);
+
+    int updateStatusIfCurrent(Long id, OrderStatus newStatus, OrderStatus currentStatus);
+
+    List<Order> findAllByStatusAndCreatedAtBeforeWithItems(OrderStatus status, ZonedDateTime threshold);
 }

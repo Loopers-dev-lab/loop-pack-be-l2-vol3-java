@@ -63,6 +63,19 @@ public class OrderFacade {
         return OrderInfo.from(order);
     }
 
+    @Transactional
+    public void expireOrder(Long orderId) {
+        boolean expired = orderService.expireIfCreated(orderId);
+        if (!expired) return;
+
+        Order order = orderService.getOrder(orderId);
+        stockService.releaseReserved(order.getProductQuantities());
+
+        if (order.hasCoupon()) {
+            issuedCouponService.restore(order.getIssuedCouponId());
+        }
+    }
+
     public void cancelOrder(Long userId, Long orderId) {
         Order order = orderService.getOrder(orderId);
         order.validateOwnership(userId);

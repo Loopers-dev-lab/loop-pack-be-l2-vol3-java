@@ -1,12 +1,18 @@
 package com.loopers.application.coupon;
 
+import com.loopers.application.event.CouponIssueRequestedEvent;
+import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.application.user.UserService;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import com.loopers.domain.coupon.Coupon;
+import com.loopers.domain.coupon.CouponIssueRequest;
+import com.loopers.domain.coupon.CouponIssueRequestRepository;
 import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.user.User;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -14,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -24,6 +32,9 @@ public class CouponFacade {
     private final CouponService couponService;
     private final IssuedCouponService issuedCouponService;
     private final UserService userService;
+    private final CouponIssueRequestRepository couponIssueRequestRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventService outboxEventService;
 
     // Command
 
@@ -49,6 +60,31 @@ public class CouponFacade {
         couponService.issue(couponId);  // 원자적 UPDATE
 
         return IssuedCouponInfo.from(issuedCoupon);
+    }
+
+    @Transactional
+    public CouponIssueRequestInfo issueAsync(Long couponId, Long userId) {
+        couponService.validateActiveCoupon(couponId);
+
+        Optional<CouponIssueRequest> existing = couponIssueRequestRepository.findByCouponIdAndUserId(couponId, userId);
+        if (existing.isPresent()) {
+            return CouponIssueRequestInfo.from(existing.get());
+        }
+
+        String eventId = UUID.randomUUID().toString();
+        CouponIssueRequest request = couponIssueRequestRepository.save(
+                CouponIssueRequest.create(eventId, couponId, userId));
+        outboxEventService.saveAndPublish("coupon.issue.requested", "Coupon",
+                String.valueOf(couponId), KafkaTopics.COUPON_ISSUE_REQUESTS,
+                new CouponIssueRequestedEvent(eventId, couponId, userId));
+        return CouponIssueRequestInfo.from(request);
+    }
+
+    @Transactional(readOnly = true)
+    public CouponIssueRequestInfo getIssueStatus(Long couponId, Long userId) {
+        CouponIssueRequest request = couponIssueRequestRepository.findByCouponIdAndUserId(couponId, userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급 요청이 존재하지 않습니다"));
+        return CouponIssueRequestInfo.from(request);
     }
 
     @Transactional

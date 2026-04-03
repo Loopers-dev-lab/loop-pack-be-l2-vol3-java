@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.coupon;
 
+import com.loopers.application.coupon.CouponIssueRequestInfo;
 import com.loopers.application.coupon.IssuedCouponInfo;
 
 import java.math.BigDecimal;
@@ -8,6 +9,16 @@ import java.time.LocalDateTime;
 public class CouponV1Dto {
 
     // Response
+
+    public record CouponIssueRequestResponse(
+            Long requestId,
+            String status,
+            String rejectReason
+    ) {
+        public static CouponIssueRequestResponse from(CouponIssueRequestInfo info) {
+            return new CouponIssueRequestResponse(info.requestId(), info.status().name(), info.rejectReason());
+        }
+    }
 
     public record IssuedCouponResponse(
             Long id,

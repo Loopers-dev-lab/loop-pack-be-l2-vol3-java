@@ -17,8 +17,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
@@ -54,8 +56,10 @@ class LikeConcurrencyTest {
         int threadCount = 10;
         ConcurrencyTestHelper.executeConcurrently(threadCount, i -> likeFacade.like((long) (i + 1), productId));
 
-        Product found = productRepository.findById(productId).orElseThrow();
-        assertThat(found.getLikeCount()).isEqualTo(threadCount);
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+            Product found = productRepository.findById(productId).orElseThrow();
+            assertThat(found.getLikeCount()).isEqualTo(threadCount);
+        });
     }
 
     @Test
@@ -70,9 +74,17 @@ class LikeConcurrencyTest {
             likeFacade.like((long) (i + 1), productId);
         }
 
+        // like가 비동기이므로 likeCount 반영을 기다린 후 unlike 실행
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+            Product afterLike = productRepository.findById(productId).orElseThrow();
+            assertThat(afterLike.getLikeCount()).isEqualTo(threadCount);
+        });
+
         ConcurrencyTestHelper.executeConcurrently(threadCount, i -> likeFacade.unlike((long) (i + 1), productId));
 
-        Product found = productRepository.findById(productId).orElseThrow();
-        assertThat(found.getLikeCount()).isEqualTo(0);
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+            Product found = productRepository.findById(productId).orElseThrow();
+            assertThat(found.getLikeCount()).isEqualTo(0);
+        });
     }
 }
