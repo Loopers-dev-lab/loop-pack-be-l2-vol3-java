@@ -114,7 +114,8 @@ class QueueJoinFallbackKafkaMetricsTest {
             QueueJoinFallbackKafkaListener listener = new QueueJoinFallbackKafkaListener(
                     waitingQueueService,
                     objectMapper,
-                    metrics
+                    metrics,
+                    "queue-join-fallback"
             );
 
             String json = """
@@ -143,13 +144,23 @@ class QueueJoinFallbackKafkaMetricsTest {
             assertThat(meterRegistry.counter("loopers.queue.join.fallback.recovered").count()).isEqualTo(1.0);
         }
 
+        @DisplayName("DLT 로그용 페이로드 문자열은 상한을 넘으면 잘린다.")
+        @Test
+        void payloadUtf8ForDltLog_whenExceedsMax_shouldTruncate() {
+            String body = "x".repeat(QueueJoinFallbackKafkaListener.DLT_PAYLOAD_LOG_MAX_CHARS + 50);
+            String out = QueueJoinFallbackKafkaListener.payloadUtf8ForDltLog(body);
+            assertThat(out).endsWith("...[truncated]");
+            assertThat(out).hasSize(QueueJoinFallbackKafkaListener.DLT_PAYLOAD_LOG_MAX_CHARS + "...[truncated]".length());
+        }
+
         @DisplayName("DLT 핸들러 호출 시 dlt 메트릭이 증가한다.")
         @Test
         void onDlt_shouldRecordDlt() {
             QueueJoinFallbackKafkaListener listener = new QueueJoinFallbackKafkaListener(
                     waitingQueueService,
                     objectMapper,
-                    metrics
+                    metrics,
+                    "queue-join-fallback"
             );
 
             ConsumerRecord<Object, Object> record = new ConsumerRecord<>("queue-join-fallback", 0, 0L, "1", "{}");
@@ -167,7 +178,8 @@ class QueueJoinFallbackKafkaMetricsTest {
             QueueJoinFallbackKafkaListener listener = new QueueJoinFallbackKafkaListener(
                     waitingQueueService,
                     objectMapper,
-                    metrics
+                    metrics,
+                    "queue-join-fallback"
             );
 
             String json = """
@@ -193,7 +205,8 @@ class QueueJoinFallbackKafkaMetricsTest {
             QueueJoinFallbackKafkaListener listener = new QueueJoinFallbackKafkaListener(
                     waitingQueueService,
                     objectMapper,
-                    metrics
+                    metrics,
+                    "queue-join-fallback"
             );
 
             ConsumerRecord<Object, Object> record = new ConsumerRecord<>("queue-join-fallback", 0, 0L, "1", "{ not-json");
