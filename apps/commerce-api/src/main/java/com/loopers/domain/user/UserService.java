@@ -31,7 +31,7 @@ public class UserService {
         return userRepository.save(newUser);
     }
 
-    // 인증
+    // 인증 — DB 조회 + BCrypt 검증
     @Transactional(readOnly = true)
     public UserModel authenticate(String loginId, String password) {
         UserModel user = userRepository.findByLoginId(loginId)
