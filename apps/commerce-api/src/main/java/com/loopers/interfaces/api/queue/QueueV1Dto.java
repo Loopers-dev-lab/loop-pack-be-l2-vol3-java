@@ -27,16 +27,23 @@ public class QueueV1Dto {
      * totalSize: 전체 대기 인원
      * etaSeconds: 예상 대기 시간 (초)
      * admitted: true이면 서비스 진입 가능
-     *
-     * 클라이언트 적응형 폴링 인터벌 가이드:
-     * rank 1~100   → 1초
-     * rank 101~1000 → 3초
-     * rank 1000+   → 5초
-     * (+ Jitter: 각 인터벌의 0~50% 랜덤 추가 → Thundering Herd 방지)
+     * pollIntervalHint: 서버 권고 폴링 주기 (초)
+     *   rank 1~100   → 1초
+     *   rank 101~1000 → 3초
+     *   rank 1000+   → 5초
+     *   (+ Jitter: 각 인터벌의 0~50% 랜덤 추가 → Thundering Herd 방지 권장)
      */
-    public record StatusResponse(long rank, long totalSize, long etaSeconds, boolean admitted) {
+    public record StatusResponse(long rank, long totalSize, long etaSeconds, boolean admitted, int pollIntervalHint) {
         public static StatusResponse from(QueueInfo.StatusInfo info) {
-            return new StatusResponse(info.rank() + 1, info.totalSize(), info.etaSeconds(), info.admitted());
+            long rank1Based = info.rank() + 1;
+            int hint = pollIntervalHintFor(rank1Based);
+            return new StatusResponse(rank1Based, info.totalSize(), info.etaSeconds(), info.admitted(), hint);
+        }
+
+        private static int pollIntervalHintFor(long rank) {
+            if (rank <= 100) return 1;
+            if (rank <= 1000) return 3;
+            return 5;
         }
     }
 }
