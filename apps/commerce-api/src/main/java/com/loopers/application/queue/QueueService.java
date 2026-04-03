@@ -13,11 +13,11 @@ public class QueueService {
 
     /**
      * 초당 처리량 (TPS).
-     * Little's Law 역산: DB 커넥션 풀 200 * (1 / 평균 처리 시간 0.2s) * 안전 마진 70% ≈ 70
+     * Little's Law 역산: DB 커넥션 풀 40 * (1 / 평균 처리 시간 0.2s) * 안전 마진 70% ≈ 140
      * → 추후 Knee-of-the-Curve 부하 테스트로 실측 후 조정.
      * Feature Flag로 외부화 예정 (런타임 변경 가능하도록).
      */
-    private static final long THROUGHPUT_PER_SECOND = 70L;
+    private static final long THROUGHPUT_PER_SECOND = 140L;
 
     /**
      * 입장 허가 임계값.
