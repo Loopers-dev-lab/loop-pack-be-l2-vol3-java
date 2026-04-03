@@ -1,8 +1,13 @@
 package com.loopers.application.like;
 
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.like.LikeCreatedEvent;
+import com.loopers.domain.like.LikeCancelledEvent;
 import com.loopers.domain.like.Like;
+import com.loopers.domain.like.LikeEventPublisher;
 import com.loopers.domain.like.LikeService;
+import com.loopers.domain.useraction.UserActionEvent;
+import com.loopers.domain.useraction.UserActionEventPublisher;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -20,35 +25,45 @@ public class LikeFacade {
     private final LikeService likeService;
     private final ProductService productService;
     private final BrandService brandService;
+    private final LikeEventPublisher eventPublisher;
+    private final UserActionEventPublisher userActionEventPublisher;
 
     /**
      * 좋아요 등록 (US-L01)
-     * 상품 존재 확인 → 좋아요 등록 → 좋아요 수 증가
+     * 상품 존재 확인 → 좋아요 등록 → 이벤트 발행
+     *
+     * 이벤트 발행 이후의 모든 부가 로직은 Listener에서 처리:
+     * - BEFORE_COMMIT: Outbox 테이블에 기록 (Kafka 발행 보장)
+     * - AFTER_COMMIT: 좋아요 수 증가 (Eventual Consistency)
      */
     @Transactional
     public LikeInfo create(Long userId, Long productId) {
         // 상품 존재 확인 (없으면 NOT_FOUND 예외)
-        productService.findById(productId);
+        Product product = productService.findById(productId);
         // 좋아요 등록 (중복이면 CONFLICT 예외)
         Like like = likeService.create(userId, productId);
-        // 원자적 좋아요 수 증가 (DB 레벨 UPDATE - flushAutomatically로 Like INSERT 먼저 flush됨)
-        // clearAutomatically로 캐시가 초기화되므로 아래 findById는 최신 likeCount를 반환함
-        productService.increaseLikeCount(productId);
-        Product product = productService.findById(productId);
+        // 이벤트 발행 (이후 처리는 Listener가 담당)
+        eventPublisher.publish(new LikeCreatedEvent(productId, userId));
+        // 유저 행동 로깅
+        userActionEventPublisher.publish(new UserActionEvent(
+                UserActionEvent.ActionType.LIKE_CREATE, userId, "PRODUCT", productId, null));
         String brandName = brandService.findById(product.getBrandId()).getName();
         return LikeInfo.of(like, product, brandName);
     }
 
     /**
      * 좋아요 취소 (US-L02)
-     * 좋아요 취소 → 좋아요 수 감소
+     * 좋아요 취소 → 이벤트 발행
      */
     @Transactional
     public void delete(Long userId, Long productId) {
         // 좋아요 취소 (없으면 NOT_FOUND 예외)
         likeService.delete(userId, productId);
-        // 좋아요 수 감소
-        productService.decreaseLikeCount(productId);
+        // 이벤트 발행 (이후 처리는 Listener가 담당)
+        eventPublisher.publish(new LikeCancelledEvent(productId, userId));
+        // 유저 행동 로깅
+        userActionEventPublisher.publish(new UserActionEvent(
+                UserActionEvent.ActionType.LIKE_CANCEL, userId, "PRODUCT", productId, null));
     }
 
     /**

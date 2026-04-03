@@ -4,6 +4,8 @@ import com.loopers.config.CacheProperties;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.useraction.UserActionEvent;
+import com.loopers.domain.useraction.UserActionEventPublisher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,17 +24,24 @@ public class ProductFacade {
     private final BrandService brandService;
     private final ProductCacheRepository productCacheRepository;
     private final CacheProperties cacheProperties;
+    private final UserActionEventPublisher userActionEventPublisher;
 
     // 상품 상세 조회 (Cache-Aside)
     @Transactional(readOnly = true)
     public ProductInfo findById(Long id) {
-        return productCacheRepository.getDetail(id).orElseGet(() -> {
+        ProductInfo info = productCacheRepository.getDetail(id).orElseGet(() -> {
             Product product = productService.findById(id);
             String brandName = brandService.findById(product.getBrandId()).getName();
-            ProductInfo info = ProductInfo.from(product, brandName);
-            productCacheRepository.saveDetail(id, info);
-            return info;
+            ProductInfo result = ProductInfo.from(product, brandName);
+            productCacheRepository.saveDetail(id, result);
+            return result;
         });
+
+        // 상품 조회 행동 로깅 (비로그인 조회이므로 userId=null)
+        userActionEventPublisher.publish(new UserActionEvent(
+                UserActionEvent.ActionType.PRODUCT_VIEW, null, "PRODUCT", id, null));
+
+        return info;
     }
 
     // 상품 목록 조회 (Cache-Aside 패턴)

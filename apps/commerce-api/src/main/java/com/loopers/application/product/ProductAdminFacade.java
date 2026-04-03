@@ -4,9 +4,11 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductCacheEvictEvent;
+import com.loopers.domain.product.ProductDetailCacheEvictEvent;
+import com.loopers.domain.product.ProductEventPublisher;
 import com.loopers.domain.product.ProductService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -22,7 +24,7 @@ public class ProductAdminFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final LikeService likeService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ProductEventPublisher eventPublisher;
 
     // 상품 등록 - 브랜드 존재 확인은 Facade 책임 (BR-P01, US-P05)
     @Transactional
@@ -30,7 +32,7 @@ public class ProductAdminFacade {
         Brand brand = brandService.findById(command.brandId()); // 브랜드 미존재 시 NOT_FOUND 예외
         Product product = productService.register(
                 command.brandId(), command.name(), command.price(), command.stock());
-        eventPublisher.publishEvent(new ProductCacheEvictEvent()); // 커밋 후 캐시 무효화 예약
+        eventPublisher.publish(new ProductCacheEvictEvent()); // 커밋 후 캐시 무효화 예약
         return ProductInfo.from(product, brand.getName());
     }
 
@@ -60,8 +62,8 @@ public class ProductAdminFacade {
     public ProductInfo update(ProductUpdateCommand command) {
         Product product = productService.update(
                 command.id(), command.name(), command.price(), command.stock());
-        eventPublisher.publishEvent(new ProductCacheEvictEvent());                        // 목록 캐시 전체 무효화
-        eventPublisher.publishEvent(new ProductDetailCacheEvictEvent(product.getId()));   // 상세 캐시 핀포인트 무효화
+        eventPublisher.publish(new ProductCacheEvictEvent());                        // 목록 캐시 전체 무효화
+        eventPublisher.publish(new ProductDetailCacheEvictEvent(product.getId()));   // 상세 캐시 핀포인트 무효화
         String brandName = brandService.findById(product.getBrandId()).getName();
         return ProductInfo.from(product, brandName);
     }
@@ -78,7 +80,7 @@ public class ProductAdminFacade {
         likeService.deleteAllByProductId(id);
         // 상품 soft delete (이미 managed 상태이므로 dirty checking으로 처리)
         product.delete();
-        eventPublisher.publishEvent(new ProductCacheEvictEvent());             // 목록 캐시 전체 무효화
-        eventPublisher.publishEvent(new ProductDetailCacheEvictEvent(id));     // 상세 캐시 핀포인트 무효화
+        eventPublisher.publish(new ProductCacheEvictEvent());             // 목록 캐시 전체 무효화
+        eventPublisher.publish(new ProductDetailCacheEvictEvent(id));     // 상세 캐시 핀포인트 무효화
     }
 }

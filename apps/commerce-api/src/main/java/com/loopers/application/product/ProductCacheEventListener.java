@@ -1,5 +1,7 @@
 package com.loopers.application.product;
 
+import com.loopers.domain.product.ProductCacheEvictEvent;
+import com.loopers.domain.product.ProductDetailCacheEvictEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;

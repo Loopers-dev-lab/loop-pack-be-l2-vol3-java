@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.coupon;
 
+import com.loopers.application.coupon.CouponIssueResultInfo;
 import com.loopers.application.coupon.UserCouponInfo;
+import com.loopers.domain.coupon.CouponIssueStatus;
 import com.loopers.domain.coupon.CouponStatus;
 
 import java.time.LocalDateTime;
@@ -40,6 +42,27 @@ public class CouponV1Dto {
         public static MyCouponListResponse from(java.util.List<UserCouponInfo> infos) {
             return new MyCouponListResponse(
                     infos.stream().map(UserCouponResponse::from).toList()
+            );
+        }
+    }
+
+    /**
+     * 선착순 쿠폰 발급 요청 결과 응답 (발급 요청 + polling 공용)
+     */
+    public record CouponIssueResultResponse(
+            Long issueResultId,
+            Long couponTemplateId,
+            CouponIssueStatus status,
+            String rejectReason,
+            ZonedDateTime requestedAt
+    ) {
+        public static CouponIssueResultResponse from(CouponIssueResultInfo info) {
+            return new CouponIssueResultResponse(
+                    info.id(),
+                    info.couponTemplateId(),
+                    info.status(),
+                    info.rejectReason(),
+                    info.createdAt()
             );
         }
     }

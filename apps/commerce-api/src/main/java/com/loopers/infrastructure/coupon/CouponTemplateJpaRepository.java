@@ -13,4 +13,7 @@ public interface CouponTemplateJpaRepository extends JpaRepository<CouponTemplat
     Page<CouponTemplate> findAllByDeletedAtIsNull(Pageable pageable);
 
     List<CouponTemplate> findAllByIdInAndDeletedAtIsNull(Collection<Long> ids);
+
+    // 수량 제한 쿠폰 템플릿 조회 (maxIssueCount가 설정된 활성 템플릿)
+    List<CouponTemplate> findAllByMaxIssueCountIsNotNullAndDeletedAtIsNull();
 }

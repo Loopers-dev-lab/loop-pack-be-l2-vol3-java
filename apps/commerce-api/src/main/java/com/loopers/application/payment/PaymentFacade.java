@@ -4,11 +4,12 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.Payment;
+import com.loopers.domain.payment.PaymentEventPublisher;
+import com.loopers.domain.payment.PaymentRequestEvent;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,7 +19,7 @@ public class PaymentFacade {
 
     private final PaymentService paymentService;
     private final OrderService orderService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final PaymentEventPublisher eventPublisher;
 
     /**
      * 결제 요청 (Transaction 1)
@@ -56,7 +57,7 @@ public class PaymentFacade {
         );
 
         // ③ 이벤트 발행 (AFTER_COMMIT에서 PG 호출)
-        eventPublisher.publishEvent(new PaymentRequestEvent(payment.getId(), order.getId(), userId));
+        eventPublisher.publish(new PaymentRequestEvent(payment.getId(), order.getId(), userId));
 
         return PaymentInfo.from(payment);
     }

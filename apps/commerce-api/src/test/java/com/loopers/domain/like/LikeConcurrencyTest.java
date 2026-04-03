@@ -16,12 +16,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 @SpringBootTest
 public class LikeConcurrencyTest {
@@ -99,7 +101,7 @@ public class LikeConcurrencyTest {
     @Nested
     class DifferentUsersConcurrentLike {
 
-        @DisplayName("모든 요청이 성공하고 좋아요 수가 정확하게 증가한다.")
+        @DisplayName("모든 요청이 성공하고 비동기 이벤트를 통해 좋아요 수가 정확하게 증가한다.")
         @Test
         void allLikesCreatedAndLikeCountIsAccurate_whenDifferentUsersConcurrently() throws InterruptedException {
             // arrange
@@ -131,10 +133,14 @@ public class LikeConcurrencyTest {
             doneLatch.await();
             executor.shutdown();
 
-            // assert
+            // assert - 모든 좋아요 등록 성공
             assertThat(successCount.get()).isEqualTo(THREAD_COUNT);
-            Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
-            assertThat(updated.getLikeCount()).isEqualTo(THREAD_COUNT);
+
+            // assert - 비동기 이벤트 처리 완료 후 likeCount 검증
+            await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> {
+                Product updated = productJpaRepository.findById(product.getId()).orElseThrow();
+                assertThat(updated.getLikeCount()).isEqualTo(THREAD_COUNT);
+            });
         }
     }
 }

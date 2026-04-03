@@ -1,4 +1,4 @@
-package com.loopers.application.payment;
+package com.loopers.domain.payment;
 
 /**
  * 결제 요청 이벤트.

@@ -38,35 +38,78 @@ public class CouponTemplate extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private LocalDateTime expiredAt;
 
+    // 선착순 발급 수량 제한. null이면 무제한 발급
+    @Column(name = "max_issue_count")
+    private Integer maxIssueCount;
+
+    // 현재 발급된 수량. Consumer가 순차 처리하며 증가시킨다 (Kafka 파티션 키 = templateId)
+    @Column(name = "current_issued_count", nullable = false)
+    private int currentIssuedCount = 0;
+
     public CouponTemplate(String name, CouponType type, int value, Integer minOrderAmount, LocalDateTime expiredAt) {
+        this(name, type, value, minOrderAmount, expiredAt, null);
+    }
+
+    public CouponTemplate(String name, CouponType type, int value, Integer minOrderAmount,
+                           LocalDateTime expiredAt, Integer maxIssueCount) {
         validateName(name);
         validateType(type);
         validateValue(value);
         validateRateUpperBound(type, value);
         validateMinOrderAmountInput(minOrderAmount);
         validateExpiredAt(expiredAt);
+        validateMaxIssueCount(maxIssueCount);
 
         this.name = name;
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.maxIssueCount = maxIssueCount;
     }
 
     // 수정 (US-C06)
     public void update(String name, CouponType type, int value, Integer minOrderAmount, LocalDateTime expiredAt) {
+        update(name, type, value, minOrderAmount, expiredAt, this.maxIssueCount);
+    }
+
+    public void update(String name, CouponType type, int value, Integer minOrderAmount,
+                        LocalDateTime expiredAt, Integer maxIssueCount) {
         validateName(name);
         validateType(type);
         validateValue(value);
         validateRateUpperBound(type, value);
         validateMinOrderAmountInput(minOrderAmount);
         validateExpiredAt(expiredAt);
+        validateMaxIssueCount(maxIssueCount);
 
         this.name = name;
         this.type = type;
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.maxIssueCount = maxIssueCount;
+    }
+
+    // 선착순 발급 가능 여부 판단. maxIssueCount가 null이면 무제한
+    public boolean canIssue() {
+        return maxIssueCount == null || currentIssuedCount < maxIssueCount;
+    }
+
+    // 발급 카운트 증가. Consumer가 순차 처리 시 호출
+    public void incrementIssuedCount() {
+        if (!canIssue()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "발급 수량이 모두 소진되었습니다.");
+        }
+        this.currentIssuedCount++;
+    }
+
+    // 잔여 발급 수량. Redis 보정 스케줄러에서 사용
+    public int getRemainingIssueCount() {
+        if (maxIssueCount == null) {
+            return Integer.MAX_VALUE;
+        }
+        return Math.max(maxIssueCount - currentIssuedCount, 0);
     }
 
     // 할인 금액 계산 (BR-C01)
@@ -112,6 +155,7 @@ public class CouponTemplate extends BaseEntity {
         validateRateUpperBound(this.type, this.value);
         validateMinOrderAmountInput(this.minOrderAmount);
         validateExpiredAt(this.expiredAt);
+        validateMaxIssueCount(this.maxIssueCount);
     }
 
     private void validateName(String name) {
@@ -147,6 +191,12 @@ public class CouponTemplate extends BaseEntity {
     private void validateExpiredAt(LocalDateTime expiredAt) {
         if (expiredAt == null) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료일은 필수입니다.");
+        }
+    }
+
+    private void validateMaxIssueCount(Integer maxIssueCount) {
+        if (maxIssueCount != null && maxIssueCount <= 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "최대 발급 수량은 1 이상이어야 합니다.");
         }
     }
 }

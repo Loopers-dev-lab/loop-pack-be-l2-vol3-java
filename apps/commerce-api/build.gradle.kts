@@ -2,6 +2,7 @@ dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
+    implementation(project(":modules:kafka"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
@@ -30,6 +31,10 @@ dependencies {
     // test-fixtures
     testImplementation(testFixtures(project(":modules:jpa")))
     testImplementation(testFixtures(project(":modules:redis")))
+    testImplementation(testFixtures(project(":modules:kafka")))
+
+    // awaitility (비동기 이벤트 처리 완료 대기 — @Async + @TransactionalEventListener 테스트)
+    testImplementation("org.awaitility:awaitility:4.2.2")
 
     // wiremock (PG 시뮬레이터 대역: 실패율, 지연, 타임아웃 등 장애 시나리오 재현)
     // standalone: Jetty HTTP 서버를 내장하여 별도 의존성 없이 동작 (classpath shadowing으로 충돌 방지)
