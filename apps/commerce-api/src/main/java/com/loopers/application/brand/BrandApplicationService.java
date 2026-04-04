@@ -5,7 +5,6 @@ import com.loopers.application.brand.command.UpdateBrandCommand;
 import com.loopers.application.brand.BrandCacheRepository;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
-import com.loopers.infrastructure.brand.redis.BrandCacheSyncer;
 import com.loopers.domain.brand.vo.BrandName;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -28,7 +27,7 @@ public class BrandApplicationService {
 
     private final BrandRepository brandRepository;
     private final BrandCacheRepository brandCacheRepository;
-    private final BrandCacheSyncer brandCacheSyncer;
+    private final BrandCacheSyncPort brandCacheSyncPort;
 
     @Transactional
     public Brand create(CreateBrandCommand command) {
@@ -42,7 +41,7 @@ public class BrandApplicationService {
 
         try {
             Brand saved = brandRepository.save(brand);
-            brandCacheSyncer.registerUpsert(saved);
+            brandCacheSyncPort.registerUpsert(saved);
             return saved;
         } catch (DataIntegrityViolationException e) {
             throw new CoreException(ErrorType.CONFLICT, "이미 존재하는 브랜드 이름입니다.");
@@ -78,7 +77,7 @@ public class BrandApplicationService {
 
         Brand updated = brand.update(command.description(), command.imageUrl());
         Brand saved = brandRepository.save(updated);
-        brandCacheSyncer.registerUpsert(saved);
+        brandCacheSyncPort.registerUpsert(saved);
         return saved;
     }
 
@@ -87,6 +86,6 @@ public class BrandApplicationService {
         Brand brand = brandRepository.findById(id)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
         brandRepository.delete(brand);
-        brandCacheSyncer.registerDelete(id);
+        brandCacheSyncPort.registerDelete(id);
     }
 }

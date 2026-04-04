@@ -4,8 +4,10 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+@Testcontainers
 public final class MySqlTestContainersConfig {
 
     @Container
@@ -20,6 +22,10 @@ public final class MySqlTestContainersConfig {
                     "--collation-server=utf8mb4_general_ci",
                     "--skip-character-set-client-handshake"
             );
+
+    static {
+        MY_SQL_CONTAINER.start();
+    }
 
     @DynamicPropertySource
     public static void overrideDatasourceProperties(DynamicPropertyRegistry registry) {

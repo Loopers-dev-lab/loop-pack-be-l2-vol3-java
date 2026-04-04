@@ -44,7 +44,7 @@ services:
       - ./docker/mysql/seed-data:/seed-data:ro
 
   redis-master:
-    image: redis:7.0
+    image: redis:8.0
     container_name: redis-master
     ports:
       - "6379:6379"
@@ -65,7 +65,7 @@ services:
       retries: 10
 
   redis-readonly:
-    image: redis:7.0
+    image: redis:8.0
     container_name: redis-readonly
     depends_on:
       redis-master:

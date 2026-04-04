@@ -67,6 +67,22 @@ loopers:
     relay:
       enabled: true
       fixed-delay-ms: 1000
+  queue:
+    order:
+      enabled: false
+      throughput-per-second: 1
+      server-count: 1
+      order-tps-per-server: 1
+      scheduler-enabled: true
+      scheduler-fixed-delay-ms: 1000
+      initial-batch-size: 10
+      max-active-admissions: 100
+      dynamic-adjustment-enabled: true
+      claim-ttl-ms: 5000
+      token-ttl-ms: 30000
+      admission-strategy: hash-field-ttl
+      minimum-polling-interval-seconds: 1
+      maximum-polling-interval-seconds: 5
   cache:
     brand-category:
       enabled: true
@@ -125,6 +141,21 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+loopers:
+  queue:
+    order:
+      scheduler-fixed-delay-ms: 60000
+  payment:
+    completion:
+      polling:
+        enabled: false
 
 ---
 spring:

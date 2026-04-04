@@ -3,10 +3,13 @@ package com.loopers.interfaces.api.order;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.product.ProductDto;
 import com.loopers.interfaces.api.member.MemberDto;
+import com.loopers.application.order.queue.OrderAdmissionApplicationService;
 import com.loopers.domain.category.Category;
 import com.loopers.domain.category.CategoryRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,14 +26,22 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import java.util.UUID;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ImportTestcontainers(MySqlTestContainersConfig.class)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+                "loopers.queue.order.enabled=true",
+                "loopers.queue.order.throughput-per-second=2"
+        }
+)
+@ImportTestcontainers({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @ActiveProfiles("test")
 class OrderApiE2ETest {
 
@@ -45,15 +56,32 @@ class OrderApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final RedisCleanUp redisCleanUp;
     private final CategoryRepository categoryRepository;
+    private final OrderAdmissionApplicationService orderAdmissionApplicationService;
     private UUID brandId;
     private UUID categoryId;
 
+    @DynamicPropertySource
+    static void overrideProperties(DynamicPropertyRegistry registry) {
+        registry.add("datasource.mysql-jpa.main.jdbc-url", MySqlTestContainersConfig.MY_SQL_CONTAINER::getJdbcUrl);
+        registry.add("datasource.mysql-jpa.main.username", MySqlTestContainersConfig.MY_SQL_CONTAINER::getUsername);
+        registry.add("datasource.mysql-jpa.main.password", MySqlTestContainersConfig.MY_SQL_CONTAINER::getPassword);
+    }
+
     @Autowired
-    public OrderApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp, CategoryRepository categoryRepository) {
+    public OrderApiE2ETest(
+            TestRestTemplate testRestTemplate,
+            DatabaseCleanUp databaseCleanUp,
+            RedisCleanUp redisCleanUp,
+            CategoryRepository categoryRepository,
+            OrderAdmissionApplicationService orderAdmissionApplicationService
+    ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.redisCleanUp = redisCleanUp;
         this.categoryRepository = categoryRepository;
+        this.orderAdmissionApplicationService = orderAdmissionApplicationService;
     }
 
     @BeforeEach
@@ -76,6 +104,7 @@ class OrderApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     private HttpHeaders authHeaders() {
@@ -83,6 +112,17 @@ class OrderApiE2ETest {
         headers.set(HEADER_LOGIN_ID, TEST_LOGIN_ID);
         headers.set(HEADER_LOGIN_PW, TEST_PASSWORD);
         return headers;
+    }
+
+    private void issueAdmissionToken() {
+        ResponseEntity<ApiResponse<OrderDto.OrderQueueStatusResponse>> queueEnter = testRestTemplate.exchange(
+                "/api/v1/order-queue",
+                HttpMethod.POST,
+                new HttpEntity<>(authHeaders()),
+                new ParameterizedTypeReference<>() {}
+        );
+        assertThat(queueEnter.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        orderAdmissionApplicationService.issueAdmissions();
     }
 
     private UUID createProduct(String name, int price, int stock) {
@@ -131,6 +171,107 @@ class OrderApiE2ETest {
     }
 
     @Nested
+    @DisplayName("주문 대기열 시나리오")
+    class OrderQueueScenario {
+
+        @Test
+        @DisplayName("대기열 재진입 시 마지막 timestamp 기준으로 뒤 순번을 반환한다")
+        void reEnterQueueMovesUserToBack() {
+            final String secondLoginId = "orderuser2";
+            MemberDto.RegisterRequest secondUserRequest = new MemberDto.RegisterRequest(
+                    secondLoginId, TEST_PASSWORD, "주문자", "19900101", "order2@test.com", "010-7777-5678"
+            );
+            testRestTemplate.exchange(
+                    "/api/v1/members",
+                    HttpMethod.POST,
+                    new HttpEntity<>(secondUserRequest),
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
+            );
+
+            ResponseEntity<ApiResponse<OrderDto.OrderQueueStatusResponse>> firstEnter = testRestTemplate.exchange(
+                    "/api/v1/order-queue",
+                    HttpMethod.POST,
+                    new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+            assertThat(firstEnter.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(firstEnter.getBody().data().waitingOrder()).isEqualTo(1);
+
+            HttpHeaders secondHeaders = new HttpHeaders();
+            secondHeaders.set(HEADER_LOGIN_ID, secondLoginId);
+            secondHeaders.set(HEADER_LOGIN_PW, TEST_PASSWORD);
+            testRestTemplate.exchange(
+                    "/api/v1/order-queue",
+                    HttpMethod.POST,
+                    new HttpEntity<>(secondHeaders),
+                    new ParameterizedTypeReference<ApiResponse<OrderDto.OrderQueueStatusResponse>>() {}
+            );
+
+            ResponseEntity<ApiResponse<OrderDto.OrderQueueStatusResponse>> reEnter = testRestTemplate.exchange(
+                    "/api/v1/order-queue",
+                    HttpMethod.POST,
+                    new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(reEnter.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(reEnter.getBody().data().enabled()).isTrue();
+            assertThat(reEnter.getBody().data().waitingOrder()).isEqualTo(2);
+
+            ResponseEntity<ApiResponse<OrderDto.OrderQueueStatusResponse>> status = testRestTemplate.exchange(
+                    "/api/v1/order-queue/me",
+                    HttpMethod.GET,
+                    new HttpEntity<>(authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(status.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(status.getBody().data().waitingOrder()).isEqualTo(2);
+            assertThat(status.getBody().data().estimatedWaitSeconds()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("토큰이 없으면 주문 API에 진입할 수 없다")
+        void createOrderWithoutAdmissionTokenFails() {
+            UUID productId = createProduct("토큰없는주문", 10000, 10);
+            OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 1))
+            );
+
+            ResponseEntity<ApiResponse<OrderDto.OrderResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_ORDERS,
+                    HttpMethod.POST,
+                    new HttpEntity<>(request, authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        }
+
+        @Test
+        @DisplayName("입장 토큰이 발급되면 주문 API에 진입할 수 있다")
+        void createOrderWithAdmissionTokenSuccess() {
+            UUID productId = createProduct("토큰주문", 10000, 10);
+            issueAdmissionToken();
+
+            OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 1))
+            );
+
+            ResponseEntity<ApiResponse<OrderDto.OrderResponse>> response = testRestTemplate.exchange(
+                    ENDPOINT_ORDERS,
+                    HttpMethod.POST,
+                    new HttpEntity<>(request, authHeaders()),
+                    new ParameterizedTypeReference<>() {}
+            );
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(response.getBody()).isNotNull();
+            assertThat(response.getBody().data()).isNotNull();
+        }
+    }
+
+    @Nested
     @DisplayName("주문 CRUD 시나리오")
     class OrderCrudScenario {
 
@@ -139,6 +280,7 @@ class OrderApiE2ETest {
         void fullOrderFlow() {
             // 상품 생성
             UUID productId = createProduct("강아지 사료", 10000, 50);
+            issueAdmissionToken();
 
             // 주문 생성
             OrderDto.CreateOrderRequest createRequest = new OrderDto.CreateOrderRequest(
@@ -195,6 +337,7 @@ class OrderApiE2ETest {
         @DisplayName("재고 부족 시 주문이 실패하고 재고가 차감되지 않는다")
         void insufficientStockFails() {
             UUID productId = createProduct("한정판 사료", 50000, 2);
+            issueAdmissionToken();
 
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 5))
@@ -214,6 +357,7 @@ class OrderApiE2ETest {
         @DisplayName("주문 목록 조회 - 기간 내 주문만 반환된다")
         void listOrdersWithDateFilter() {
             UUID productId = createProduct("사료", 5000, 100);
+            issueAdmissionToken();
 
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
                     List.of(new OrderDto.OrderItemRequest(productId, 1))
@@ -241,6 +385,7 @@ class OrderApiE2ETest {
         @DisplayName("취소 후 재고가 복원된다")
         void stockRestoredAfterCancel() {
             UUID productId = createProduct("귀한 사료", 20000, 3);
+            issueAdmissionToken();
 
             // 3개 주문 (재고 0이 됨)
             OrderDto.CreateOrderRequest request = new OrderDto.CreateOrderRequest(
@@ -265,6 +410,7 @@ class OrderApiE2ETest {
             );
 
             // 다시 주문 가능 (재고 복원 확인)
+            issueAdmissionToken();
             ResponseEntity<ApiResponse<OrderDto.OrderResponse>> reOrder = testRestTemplate.exchange(
                     ENDPOINT_ORDERS,
                     HttpMethod.POST,

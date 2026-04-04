@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.payment;
 import com.loopers.application.coupon.CouponAdminApplicationService;
 import com.loopers.application.coupon.CouponApplicationService;
 import com.loopers.application.coupon.command.CreateCouponCommand;
+import com.loopers.application.order.queue.OrderAdmissionApplicationService;
 import com.loopers.application.product.ProductApplicationService;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.coupon.CouponStatus;
@@ -19,10 +20,11 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.member.MemberDto;
 import com.loopers.interfaces.api.order.OrderDto;
 import com.loopers.interfaces.api.product.ProductDto;
-import com.loopers.infrastructure.payment.PaymentCompletionPollingScheduler;
 import com.loopers.infrastructure.payment.PaymentRecoveryRequiredException;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,6 +43,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.context.annotation.Import;
 
@@ -53,11 +57,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "loopers.payment.completion.polling.requested-min-age-ms=0"
-)
-@ImportTestcontainers(MySqlTestContainersConfig.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ImportTestcontainers({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @ActiveProfiles("test")
 @Import(PaymentApiE2ETest.PaymentGatewayTestConfig.class)
 class PaymentApiE2ETest {
@@ -80,6 +81,9 @@ class PaymentApiE2ETest {
     private DatabaseCleanUp databaseCleanUp;
 
     @Autowired
+    private RedisCleanUp redisCleanUp;
+
+    @Autowired
     private CategoryRepository categoryRepository;
 
     @Autowired
@@ -98,13 +102,20 @@ class PaymentApiE2ETest {
     private PointBalanceRepository pointBalanceRepository;
 
     @Autowired
-    private PaymentCompletionPollingScheduler paymentCompletionPollingScheduler;
+    private FakePaymentGateway fakePaymentGateway;
 
     @Autowired
-    private FakePaymentGateway fakePaymentGateway;
+    private OrderAdmissionApplicationService orderAdmissionApplicationService;
 
     private UUID brandId;
     private UUID categoryId;
+
+    @DynamicPropertySource
+    static void overrideProperties(DynamicPropertyRegistry registry) {
+        registry.add("datasource.mysql-jpa.main.jdbc-url", MySqlTestContainersConfig.MY_SQL_CONTAINER::getJdbcUrl);
+        registry.add("datasource.mysql-jpa.main.username", MySqlTestContainersConfig.MY_SQL_CONTAINER::getUsername);
+        registry.add("datasource.mysql-jpa.main.password", MySqlTestContainersConfig.MY_SQL_CONTAINER::getPassword);
+    }
 
     @BeforeEach
     void setUp() {
@@ -131,11 +142,12 @@ class PaymentApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
         fakePaymentGateway.clear();
     }
 
     @Nested
-    @DisplayName("결제 콜백/폴링 수렴")
+    @DisplayName("결제 완료 수렴")
     class CompletionConvergence {
 
         @Test
@@ -258,98 +270,6 @@ class PaymentApiE2ETest {
             assertThat(reconciled.getBody().data().transactionKey()).isEqualTo(recoveredTransactionKey);
         }
 
-        @Test
-        @DisplayName("폴링으로 취소 요청 상태를 CANCELLED 로 수렴시킨다")
-        void pollingCompletesCancel() {
-            UUID orderId = createOrderForPayment();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentResponse>> started = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS,
-                    HttpMethod.POST,
-                    new HttpEntity<>(
-                            new PaymentDto.StartPaymentRequest(orderId, com.loopers.domain.payment.CardType.SAMSUNG, "1234-5678-1234-5678"),
-                            authHeaders()
-                    ),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            String transactionKey = started.getBody().data().transactionKey();
-            fakePaymentGateway.setStatus(transactionKey, PaymentStatus.SUCCEEDED, null);
-
-            ResponseEntity<ApiResponse<Void>> callback = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "/callback",
-                    HttpMethod.POST,
-                    new HttpEntity<>(new PaymentCallbackDto.CallbackRequest(TEST_LOGIN_ID, transactionKey), callbackHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-            assertThat(callback.getStatusCode()).isEqualTo(HttpStatus.OK);
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentResponse>> cancelled = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "/" + orderId + "/cancel",
-                    HttpMethod.PATCH,
-                    new HttpEntity<>(authHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(cancelled.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(cancelled.getBody()).isNotNull();
-            assertThat(cancelled.getBody().data().status()).isEqualTo("CANCEL_RECONCILE_REQUIRED");
-
-            fakePaymentGateway.setStatus(transactionKey, PaymentStatus.CANCELLED, null);
-            paymentCompletionPollingScheduler.pollPendingPayments();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentListResponse>> queried = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "?orderId=" + orderId,
-                    HttpMethod.GET,
-                    new HttpEntity<>(authHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(queried.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(queried.getBody()).isNotNull();
-            assertThat(queried.getBody().data().payments()).isNotEmpty();
-            assertThat(queried.getBody().data().payments().get(0).status()).isEqualTo("CANCELLED");
-        }
-
-        @Test
-        @DisplayName("콜백이 오지 않아도 폴링으로 REQUESTED 결제를 수렴시킨다")
-        void pollingCompletesRequestedWithoutCallback() {
-            UUID orderId = createOrderForPayment();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentResponse>> started = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS,
-                    HttpMethod.POST,
-                    new HttpEntity<>(
-                            new PaymentDto.StartPaymentRequest(orderId, com.loopers.domain.payment.CardType.SAMSUNG, "1234-5678-1234-5678"),
-                            authHeaders()
-                    ),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(started.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-            String transactionKey = started.getBody().data().transactionKey();
-            fakePaymentGateway.setStatus(transactionKey, PaymentStatus.SUCCEEDED, null);
-
-            paymentCompletionPollingScheduler.pollPendingPayments();
-
-            ResponseEntity<ApiResponse<PaymentDto.PaymentListResponse>> queried = testRestTemplate.exchange(
-                    ENDPOINT_PAYMENTS + "?orderId=" + orderId,
-                    HttpMethod.GET,
-                    new HttpEntity<>(authHeaders()),
-                    new ParameterizedTypeReference<>() {
-                    }
-            );
-
-            assertThat(queried.getStatusCode()).isEqualTo(HttpStatus.OK);
-            assertThat(queried.getBody()).isNotNull();
-            assertThat(queried.getBody().data().payments()).isNotEmpty();
-            assertThat(queried.getBody().data().payments().get(0).status()).isEqualTo("SUCCEEDED");
-        }
     }
 
     @Nested
@@ -626,6 +546,7 @@ class PaymentApiE2ETest {
 
     private UUID createOrderForPayment() {
         UUID productId = createProduct("결제 테스트 상품", 12000, 10);
+        issueAdmissionToken();
 
         OrderDto.CreateOrderRequest createRequest = new OrderDto.CreateOrderRequest(
                 List.of(new OrderDto.OrderItemRequest(productId, 2))
@@ -642,6 +563,16 @@ class PaymentApiE2ETest {
         assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
         assertThat(created.getBody()).isNotNull();
         return created.getBody().data().id();
+    }
+
+    private void issueAdmissionToken() {
+        testRestTemplate.exchange(
+                "/api/v1/order-queue",
+                HttpMethod.POST,
+                new HttpEntity<>(authHeaders()),
+                new ParameterizedTypeReference<ApiResponse<OrderDto.OrderQueueStatusResponse>>() {}
+        );
+        orderAdmissionApplicationService.issueAdmissions();
     }
 
     private UUID issueCouponToTestMember(String couponName, int discountValue) {

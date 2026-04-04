@@ -41,3 +41,7 @@ out/
 
 # k6 raw artifacts
 docs/performance/k6/results/*
+
+# Local workspace noise
+.DS_Store
+.logs/
