@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.product;
 import com.loopers.application.brand.BrandApplicationService;
 import com.loopers.application.product.ProductQueryService;
 import com.loopers.application.product.ProductReadModel;
+import com.loopers.application.ranking.RankingQueryService;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.ProductSortType;
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -25,8 +28,11 @@ import java.util.stream.Collectors;
 @Validated
 public class ProductV1Controller implements ProductV1ApiSpec {
 
+    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+
     private final ProductQueryService productQueryService;
     private final BrandApplicationService brandApplicationService;
+    private final RankingQueryService rankingQueryService;
 
     @GetMapping
     @Override
@@ -51,6 +57,8 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     public ApiResponse<ProductV1Dto.ProductResponse> getById(@PathVariable Long productId) {
         ProductReadModel product = productQueryService.getById(productId);
         Brand brand = brandApplicationService.getById(product.brandId());
-        return ApiResponse.success(ProductV1Dto.ProductResponse.from(product, brand));
+        String today = LocalDate.now().format(DAY_FORMAT);
+        Long rank = rankingQueryService.getProductDailyRank(productId, today).orElse(null);
+        return ApiResponse.success(ProductV1Dto.ProductResponse.from(product, brand, rank));
     }
 }
