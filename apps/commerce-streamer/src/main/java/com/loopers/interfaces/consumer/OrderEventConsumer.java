@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.MetricsApplicationService;
+import com.loopers.application.ranking.RankingScoreService;
 import com.loopers.config.kafka.KafkaConfig;
 import com.loopers.domain.event.OrderItemPayload;
 import com.loopers.domain.eventhandled.EventHandled;
@@ -17,6 +18,7 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +30,7 @@ public class OrderEventConsumer {
     private static final String DLQ_TOPIC = "order-events.dlq";
 
     private final MetricsApplicationService metricsApplicationService;
+    private final RankingScoreService rankingScoreService;
     private final EventHandledRepository eventHandledRepository;
     private final ObjectMapper objectMapper;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
@@ -37,6 +40,8 @@ public class OrderEventConsumer {
         containerFactory = KafkaConfig.BATCH_LISTENER
     )
     public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment acknowledgment) {
+        List<OrderItemPayload> allOrderItems = new ArrayList<>();
+
         try {
             for (ConsumerRecord<String, byte[]> record : records) {
                 try {
@@ -50,7 +55,7 @@ public class OrderEventConsumer {
                     }
 
                     JsonNode data = envelope.get("data");
-                    processEvent(eventId, eventType, data);
+                    processEvent(eventId, eventType, data, allOrderItems);
                     log.info("[OrderEvent] 처리 완료: eventId={}, eventType={}", eventId, eventType);
                 } catch (Exception e) {
                     log.error("[OrderEvent] 처리 실패 → DLQ 전송: offset={}, error={}",
@@ -58,17 +63,22 @@ public class OrderEventConsumer {
                     sendToDlq(record);
                 }
             }
+            if (!allOrderItems.isEmpty()) {
+                addRankingScoreSafely(() -> rankingScoreService.addOrderScores(allOrderItems));
+            }
             acknowledgment.acknowledge();
         } catch (Exception e) {
             log.error("[OrderEvent] 배치 처리 중단 (DLQ 전송 실패). 전체 재배달 예정. error={}", e.getMessage());
         }
     }
 
-    private void processEvent(String eventId, String eventType, JsonNode data) throws JsonProcessingException {
+    private void processEvent(String eventId, String eventType, JsonNode data,
+                             List<OrderItemPayload> allOrderItems) throws JsonProcessingException {
         switch (eventType) {
             case "PAYMENT_COMPLETED" -> {
                 List<OrderItemPayload> items = parseItems(data);
                 metricsApplicationService.incrementSaleCount(eventId, items);
+                allOrderItems.addAll(items);
             }
             case "ORDER_CANCELLED" ->
                 log.info("[OrderEvent] 주문 취소 이벤트 수신: orderId={}", requireLong(data, "orderId"));
@@ -116,6 +126,14 @@ public class OrderEventConsumer {
             throw new IllegalArgumentException("필수 필드 누락: " + field);
         }
         return value.asLong();
+    }
+
+    private void addRankingScoreSafely(Runnable action) {
+        try {
+            action.run();
+        } catch (Exception e) {
+            log.warn("[OrderEvent] 랭킹 점수 반영 실패 (무시): {}", e.getMessage());
+        }
     }
 
     private JsonNode parseEnvelope(byte[] value) throws IOException {
