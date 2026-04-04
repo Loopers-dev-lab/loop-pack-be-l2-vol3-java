@@ -4,6 +4,8 @@ import com.loopers.application.order.OrderApp;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderInfo;
 import com.loopers.application.order.OrderItemCommand;
+import com.loopers.application.queue.QueueApp;
+import com.loopers.config.QueueProperties;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +17,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
-
 import java.util.List;
 
 @RestController
@@ -25,17 +26,31 @@ public class OrderV1Controller implements OrderV1ApiSpec {
 
     private final OrderApp orderApp;
     private final OrderFacade orderFacade;
+    private final QueueApp queueApp;
+    private final QueueProperties queueProperties;
 
     @PostMapping
     @Override
     public ResponseEntity<ApiResponse<OrderV1Dto.OrderResponse>> createOrder(
+            @RequestHeader(value = "X-Entry-Token", required = false) String entryToken,
             @Valid @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
+        Long memberId = request.memberId();
+
+        if (queueProperties.enabled()) {
+            queueApp.validateToken(memberId, entryToken);
+        }
+
         List<OrderItemCommand> items = request.items().stream()
                 .map(OrderV1Dto.OrderItemRequest::toCommand)
                 .toList();
 
-        OrderInfo info = orderFacade.createOrder(request.memberId(), items, request.userCouponId());
+        OrderInfo info = orderFacade.createOrder(memberId, items, request.userCouponId());
+
+        if (queueProperties.enabled()) {
+            queueApp.consumeToken(memberId);
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(OrderV1Dto.OrderResponse.from(info)));
     }

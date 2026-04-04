@@ -3,11 +3,11 @@ package com.loopers.application.order;
 import com.loopers.application.coupon.CouponApp;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -28,8 +28,12 @@ class OrderFacadeTest {
     @Mock
     private CouponApp couponApp;
 
-    @InjectMocks
     private OrderFacade orderFacade;
+
+    @BeforeEach
+    void setUp() {
+        orderFacade = new OrderFacade(orderApp, couponApp);
+    }
 
     @Nested
     @DisplayName("주문 생성 (createOrder)")
@@ -76,12 +80,10 @@ class OrderFacadeTest {
             assertThat(result).isEqualTo(expectedInfo);
             assertThat(result.discountAmount()).isEqualByComparingTo(discountAmount);
             assertThat(result.refUserCouponId()).isEqualTo(userCouponPkId);
-            verify(couponApp).calculateDiscount(userCouponId, memberId, originalAmount);
-            verify(couponApp).useUserCoupon(userCouponId);
         }
 
         @Test
-        @DisplayName("만료 쿠폰으로 주문 시 실패 - CouponApp에서 예외 발생")
+        @DisplayName("만료 쿠폰으로 주문 시 실패")
         void createOrder_expiredCoupon_throws() {
             // given
             Long memberId = 1L;

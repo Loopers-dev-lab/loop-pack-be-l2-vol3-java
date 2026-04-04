@@ -23,29 +23,34 @@ allowed-tools: Read, Grep, Glob, Bash, Write, Edit
 
 ### 1. 컨텍스트 수집
 
-아래 정보를 순서대로 수집한다.
-
 ```bash
-# 현재 브랜치명
 git rev-parse --abbrev-ref HEAD
-
-# 기준 브랜치(main)와의 커밋 목록
 git log main..HEAD --oneline
-
-# 변경된 파일 목록
 git diff main..HEAD --name-only
-
-# 현재 스테이징/작업 상태
 git status --short
 ```
 
-### 2. 코드 및 discussion 분석
+### 2. 발제 문서 분석
 
-변경된 파일과 discussion 파일을 읽어 아래 관점으로 분석한다.
+브랜치의 주차를 추출하고 해당 폴더의 문서를 확인한다.
 
-- **discussion 파일 경로**: `docs/discussion/{주차}/{브랜치명}-discussion.md`
-  - 예: `feat/week7-event-driven` → `docs/discussion/week7/feat-week7-event-driven-discussion.md`
-  - 학습 배경 문서도 동일 폴더에 위치 (예: `docs/discussion/week7/feat-week7-event-driven.md`)
+- **발제 문서 경로**: `docs/discussion/{주차}/`
+  - 예: `feat/week8-wait-queue` → `docs/discussion/week8/`
+  - 과제 설명 문서 (예: `feat-week8-wait-queue.md`) — 문제 정의, 스텝, 체크리스트 포함
+  - discussion 파일 (예: `feat-week8-wait-queue-discussion.md`) — 실험 기록, 의사결정 히스토리
+
+발제 문서에서 다음을 추출한다:
+
+| 항목 | 추출 방법 |
+|------|----------|
+| **핵심 문제** | 발제 문서의 "문제 분석" 섹션 |
+| **Step 목록** | 발제 문서의 단계별 구성 |
+| **체크리스트** | 각 Step에 명시된 구현 항목 |
+| **권장 접근 순서** | 발제가 제시하는 "단순 → 고도화" 경로 |
+
+### 3. 코드 분석
+
+변경된 파일을 읽어 아래 관점으로 분석한다.
 
 | 관점 | 확인 사항 |
 |------|----------|
@@ -55,7 +60,20 @@ git status --short
 | **테스트** | 단위/통합/E2E 테스트 현황 |
 | **설계 결정** | discussion.md 또는 코드에서 의도적 선택이 보이는 부분 |
 
-### 3. 문서 생성/업데이트
+### 4. 스텝 진행 판단
+
+발제의 각 Step에 대해 다음을 판단한다:
+
+| 질문 | 판단 기준 |
+|------|----------|
+| 이 Step이 완료되었는가? | 해당 체크리스트 항목이 코드에 존재하고 테스트가 통과하는가? |
+| 다음 Step으로 넘어갈 준비가 됐는가? | 현재 Step의 핵심 학습 목표를 달성했는가? |
+| 과도한 고도화가 없는가? | 발제가 요구하지 않은 복잡도를 추가하지 않았는가? |
+
+> **원칙**: 발제의 권장 순서를 따른다. "단순한 것부터 시작해 한계를 직접 확인한 뒤 다음 단계로 넘어간다."
+> 발제가 Step 1 → Step 2 순서를 제시했다면, Step 1을 완전히 끝내기 전에 Step 2를 섞지 않는다.
+
+### 5. 문서 생성/업데이트
 
 `docs/plan/{주차}/{브랜치명}-plan.md` 경로에 아래 템플릿으로 작성한다.
 
@@ -71,6 +89,14 @@ git status --short
 ## 목표
 
 {이 브랜치가 달성하려는 것을 2~3문장으로}
+
+## 발제 스텝 현황
+
+| Step | 내용 | 상태 |
+|------|------|------|
+| Step 1 | {발제 Step 1 제목} | ✅ 완료 / 🔧 진행 중 / ⬜ 미착수 |
+| Step 2 | {발제 Step 2 제목} | ✅ 완료 / 🔧 진행 중 / ⬜ 미착수 |
+| Step N | ... | ... |
 
 ## 구현 범위
 
@@ -115,7 +141,6 @@ git status --short
 |------|------|--------|------|
 | 1 | feat | {domain} | {설명} |
 | 2 | test | {domain} | {설명} |
-| 3 | refactor | {domain} | {설명} |
 
 ## 주요 파일
 
@@ -126,6 +151,15 @@ git status --short
 ## 리스크 및 고려 사항
 
 - {동시성, 트랜잭션, 성능 등 주의 사항}
+
+## PR 리뷰 포인트 (사전 준비)
+
+PR 작성 전, 리뷰어가 가장 먼저 물어볼 만한 질문을 미리 정리한다.
+각 항목은 다이어그램(Mermaid) 또는 코드 링크와 함께 PR에 기재한다.
+
+- [ ] {설계 선택 A를 왜 했는가? — 대안 B와 비교한 근거}
+- [ ] {발제 Step N에서 선택한 방식의 한계와 다음 Step으로 넘어간 이유}
+- [ ] {동시성/정합성 처리 방식과 그 레이어 선택 이유}
 ```
 
 ---
@@ -136,6 +170,7 @@ git status --short
 - **미결정 명시**: 합의되지 않은 것은 "미결정"으로 남김
 - **간결함**: 각 항목은 1~2줄. 장황한 설명 지양
 - **상태 최신화**: 실행할 때마다 진행 상태(✅/🔧/⬜)를 현재 코드 기준으로 갱신
+- **과도한 고도화 경계**: 발제 Step을 넘어서는 구현은 "리스크 및 고려 사항"에 명시
 
 ---
 
@@ -143,16 +178,13 @@ git status --short
 
 ### Plan 파일
 - 저장 위치: `docs/plan/{주차}/{브랜치명}-plan.md`
-  - 주차는 브랜치명에서 추출 (예: `feat/week7-event-driven` → `week7`)
-  - 브랜치명에서 `/` → `-` 치환 (예: `feat/week7-event-driven` → `feat-week7-event-driven-plan.md`)
-  - 최종 경로 예시: `docs/plan/week7/feat-week7-event-driven-plan.md`
+  - 주차는 브랜치명에서 추출 (예: `feat/week8-wait-queue` → `week8`)
+  - 브랜치명에서 `/` → `-` 치환 (예: `feat/week8-wait-queue` → `feat-week8-wait-queue-plan.md`)
 - 주차를 식별할 수 없는 브랜치의 경우 `docs/plan/misc/{브랜치명}-plan.md`
 
 ### Discussion 파일
 - 저장 위치: `docs/discussion/{주차}/{브랜치명}-discussion.md`
   - 주차 추출 방식은 plan과 동일
-  - 최종 경로 예시: `docs/discussion/week7/feat-week7-event-driven-discussion.md`
-- 학습 배경 문서(Round N 소개 자료 등)도 동일 주차 폴더에 위치
 - 주차를 식별할 수 없는 브랜치의 경우 `docs/discussion/misc/{브랜치명}-discussion.md`
 
 ### 디렉터리
