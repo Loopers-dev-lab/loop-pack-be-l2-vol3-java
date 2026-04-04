@@ -601,3 +601,96 @@ sequenceDiagram
     OrderApplicationService-->>-OrderV1Controller: 결과 반환
     OrderV1Controller-->>-고객: 성공
 ```
+
+---
+
+## 랭킹 점수 반영 (이벤트 → ZSET)
+
+> 시나리오 2.11 — 유저 행동 이벤트가 Kafka를 통해 소비되어 Redis ZSET에 랭킹 점수로 반영된다.
+
+**다이어그램이 필요한 이유**
+- 비동기 파이프라인: Kafka 배치 소비 → 애플리케이션 합산 → Redis ZSET 반영
+- 듀얼 키 전략: 하나의 이벤트가 일별/시간별 두 키에 반영됨
+- 기존 파이프라인 확장: product_metrics upsert와 ZSET 반영이 병행됨
+
+```mermaid
+sequenceDiagram
+    participant Kafka
+    participant CatalogEventConsumer
+    participant MetricsApplicationService
+    participant RankingScoreService
+    participant RankingRepository
+    participant Redis
+
+    Kafka->>+CatalogEventConsumer: catalog-events 배치 수신 (LIKED, UNLIKED, PRODUCT_VIEWED)
+
+    loop 각 레코드
+        CatalogEventConsumer->>CatalogEventConsumer: 멱등성 체크 (EventHandled)
+        CatalogEventConsumer->>+MetricsApplicationService: 메트릭스 반영 (건건이)
+        MetricsApplicationService-->>-CatalogEventConsumer: 완료
+        CatalogEventConsumer->>CatalogEventConsumer: viewCounts/likeCounts/unlikeCounts 맵에 합산
+    end
+
+    Note over CatalogEventConsumer: 배치 합산 완료 → 한 번에 flush
+
+    CatalogEventConsumer->>+RankingScoreService: addViewScores(viewCounts)
+    RankingScoreService->>+RankingRepository: ZINCRBY ranking:day:{yyyyMMdd} (상품별 합산 점수)
+    RankingRepository->>+Redis: ZINCRBY + TTL 설정
+    Redis-->>-RankingRepository: 완료
+    RankingRepository-->>-RankingScoreService: 완료
+    RankingScoreService->>+RankingRepository: ZINCRBY ranking:hour:{yyyyMMddHH}
+    RankingRepository->>+Redis: ZINCRBY + TTL 설정
+    Redis-->>-RankingRepository: 완료
+    RankingRepository-->>-RankingScoreService: 완료
+    RankingScoreService-->>-CatalogEventConsumer: 완료
+
+    CatalogEventConsumer->>+RankingScoreService: addLikeScores(likeCounts)
+    RankingScoreService-->>-CatalogEventConsumer: 완료 (동일 흐름)
+
+    CatalogEventConsumer->>+RankingScoreService: subtractLikeScores(unlikeCounts)
+    RankingScoreService-->>-CatalogEventConsumer: 완료 (ZINCRBY 음수)
+
+    CatalogEventConsumer->>CatalogEventConsumer: acknowledgment.acknowledge()
+    deactivate CatalogEventConsumer
+```
+
+---
+
+## 랭킹 조회
+
+> 시나리오 2.11 — 고객이 인기 상품 랭킹을 조회한다.
+
+**다이어그램이 필요한 이유**
+- 도메인 간 협력: Redis ZSET 조회 결과에 RDB 상품 정보를 조합해야 함
+- 계층 간 책임: 뷰 조합이 Interfaces 계층(Controller)에서 이루어짐
+
+```mermaid
+sequenceDiagram
+    actor 고객
+    participant RankingV1Controller
+    participant RankingQueryService
+    participant RankingRepository
+    participant Redis
+    participant ProductApplicationService
+
+    고객->>+RankingV1Controller: GET /api/v1/rankings?date=20260405&page=0&size=20
+
+    RankingV1Controller->>+RankingQueryService: getDailyRanking(date, page, size)
+    RankingQueryService->>+RankingRepository: getTopN(key, start, stop)
+    RankingRepository->>+Redis: ZREVRANGE ranking:day:20260405 0 19 WITHSCORES
+    Redis-->>-RankingRepository: [(productId, score), ...]
+    RankingRepository-->>-RankingQueryService: List<ProductRanking>
+    RankingQueryService->>+RankingRepository: getTotalCount(key)
+    RankingRepository->>+Redis: ZCARD ranking:day:20260405
+    Redis-->>-RankingRepository: totalElements
+    RankingRepository-->>-RankingQueryService: long
+    RankingQueryService-->>-RankingV1Controller: PageResult<ProductRanking>
+
+    Note over RankingV1Controller: 뷰 조합 (Interfaces 계층)
+
+    RankingV1Controller->>+ProductApplicationService: getByIds(productIds)
+    ProductApplicationService-->>-RankingV1Controller: Map<Long, Product>
+
+    RankingV1Controller->>RankingV1Controller: RankingPageResponse.from(rankings, productMap)
+    RankingV1Controller-->>-고객: 랭킹 + 상품 정보
+```
