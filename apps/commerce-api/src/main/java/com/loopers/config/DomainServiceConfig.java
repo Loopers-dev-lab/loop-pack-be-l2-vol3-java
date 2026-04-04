@@ -16,6 +16,9 @@ import com.loopers.domain.payment.PaymentDomainService;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.product.ProductDomainService;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.queue.EntryTokenRepository;
+import com.loopers.domain.queue.QueueDomainService;
+import com.loopers.domain.queue.WaitingQueueRepository;
 import com.loopers.domain.stock.ProductStockDomainService;
 import com.loopers.domain.stock.ProductStockRepository;
 import com.loopers.domain.user.PasswordEncryptor;
@@ -75,5 +78,11 @@ public class DomainServiceConfig {
     @Bean
     public PaymentDomainService paymentDomainService(PaymentRepository paymentRepository) {
         return new PaymentDomainService(paymentRepository);
+    }
+
+    @Bean
+    public QueueDomainService queueDomainService(WaitingQueueRepository waitingQueueRepository,
+                                                  EntryTokenRepository entryTokenRepository) {
+        return new QueueDomainService(waitingQueueRepository, entryTokenRepository);
     }
 }

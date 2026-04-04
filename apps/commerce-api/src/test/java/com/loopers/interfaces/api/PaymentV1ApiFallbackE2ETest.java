@@ -4,6 +4,8 @@ import com.loopers.domain.payment.CardType;
 import com.loopers.domain.payment.PaymentGateway;
 import com.loopers.domain.payment.PaymentGatewayException;
 import com.loopers.domain.payment.PaymentGatewayRetryableException;
+import com.loopers.domain.queue.EntryToken;
+import com.loopers.domain.queue.EntryTokenRepository;
 import com.loopers.interfaces.api.brand.AdminBrandV1Dto;
 import com.loopers.interfaces.api.cart.CartV1Dto;
 import com.loopers.interfaces.api.order.OrderV1Dto;
@@ -30,6 +32,7 @@ import org.springframework.http.ResponseEntity;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -49,10 +52,14 @@ class PaymentV1ApiFallbackE2ETest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private EntryTokenRepository entryTokenRepository;
+
     @MockBean
     private PaymentGateway paymentGateway;
 
     private Long orderId;
+    private Long userId;
 
     private HttpHeaders authHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -69,13 +76,20 @@ class PaymentV1ApiFallbackE2ETest {
         return headers;
     }
 
+    private void issueEntryToken() {
+        EntryToken token = new EntryToken(userId, UUID.randomUUID().toString(), System.currentTimeMillis());
+        entryTokenRepository.save(token, 300);
+    }
+
     @BeforeEach
     void setUp() {
         // 회원가입
-        testRestTemplate.exchange("/api/v1/users", HttpMethod.POST,
+        ResponseEntity<ApiResponse<UserV1Dto.SignupResponse>> signupResp = testRestTemplate.exchange(
+            "/api/v1/users", HttpMethod.POST,
             new HttpEntity<>(new UserV1Dto.SignupRequest("testUser1", "Abcd1234!", "홍길동",
                 LocalDate.of(1995, 3, 15), "test@example.com")),
-            new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignupResponse>>() {});
+            new ParameterizedTypeReference<>() {});
+        userId = signupResp.getBody().data().id();
 
         // 브랜드 생성
         ResponseEntity<ApiResponse<AdminBrandV1Dto.BrandResponse>> brandResp = testRestTemplate.exchange(
@@ -96,7 +110,8 @@ class PaymentV1ApiFallbackE2ETest {
             new HttpEntity<>(new CartV1Dto.AddRequest(productId, 1), authHeaders()),
             new ParameterizedTypeReference<ApiResponse<CartV1Dto.CartItemResponse>>() {});
 
-        // 주문 생성 (장바구니 기반이 아닌 직접 주문)
+        // 주문 생성 (입장 토큰 필요)
+        issueEntryToken();
         List<OrderV1Dto.OrderItemRequest> items = List.of(
             new OrderV1Dto.OrderItemRequest(productId, 1)
         );

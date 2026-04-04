@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.domain.queue.EntryToken;
+import com.loopers.domain.queue.EntryTokenRepository;
 import com.loopers.interfaces.api.brand.AdminBrandV1Dto;
 import com.loopers.interfaces.api.cart.CartV1Dto;
 import com.loopers.interfaces.api.order.OrderV1Dto;
@@ -23,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -39,15 +42,19 @@ class OrderV1ApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final EntryTokenRepository entryTokenRepository;
 
     @Autowired
-    public OrderV1ApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp) {
+    public OrderV1ApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp,
+                             EntryTokenRepository entryTokenRepository) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.entryTokenRepository = entryTokenRepository;
     }
 
     private Long productId;
     private Long productId2;
+    private Long userId;
 
     private HttpHeaders adminHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -64,12 +71,19 @@ class OrderV1ApiE2ETest {
         return headers;
     }
 
+    private void issueEntryToken() {
+        EntryToken token = new EntryToken(userId, UUID.randomUUID().toString(), System.currentTimeMillis());
+        entryTokenRepository.save(token, 300);
+    }
+
     private void signupUser() {
         UserV1Dto.SignupRequest request = new UserV1Dto.SignupRequest(
             "testUser1", "Abcd1234!", "홍길동", LocalDate.of(1995, 3, 15), "test@example.com"
         );
-        testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
-            new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignupResponse>>() {});
+        ResponseEntity<ApiResponse<UserV1Dto.SignupResponse>> response = testRestTemplate.exchange(
+            SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
+            new ParameterizedTypeReference<>() {});
+        userId = response.getBody().data().id();
     }
 
     @BeforeEach
@@ -104,6 +118,7 @@ class OrderV1ApiE2ETest {
     }
 
     private OrderV1Dto.OrderDetailResponse createOrder(Long pId, int quantity) {
+        issueEntryToken();
         OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
             List.of(new OrderV1Dto.OrderItemRequest(pId, quantity)), null
         );
@@ -121,6 +136,7 @@ class OrderV1ApiE2ETest {
         @DisplayName("올바른 주문 요청이면, 주문 상세 정보를 반환한다.")
         @Test
         void returnsOrderDetail_whenValidRequest() {
+            issueEntryToken();
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
                 List.of(
                     new OrderV1Dto.OrderItemRequest(productId, 2),
@@ -158,6 +174,7 @@ class OrderV1ApiE2ETest {
         @DisplayName("중복된 상품이 포함되면, 400 BAD_REQUEST를 반환한다.")
         @Test
         void returnsBadRequest_whenDuplicateProducts() {
+            issueEntryToken();
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
                 List.of(
                     new OrderV1Dto.OrderItemRequest(productId, 2),
@@ -176,6 +193,7 @@ class OrderV1ApiE2ETest {
         @DisplayName("재고가 부족하면, 400 BAD_REQUEST를 반환한다.")
         @Test
         void returnsBadRequest_whenStockInsufficient() {
+            issueEntryToken();
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
                 List.of(new OrderV1Dto.OrderItemRequest(productId, 999)), null
             );
@@ -191,6 +209,7 @@ class OrderV1ApiE2ETest {
         @DisplayName("존재하지 않는 상품이면, 404 NOT_FOUND를 반환한다.")
         @Test
         void returnsNotFound_whenProductDoesNotExist() {
+            issueEntryToken();
             OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
                 List.of(new OrderV1Dto.OrderItemRequest(999L, 1)), null
             );
@@ -239,6 +258,7 @@ class OrderV1ApiE2ETest {
             );
 
             // Create order from cart
+            issueEntryToken();
             ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
                 ORDER_ENDPOINT + "/cart", HttpMethod.POST, new HttpEntity<>(authHeaders()),
                 new ParameterizedTypeReference<>() {}
@@ -261,6 +281,7 @@ class OrderV1ApiE2ETest {
         @DisplayName("장바구니가 비어있으면, 400 BAD_REQUEST를 반환한다.")
         @Test
         void returnsBadRequest_whenCartIsEmpty() {
+            issueEntryToken();
             ResponseEntity<ApiResponse<OrderV1Dto.OrderDetailResponse>> response = testRestTemplate.exchange(
                 ORDER_ENDPOINT + "/cart", HttpMethod.POST, new HttpEntity<>(authHeaders()),
                 new ParameterizedTypeReference<>() {}

@@ -1,9 +1,8 @@
 package com.loopers.interfaces.api.auth;
 
-import com.loopers.application.user.UserApplicationService;
-import com.loopers.domain.user.User;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.MethodParameter;
 import org.springframework.stereotype.Component;
@@ -16,11 +15,6 @@ import org.springframework.web.method.support.ModelAndViewContainer;
 @Component
 public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
 
-    private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
-    private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
-
-    private final UserApplicationService userApplicationService;
-
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
         return parameter.hasParameterAnnotation(AuthUser.class)
@@ -30,14 +24,14 @@ public class AuthUserArgumentResolver implements HandlerMethodArgumentResolver {
     @Override
     public AuthenticatedUser resolveArgument(MethodParameter parameter, ModelAndViewContainer mavContainer,
                                 NativeWebRequest webRequest, WebDataBinderFactory binderFactory) {
-        String loginId = webRequest.getHeader(HEADER_LOGIN_ID);
-        String password = webRequest.getHeader(HEADER_LOGIN_PW);
-
-        if (loginId == null || loginId.isBlank() || password == null || password.isBlank()) {
-            throw new CoreException(ErrorType.UNAUTHORIZED, "인증 헤더가 누락되었습니다.");
+        HttpServletRequest request = webRequest.getNativeRequest(HttpServletRequest.class);
+        if (request != null) {
+            Object cached = request.getAttribute(EntryTokenInterceptor.ATTRIBUTE_AUTH_USER);
+            if (cached instanceof AuthenticatedUser authUser) {
+                return authUser;
+            }
         }
 
-        User user = userApplicationService.authenticate(loginId, password);
-        return new AuthenticatedUser(user.getId(), user.getLoginId());
+        throw new CoreException(ErrorType.UNAUTHORIZED, "인증 정보가 없습니다.");
     }
 }

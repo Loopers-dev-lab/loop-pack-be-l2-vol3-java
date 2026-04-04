@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api;
 
+import com.loopers.domain.queue.EntryToken;
+import com.loopers.domain.queue.EntryTokenRepository;
 import com.loopers.interfaces.api.brand.AdminBrandV1Dto;
 import com.loopers.interfaces.api.order.AdminOrderV1Dto;
 import com.loopers.interfaces.api.order.OrderV1Dto;
@@ -23,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -39,14 +42,18 @@ class AdminOrderV1ApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final EntryTokenRepository entryTokenRepository;
 
     @Autowired
-    public AdminOrderV1ApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp) {
+    public AdminOrderV1ApiE2ETest(TestRestTemplate testRestTemplate, DatabaseCleanUp databaseCleanUp,
+                                   EntryTokenRepository entryTokenRepository) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.entryTokenRepository = entryTokenRepository;
     }
 
     private Long productId;
+    private Long userId;
 
     private HttpHeaders adminHeaders() {
         HttpHeaders headers = new HttpHeaders();
@@ -63,12 +70,19 @@ class AdminOrderV1ApiE2ETest {
         return headers;
     }
 
+    private void issueEntryToken() {
+        EntryToken token = new EntryToken(userId, UUID.randomUUID().toString(), System.currentTimeMillis());
+        entryTokenRepository.save(token, 300);
+    }
+
     private void signupUser() {
         UserV1Dto.SignupRequest request = new UserV1Dto.SignupRequest(
             "testUser1", "Abcd1234!", "홍길동", LocalDate.of(1995, 3, 15), "test@example.com"
         );
-        testRestTemplate.exchange(SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
-            new ParameterizedTypeReference<ApiResponse<UserV1Dto.SignupResponse>>() {});
+        ResponseEntity<ApiResponse<UserV1Dto.SignupResponse>> response = testRestTemplate.exchange(
+            SIGNUP_ENDPOINT, HttpMethod.POST, new HttpEntity<>(request),
+            new ParameterizedTypeReference<>() {});
+        userId = response.getBody().data().id();
     }
 
     @BeforeEach
@@ -96,6 +110,7 @@ class AdminOrderV1ApiE2ETest {
     }
 
     private OrderV1Dto.OrderDetailResponse createOrder(int quantity) {
+        issueEntryToken();
         OrderV1Dto.CreateOrderRequest request = new OrderV1Dto.CreateOrderRequest(
             List.of(new OrderV1Dto.OrderItemRequest(productId, quantity)), null
         );

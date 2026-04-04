@@ -1,17 +1,15 @@
 package com.loopers.interfaces.api.auth;
 
-import com.loopers.application.user.UserApplicationService;
 import com.loopers.domain.user.User;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
 import org.springframework.web.context.request.NativeWebRequest;
-
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,13 +18,11 @@ import static org.mockito.Mockito.when;
 
 class AuthUserArgumentResolverTest {
 
-    private UserApplicationService userApplicationService;
     private AuthUserArgumentResolver resolver;
 
     @BeforeEach
     void setUp() {
-        userApplicationService = mock(UserApplicationService.class);
-        resolver = new AuthUserArgumentResolver(userApplicationService);
+        resolver = new AuthUserArgumentResolver();
     }
 
     @DisplayName("supportsParameter 검증할 때, ")
@@ -64,60 +60,47 @@ class AuthUserArgumentResolverTest {
         }
     }
 
-    @DisplayName("인증 헤더를 검증할 때, ")
+    @DisplayName("인증 정보를 조회할 때, ")
     @Nested
     class ResolveArgument {
 
-        @DisplayName("로그인 ID 헤더가 누락되면, UNAUTHORIZED 예외가 발생한다.")
+        @DisplayName("request attribute에 인증 정보가 없으면, UNAUTHORIZED 예외가 발생한다.")
         @Test
-        void throwsUnauthorized_whenLoginIdHeaderMissing() {
+        void throwsUnauthorized_whenNoAuthAttribute() {
             NativeWebRequest webRequest = mock(NativeWebRequest.class);
-            when(webRequest.getHeader("X-Loopers-LoginId")).thenReturn(null);
-            when(webRequest.getHeader("X-Loopers-LoginPw")).thenReturn("password");
+            HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+            when(webRequest.getNativeRequest(HttpServletRequest.class)).thenReturn(httpRequest);
+            when(httpRequest.getAttribute(EntryTokenInterceptor.ATTRIBUTE_AUTH_USER)).thenReturn(null);
 
             CoreException result = assertThrows(CoreException.class,
                 () -> resolver.resolveArgument(null, null, webRequest, null));
             assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
         }
 
-        @DisplayName("로그인 ID 헤더가 빈 문자열이면, UNAUTHORIZED 예외가 발생한다.")
+        @DisplayName("request attribute에 인증 정보가 있으면, AuthenticatedUser를 반환한다.")
         @Test
-        void throwsUnauthorized_whenLoginIdHeaderBlank() {
+        void returnsAuthenticatedUser_whenAuthAttributeExists() {
             NativeWebRequest webRequest = mock(NativeWebRequest.class);
-            when(webRequest.getHeader("X-Loopers-LoginId")).thenReturn("  ");
-            when(webRequest.getHeader("X-Loopers-LoginPw")).thenReturn("password");
-
-            CoreException result = assertThrows(CoreException.class,
-                () -> resolver.resolveArgument(null, null, webRequest, null));
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-        }
-
-        @DisplayName("비밀번호 헤더가 누락되면, UNAUTHORIZED 예외가 발생한다.")
-        @Test
-        void throwsUnauthorized_whenPasswordHeaderMissing() {
-            NativeWebRequest webRequest = mock(NativeWebRequest.class);
-            when(webRequest.getHeader("X-Loopers-LoginId")).thenReturn("user1");
-            when(webRequest.getHeader("X-Loopers-LoginPw")).thenReturn(null);
-
-            CoreException result = assertThrows(CoreException.class,
-                () -> resolver.resolveArgument(null, null, webRequest, null));
-            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
-        }
-
-        @DisplayName("정상 헤더이면, AuthenticatedUser를 반환한다.")
-        @Test
-        void returnsAuthenticatedUser_whenValidHeaders() {
-            NativeWebRequest webRequest = mock(NativeWebRequest.class);
-            when(webRequest.getHeader("X-Loopers-LoginId")).thenReturn("user1");
-            when(webRequest.getHeader("X-Loopers-LoginPw")).thenReturn("password");
-
-            User user = new User("user1", "encryptedPw", "홍길동", LocalDate.of(1990, 1, 1), "test@test.com");
-            // User entity's ID is set by JPA, so we use reflection or trust the flow
-            when(userApplicationService.authenticate("user1", "password")).thenReturn(user);
+            HttpServletRequest httpRequest = mock(HttpServletRequest.class);
+            AuthenticatedUser expected = new AuthenticatedUser(1L, "user1");
+            when(webRequest.getNativeRequest(HttpServletRequest.class)).thenReturn(httpRequest);
+            when(httpRequest.getAttribute(EntryTokenInterceptor.ATTRIBUTE_AUTH_USER)).thenReturn(expected);
 
             AuthenticatedUser result = resolver.resolveArgument(null, null, webRequest, null);
 
+            assertThat(result.userId()).isEqualTo(1L);
             assertThat(result.loginId()).isEqualTo("user1");
+        }
+
+        @DisplayName("NativeRequest가 null이면, UNAUTHORIZED 예외가 발생한다.")
+        @Test
+        void throwsUnauthorized_whenNativeRequestIsNull() {
+            NativeWebRequest webRequest = mock(NativeWebRequest.class);
+            when(webRequest.getNativeRequest(HttpServletRequest.class)).thenReturn(null);
+
+            CoreException result = assertThrows(CoreException.class,
+                () -> resolver.resolveArgument(null, null, webRequest, null));
+            assertThat(result.getErrorType()).isEqualTo(ErrorType.UNAUTHORIZED);
         }
     }
 }
