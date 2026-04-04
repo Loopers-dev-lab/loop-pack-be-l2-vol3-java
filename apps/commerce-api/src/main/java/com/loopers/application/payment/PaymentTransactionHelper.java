@@ -112,7 +112,7 @@ public class PaymentTransactionHelper {
             payment.markPaid();
             order.completePayment();
             List<OrderItemSnapshot> itemSnapshots = order.getItems().stream()
-                .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity().value()))
+                .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity().value(), item.getProductPrice().amount()))
                 .toList();
             eventPublisher.publishEvent(new PaymentCompletedEvent(
                 payment.getId(), order.getId(), payment.getUserId(),
