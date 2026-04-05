@@ -1,10 +1,10 @@
-package com.loopers.application.order;
+package com.loopers.interfaces.consumer;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public record OrderOutboxPayload(
+public record OrderEventPayload(
         String eventId,
         String eventType,
         int schemaVersion,
@@ -12,6 +12,6 @@ public record OrderOutboxPayload(
         Long memberId,
         BigDecimal totalAmount,
         LocalDateTime createdAt,
-        List<OrderItemPayload> items
+        List<OrderItemEventPayload> items
 ) {
 }

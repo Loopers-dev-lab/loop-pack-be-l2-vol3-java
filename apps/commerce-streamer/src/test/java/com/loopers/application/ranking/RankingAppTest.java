@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -63,6 +64,31 @@ class RankingAppTest {
                     scoreCaptor.capture()
             );
             assertThat(scoreCaptor.getValue()).isEqualTo(-0.2);
+        }
+    }
+
+    @Nested
+    @DisplayName("applyOrderScore()")
+    class ApplyOrderScore {
+
+        @Test
+        @DisplayName("주문 점수는 0.7 * price * quantity로 계산된다")
+        void orderScoreIsOrderWeightTimesPriceTimesQuantity() {
+            Long productDbId = 42L;
+            BigDecimal price = new BigDecimal("10000");
+            int quantity = 2;
+            LocalDate date = LocalDate.of(2026, 4, 5);
+
+            rankingApp.applyOrderScore(productDbId, price, quantity, date);
+
+            ArgumentCaptor<Double> scoreCaptor = ArgumentCaptor.forClass(Double.class);
+            verify(rankingRepository).incrementScore(
+                    org.mockito.ArgumentMatchers.eq(date),
+                    org.mockito.ArgumentMatchers.eq(productDbId),
+                    scoreCaptor.capture()
+            );
+            // 0.7 * 10000 * 2 = 14000.0
+            assertThat(scoreCaptor.getValue()).isEqualTo(14000.0);
         }
     }
 }
