@@ -19,11 +19,12 @@ public class ProductMetricsApp {
     private final EventHandledRepository eventHandledRepository;
 
     @Transactional
-    public void applyLikeDelta(String eventId, Long productDbId, int delta, LocalDateTime eventAt) {
+    public boolean applyLikeDelta(String eventId, Long productDbId, int delta, LocalDateTime eventAt) {
         if (eventHandledRepository.existsByEventId(eventId)) {
-            return;
+            return false;
         }
         productMetricsService.applyLikeDelta(productDbId, delta, eventAt);
         eventHandledRepository.save(EventHandledModel.create(eventId, TOPIC));
+        return true;
     }
 }

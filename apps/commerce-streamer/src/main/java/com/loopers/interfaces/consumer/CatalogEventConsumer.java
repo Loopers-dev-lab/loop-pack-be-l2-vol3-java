@@ -2,6 +2,7 @@ package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.ProductMetricsApp;
+import com.loopers.application.ranking.RankingApp;
 import com.loopers.infrastructure.kafka.StreamerKafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +21,7 @@ public class CatalogEventConsumer {
     private static final String TOPIC = "catalog-events";
 
     private final ProductMetricsApp productMetricsApp;
+    private final RankingApp rankingApp;
     private final ObjectMapper objectMapper;
 
     private static final java.util.Set<String> SUPPORTED_EVENT_TYPES =
@@ -40,12 +42,19 @@ public class CatalogEventConsumer {
                             payload.eventType(), record.offset());
                     continue;
                 }
-                productMetricsApp.applyLikeDelta(
+                boolean processed = productMetricsApp.applyLikeDelta(
                         payload.eventId(),
                         payload.productDbId(),
                         payload.delta(),
                         payload.likedAt()
                 );
+                if (processed) {
+                    rankingApp.applyLikeDelta(
+                            payload.productDbId(),
+                            payload.delta(),
+                            payload.likedAt().toLocalDate()
+                    );
+                }
             } catch (Exception e) {
                 log.error("[CATALOG_EVENT_FAILED] offset={}, key={}", record.offset(), record.key(), e);
                 throw new org.springframework.kafka.listener.BatchListenerFailedException(
