@@ -3,6 +3,7 @@ package com.loopers.application.order;
 import com.loopers.application.cart.CartAppService;
 import com.loopers.application.coupon.CouponAppService;
 import com.loopers.application.product.ProductAppService;
+import com.loopers.application.queue.TokenService;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
@@ -35,6 +36,7 @@ class OrderAppServiceTest {
     private CouponAppService couponAppService;
     private CartAppService cartAppService;
     private ApplicationEventPublisher eventPublisher;
+    private TokenService tokenService;
 
     @BeforeEach
     void setUp() {
@@ -43,7 +45,8 @@ class OrderAppServiceTest {
         couponAppService = mock(CouponAppService.class);
         cartAppService = mock(CartAppService.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
-        orderAppService = new OrderAppService(orderRepository, productAppService, couponAppService, cartAppService, eventPublisher);
+        tokenService = mock(TokenService.class);
+        orderAppService = new OrderAppService(orderRepository, productAppService, couponAppService, cartAppService, eventPublisher, tokenService);
     }
 
     private OrderItem createTestOrderItem() {

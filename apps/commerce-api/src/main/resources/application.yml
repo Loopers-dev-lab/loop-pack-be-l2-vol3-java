@@ -15,8 +15,6 @@ spring:
     web-application-type: servlet
   application:
     name: commerce-api
-  profiles:
-    active: local
   config:
     import:
       - jpa.yml
@@ -85,7 +83,23 @@ resilience4j:
 spring:
   config:
     activate:
-      on-profile: local, test
+      on-profile: local
+
+queue:
+  scheduler:
+    enabled: true
+    batch-size: 20
+    fixed-rate: 50
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+queue:
+  scheduler:
+    enabled: false
 
 ---
 spring:
@@ -93,17 +107,29 @@ spring:
     activate:
       on-profile: dev
 
+queue:
+  scheduler:
+    enabled: true
+
 ---
 spring:
   config:
     activate:
       on-profile: qa
 
+queue:
+  scheduler:
+    enabled: true
+
 ---
 spring:
   config:
     activate:
       on-profile: prd
+
+queue:
+  scheduler:
+    enabled: true
 
 springdoc:
   api-docs:

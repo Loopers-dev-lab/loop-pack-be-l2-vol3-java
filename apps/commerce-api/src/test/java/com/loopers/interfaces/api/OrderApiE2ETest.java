@@ -16,6 +16,7 @@ import com.loopers.domain.product.Option;
 import com.loopers.domain.product.OptionRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.application.queue.TokenService;
 import com.loopers.interfaces.api.cart.CartDto;
 import com.loopers.interfaces.api.order.OrderDto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -61,6 +62,8 @@ class OrderApiE2ETest {
     private PasswordEncoder passwordEncoder;
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+    @Autowired
+    private TokenService tokenService;
 
     private Brand testBrand;
     private Product testProduct;
@@ -74,11 +77,13 @@ class OrderApiE2ETest {
         testProduct = productRepository.save(Product.create(testBrand.getId(), "테스트 상품", Money.of(BigDecimal.valueOf(10000))));
         testOption = optionRepository.save(Option.create(testProduct.getId(), "기본 옵션", Money.of(BigDecimal.valueOf(1000)), 100));
         testMember = createTestMember("testuser", TEST_PASSWORD);
+        tokenService.issue(testMember.getId());
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        tokenService.delete(testMember.getId());
     }
 
     @DisplayName("POST /api/v1/orders (장바구니 주문)")
