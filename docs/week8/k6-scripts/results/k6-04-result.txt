@@ -1,0 +1,104 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: docs/week8/k6-scripts/04-e2e-user-flow.js
+        output: Prometheus remote write (http://localhost:9090/api/v1/write)
+
+     scenarios: (100.00%) 1 scenario, 50 max VUs, 3m30s max duration (incl. graceful stop):
+              * e2e_flow: 1 iterations for each of 50 VUs (maxDuration: 3m0s, gracefulStop: 30s)
+
+time="2026-04-02T14:54:25+09:00" level=info msg="=== E2E 전체 흐름 부하 테스트 시작 ===" source=console
+time="2026-04-02T14:54:25+09:00" level=info msg="유저 수: 50명" source=console
+time="2026-04-02T14:54:25+09:00" level=info msg="이론 TPS: 180, 이론 소화 시간: 1초" source=console
+time="2026-04-02T14:54:25+09:00" level=info msg="토큰 TTL: 300초" source=console
+time="2026-04-02T14:54:25+09:00" level=info msg="주문 상품: productId=1, optionId=1" source=console
+time="2026-04-02T14:54:25+09:00" level=info msg="흐름: 진입 → polling → 토큰 수령 → 주문" source=console
+
+running (0m01.0s), 38/50 VUs, 12 complete and 0 interrupted iterations
+e2e_flow   [  24% ] 50 VUs  0m01.0s/3m0s  12/50 iters, 1 per VU
+time="2026-04-02T14:54:27+09:00" level=info msg="=== E2E 테스트 완료 (총 1.7초) ===" source=console
+time="2026-04-02T14:54:27+09:00" level=info source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="핵심 메트릭 해석:" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="  e2e_enter_duration_ms: 진입 API 응답시간 (Redis ZADD)" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="  e2e_wait_duration_ms: 대기 시간 (진입→토큰 수령)" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="    - 이론값: 마지막 유저 ~1초" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="  e2e_order_duration_ms: 주문 API 응답시간 (DB + PG)" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="  e2e_total_duration_ms: 전체 흐름 소요시간" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="    - p95 < 300초(TTL)여야 정상" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="  e2e_poll_count: 유저당 폴링 횟수" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="    - 적을수록 서버 부하 감소 (폴링 간격 티어 효과)" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="  e2e_full_flow_success: 진입→토큰→주문 전체 성공률" source=console
+time="2026-04-02T14:54:27+09:00" level=info msg="  e2e_token_expired_count: 0이면 TTL이 충분" source=console
+
+
+  █ THRESHOLDS 
+
+    e2e_enter_duration_ms
+    ✗ 'p(95)<200' p(95)=480.55
+
+    e2e_full_flow_success
+    ✗ 'rate>0.90' rate=76.00%
+
+    e2e_order_duration_ms
+    ✓ 'p(95)<3000' p(95)=1048.6
+
+    e2e_token_within_ttl
+    ✗ 'rate>0.95' rate=76.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 240    138.62928/s
+    checks_succeeded...: 95.00% 228 out of 240
+    checks_failed......: 5.00%  12 out of 240
+
+    ✗ [enter] 진입 성공
+      ↳  0% — ✓ 0 / ✗ 12
+    ✓ [enter] HTTP 200
+    ✓ [enter] position > 0
+    ✓ [poll] 토큰 수령
+    ✓ [poll] 폴링 횟수 합리적
+    ✓ [order] HTTP 200
+    ✓ [e2e] 전체 흐름 TTL 내 완료
+
+    CUSTOM
+    e2e_enter_duration_ms..........: avg=403.88      min=290      med=407      max=523   p(90)=471.9    p(95)=480.55 
+    e2e_enter_success..............: 76.00% 38 out of 50
+    e2e_full_flow_success..........: 76.00% 38 out of 50
+    e2e_order_created..............: 38     21.949636/s
+    e2e_order_duration_ms..........: avg=678.894737  min=384      med=520      max=1118  p(90)=1033.3   p(95)=1048.6 
+    e2e_order_success..............: 76.00% 38 out of 50
+    e2e_poll_count.................: avg=1           min=1        med=1        max=1     p(90)=1        p(95)=1      
+    e2e_token_received.............: 76.00% 38 out of 50
+    e2e_token_within_ttl...........: 76.00% 38 out of 50
+    e2e_total_duration_ms..........: avg=1443.473684 min=1242     med=1258.5   max=1729  p(90)=1722.6   p(95)=1725.45
+    e2e_wait_duration_ms...........: avg=357.263158  min=213      med=362.5    max=441   p(90)=428.9    p(95)=432    
+
+    HTTP
+    http_req_duration..............: avg=472.03ms    min=212.75ms med=408.86ms max=1.11s p(90)=892.44ms p(95)=1s     
+      { expected_response:true }...: avg=480.52ms    min=212.75ms med=409.97ms max=1.11s p(90)=940.44ms p(95)=1.01s  
+    http_req_failed................: 9.52%  12 out of 126
+    http_reqs......................: 126    72.780372/s
+
+    EXECUTION
+    iteration_duration.............: avg=1.19s       min=290.77ms med=1.24s    max=1.72s p(90)=1.71s    p(95)=1.72s  
+    iterations.....................: 50     28.8811/s
+    vus............................: 38     min=38        max=38
+    vus_max........................: 50     min=50        max=50
+
+    NETWORK
+    data_received..................: 41 kB  24 kB/s
+    data_sent......................: 32 kB  18 kB/s
+
+
+
+
+running (0m01.7s), 00/50 VUs, 50 complete and 0 interrupted iterations
+e2e_flow ✓ [ 100% ] 50 VUs  0m01.7s/3m0s  50/50 iters, 1 per VU
+time="2026-04-02T14:54:27+09:00" level=error msg="thresholds on metrics 'e2e_enter_duration_ms, e2e_full_flow_success, e2e_token_within_ttl' have been crossed"

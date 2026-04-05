@@ -1,8 +1,8 @@
 ## Summary
 
-- **배경**: 블랙 프라이데이 같은 트래픽 폭증 시 DB 커넥션 풀 고갈, 응답 지연, 전체 시스템 장애로 이어지는 구조였다. 유저는 주문 결과를 모른 채 대기하다 이탈하고, 공정성도 보장되지 않았다.
-- **목표**: (1) Redis Sorted Set 기반 대기열로 처리량 제어(Back-pressure) (2) 입장 토큰 + 스케줄러로 순차 입장 처리 (3) Polling 기반 실시간 순번 조회로 유저 이탈 방지 (4) Feature Flag로 대기열 ON/OFF 운영 제어
-- **결과**: 131건 신규 테스트 ALL PASS, k6 부하 테스트 5종 시나리오 실행, ZPOPMIN 원자적 처리로 중복 발급 원천 차단, Interceptor 기반 토큰 검증으로 주문 도메인 변경 없이 대기열 적용
+- **배경**: 주문 API에 트래픽이 직접 유입되는 구조로, 블랙 프라이데이 같은 폭증(초당 10,000건) 시 DB 커넥션 풀(50개) 고갈 → 응답 지연 → 전체 시스템 장애로 이어졌다. 유저는 주문 결과를 모른 채 대기하다 이탈하고, 먼저 요청한 사람이 아닌 운 좋은 사람만 성공하는 공정성 부재 문제가 있었다.
+- **목표**: (1) Redis Sorted Set 기반 대기열로 처리량 제어(Back-pressure) (2) 스케줄러 + 입장 토큰으로 DB가 감당할 수 있는 속도만큼만 순차 입장 처리 (3) Polling 기반 실시간 순번 조회로 유저 이탈 방지 (4) Feature Flag로 대기열 ON/OFF 운영 제어
+- **결과**: 132건 신규 테스트 ALL PASS, k6 부하 테스트 5종 시나리오로 병목 추적 및 최적화 실증, ZPOPMIN 원자적 처리로 중복 발급 원천 차단, Interceptor 기반 토큰 검증으로 주문 도메인 변경 없이 대기열 적용
 
 
 ## Context & Decision
@@ -14,7 +14,54 @@
 
 ### 선택지와 결정
 
-#### 1. 패키지 구조 — 주문 하위 vs 독립 도메인
+#### 1. 트래픽 제어 전략 — Rate Limiting(거부) vs Queuing(대기)
+
+- 고려한 대안:
+    - **A: Rate Limiting (429 거부)** — 초과 요청을 즉시 거부하여 시스템 보호. 구현 단순
+    - **B: Queuing (대기열)** — 초과 요청을 대기열에 적재하고 순차 처리. 유저에게 순번 피드백 제공
+- **최종 결정**: 옵션 B — Redis Sorted Set 기반 대기열
+- **선택 근거**: 블랙프라이데이는 "기다릴 의사가 있는" 유저들이 대부분이다. 429 거부 시 유저는 새로고침을 반복하고, 이 재시도 폭풍이 트래픽을 더 증폭시킨다. 대기열은 "512번째입니다, 약 3분 대기"라는 피드백으로 새로고침 충동을 억제하여 재시도 폭풍을 원천 차단한다.
+
+  | 방식 | 시스템 보호 | 유저 경험 | 공정성 | 재시도 폭풍 |
+  |------|-----------|----------|--------|-----------|
+  | Rate Limiting | O | X (거부당한 유저 이탈) | X (운 좋은 사람만 성공) | 악화 (새로고침 유발) |
+  | **Queuing** | O | O (순번 + 예상 대기 시간) | O (FIFO 선착순) | 억제 (순번 피드백) |
+
+- **트레이드오프**: 대기열 자체가 Redis라는 인프라 의존을 추가한다. Redis 장애 시 대기열 전체가 무력화될 수 있으므로, Feature Flag OFF로 기존 흐름(대기열 없이 직접 주문)으로 즉시 전환할 수 있는 우회 경로를 확보했다.
+
+#### 2. 입장 전략 — 놀이공원식 vs 은행 창구식
+
+- 고려한 대안:
+    - **A: 놀이공원식** — 스케줄러가 재고 확인 없이 N명에게 토큰을 무조건 발급. 주문 시점에 재고 검증
+    - **B: 은행 창구식** — 토큰 발급 전 재고를 확인하여 구매 가능한 유저에게만 토큰 발급
+- **최종 결정**: 옵션 A — 놀이공원식
+- **선택 근거**: 은행 창구식은 "상품 3개를 사고 싶으면 대기열 3번 서야 하나?"라는 UX 문제가 발생한다. 놀이공원식은 토큰을 받으면 자유롭게 여러 상품을 쇼핑할 수 있어 실제 커머스 시나리오에 적합하다.
+- **트레이드오프**: "기다렸는데 재고 소진으로 못 살 수 있다"는 문제가 있다. 이를 2-레이어 방어로 보완한다.
+    - Layer 1: 글로벌 입장 대기열 — 스케줄러가 DB 처리량(175 TPS) 이하로 입장 속도를 제한
+    - Layer 2: 주문 시점 재고 검증 — CAS(Compare-And-Swap)로 재고 차감의 원자성 보장
+
+#### 3. 실시간 피드백 방식 — Polling vs SSE vs WebSocket
+
+- 고려한 대안:
+    - **A: SSE (Server-Sent Events)** — 서버가 순번 변경 시 push. 실시간성 높음
+    - **B: WebSocket** — 양방향 통신. 실시간성 최고
+    - **C: Polling** — 클라이언트가 주기적으로 순번 조회. Stateless
+- **최종 결정**: 옵션 C — Polling + 동적 주기 조절
+- **선택 근거**:
+
+  | 항목 | SSE / WebSocket | Polling |
+  |------|----------------|---------|
+  | 동시 10,000명 대기 | 10,000 TCP 커넥션 상시 점유 | 요청-응답 후 즉시 반환 |
+  | 서버 재시작 시 | 전체 재연결 폭풍 | 영향 없음 (Stateless) |
+  | 인프라 요구사항 | L7 로드밸런서, Sticky Session | 일반 HTTP만 필요 |
+  | 동시 커넥션 점유 | 수만 개 상시 | 수십ms 순간 점유 |
+
+- **Polling 약점 보완**: 순번 구간별 동적 Poll 간격으로 불필요한 요청을 줄였다.
+    - 1~100번: 1초 간격 (곧 입장이므로 빠른 피드백)
+    - 100~1,000번: 3초 간격
+    - 1,000번 이후: 5초 간격 (순번 변화가 느리므로 부하 절감)
+
+#### 4. 패키지 구조 — 주문 하위 vs 독립 도메인
 
 - 고려한 대안:
     - **A: `domain/order/queue/` 주문 도메인 하위** — 대기열이 주문 전용이므로 응집도 높음
@@ -23,7 +70,7 @@
 - **트레이드오프**: 주문과의 연결이 느슨해지지만, 주문 도메인에 넣으면 역방향 의존이 생기고 대기열 자체의 책임(feature flag, 스케줄러, 토큰 관리)이 충분히 크다
 - **추후 개선 여지**: 다른 도메인(한정판 세일 등)에 대기열 적용 시 재사용 가능
 
-#### 2. 토큰 검증 방식 — 헤더 기반 vs userId 기반
+#### 5. 토큰 검증 방식 — 헤더 기반 vs userId 기반
 
 - 고려한 대안:
     - **A: 헤더 기반 (`X-Entry-Token`)** — 보안 명시적, 토큰 탈취 시 userId+토큰 둘 다 필요
@@ -31,7 +78,7 @@
 - **최종 결정**: 옵션 B — userId 기반
 - **선택 근거**: 서버가 로그인된 userId로 Redis에서 토큰 존재 여부만 확인. 클라이언트는 토큰 값을 몰라도 되므로 프론트엔드 변경 불필요
 
-#### 3. 검증 레이어 — Controller 직접 vs Interceptor
+#### 6. 검증 레이어 — Controller 직접 vs Interceptor
 
 - 고려한 대안:
     - **A: OrderV1Controller에서 직접 토큰 검증** — 명시적이지만 주문 도메인이 대기열을 알아야 함
@@ -40,7 +87,7 @@
 - **트레이드오프**: Interceptor는 afterCompletion에서의 예외 처리가 미묘하지만(`@RestControllerAdvice`가 ex를 삼킬 수 있음), response.getStatus() 범위 체크를 병행하여 안전성 확보
 - **검증 흐름**: `요청 -> MemberAuthInterceptor -> QueueTokenInterceptor -> OrderV1Controller`
 
-#### 4. 스케줄러 배치 전략 — 1초/175명 vs 100ms/18명
+#### 7. 스케줄러 배치 전략 — 1초/175명 vs 100ms/18명
 
 - 고려한 대안:
     - **A: 1초마다 175명 한꺼번에 발급** — 단순하지만 175명 동시 주문으로 Thundering Herd 발생
@@ -49,7 +96,7 @@
 - **처리량 산정 근거**: DB 커넥션 풀 50 / 평균 처리 200ms = 최대 250 TPS -> 안전 마진 70% = 175 TPS -> 100ms당 ~18명
 - **fixedDelay 선택 이유**: fixedRate는 처리 지연 시 밀린 작업이 한꺼번에 실행되어 Thundering Herd를 스케줄러 자체가 유발할 수 있음. fixedDelay는 이전 실행 완료 후 100ms 대기하므로 자연스러운 back-pressure 효과
 
-#### 5. 대기열 원자적 처리 — peekFront+remove vs ZPOPMIN
+#### 8. 대기열 원자적 처리 — peekFront+remove vs ZPOPMIN
 
 - 고려한 대안:
     - **A: ZRANGE(peek) + ZREM(remove)** — 실패 시 대기열에 그대로 남아있지만, 두 연산 사이 gap으로 중복 처리 가능
@@ -58,7 +105,7 @@
 - **트레이드오프**: 토큰 발급 실패 시 수동 재삽입 필요 → `QueueEntry(userId, score)` record로 원래 score 보존하여 순서 유지. 재삽입 실패도 별도 try-catch로 격리하여 나머지 배치 유저에게 영향 없이 error 로깅으로 운영 복구 경로 확보
 - **선택 근거**: 분산 락 만료 시 두 인스턴스가 동일 유저를 peek하는 극단적 시나리오를 원천 차단
 
-#### 6. Feature Flag 저장소 — yml vs Redis vs DB
+#### 9. Feature Flag 저장소 — yml vs Redis vs DB
 
 - 고려한 대안:
     - **A: application.yml** — 단순하지만 변경 시 재배포 필요
@@ -67,7 +114,7 @@
 - **최종 결정**: 옵션 C — DB 기반 + volatile 인메모리 캐시(5초 TTL)
 - **선택 근거**: DB가 죽으면 어차피 주문도 못하므로 추가 SPOF가 아님. 스케줄러(100ms) + Interceptor(매 요청)의 고빈도 조회를 캐시로 초당 10회+ → 5초당 1회로 감소
 
-#### 7. Redis 트랜잭션 보장 방식 — Lua Script vs 단일 원자적 명령어
+#### 10. Redis 트랜잭션 보장 방식 — Lua Script vs 단일 원자적 명령어
 
 - 고려한 대안:
     - **A: Lua Script** — 여러 Redis 명령어를 하나의 트랜잭션으로 묶어 원자적 실행 보장. 복잡한 다중 명령 시나리오에 적합
@@ -139,13 +186,35 @@
 | POST | `/api/v1/queue/enter` | 대기열 진입 (ZADD NX로 중복 방지, 순번 반환) |
 | GET | `/api/v1/queue/position` | 순번 + 예상 대기 시간 + 토큰(발급 시) 조회 |
 
+**동작 흐름**:
+1. `ZADD NX waiting-queue {timestamp} {userId}` — NX 옵션으로 이미 대기열에 있는 유저는 기존 score를 유지하고 중복 진입을 차단
+2. `ZRANK waiting-queue {userId}` — 0-based 순번 조회 (Sorted Set 내 위치)
+3. 신규 진입이든 중복 요청이든 현재 순번을 동일하게 반환
+
+**응답 예시**:
+```json
+// 신규 진입 (512번째)
+{ "position": 512, "estimatedWaitSeconds": 29, "token": null }
+
+// 이미 대기열에 있는 유저 (기존 순번 유지)
+{ "position": 512, "estimatedWaitSeconds": 29, "token": null }
+```
+
 ---
 
 #### 2. 스케줄러 기반 순차 입장 처리
 
 > [`QueueScheduler.java`](https://github.com/jsj1215/loop-pack-be-l2-vol3-java/blob/jsj1215/volume-8/apps/commerce-api/src/main/java/com/loopers/application/queue/QueueScheduler.java)
 
-fixedDelay 100ms마다 ZPOPMIN으로 ~18명씩 원자적으로 꺼내 토큰 발급. Thundering Herd 완화를 위한 분산 발급. 실패 시 원래 score로 재삽입하여 순서 보존.
+**처리량 산정 근거**: `DB 커넥션 풀 50 / 평균 처리 200ms = 최대 250 TPS → 안전 마진 70% = 175 TPS → 100ms당 ~18명`
+
+**실행 흐름** (fixedDelay 100ms):
+1. Feature Flag 확인 — OFF면 스킵
+2. `SchedulerLock` 획득 (Redis SETNX + 소유자 ID) — 다중 인스턴스에서 단일 실행 보장
+3. `ZPOPMIN waiting-queue 18` — 18명을 원자적으로 꺼냄 (조회+제거 동시)
+4. 각 유저에게 토큰 개별 발급 (`SET NX EX`)
+5. 발급 실패 시 `QueueEntry(userId, score)`에 보존된 원래 score로 `ZADD` 재삽입 — 순서 보존
+6. 소유자 기반 락 해제 — 락 만료 후 다른 인스턴스가 획득한 락을 잘못 해제하는 문제 방지
 
 ---
 
@@ -153,7 +222,17 @@ fixedDelay 100ms마다 ZPOPMIN으로 ~18명씩 원자적으로 꺼내 토큰 발
 
 > [`QueueTokenService.java`](https://github.com/jsj1215/loop-pack-be-l2-vol3-java/blob/jsj1215/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/QueueTokenService.java) | [`QueueTokenInterceptor.java`](https://github.com/jsj1215/loop-pack-be-l2-vol3-java/blob/jsj1215/volume-8/apps/commerce-api/src/main/java/com/loopers/interfaces/api/queue/QueueTokenInterceptor.java)
 
-Redis SET + TTL 5분으로 토큰 발급. Interceptor가 `POST /api/v1/orders`에서 GETDEL로 토큰을 원자적으로 소모하여 1회성 보장. 주문 실패 시 afterCompletion에서 토큰을 재발급하여 재시도 기회 제공.
+**토큰 라이프사이클**:
+```
+스케줄러 발급 (SET NX EX 300) → Polling에서 토큰 수령 → 주문 API 호출 → 검증 → 주문 처리 → 삭제
+                                                                              ↓ (실패 시)
+                                                                         토큰 유지 → 재시도 가능
+```
+
+**Interceptor 동작** (`POST /api/v1/orders` 경로에만 적용):
+- **preHandle**: userId로 Redis에서 토큰 존재 여부 확인. 없으면 요청 차단 (에러 응답)
+- **Controller**: 토큰 검증을 통과한 요청만 주문 처리 진행
+- **afterCompletion**: `response.getStatus()` 2xx → 토큰 삭제 (1회성 보장). 주문 실패(4xx/5xx) → 토큰 유지하여 재시도 기회 제공
 
 ---
 
@@ -161,7 +240,24 @@ Redis SET + TTL 5분으로 토큰 발급. Interceptor가 `POST /api/v1/orders`�
 
 > [`QueuePositionInfo.java`](https://github.com/jsj1215/loop-pack-be-l2-vol3-java/blob/jsj1215/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/QueuePositionInfo.java)
 
-예상 대기 시간 = `(position / batchSize) * (intervalMs / 1000)`. 순번 구간별 동적 Polling 주기 제안 (1~100: 1초, 100~1000: 3초, 1000+: 5초).
+**예상 대기 시간 계산**: `(position / batchSize) * (intervalMs / 1000)`
+
+**동적 Polling 주기** — 순번에 따라 서버가 클라이언트에 권장 주기를 제안하여 불필요한 요청을 줄임:
+
+| 순번 구간 | 권장 주기 | 이유 |
+|----------|----------|------|
+| 1~100 | 1초 | 곧 입장이므로 빠른 피드백 필요 |
+| 100~1,000 | 3초 | 순번 변화가 체감되는 구간 |
+| 1,000+ | 5초 | 순번 변화가 느려 잦은 요청 불필요 |
+
+**응답 예시**:
+```json
+// 대기 중 (아직 토큰 미발급)
+{ "position": 128, "estimatedWaitSeconds": 7, "token": null, "pollIntervalSeconds": 3 }
+
+// 입장 가능 (토큰 발급됨)
+{ "position": 0, "estimatedWaitSeconds": 0, "token": "abc-123-def", "pollIntervalSeconds": 0 }
+```
 
 ---
 
@@ -170,6 +266,16 @@ Redis SET + TTL 5분으로 토큰 발급. Interceptor가 `POST /api/v1/orders`�
 > [`FeatureFlag.java`](https://github.com/jsj1215/loop-pack-be-l2-vol3-java/blob/jsj1215/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/queue/FeatureFlag.java)
 
 `volatile` 필드 + 5초 TTL 인메모리 캐시로 DB 조회 빈도 최소화. 스케줄러(100ms) + Interceptor(매 요청)의 고빈도 호출을 초당 10회+ → 5초당 1회로 감소.
+
+**ON/OFF 영향 범위**:
+
+| 컴포넌트 | Flag ON | Flag OFF |
+|---------|---------|----------|
+| QueueScheduler | ZPOPMIN → 토큰 발급 정상 실행 | 스케줄러 스킵 (대기열 처리 중단) |
+| QueueTokenInterceptor | 토큰 없는 주문 요청 차단 | 토큰 검증 없이 통과 (기존 주문 흐름) |
+| QueueV1Controller | 대기열 진입/순번 조회 정상 동작 | 대기열 진입 가능하나 토큰이 발급되지 않음 |
+
+**운영 시나리오**: Redis 장애 등 긴급 상황 시 Flag OFF로 전환하면 대기열 없이 기존 주문 흐름으로 즉시 복구 가능.
 
 
 ## Flow Diagram
@@ -325,6 +431,22 @@ flowchart TB
 ```
 
 
+## 장애 대응 시나리오
+
+대기열 시스템에서 발생할 수 있는 위협과 각각에 대한 방어 메커니즘을 정리했다.
+
+| 위협 | 발생 시나리오 | 방어 메커니즘 | 관련 결정 |
+|------|-------------|-------------|----------|
+| Redis 장애 | Redis 다운 시 대기열/토큰 전체 무력화 | Feature Flag OFF → 기존 주문 흐름으로 즉시 전환 | #1 트래픽 제어, #9 Feature Flag |
+| 스케줄러 중복 실행 | 다중 인스턴스에서 같은 배치를 동시 처리 | Redis SETNX 기반 SchedulerLock + 소유자 기반 해제로 단일 실행 보장 | #7 배치 전략 |
+| 토큰 발급 실패 | ZPOPMIN 후 SET NX EX 실패 시 유저 유실 | QueueEntry(userId, score) 보존 → 원래 score로 ZADD 재삽입 | #8 ZPOPMIN, #10 보상 로직 |
+| 토큰 미사용 (TTL 만료) | 유저가 토큰을 받고 5분 내 주문하지 않음 | TTL 5분 자동 만료 → 대기열 재진입 허용 | #5 토큰 검증 |
+| 토큰 재사용 (중복 주문) | 동일 토큰으로 2건 이상 주문 시도 | preHandle에서 토큰 검증 → afterCompletion에서 2xx 시에만 삭제 (1회성 보장) | #6 Interceptor |
+| 중복 진입 | 동일 유저가 대기열에 여러 번 진입 시도 | ZADD NX → 이미 존재하면 기존 score 유지, 중복 진입 차단 | #8 원자적 처리 |
+| Polling 인증 DB 부하 | 10,000명 매 2초 Polling × BCrypt 인증 = DB 고갈 | BCrypt 결과를 포함한 인증 정보를 캐싱하여 인증 DB 조회 최소화 | #3 Polling |
+| Thundering Herd | 1초에 175명 동시 토큰 발급 → 동시 주문 폭발 | 100ms / ~18명 분산 발급으로 부하 10배 평탄화 | #7 배치 전략 |
+
+
 ## 테스트
 
 ### 신규 테스트 요약 (132건 ALL PASS)
@@ -343,7 +465,32 @@ flowchart TB
 | 10 | [`ProductLikeSummaryIntegrationTest`](https://github.com/jsj1215/loop-pack-be-l2-vol3-java/blob/jsj1215/volume-8/apps/commerce-api/src/test/java/com/loopers/domain/like/ProductLikeSummaryIntegrationTest.java) | Integration | 4 | MV 갱신, 비정규화 vs MV 결과 비교 |
 | 11 | [`QueueV1ApiE2ETest`](https://github.com/jsj1215/loop-pack-be-l2-vol3-java/blob/jsj1215/volume-8/apps/commerce-api/src/test/java/com/loopers/interfaces/api/queue/QueueV1ApiE2ETest.java) | E2E | 10 | 진입/순번/중복, 전체 흐름(진입->토큰->주문), 동시 진입, 토큰 1회성, Flag OFF |
 
-### k6 부하 테스트 (5종 시나리오)
+### k6 부하 테스트 — 병목 발견과 최적화 과정
+
+k6 부하 테스트는 단순히 "통과/실패"를 확인하는 것이 아니라, **병목을 발견하고 해결하는 과정**으로 진행했다. 각 단계에서 무엇이 문제였고, 어떻게 개선했는지를 정리한다.
+
+#### 최적화 진화 — 병목 추적 과정
+
+**1차: 기본 구현 상태**
+- 상태: 대기열 + 스케줄러 + 토큰 검증 기본 동작 완성
+- 병목: 순번 조회(Polling) 시 **매 요청마다 BCrypt 인증 → DB SELECT** 발생
+- 결과: 500 VU 기준 Polling p95 = 4,420ms, 진입 RPS ~81/s에서 병목
+
+**2차: 인증 병목 해소 — BCrypt 결과 캐싱**
+- 원인 분석: k6 결과에서 응답시간의 대부분이 BCrypt 해싱(~600ms)과 DB 조회에 집중됨을 확인
+- 조치: 인증 결과를 캐싱하여 캐시 HIT 시 DB 조회 0회 + BCrypt 연산 스킵
+- 결과: Polling 응답시간이 크게 개선. 인증이 지배하던 응답시간에서 Redis 연산 시간이 주요 지표로 전환
+
+**3차: Polling 부하 최적화 — 동적 Poll 간격**
+- 원인 분석: 10,000명 대기 시 매 2초마다 전원이 Polling → 5,000 req/s가 Redis에 집중
+- 조치: 순번 구간별 동적 Poll 간격 적용 (1~100번: 1초, 100~1,000번: 3초, 1,000+: 5초)
+- 효과: 뒤쪽 유저의 Polling 빈도 감소로 전체 Polling 부하 약 67% 감소 추정
+
+이 최적화 과정을 거쳐 최종적으로 5종 시나리오의 k6 부하 테스트를 실행했다.
+
+---
+
+#### k6 테스트 시나리오 (5종)
 
 ![Grafana k6 Load Test Dashboard](https://velog.velcdn.com/images/jsj1215/post/bcc37c6f-a55c-406e-bbb4-ac370a80ca4a/image.png)
 
@@ -440,48 +587,51 @@ Grafana 대시보드에서 k6 부하 테스트 실행 중 실시간 모니터링
 
 ## 리뷰포인트
 
-### 1. Interceptor afterCompletion에서 토큰 삭제 — 주문 도메인과 대기열의 결합도 제거
+### 1. Interceptor afterCompletion에서 토큰 삭제 — 주문 도메인과의 결합도 제거
 
-토큰 삭제 위치를 결정할 때 세 가지 선택지를 고민했습니다.
+토큰 삭제 위치를 결정할 때 주문 도메인이 대기열을 알지 못하도록 하는 것을 최우선으로 고려했습니다.
 
-- **OrderFacade에서 직접 삭제**: 가장 직관적이지만, 주문 도메인이 `QueueTokenService`를 의존하게 됩니다. 주문 Facade가 "대기열 토큰"이라는 개념을 알아야 하므로, 대기열이 없는 환경(Feature Flag OFF)에서도 불필요한 의존이 남습니다.
-- **ApplicationEvent 발행**: 주문 완료 이벤트를 발행하고 리스너에서 토큰을 삭제하면 도메인 간 결합은 끊기지만, `@TransactionalEventListener(phase = AFTER_COMMIT)` + `@Async` 조합 시 비동기 지연으로 토큰 삭제 전에 같은 유저가 재주문을 시도할 수 있는 타이밍 gap이 생깁니다.
-- **Interceptor afterCompletion (최종 선택)**: `QueueTokenInterceptor`가 preHandle에서 토큰을 검증하고, afterCompletion에서 `response.getStatus()` 2xx 확인 후 삭제합니다. 검증과 삭제의 책임이 같은 레이어에 있고, 주문 도메인 코드는 대기열의 존재를 전혀 모릅니다.
+| 선택지 | 장점 | 탈락 이유 |
+|--------|------|----------|
+| OrderFacade에서 직접 삭제 | 직관적 | 주문 도메인이 `QueueTokenService`를 의존 — Feature Flag OFF 환경에서도 불필요한 결합 |
+| ApplicationEvent + @Async | 도메인 간 결합 제거 | 비동기 지연으로 토큰 삭제 전에 동일 유저의 재주문 시도 가능 |
+| **Interceptor afterCompletion** | 검증(preHandle)과 삭제(afterCompletion)가 같은 레이어, 주문 도메인 코드 무변경 | - |
 
-다만 한 가지 우려가 있습니다. afterCompletion은 `@RestControllerAdvice`가 예외를 처리한 뒤 호출되는데, 이때 `ex` 파라미터가 null이 됩니다. 그래서 `ex == null`만으로는 성공 여부를 판단할 수 없어 `response.getStatus() >= 200 && < 300` 조건을 병행했습니다. 현업에서도 이런 횡단 관심사를 Interceptor 레이어에서 처리하는 것이 일반적인 패턴인지, 혹시 더 나은 대안이 있는지 궁금합니다.
+다만 한 가지 우려가 있습니다. afterCompletion은 `@RestControllerAdvice`가 예외를 처리한 뒤 호출되기 때문에 `ex` 파라미터가 null이 됩니다. `ex == null`만으로는 성공 여부를 판단할 수 없어서 `response.getStatus() >= 200 && < 300` 조건을 병행했습니다.
 
-### 2. 순번 조회 시 hasToken → getToken 사이 TTL 만료 race condition 방어
+> 현업에서도 이런 횡단 관심사를 Interceptor 레이어에서 처리하는 것이 일반적인 패턴인지, 혹시 더 적합한 대안이 있다면 조언 부탁드립니다.
 
-순번 조회 API(`GET /queue/position`)에서 토큰 발급 여부를 확인하는 과정에서 race condition을 발견했습니다.
+### 2. TTL 기반 토큰의 check-then-act race condition 방어
 
-**문제 상황**: 기존에는 `hasToken(userId)` → true 확인 → `getToken(userId)` 순서로 호출했습니다. 두 호출 사이에 토큰 TTL(5분)이 만료되면 `getToken()`이 null을 반환하거나 예외가 발생합니다. 특히 토큰 발급 직후 약 4분 50초가 지난 시점에서 순번 조회를 하면 이 gap이 실제로 문제가 됩니다.
+순번 조회 API(`GET /queue/position`)에서 토큰 존재 여부를 확인하는 과정에서 race condition을 발견하여 수정했습니다.
 
-**해결**: `findToken(userId)` 메서드를 만들어 `Optional<String>`을 반환하도록 했습니다. Redis GET 한 번으로 존재 여부 확인과 값 조회를 동시에 처리하여 check-then-act 패턴의 race condition을 원천 제거했습니다. Optional이 empty이면 아직 토큰이 발급되지 않은 것으로 판단하고 대기열 순번 정보로 fallback합니다.
+기존에는 `hasToken(userId)` → true 확인 후 → `getToken(userId)`로 값을 조회하는 구조였는데, 두 호출 사이에 토큰 TTL(5분)이 만료되면 `getToken()`이 null을 반환하는 문제가 있었습니다. 특히 토큰 발급 후 약 4분 50초가 지난 시점에서 순번 조회를 하면 실제로 발생할 수 있는 시나리오입니다.
 
 ```java
-// Before: race condition 존재
-if (queueTokenService.hasToken(userId)) {        // true 반환
-    String token = queueTokenService.getToken(userId);  // TTL 만료로 null!
+// Before: 두 호출 사이에 TTL 만료 가능
+if (queueTokenService.hasToken(userId)) {           // true 반환
+    String token = queueTokenService.getToken(userId); // TTL 만료로 null!
 }
 
-// After: 단일 호출로 race condition 제거
+// After: Redis GET 한 번으로 존재 확인 + 값 조회를 통합하여 race condition 제거
 Optional<String> token = queueTokenService.findToken(userId);
 if (token.isPresent()) {
-    return QueuePositionInfo.ready(token.get());  // 토큰 있으면 입장 가능
+    return QueuePositionInfo.ready(token.get());
 }
 // empty면 대기열 순번 조회로 fallback
 ```
 
-TTL 기반 시스템에서 "존재 확인 → 값 조회"를 분리하면 항상 이런 위험이 있다고 생각해서 단일 호출로 통합했는데, 이런 방어 패턴이 TTL 기반 분산 시스템에서 일반적으로 사용되는 접근인지 확인받고 싶습니다.
+> TTL 기반 분산 시스템에서 check-then-act를 단일 호출로 통합하는 접근이 일반적으로 사용되는 패턴인지 확인받고 싶습니다. 혹시 놓치고 있는 엣지케이스가 있다면 피드백 부탁드립니다.
 
-### 3. 스케줄러 기반 토큰 발급 — 즉시 발급 대신 배치 처리를 선택한 이유와 부분 실패 대응
+### 3. 스케줄러 배치 발급의 부분 실패 대응 — 개별 재삽입 vs 전체 롤백
 
-토큰 발급 방식을 결정할 때, "유저가 대기열 앞에 도달하면 즉시 발급"하는 방식과 "스케줄러가 주기적으로 배치 발급"하는 방식을 비교했습니다.
+ZPOPMIN으로 18명을 원자적으로 꺼낸 뒤 토큰을 개별 발급하는 과정에서, 일부만 실패하는 경우의 대응 전략을 고민했습니다.
 
-**즉시 발급 방식의 문제점**: 순번 조회 API에서 "내 순번이 됐으면 바로 토큰 발급"을 하면, 동시에 수백 명이 polling하는 상황에서 ZPOPMIN 경합이 발생합니다. 또한 발급 시점이 클라이언트의 polling 타이밍에 의존하게 되어 공정성이 깨질 수 있습니다(빠르게 polling하는 유저가 유리).
+| 전략 | 동작 | 트레이드오프 |
+|------|------|-------------|
+| 전체 롤백 | 1명이라도 실패하면 18명 전원 재삽입 | 이미 성공한 유저의 토큰까지 취소되어 더 큰 부작용 |
+| **개별 재삽입** | 성공한 유저는 유지, 실패한 유저만 `QueueEntry(userId, score)`에 보존된 원래 score로 ZADD 재삽입 | 실패 유저의 대기 시간이 한 사이클(~100ms)만큼 증가 |
 
-**스케줄러 배치 방식 (최종 선택)**: fixedDelay 100ms마다 ZPOPMIN으로 18명씩 꺼내 토큰을 발급합니다. 서버가 일정한 속도로 발급하므로 클라이언트 polling 속도와 무관하게 공정한 선착순이 보장됩니다. 처리량 산정 근거는 `DB 커넥션 풀 50 / 평균 처리 200ms = 최대 250 TPS → 안전 마진 70% = 175 TPS → 100ms당 ~18명`입니다.
+전체 롤백은 이미 토큰을 받은 유저에게 "발급 취소"라는 더 나쁜 경험을 주기 때문에, 개별 처리 + 실패 시 재삽입 방식을 선택했습니다. 또한 fixedRate 대신 fixedDelay를 사용하여, 이전 실행이 지연되면 다음 실행도 자연스럽게 늦어지는 back-pressure 효과를 확보했습니다.
 
-**fixedDelay를 선택한 이유**: fixedRate는 이전 실행이 지연되면 밀린 작업이 연달아 실행되어 스케줄러 자체가 Thundering Herd를 유발할 수 있습니다. fixedDelay는 이전 실행 완료 후 100ms를 대기하므로, Redis나 DB가 느려지면 자연스럽게 발급 속도가 줄어드는 back-pressure 효과가 있습니다.
-
-**부분 실패 시 순서 보존**: ZPOPMIN으로 18명을 꺼낸 뒤 토큰 발급 중 일부가 실패하면(예: Redis 토큰 저장소 장애), 실패한 유저는 `QueueEntry(userId, score)` record에 보존된 원래 score로 ZADD 재삽입하여 대기열 순서를 유지합니다. 다만 이 방식은 1~9번이 성공하고 10~18번이 재삽입되는 경우, 다음 사이클에서 10번부터 다시 처리되므로 순서는 보존되지만 해당 유저들의 대기 시간이 한 사이클만큼 늘어나는 트레이드오프가 있습니다. 전체 배치를 롤백하는 방식도 고려했으나, 이미 성공한 1~9번의 토큰까지 취소하는 것은 오히려 더 큰 부작용이라 판단하여 개별 처리 + 실패 시 재삽입 방식을 유지했습니다. 현업에서 이런 배치 스케줄러 기반의 토큰 발급 방식이 일반적인지, 부분 실패 대응 전략이 적절한지 확인받고 싶습니다.
+> 배치 스케줄러 기반의 토큰 발급에서 이런 부분 실패 대응이 적절한지, 실무에서 유사한 패턴을 사용하실 때 추가로 고려하시는 포인트가 있다면 조언 부탁드립니다.

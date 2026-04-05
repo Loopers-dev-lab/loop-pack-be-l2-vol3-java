@@ -1,0 +1,379 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: docs/week8/k6-scripts/02-position-polling.js
+        output: Prometheus remote write (http://localhost:9090/api/v1/write)
+
+     scenarios: (100.00%) 2 scenarios, 600 max VUs, 3m5s max duration (incl. graceful stop):
+              * scenario_small: 1 iterations for each of 100 VUs (maxDuration: 1m0s, exec: enterAndPoll, gracefulStop: 30s)
+              * scenario_large: 1 iterations for each of 500 VUs (maxDuration: 1m30s, exec: enterAndPoll, startTime: 1m5s, gracefulStop: 30s)
+
+time="2026-04-02T14:38:37+09:00" level=info msg="=== 순번 조회 Polling 부하 테스트 시작 ===" source=console
+time="2026-04-02T14:38:37+09:00" level=info msg="이론 처리량: 180 users/sec" source=console
+time="2026-04-02T14:38:37+09:00" level=info msg="Phase 1: 100명 enter+poll → Phase 2: 500명 enter+poll" source=console
+
+running (0m01.0s), 088/600 VUs, 12 complete and 0 interrupted iterations
+scenario_small   [  12% ] 100 VUs  0m01.0s/1m0s  012/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  1m04.0s      
+
+running (0m02.0s), 001/600 VUs, 99 complete and 0 interrupted iterations
+scenario_small   [  99% ] 100 VUs  0m02.0s/1m0s  099/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  1m03.0s      
+
+running (0m03.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  1m02.0s      
+
+running (0m04.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  1m01.0s      
+
+running (0m05.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  1m00.0s      
+
+running (0m06.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m59.0s      
+
+running (0m07.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m58.0s      
+
+running (0m08.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m57.0s      
+
+running (0m09.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m56.0s      
+
+running (0m10.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m55.0s      
+
+running (0m11.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m54.0s      
+
+running (0m12.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m53.0s      
+
+running (0m13.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m52.0s      
+
+running (0m14.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m51.0s      
+
+running (0m15.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m50.0s      
+
+running (0m16.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m49.0s      
+
+running (0m17.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m48.0s      
+
+running (0m18.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m47.0s      
+
+running (0m19.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m46.0s      
+
+running (0m20.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m45.0s      
+
+running (0m21.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m44.0s      
+
+running (0m22.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m43.0s      
+
+running (0m23.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m42.0s      
+
+running (0m24.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m41.0s      
+
+running (0m25.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m40.0s      
+
+running (0m26.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m39.0s      
+
+running (0m27.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m38.0s      
+
+running (0m28.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m37.0s      
+
+running (0m29.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m36.0s      
+
+running (0m30.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m35.0s      
+
+running (0m31.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m34.0s      
+
+running (0m32.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m33.0s      
+
+running (0m33.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m32.0s      
+
+running (0m34.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m31.0s      
+
+running (0m35.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m30.0s      
+
+running (0m36.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m29.0s      
+
+running (0m37.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m28.0s      
+
+running (0m38.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m27.0s      
+
+running (0m39.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m26.0s      
+
+running (0m40.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m25.0s      
+
+running (0m41.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m24.0s      
+
+running (0m42.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m23.0s      
+
+running (0m43.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m22.0s      
+
+running (0m44.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m21.0s      
+
+running (0m45.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m20.0s      
+
+running (0m46.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m19.0s      
+
+running (0m47.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m18.0s      
+
+running (0m48.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m17.0s      
+
+running (0m49.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m16.0s      
+
+running (0m50.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m15.0s      
+
+running (0m51.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m14.0s      
+
+running (0m52.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m13.0s      
+
+running (0m53.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m12.0s      
+
+running (0m54.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m11.0s      
+
+running (0m55.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m10.0s      
+
+running (0m56.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m09.0s      
+
+running (0m57.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m08.0s      
+
+running (0m58.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m07.0s      
+
+running (0m59.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m06.0s      
+
+running (1m00.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m05.0s      
+
+running (1m01.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m04.0s      
+
+running (1m02.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m03.0s      
+
+running (1m03.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m02.0s      
+
+running (1m04.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m01.0s      
+
+running (1m05.0s), 000/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s  100/100 iters, 1 per VU
+scenario_large • [   0% ] waiting  0m00.0s      
+
+running (1m06.0s), 500/600 VUs, 100 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large   [   0% ] 500 VUs  0m01.0s/1m30s  000/500 iters, 1 per VU
+
+running (1m07.0s), 476/600 VUs, 124 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large   [   5% ] 500 VUs  0m02.0s/1m30s  024/500 iters, 1 per VU
+
+running (1m08.0s), 470/600 VUs, 130 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large   [   6% ] 500 VUs  0m03.0s/1m30s  030/500 iters, 1 per VU
+
+running (1m09.0s), 459/600 VUs, 141 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large   [   8% ] 500 VUs  0m04.0s/1m30s  041/500 iters, 1 per VU
+
+running (1m10.0s), 429/600 VUs, 171 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large   [  14% ] 500 VUs  0m05.0s/1m30s  071/500 iters, 1 per VU
+
+running (1m11.0s), 325/600 VUs, 275 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large   [  35% ] 500 VUs  0m06.0s/1m30s  175/500 iters, 1 per VU
+
+running (1m12.0s), 211/600 VUs, 389 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large   [  58% ] 500 VUs  0m07.0s/1m30s  289/500 iters, 1 per VU
+time="2026-04-02T14:39:50+09:00" level=info msg="=== 결과 해석 가이드 ===" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="poll_small_queue_ms vs poll_large_queue_ms:" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="  - 대기열 크기별 polling 응답시간 비교" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="  - ZRANK O(log N): 크기 차이보다 인증(BCrypt) 비용이 지배적일 수 있음" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="token_received_time_ms: 진입 후 토큰 수령까지 대기 시간" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="  - p50: 중간 유저 대기 시간, p95: 마지막 유저 대기 시간" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="poll_tier_*: 폴링 간격 티어별 분포" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="  - tier_1s(1~100), tier_3s(101~1000), tier_5s(1001+)" source=console
+time="2026-04-02T14:39:50+09:00" level=info msg="status_waiting_count vs status_ready_count: 대기→준비 전환 비율" source=console
+
+
+  █ THRESHOLDS 
+
+    poll_large_queue_ms
+    ✗ 'p(95)<2000' p(95)=4420.2
+
+    poll_small_queue_ms
+    ✓ 'p(95)<1000' p(95)=689.8
+
+    poll_success_rate
+    ✓ 'rate>0.80' rate=94.01%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 1166   16.010742/s
+    checks_succeeded...: 96.91% 1130 out of 1166
+    checks_failed......: 3.08%  36 out of 1166
+
+    ✗ [small] 진입 성공
+      ↳  88% — ✓ 88 / ✗ 12
+    ✓ [small] 토큰 수령
+    ✓ [small] poll HTTP 200
+    ✗ [large] 진입 성공
+      ↳  95% — ✓ 476 / ✗ 24
+    ✓ [large] 토큰 수령
+    ✓ [large] poll HTTP 200
+
+    CUSTOM
+    estimated_wait_seconds.........: avg=0           min=0        med=0      max=0     p(90)=0      p(95)=0     
+    poll_duration_ms...............: avg=3010.284452 min=70       med=3571   max=4958  p(90)=4165.5 p(95)=4350.5
+    poll_large_queue_ms............: avg=3475.486373 min=701      med=3694   max=4958  p(90)=4203.4 p(95)=4420.2
+    poll_small_queue_ms............: avg=517.011236  min=70       med=524    max=739   p(90)=649    p(95)=689.8 
+    poll_success_rate..............: 94.01% 566 out of 602
+    poll_tier_1s...................: 2      0.027463/s
+    status_ready_count.............: 564    7.744476/s
+    status_waiting_count...........: 2      0.027463/s
+    token_received_time_ms.........: avg=3024.597518 min=151      med=3575.5 max=4958  p(90)=4166.5 p(95)=4351.9
+
+    HTTP
+    http_req_duration..............: avg=2.78s       min=70.39ms  med=3.24s  max=5.3s  p(90)=4.24s  p(95)=4.61s 
+      { expected_response:true }...: avg=2.83s       min=70.39ms  med=3.29s  max=5.3s  p(90)=4.25s  p(95)=4.63s 
+    http_req_failed................: 3.08%  36 out of 1166
+    http_reqs......................: 1166   16.010742/s
+
+    EXECUTION
+    iteration_duration.............: avg=5.42s       min=615.27ms med=6.22s  max=7.81s p(90)=7.73s  p(95)=7.79s 
+    iterations.....................: 600    8.238804/s
+    vus............................: 211    min=0          max=500
+    vus_max........................: 600    min=600        max=600
+
+    NETWORK
+    data_received..................: 263 kB 3.6 kB/s
+    data_sent......................: 229 kB 3.1 kB/s
+
+
+
+
+running (1m12.8s), 000/600 VUs, 600 complete and 0 interrupted iterations
+scenario_small ✓ [ 100% ] 100 VUs  0m02.1s/1m0s   100/100 iters, 1 per VU
+scenario_large ✓ [ 100% ] 500 VUs  0m07.8s/1m30s  500/500 iters, 1 per VU
+time="2026-04-02T14:39:50+09:00" level=error msg="thresholds on metrics 'poll_large_queue_ms' have been crossed"

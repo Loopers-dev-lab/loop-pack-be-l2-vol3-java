@@ -1,0 +1,912 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: docs/week8/k6-scripts/05-token-concurrency.js
+        output: Prometheus remote write (http://localhost:9090/api/v1/write)
+
+     scenarios: (100.00%) 3 scenarios, 100 max VUs, 3m40s max duration (incl. graceful stop):
+              * scenario_double_order: 1 iterations for each of 50 VUs (maxDuration: 2m0s, exec: doubleOrderTest, gracefulStop: 30s)
+              * scenario_no_token: 1 iterations for each of 50 VUs (maxDuration: 30s, exec: noTokenTest, startTime: 2m5s, gracefulStop: 30s)
+              * scenario_flag_off: 1 iterations for each of 20 VUs (maxDuration: 30s, exec: flagOffTest, startTime: 2m40s, gracefulStop: 30s)
+
+time="2026-04-02T14:55:07+09:00" level=info msg="=== 토큰 동시성 & 엣지케이스 테스트 시작 ===" source=console
+time="2026-04-02T14:55:07+09:00" level=info msg="시나리오 1: 동시 주문 (토큰 1개 → 주문 2건 race condition)" source=console
+time="2026-04-02T14:55:07+09:00" level=info msg="시나리오 2: 토큰 없이 주문 (차단 확인)" source=console
+time="2026-04-02T14:55:07+09:00" level=info msg="시나리오 3: Feature flag OFF 시 주문 (우회 확인)" source=console
+
+running (0m01.0s), 032/100 VUs, 18 complete and 0 interrupted iterations
+scenario_double_order   [  36% ] 50 VUs   0m01.0s/2m0s  18/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  2m04.0s      
+scenario_flag_off     • [   0% ] waiting  2m39.0s      
+
+running (0m02.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  2m03.0s      
+scenario_flag_off     • [   0% ] waiting  2m38.0s      
+
+running (0m03.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  2m02.0s      
+scenario_flag_off     • [   0% ] waiting  2m37.0s      
+
+running (0m04.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  2m01.0s      
+scenario_flag_off     • [   0% ] waiting  2m36.0s      
+
+running (0m05.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  2m00.0s      
+scenario_flag_off     • [   0% ] waiting  2m35.0s      
+
+running (0m06.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m59.0s      
+scenario_flag_off     • [   0% ] waiting  2m34.0s      
+
+running (0m07.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m58.0s      
+scenario_flag_off     • [   0% ] waiting  2m33.0s      
+
+running (0m08.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m57.0s      
+scenario_flag_off     • [   0% ] waiting  2m32.0s      
+
+running (0m09.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m56.0s      
+scenario_flag_off     • [   0% ] waiting  2m31.0s      
+
+running (0m10.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m55.0s      
+scenario_flag_off     • [   0% ] waiting  2m30.0s      
+
+running (0m11.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m54.0s      
+scenario_flag_off     • [   0% ] waiting  2m29.0s      
+
+running (0m12.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m53.0s      
+scenario_flag_off     • [   0% ] waiting  2m28.0s      
+
+running (0m13.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m52.0s      
+scenario_flag_off     • [   0% ] waiting  2m27.0s      
+
+running (0m14.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m51.0s      
+scenario_flag_off     • [   0% ] waiting  2m26.0s      
+
+running (0m15.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m50.0s      
+scenario_flag_off     • [   0% ] waiting  2m25.0s      
+
+running (0m16.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m49.0s      
+scenario_flag_off     • [   0% ] waiting  2m24.0s      
+
+running (0m17.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m48.0s      
+scenario_flag_off     • [   0% ] waiting  2m23.0s      
+
+running (0m18.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m47.0s      
+scenario_flag_off     • [   0% ] waiting  2m22.0s      
+
+running (0m19.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m46.0s      
+scenario_flag_off     • [   0% ] waiting  2m21.0s      
+
+running (0m20.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m45.0s      
+scenario_flag_off     • [   0% ] waiting  2m20.0s      
+
+running (0m21.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m44.0s      
+scenario_flag_off     • [   0% ] waiting  2m19.0s      
+
+running (0m22.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m43.0s      
+scenario_flag_off     • [   0% ] waiting  2m18.0s      
+
+running (0m23.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m42.0s      
+scenario_flag_off     • [   0% ] waiting  2m17.0s      
+
+running (0m24.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m41.0s      
+scenario_flag_off     • [   0% ] waiting  2m16.0s      
+
+running (0m25.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m40.0s      
+scenario_flag_off     • [   0% ] waiting  2m15.0s      
+
+running (0m26.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m39.0s      
+scenario_flag_off     • [   0% ] waiting  2m14.0s      
+
+running (0m27.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m38.0s      
+scenario_flag_off     • [   0% ] waiting  2m13.0s      
+
+running (0m28.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m37.0s      
+scenario_flag_off     • [   0% ] waiting  2m12.0s      
+
+running (0m29.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m36.0s      
+scenario_flag_off     • [   0% ] waiting  2m11.0s      
+
+running (0m30.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m35.0s      
+scenario_flag_off     • [   0% ] waiting  2m10.0s      
+
+running (0m31.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m34.0s      
+scenario_flag_off     • [   0% ] waiting  2m09.0s      
+
+running (0m32.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m33.0s      
+scenario_flag_off     • [   0% ] waiting  2m08.0s      
+
+running (0m33.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m32.0s      
+scenario_flag_off     • [   0% ] waiting  2m07.0s      
+
+running (0m34.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m31.0s      
+scenario_flag_off     • [   0% ] waiting  2m06.0s      
+
+running (0m35.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m30.0s      
+scenario_flag_off     • [   0% ] waiting  2m05.0s      
+
+running (0m36.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m29.0s      
+scenario_flag_off     • [   0% ] waiting  2m04.0s      
+
+running (0m37.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m28.0s      
+scenario_flag_off     • [   0% ] waiting  2m03.0s      
+
+running (0m38.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m27.0s      
+scenario_flag_off     • [   0% ] waiting  2m02.0s      
+
+running (0m39.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m26.0s      
+scenario_flag_off     • [   0% ] waiting  2m01.0s      
+
+running (0m40.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m25.0s      
+scenario_flag_off     • [   0% ] waiting  2m00.0s      
+
+running (0m41.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m24.0s      
+scenario_flag_off     • [   0% ] waiting  1m59.0s      
+
+running (0m42.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m23.0s      
+scenario_flag_off     • [   0% ] waiting  1m58.0s      
+
+running (0m43.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m22.0s      
+scenario_flag_off     • [   0% ] waiting  1m57.0s      
+
+running (0m44.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m21.0s      
+scenario_flag_off     • [   0% ] waiting  1m56.0s      
+
+running (0m45.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m20.0s      
+scenario_flag_off     • [   0% ] waiting  1m55.0s      
+
+running (0m46.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m19.0s      
+scenario_flag_off     • [   0% ] waiting  1m54.0s      
+
+running (0m47.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m18.0s      
+scenario_flag_off     • [   0% ] waiting  1m53.0s      
+
+running (0m48.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m17.0s      
+scenario_flag_off     • [   0% ] waiting  1m52.0s      
+
+running (0m49.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m16.0s      
+scenario_flag_off     • [   0% ] waiting  1m51.0s      
+
+running (0m50.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m15.0s      
+scenario_flag_off     • [   0% ] waiting  1m50.0s      
+
+running (0m51.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m14.0s      
+scenario_flag_off     • [   0% ] waiting  1m49.0s      
+
+running (0m52.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m13.0s      
+scenario_flag_off     • [   0% ] waiting  1m48.0s      
+
+running (0m53.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m12.0s      
+scenario_flag_off     • [   0% ] waiting  1m47.0s      
+
+running (0m54.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m11.0s      
+scenario_flag_off     • [   0% ] waiting  1m46.0s      
+
+running (0m55.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m10.0s      
+scenario_flag_off     • [   0% ] waiting  1m45.0s      
+
+running (0m56.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m09.0s      
+scenario_flag_off     • [   0% ] waiting  1m44.0s      
+
+running (0m57.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m08.0s      
+scenario_flag_off     • [   0% ] waiting  1m43.0s      
+
+running (0m58.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m07.0s      
+scenario_flag_off     • [   0% ] waiting  1m42.0s      
+
+running (0m59.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m06.0s      
+scenario_flag_off     • [   0% ] waiting  1m41.0s      
+
+running (1m00.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m05.0s      
+scenario_flag_off     • [   0% ] waiting  1m40.0s      
+
+running (1m01.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m04.0s      
+scenario_flag_off     • [   0% ] waiting  1m39.0s      
+
+running (1m02.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m03.0s      
+scenario_flag_off     • [   0% ] waiting  1m38.0s      
+
+running (1m03.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m02.0s      
+scenario_flag_off     • [   0% ] waiting  1m37.0s      
+
+running (1m04.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m01.0s      
+scenario_flag_off     • [   0% ] waiting  1m36.0s      
+
+running (1m05.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  1m00.0s      
+scenario_flag_off     • [   0% ] waiting  1m35.0s      
+
+running (1m06.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m59.0s      
+scenario_flag_off     • [   0% ] waiting  1m34.0s      
+
+running (1m07.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m58.0s      
+scenario_flag_off     • [   0% ] waiting  1m33.0s      
+
+running (1m08.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m57.0s      
+scenario_flag_off     • [   0% ] waiting  1m32.0s      
+
+running (1m09.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m56.0s      
+scenario_flag_off     • [   0% ] waiting  1m31.0s      
+
+running (1m10.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m55.0s      
+scenario_flag_off     • [   0% ] waiting  1m30.0s      
+
+running (1m11.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m54.0s      
+scenario_flag_off     • [   0% ] waiting  1m29.0s      
+
+running (1m12.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m53.0s      
+scenario_flag_off     • [   0% ] waiting  1m28.0s      
+
+running (1m13.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m52.0s      
+scenario_flag_off     • [   0% ] waiting  1m27.0s      
+
+running (1m14.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m51.0s      
+scenario_flag_off     • [   0% ] waiting  1m26.0s      
+
+running (1m15.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m50.0s      
+scenario_flag_off     • [   0% ] waiting  1m25.0s      
+
+running (1m16.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m49.0s      
+scenario_flag_off     • [   0% ] waiting  1m24.0s      
+
+running (1m17.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m48.0s      
+scenario_flag_off     • [   0% ] waiting  1m23.0s      
+
+running (1m18.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m47.0s      
+scenario_flag_off     • [   0% ] waiting  1m22.0s      
+
+running (1m19.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m46.0s      
+scenario_flag_off     • [   0% ] waiting  1m21.0s      
+
+running (1m20.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m45.0s      
+scenario_flag_off     • [   0% ] waiting  1m20.0s      
+
+running (1m21.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m44.0s      
+scenario_flag_off     • [   0% ] waiting  1m19.0s      
+
+running (1m22.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m43.0s      
+scenario_flag_off     • [   0% ] waiting  1m18.0s      
+
+running (1m23.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m42.0s      
+scenario_flag_off     • [   0% ] waiting  1m17.0s      
+
+running (1m24.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m41.0s      
+scenario_flag_off     • [   0% ] waiting  1m16.0s      
+
+running (1m25.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m40.0s      
+scenario_flag_off     • [   0% ] waiting  1m15.0s      
+
+running (1m26.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m39.0s      
+scenario_flag_off     • [   0% ] waiting  1m14.0s      
+
+running (1m27.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m38.0s      
+scenario_flag_off     • [   0% ] waiting  1m13.0s      
+
+running (1m28.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m37.0s      
+scenario_flag_off     • [   0% ] waiting  1m12.0s      
+
+running (1m29.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m36.0s      
+scenario_flag_off     • [   0% ] waiting  1m11.0s      
+
+running (1m30.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m35.0s      
+scenario_flag_off     • [   0% ] waiting  1m10.0s      
+
+running (1m31.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m34.0s      
+scenario_flag_off     • [   0% ] waiting  1m09.0s      
+
+running (1m32.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m33.0s      
+scenario_flag_off     • [   0% ] waiting  1m08.0s      
+
+running (1m33.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m32.0s      
+scenario_flag_off     • [   0% ] waiting  1m07.0s      
+
+running (1m34.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m31.0s      
+scenario_flag_off     • [   0% ] waiting  1m06.0s      
+
+running (1m35.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m30.0s      
+scenario_flag_off     • [   0% ] waiting  1m05.0s      
+
+running (1m36.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m29.0s      
+scenario_flag_off     • [   0% ] waiting  1m04.0s      
+
+running (1m37.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m28.0s      
+scenario_flag_off     • [   0% ] waiting  1m03.0s      
+
+running (1m38.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m27.0s      
+scenario_flag_off     • [   0% ] waiting  1m02.0s      
+
+running (1m39.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m26.0s      
+scenario_flag_off     • [   0% ] waiting  1m01.0s      
+
+running (1m40.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m25.0s      
+scenario_flag_off     • [   0% ] waiting  1m00.0s      
+
+running (1m41.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m24.0s      
+scenario_flag_off     • [   0% ] waiting  0m59.0s      
+
+running (1m42.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m23.0s      
+scenario_flag_off     • [   0% ] waiting  0m58.0s      
+
+running (1m43.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m22.0s      
+scenario_flag_off     • [   0% ] waiting  0m57.0s      
+
+running (1m44.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m21.0s      
+scenario_flag_off     • [   0% ] waiting  0m56.0s      
+
+running (1m45.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m20.0s      
+scenario_flag_off     • [   0% ] waiting  0m55.0s      
+
+running (1m46.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m19.0s      
+scenario_flag_off     • [   0% ] waiting  0m54.0s      
+
+running (1m47.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m18.0s      
+scenario_flag_off     • [   0% ] waiting  0m53.0s      
+
+running (1m48.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m17.0s      
+scenario_flag_off     • [   0% ] waiting  0m52.0s      
+
+running (1m49.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m16.0s      
+scenario_flag_off     • [   0% ] waiting  0m51.0s      
+
+running (1m50.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m15.0s      
+scenario_flag_off     • [   0% ] waiting  0m50.0s      
+
+running (1m51.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m14.0s      
+scenario_flag_off     • [   0% ] waiting  0m49.0s      
+
+running (1m52.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m13.0s      
+scenario_flag_off     • [   0% ] waiting  0m48.0s      
+
+running (1m53.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m12.0s      
+scenario_flag_off     • [   0% ] waiting  0m47.0s      
+
+running (1m54.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m11.0s      
+scenario_flag_off     • [   0% ] waiting  0m46.0s      
+
+running (1m55.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m10.0s      
+scenario_flag_off     • [   0% ] waiting  0m45.0s      
+
+running (1m56.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m09.0s      
+scenario_flag_off     • [   0% ] waiting  0m44.0s      
+
+running (1m57.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m08.0s      
+scenario_flag_off     • [   0% ] waiting  0m43.0s      
+
+running (1m58.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m07.0s      
+scenario_flag_off     • [   0% ] waiting  0m42.0s      
+
+running (1m59.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m06.0s      
+scenario_flag_off     • [   0% ] waiting  0m41.0s      
+
+running (2m00.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m05.0s      
+scenario_flag_off     • [   0% ] waiting  0m40.0s      
+
+running (2m01.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m04.0s      
+scenario_flag_off     • [   0% ] waiting  0m39.0s      
+
+running (2m02.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m03.0s      
+scenario_flag_off     • [   0% ] waiting  0m38.0s      
+
+running (2m03.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m02.0s      
+scenario_flag_off     • [   0% ] waiting  0m37.0s      
+
+running (2m04.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m01.0s      
+scenario_flag_off     • [   0% ] waiting  0m36.0s      
+
+running (2m05.0s), 000/100 VUs, 50 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     • [   0% ] waiting  0m00.0s      
+scenario_flag_off     • [   0% ] waiting  0m35.0s      
+
+running (2m06.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m34.0s      
+
+running (2m07.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m33.0s      
+
+running (2m08.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m32.0s      
+
+running (2m09.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m31.0s      
+
+running (2m10.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m30.0s      
+
+running (2m11.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m29.0s      
+
+running (2m12.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m28.0s      
+
+running (2m13.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m27.0s      
+
+running (2m14.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m26.0s      
+
+running (2m15.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m25.0s      
+
+running (2m16.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m24.0s      
+
+running (2m17.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m23.0s      
+
+running (2m18.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m22.0s      
+
+running (2m19.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m21.0s      
+
+running (2m20.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m20.0s      
+
+running (2m21.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m19.0s      
+
+running (2m22.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m18.0s      
+
+running (2m23.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m17.0s      
+
+running (2m24.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m16.0s      
+
+running (2m25.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m15.0s      
+
+running (2m26.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m14.0s      
+
+running (2m27.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m13.0s      
+
+running (2m28.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m12.0s      
+
+running (2m29.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m11.0s      
+
+running (2m30.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m10.0s      
+
+running (2m31.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m09.0s      
+
+running (2m32.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m08.0s      
+
+running (2m33.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m07.0s      
+
+running (2m34.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m06.0s      
+
+running (2m35.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m05.0s      
+
+running (2m36.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m04.0s      
+
+running (2m37.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m03.0s      
+
+running (2m38.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m02.0s      
+
+running (2m39.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m01.0s      
+
+running (2m40.0s), 000/100 VUs, 100 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs   0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs   00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     • [   0% ] waiting  0m00.0s      
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[flag_off] FLAG_OFF=true 환경변수 없음 — 스킵" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="=== 결과 해석 가이드 ===" source=console
+time="2026-04-02T14:57:47+09:00" level=info source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[시나리오 1: 동시 주문]" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  double_order_first_success: 첫 번째 주문 성공률 (높아야 함)" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  double_order_second_success: 두 번째 주문 성공률 (낮아야 함)" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  double_order_exactly_one: 정확히 1건만 성공 비율 (>0.90)" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  double_order_both_success: 0이어야 함 (둘 다 성공 = race condition 버그)" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  주의: k6는 단일 VU 내 순차 실행이므로 완벽한 동시 요청은 아님." source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="        실제 race condition 검증은 멀티스레드 통합테스트가 더 정확." source=console
+time="2026-04-02T14:57:47+09:00" level=info source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[시나리오 2: 토큰 없이 주문]" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  no_token_order_blocked: 1.00이면 인터셉터 정상 동작" source=console
+time="2026-04-02T14:57:47+09:00" level=info source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="[시나리오 3: Feature flag OFF]" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  flag_off_order_success: FLAG_OFF=true로 실행 시에만 유효" source=console
+time="2026-04-02T14:57:47+09:00" level=info msg="  1.00이면 flag OFF 시 대기열 우회 정상 동작" source=console
+
+
+  █ THRESHOLDS 
+
+    double_order_exactly_one
+    ✗ 'rate>0.90' rate=64.00%
+
+    no_token_order_blocked
+    ✓ 'rate>0.99' rate=100.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 196     1.224969/s
+    checks_succeeded...: 100.00% 196 out of 196
+    checks_failed......: 0.00%   0 out of 196
+
+    ✓ [double] 첫 번째 주문 성공
+    ✓ [double] 두 번째 주문 차단
+    ✓ [double] 정확히 1건만 성공
+    ✓ [no_token] 주문 차단됨 (non-200)
+    ✓ [no_token] 400 Bad Request
+
+    CUSTOM
+    double_order_exactly_one.......: 64.00%  32 out of 50
+    double_order_first_success.....: 64.00%  32 out of 50
+    double_order_second_success....: 0.00%   0 out of 50
+    flag_off_order_success.........: 100.00% 20 out of 20
+    no_token_order_blocked.........: 100.00% 50 out of 50
+    token_wait_duration_ms.........: avg=290.84375 min=209      med=280      max=423      p(90)=345      p(95)=381.05  
+
+    HTTP
+    http_req_duration..............: avg=331.67ms  min=67.7ms   med=369.1ms  max=838.42ms p(90)=464.94ms p(95)=491.4ms 
+      { expected_response:true }...: avg=386.76ms  min=171.46ms med=385.83ms max=838.42ms p(90)=491.43ms p(95)=523.02ms
+    http_req_failed................: 51.02%  100 out of 196
+    http_reqs......................: 196     1.224969/s
+
+    EXECUTION
+    iteration_duration.............: avg=542.78ms  min=45.2µs   med=410.59ms max=1.45s    p(90)=1.28s    p(95)=1.31s   
+    iterations.....................: 120     0.749981/s
+    vus............................: 0       min=0          max=32 
+    vus_max........................: 100     min=100        max=100
+
+    NETWORK
+    data_received..................: 60 kB   372 B/s
+    data_sent......................: 59 kB   369 B/s
+
+
+
+
+running (2m40.0s), 000/100 VUs, 120 complete and 0 interrupted iterations
+scenario_double_order ✓ [ 100% ] 50 VUs  0m01.5s/2m0s  50/50 iters, 1 per VU
+scenario_no_token     ✓ [ 100% ] 50 VUs  00.4s/30s     50/50 iters, 1 per VU
+scenario_flag_off     ✓ [ 100% ] 20 VUs  00.0s/30s     20/20 iters, 1 per VU
+time="2026-04-02T14:57:47+09:00" level=error msg="thresholds on metrics 'double_order_exactly_one' have been crossed"
