@@ -35,8 +35,8 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const CASE4_FLOW   = __ENV.CASE4_FLOW || 'preseed';
 const SIGNUP_BATCH_SIZE = parseInt(__ENV.SIGNUP_BATCH_SIZE || '50');
 const CASE4_ACCOUNT_COUNT = parseInt(__ENV.CASE4_ACCOUNT_COUNT || '5000');
-const CASE4_STAGE_DURATION = __ENV.CASE4_STAGE_DURATION || '30s';
-const CASE4_TARGETS = (__ENV.CASE4_TARGETS || '100,300,700,1400,2000,100')
+const CASE4_STAGE_DURATION = __ENV.CASE4_STAGE_DURATION || '5s';
+const CASE4_TARGETS = (__ENV.CASE4_TARGETS || '20,40,80,120,160,20')
   .split(',')
   .map(v => parseInt(v.trim(), 10))
   .filter(v => !Number.isNaN(v));

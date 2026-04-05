@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Component
 public class RedisQueueService implements QueueService {
@@ -18,6 +19,8 @@ public class RedisQueueService implements QueueService {
     private static final String QUEUE_KEY = "order:waiting-queue";
     private static final String QUEUE_SEQUENCE_KEY = "order:waiting-queue:sequence";
     private static final String QUEUE_ENTER_LOCK_KEY = "order:waiting-queue:lock";
+    private static final long LOCK_WAIT_TIME_MILLIS = 1_000;
+    private static final long LOCK_LEASE_TIME_MILLIS = 5_000;
     private final RedissonClient redissonClient;
     private final StringRedisTemplate redisTemplate;
 
@@ -32,7 +35,16 @@ public class RedisQueueService implements QueueService {
     @Override
     public long enter(Long userId) {
         RLock lock = redissonClient.getLock(QUEUE_ENTER_LOCK_KEY);
-        lock.lock();
+        boolean acquired;
+        try {
+            acquired = lock.tryLock(LOCK_WAIT_TIME_MILLIS, LOCK_LEASE_TIME_MILLIS, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "대기열 락 획득 중 인터럽트 발생", e);
+        }
+        if (!acquired) {
+            throw new CoreException(ErrorType.CONFLICT, "대기열 진입이 이미 처리 중입니다. 잠시 후 다시 시도해주세요.");
+        }
         try {
             String member = String.valueOf(userId);
             Long existingRank = redisTemplate.opsForZSet().rank(QUEUE_KEY, member);

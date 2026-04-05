@@ -34,11 +34,12 @@ class CommerceApiContextTest {
     @Test
     void contextLoads() {
         StringRedisTemplate masterTemplate = applicationContext.getBean(RedisConfig.REDIS_TEMPLATE_MASTER, StringRedisTemplate.class);
+        StringRedisTemplate queueTemplate = (StringRedisTemplate) ReflectionTestUtils.getField(redisQueueService, "redisTemplate");
         StringRedisTemplate tokenTemplate = (StringRedisTemplate) ReflectionTestUtils.getField(redisTokenService, "redisTemplateMaster");
         StringRedisTemplate couponTemplate = (StringRedisTemplate) ReflectionTestUtils.getField(couponIssueRequestAppService, "redisTemplate");
 
         assertThat(applicationContext.getBeansOfType(StringRedisTemplate.class)).hasSizeGreaterThanOrEqualTo(2);
-        assertThat(redisQueueService).isNotNull();
+        assertThat(queueTemplate).isSameAs(masterTemplate);
         assertThat(tokenTemplate).isSameAs(masterTemplate);
         assertThat(couponTemplate).isSameAs(masterTemplate);
     }

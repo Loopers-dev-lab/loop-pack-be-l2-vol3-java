@@ -8,6 +8,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -71,7 +78,57 @@ class RedisQueueServiceTest {
     @Test
     void 대기열에_없는_유저의_rank를_조회하면_예외가_발생한다() {
         assertThatThrownBy(() -> queueService.getRank(999L))
-                .isInstanceOf(CoreException.class);
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.QUEUE_NOT_FOUND));
+    }
+
+    @Test
+    void 제거된_유저의_rank를_조회하면_QUEUE_NOT_FOUND_예외가_발생한다() {
+        Long userId = 1L;
+        queueService.enter(userId);
+
+        queueService.remove(userId);
+
+        assertThatThrownBy(() -> queueService.getRank(userId))
+                .isInstanceOfSatisfying(CoreException.class, exception ->
+                        assertThat(exception.getErrorType()).isEqualTo(ErrorType.QUEUE_NOT_FOUND));
+    }
+
+    @Test
+    void 락을_획득하지_못하면_빠르게_실패한다() throws Exception {
+        RedisQueueService redisQueueService = (RedisQueueService) queueService;
+        var redissonClient = (org.redisson.api.RedissonClient) ReflectionTestUtils.getField(redisQueueService, "redissonClient");
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        Future<?> holder = executor.submit(() -> {
+            var lock = redissonClient.getLock("order:waiting-queue:lock");
+            lock.lock();
+            try {
+                locked.countDown();
+                release.await();
+            } finally {
+                if (lock.isHeldByCurrentThread()) {
+                    lock.unlock();
+                }
+            }
+            return null;
+        });
+        locked.await();
+
+        long startedAt = System.nanoTime();
+        try {
+            assertThatThrownBy(() -> queueService.enter(1L))
+                    .isInstanceOfSatisfying(CoreException.class, exception ->
+                            assertThat(exception.getErrorType()).isEqualTo(ErrorType.CONFLICT));
+        } finally {
+            release.countDown();
+            holder.get(5, TimeUnit.SECONDS);
+            executor.shutdown();
+        }
+
+        long elapsedMillis = (System.nanoTime() - startedAt) / 1_000_000;
+        assertThat(elapsedMillis).isLessThan(1_500L);
     }
 
     @Test
