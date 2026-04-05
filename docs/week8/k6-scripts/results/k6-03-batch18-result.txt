@@ -1,0 +1,104 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: docs/week8/k6-scripts/03-batch-size-benchmark.js
+        output: Prometheus remote write (http://localhost:9090/api/v1/write)
+
+     scenarios: (100.00%) 1 scenario, 200 max VUs, 2m30s max duration (incl. graceful stop):
+              * benchmark: 1 iterations for each of 200 VUs (maxDuration: 2m0s, gracefulStop: 30s)
+
+time="2026-04-02T14:49:20+09:00" level=info msg="========================================" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="  스케줄러 배치 크기 벤치마크" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="========================================" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="BATCH_SIZE  : 18" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="INTERVAL_MS : 100ms" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="이론 TPS     : 180 users/sec" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="대기열 크기  : 200명" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="이론 소화시간: 1.1초" source=console
+time="2026-04-02T14:49:20+09:00" level=info source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="비교표 (이론값, TOTAL_USERS=200):" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="  BATCH=9  / 100ms → 90 TPS  → 2.2초" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="  BATCH=18 / 100ms → 180 TPS → 1.1초" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="  BATCH=36 / 100ms → 360 TPS → 0.6초" source=console
+time="2026-04-02T14:49:20+09:00" level=info msg="========================================" source=console
+
+running (0m01.0s), 192/200 VUs, 8 complete and 0 interrupted iterations
+benchmark   [   4% ] 200 VUs  0m01.0s/2m0s  008/200 iters, 1 per VU
+
+running (0m02.0s), 153/200 VUs, 47 complete and 0 interrupted iterations
+benchmark   [  24% ] 200 VUs  0m02.0s/2m0s  047/200 iters, 1 per VU
+
+running (0m03.0s), 006/200 VUs, 194 complete and 0 interrupted iterations
+benchmark   [  97% ] 200 VUs  0m03.0s/2m0s  194/200 iters, 1 per VU
+time="2026-04-02T14:49:24+09:00" level=info msg="========================================" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="  벤치마크 완료 (3.9초)" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="========================================" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="BATCH_SIZE=18, INTERVAL=100ms" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="이론 TPS: 180, 이론 소화: 1.1초" source=console
+time="2026-04-02T14:49:24+09:00" level=info source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="핵심 메트릭:" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="  token_receive_time_ms:" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="    - p50: 중간 유저 대기시간 ≈ 실제 소화 절반 시점" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="    - p95: 거의 마지막 유저 ≈ 전체 소화 시간" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="    - 이론값과 비교하여 스케줄러 효율 판단" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="  actual_tps: 실측 TPS" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="    - 이론값에 근접할수록 스케줄러 효율 높음" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="  queue_not_drained_count: 0이어야 정상" source=console
+time="2026-04-02T14:49:24+09:00" level=info msg="========================================" source=console
+
+
+  █ THRESHOLDS 
+
+    enter_success_rate
+    ✗ 'rate>0.80' rate=78.00%
+
+    token_receive_time_ms
+    ✓ 'p(95)<30000' p(95)=1623.75
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 312     80.67473/s
+    checks_succeeded...: 100.00% 312 out of 312
+    checks_failed......: 0.00%   0 out of 312
+
+    ✓ 진입 성공
+    ✓ 토큰 발급됨
+
+    CUSTOM
+    actual_tps.....................: avg=38.359911   min=0.569801 med=33.746613 max=126.245847 p(90)=89.870491 p(95)=93.390093
+    enter_success_rate.............: 78.00% 156 out of 200
+    poll_duration_ms...............: avg=954.67284   min=66       med=948.5     max=1755       p(90)=1282.4    p(95)=1397.9   
+    queue_not_drained_count........: 44     11.377206/s
+    seed_enter_duration_ms.........: avg=1611.715    min=267      med=1689      max=2275       p(90)=2026.8    p(95)=2099.15  
+    token_receive_time_ms..........: avg=1029.942308 min=549      med=966.5     max=1899       p(90)=1368.5    p(95)=1623.75  
+    total_tokens_received..........: 156    40.337365/s
+
+    HTTP
+    http_req_duration..............: avg=1.29s       min=66.73ms  med=1.26s     max=2.2s       p(90)=1.87s     p(95)=1.99s    
+      { expected_response:true }...: avg=1.29s       min=66.73ms  med=1.21s     max=2.2s       p(90)=1.9s      p(95)=2s       
+    http_req_failed................: 12.98% 47 out of 362
+    http_reqs......................: 362    93.603373/s
+
+    EXECUTION
+    iteration_duration.............: avg=2.41s       min=283.1ms  med=2.67s     max=3.86s      p(90)=2.85s     p(95)=2.87s    
+    iterations.....................: 200    51.714571/s
+    vus............................: 6      min=6          max=192
+    vus_max........................: 200    min=200        max=200
+
+    NETWORK
+    data_received..................: 83 kB  22 kB/s
+    data_sent......................: 71 kB  18 kB/s
+
+
+
+
+running (0m03.9s), 000/200 VUs, 200 complete and 0 interrupted iterations
+benchmark ✓ [ 100% ] 200 VUs  0m03.9s/2m0s  200/200 iters, 1 per VU
+time="2026-04-02T14:49:24+09:00" level=error msg="thresholds on metrics 'enter_success_rate' have been crossed"

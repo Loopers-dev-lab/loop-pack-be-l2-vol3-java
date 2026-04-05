@@ -23,6 +23,15 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+  sql:
+    init:
+      mode: always
+  jpa:
+    defer-datasource-initialization: true
+
+queue:
+  scheduler:
+    fixed-delay: 100  # ms. QueueConstants.INTERVAL_MS와 동일한 값을 유지해야 한다.
 
 springdoc:
   use-fqn: true
@@ -34,6 +43,9 @@ spring:
   config:
     activate:
       on-profile: local, test
+  sql:
+    init:
+      mode: never
   cloud:
     openfeign:
       client:

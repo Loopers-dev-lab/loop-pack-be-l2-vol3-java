@@ -1,0 +1,761 @@
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: docs/week8/k6-scripts/01-queue-enter-throughput.js
+        output: Prometheus remote write (http://localhost:9090/api/v1/write)
+
+     scenarios: (100.00%) 3 scenarios, 700 max VUs, 2m40s max duration (incl. graceful stop):
+              * scenario_rampup: Up to 200 looping VUs for 1m10s over 5 stages (gracefulRampDown: 30s, exec: rampupTest, gracefulStop: 30s)
+              * scenario_spike: Up to 500 looping VUs for 30s over 3 stages (gracefulRampDown: 30s, exec: spikeTest, startTime: 1m15s, gracefulStop: 30s)
+              * scenario_duplicate: 100 looping VUs for 20s (exec: duplicateTest, startTime: 1m50s, gracefulStop: 30s)
+
+time="2026-04-02T14:32:56+09:00" level=info msg="=== 대기열 진입 처리량 테스트 시작 ===" source=console
+time="2026-04-02T14:32:56+09:00" level=info msg="이론 처리량: 180 users/sec" source=console
+time="2026-04-02T14:32:56+09:00" level=info msg="시나리오: rampup(80s) → spike(30s) → duplicate(30s)" source=console
+
+running (0m00.9s), 001/700 VUs, 5 complete and 0 interrupted iterations
+scenario_rampup      [   1% ] 001/200 VUs  0m00.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m14.1s
+scenario_duplicate • [   0% ] waiting      1m49.1s
+
+running (0m01.9s), 002/700 VUs, 14 complete and 0 interrupted iterations
+scenario_rampup      [   3% ] 002/200 VUs  0m01.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m13.1s
+scenario_duplicate • [   0% ] waiting      1m48.1s
+
+running (0m02.9s), 003/700 VUs, 30 complete and 0 interrupted iterations
+scenario_rampup      [   4% ] 003/200 VUs  0m02.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m12.1s
+scenario_duplicate • [   0% ] waiting      1m47.1s
+
+running (0m03.9s), 004/700 VUs, 50 complete and 0 interrupted iterations
+scenario_rampup      [   6% ] 004/200 VUs  0m03.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m11.1s
+scenario_duplicate • [   0% ] waiting      1m46.1s
+
+running (0m05.0s), 005/700 VUs, 74 complete and 0 interrupted iterations
+scenario_rampup      [   7% ] 005/200 VUs  0m04.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m10.1s
+scenario_duplicate • [   0% ] waiting      1m45.1s
+
+running (0m05.9s), 006/700 VUs, 106 complete and 0 interrupted iterations
+scenario_rampup      [   8% ] 006/200 VUs  0m05.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m09.1s
+scenario_duplicate • [   0% ] waiting      1m44.1s
+
+running (0m06.9s), 007/700 VUs, 142 complete and 0 interrupted iterations
+scenario_rampup      [  10% ] 007/200 VUs  0m06.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m08.1s
+scenario_duplicate • [   0% ] waiting      1m43.1s
+
+running (0m07.9s), 008/700 VUs, 182 complete and 0 interrupted iterations
+scenario_rampup      [  11% ] 008/200 VUs  0m07.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m07.1s
+scenario_duplicate • [   0% ] waiting      1m42.1s
+
+running (0m08.9s), 009/700 VUs, 227 complete and 0 interrupted iterations
+scenario_rampup      [  13% ] 009/200 VUs  0m08.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m06.1s
+scenario_duplicate • [   0% ] waiting      1m41.1s
+
+running (0m09.9s), 009/700 VUs, 280 complete and 0 interrupted iterations
+scenario_rampup      [  14% ] 009/200 VUs  0m09.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m05.1s
+scenario_duplicate • [   0% ] waiting      1m40.1s
+
+running (0m11.0s), 011/700 VUs, 337 complete and 0 interrupted iterations
+scenario_rampup      [  16% ] 011/200 VUs  0m10.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m04.1s
+scenario_duplicate • [   0% ] waiting      1m39.1s
+
+running (0m11.9s), 013/700 VUs, 405 complete and 0 interrupted iterations
+scenario_rampup      [  17% ] 013/200 VUs  0m11.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m03.1s
+scenario_duplicate • [   0% ] waiting      1m38.1s
+
+running (0m12.9s), 015/700 VUs, 483 complete and 0 interrupted iterations
+scenario_rampup      [  18% ] 015/200 VUs  0m12.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m02.1s
+scenario_duplicate • [   0% ] waiting      1m37.1s
+
+running (0m14.0s), 017/700 VUs, 573 complete and 0 interrupted iterations
+scenario_rampup      [  20% ] 017/200 VUs  0m13.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m01.1s
+scenario_duplicate • [   0% ] waiting      1m36.1s
+
+running (0m14.9s), 019/700 VUs, 671 complete and 0 interrupted iterations
+scenario_rampup      [  21% ] 019/200 VUs  0m14.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      1m00.1s
+scenario_duplicate • [   0% ] waiting      1m35.1s
+
+running (0m15.9s), 021/700 VUs, 768 complete and 0 interrupted iterations
+scenario_rampup      [  23% ] 021/200 VUs  0m15.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m59.1s
+scenario_duplicate • [   0% ] waiting      1m34.1s
+
+running (0m16.9s), 023/700 VUs, 864 complete and 0 interrupted iterations
+scenario_rampup      [  24% ] 023/200 VUs  0m16.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m58.1s
+scenario_duplicate • [   0% ] waiting      1m33.1s
+
+running (0m18.0s), 025/700 VUs, 954 complete and 0 interrupted iterations
+scenario_rampup      [  26% ] 025/200 VUs  0m17.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m57.1s
+scenario_duplicate • [   0% ] waiting      1m32.1s
+
+running (0m19.0s), 027/700 VUs, 1071 complete and 0 interrupted iterations
+scenario_rampup      [  27% ] 027/200 VUs  0m19.0s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m56.0s
+scenario_duplicate • [   0% ] waiting      1m31.0s
+
+running (0m20.0s), 029/700 VUs, 1178 complete and 0 interrupted iterations
+scenario_rampup      [  29% ] 029/200 VUs  0m20.0s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m55.0s
+scenario_duplicate • [   0% ] waiting      1m30.0s
+
+running (0m20.9s), 031/700 VUs, 1279 complete and 0 interrupted iterations
+scenario_rampup      [  30% ] 031/200 VUs  0m20.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m54.1s
+scenario_duplicate • [   0% ] waiting      1m29.1s
+
+running (0m21.9s), 033/700 VUs, 1375 complete and 0 interrupted iterations
+scenario_rampup      [  31% ] 033/200 VUs  0m21.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m53.1s
+scenario_duplicate • [   0% ] waiting      1m28.1s
+
+running (0m22.9s), 035/700 VUs, 1478 complete and 0 interrupted iterations
+scenario_rampup      [  33% ] 035/200 VUs  0m22.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m52.1s
+scenario_duplicate • [   0% ] waiting      1m27.1s
+
+running (0m23.9s), 037/700 VUs, 1611 complete and 0 interrupted iterations
+scenario_rampup      [  34% ] 037/200 VUs  0m23.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m51.1s
+scenario_duplicate • [   0% ] waiting      1m26.1s
+
+running (0m24.9s), 039/700 VUs, 1719 complete and 0 interrupted iterations
+scenario_rampup      [  36% ] 039/200 VUs  0m24.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m50.1s
+scenario_duplicate • [   0% ] waiting      1m25.1s
+
+running (0m25.9s), 041/700 VUs, 1829 complete and 0 interrupted iterations
+scenario_rampup      [  37% ] 041/200 VUs  0m25.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m49.1s
+scenario_duplicate • [   0% ] waiting      1m24.1s
+
+running (0m26.9s), 043/700 VUs, 1941 complete and 0 interrupted iterations
+scenario_rampup      [  38% ] 043/200 VUs  0m26.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m48.1s
+scenario_duplicate • [   0% ] waiting      1m23.1s
+
+running (0m28.0s), 045/700 VUs, 2064 complete and 0 interrupted iterations
+scenario_rampup      [  40% ] 045/200 VUs  0m27.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m47.1s
+scenario_duplicate • [   0% ] waiting      1m22.1s
+
+running (0m28.9s), 047/700 VUs, 2185 complete and 0 interrupted iterations
+scenario_rampup      [  41% ] 047/200 VUs  0m28.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m46.1s
+scenario_duplicate • [   0% ] waiting      1m21.1s
+
+running (0m29.9s), 049/700 VUs, 2289 complete and 0 interrupted iterations
+scenario_rampup      [  43% ] 049/200 VUs  0m29.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m45.1s
+scenario_duplicate • [   0% ] waiting      1m20.1s
+
+running (0m30.9s), 057/700 VUs, 2392 complete and 0 interrupted iterations
+scenario_rampup      [  44% ] 057/200 VUs  0m30.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m44.1s
+scenario_duplicate • [   0% ] waiting      1m19.1s
+
+running (0m31.9s), 064/700 VUs, 2503 complete and 0 interrupted iterations
+scenario_rampup      [  46% ] 064/200 VUs  0m31.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m43.1s
+scenario_duplicate • [   0% ] waiting      1m18.1s
+
+running (0m32.9s), 072/700 VUs, 2624 complete and 0 interrupted iterations
+scenario_rampup      [  47% ] 072/200 VUs  0m32.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m42.1s
+scenario_duplicate • [   0% ] waiting      1m17.1s
+
+running (0m33.9s), 079/700 VUs, 2743 complete and 0 interrupted iterations
+scenario_rampup      [  48% ] 079/200 VUs  0m33.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m41.1s
+scenario_duplicate • [   0% ] waiting      1m16.1s
+
+running (0m34.9s), 087/700 VUs, 2849 complete and 0 interrupted iterations
+scenario_rampup      [  50% ] 087/200 VUs  0m34.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m40.1s
+scenario_duplicate • [   0% ] waiting      1m15.1s
+
+running (0m35.9s), 094/700 VUs, 2964 complete and 0 interrupted iterations
+scenario_rampup      [  51% ] 094/200 VUs  0m35.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m39.1s
+scenario_duplicate • [   0% ] waiting      1m14.1s
+
+running (0m36.9s), 102/700 VUs, 3072 complete and 0 interrupted iterations
+scenario_rampup      [  53% ] 102/200 VUs  0m36.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m38.1s
+scenario_duplicate • [   0% ] waiting      1m13.1s
+
+running (0m37.9s), 109/700 VUs, 3190 complete and 0 interrupted iterations
+scenario_rampup      [  54% ] 109/200 VUs  0m37.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m37.1s
+scenario_duplicate • [   0% ] waiting      1m12.1s
+
+running (0m38.9s), 117/700 VUs, 3307 complete and 0 interrupted iterations
+scenario_rampup      [  56% ] 117/200 VUs  0m38.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m36.1s
+scenario_duplicate • [   0% ] waiting      1m11.1s
+
+running (0m39.9s), 124/700 VUs, 3422 complete and 0 interrupted iterations
+scenario_rampup      [  57% ] 124/200 VUs  0m39.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m35.1s
+scenario_duplicate • [   0% ] waiting      1m10.1s
+
+running (0m40.9s), 132/700 VUs, 3496 complete and 0 interrupted iterations
+scenario_rampup      [  58% ] 132/200 VUs  0m40.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m34.1s
+scenario_duplicate • [   0% ] waiting      1m09.1s
+
+running (0m41.9s), 139/700 VUs, 3611 complete and 0 interrupted iterations
+scenario_rampup      [  60% ] 139/200 VUs  0m41.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m33.1s
+scenario_duplicate • [   0% ] waiting      1m08.1s
+
+running (0m42.9s), 147/700 VUs, 3723 complete and 0 interrupted iterations
+scenario_rampup      [  61% ] 147/200 VUs  0m42.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m32.1s
+scenario_duplicate • [   0% ] waiting      1m07.1s
+
+running (0m43.9s), 154/700 VUs, 3855 complete and 0 interrupted iterations
+scenario_rampup      [  63% ] 154/200 VUs  0m43.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m31.1s
+scenario_duplicate • [   0% ] waiting      1m06.1s
+
+running (0m44.9s), 162/700 VUs, 3948 complete and 0 interrupted iterations
+scenario_rampup      [  64% ] 162/200 VUs  0m44.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m30.1s
+scenario_duplicate • [   0% ] waiting      1m05.1s
+
+running (0m46.0s), 169/700 VUs, 4056 complete and 0 interrupted iterations
+scenario_rampup      [  66% ] 169/200 VUs  0m45.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m29.1s
+scenario_duplicate • [   0% ] waiting      1m04.1s
+
+running (0m47.0s), 177/700 VUs, 4172 complete and 0 interrupted iterations
+scenario_rampup      [  67% ] 177/200 VUs  0m46.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m28.1s
+scenario_duplicate • [   0% ] waiting      1m03.1s
+
+running (0m47.9s), 184/700 VUs, 4257 complete and 0 interrupted iterations
+scenario_rampup      [  68% ] 184/200 VUs  0m47.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m27.1s
+scenario_duplicate • [   0% ] waiting      1m02.1s
+
+running (0m48.9s), 192/700 VUs, 4361 complete and 0 interrupted iterations
+scenario_rampup      [  70% ] 192/200 VUs  0m48.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m26.1s
+scenario_duplicate • [   0% ] waiting      1m01.1s
+
+running (0m49.9s), 199/700 VUs, 4491 complete and 0 interrupted iterations
+scenario_rampup      [  71% ] 199/200 VUs  0m49.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m25.1s
+scenario_duplicate • [   0% ] waiting      1m00.1s
+
+running (0m50.9s), 200/700 VUs, 4626 complete and 0 interrupted iterations
+scenario_rampup      [  73% ] 200/200 VUs  0m50.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m24.1s
+scenario_duplicate • [   0% ] waiting      0m59.1s
+
+running (0m51.9s), 200/700 VUs, 4741 complete and 0 interrupted iterations
+scenario_rampup      [  74% ] 200/200 VUs  0m51.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m23.1s
+scenario_duplicate • [   0% ] waiting      0m58.1s
+
+running (0m52.9s), 200/700 VUs, 4881 complete and 0 interrupted iterations
+scenario_rampup      [  76% ] 200/200 VUs  0m52.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m22.1s
+scenario_duplicate • [   0% ] waiting      0m57.1s
+
+running (0m53.9s), 200/700 VUs, 5007 complete and 0 interrupted iterations
+scenario_rampup      [  77% ] 200/200 VUs  0m53.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m21.1s
+scenario_duplicate • [   0% ] waiting      0m56.1s
+
+running (0m54.9s), 200/700 VUs, 5130 complete and 0 interrupted iterations
+scenario_rampup      [  78% ] 200/200 VUs  0m54.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m20.1s
+scenario_duplicate • [   0% ] waiting      0m55.1s
+
+running (0m55.9s), 200/700 VUs, 5261 complete and 0 interrupted iterations
+scenario_rampup      [  80% ] 200/200 VUs  0m55.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m19.1s
+scenario_duplicate • [   0% ] waiting      0m54.1s
+
+running (0m57.0s), 200/700 VUs, 5371 complete and 0 interrupted iterations
+scenario_rampup      [  81% ] 200/200 VUs  0m56.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m18.1s
+scenario_duplicate • [   0% ] waiting      0m53.1s
+
+running (0m58.0s), 200/700 VUs, 5522 complete and 0 interrupted iterations
+scenario_rampup      [  83% ] 200/200 VUs  0m57.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m17.1s
+scenario_duplicate • [   0% ] waiting      0m52.1s
+
+running (0m58.9s), 200/700 VUs, 5625 complete and 0 interrupted iterations
+scenario_rampup      [  84% ] 200/200 VUs  0m58.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m16.1s
+scenario_duplicate • [   0% ] waiting      0m51.1s
+
+running (0m59.9s), 200/700 VUs, 5763 complete and 0 interrupted iterations
+scenario_rampup      [  86% ] 200/200 VUs  0m59.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m15.1s
+scenario_duplicate • [   0% ] waiting      0m50.1s
+
+running (1m00.9s), 194/700 VUs, 5881 complete and 0 interrupted iterations
+scenario_rampup      [  87% ] 194/200 VUs  1m00.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m14.1s
+scenario_duplicate • [   0% ] waiting      0m49.1s
+
+running (1m02.0s), 174/700 VUs, 6038 complete and 0 interrupted iterations
+scenario_rampup      [  88% ] 174/200 VUs  1m01.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m13.1s
+scenario_duplicate • [   0% ] waiting      0m48.1s
+
+running (1m03.0s), 155/700 VUs, 6161 complete and 0 interrupted iterations
+scenario_rampup      [  90% ] 155/200 VUs  1m03.0s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m12.0s
+scenario_duplicate • [   0% ] waiting      0m47.0s
+
+running (1m03.9s), 139/700 VUs, 6290 complete and 0 interrupted iterations
+scenario_rampup      [  91% ] 139/200 VUs  1m03.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m11.1s
+scenario_duplicate • [   0% ] waiting      0m46.1s
+
+running (1m04.9s), 118/700 VUs, 6438 complete and 0 interrupted iterations
+scenario_rampup      [  93% ] 118/200 VUs  1m04.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m10.1s
+scenario_duplicate • [   0% ] waiting      0m45.1s
+
+running (1m05.9s), 099/700 VUs, 6574 complete and 0 interrupted iterations
+scenario_rampup      [  94% ] 099/200 VUs  1m05.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m09.1s
+scenario_duplicate • [   0% ] waiting      0m44.1s
+
+running (1m07.0s), 073/700 VUs, 6722 complete and 0 interrupted iterations
+scenario_rampup      [  96% ] 073/200 VUs  1m06.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m08.1s
+scenario_duplicate • [   0% ] waiting      0m43.1s
+
+running (1m08.0s), 052/700 VUs, 6882 complete and 0 interrupted iterations
+scenario_rampup      [  97% ] 052/200 VUs  1m08.0s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m07.0s
+scenario_duplicate • [   0% ] waiting      0m42.0s
+
+running (1m08.9s), 033/700 VUs, 7011 complete and 0 interrupted iterations
+scenario_rampup      [  98% ] 033/200 VUs  1m08.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m06.1s
+scenario_duplicate • [   0% ] waiting      0m41.1s
+
+running (1m09.9s), 014/700 VUs, 7122 complete and 0 interrupted iterations
+scenario_rampup      [ 100% ] 014/200 VUs  1m09.9s/1m10.0s
+scenario_spike     • [   0% ] waiting      0m05.1s
+scenario_duplicate • [   0% ] waiting      0m40.1s
+
+running (1m10.9s), 000/700 VUs, 7139 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     • [   0% ] waiting      0m04.1s
+scenario_duplicate • [   0% ] waiting      0m39.1s
+
+running (1m11.9s), 000/700 VUs, 7139 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     • [   0% ] waiting      0m03.1s
+scenario_duplicate • [   0% ] waiting      0m38.1s
+
+running (1m12.9s), 000/700 VUs, 7139 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     • [   0% ] waiting      0m02.1s
+scenario_duplicate • [   0% ] waiting      0m37.1s
+
+running (1m14.0s), 000/700 VUs, 7139 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     • [   0% ] waiting      0m01.1s
+scenario_duplicate • [   0% ] waiting      0m36.1s
+
+running (1m14.9s), 000/700 VUs, 7139 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     • [   0% ] waiting      0m00.1s
+scenario_duplicate • [   0% ] waiting      0m35.1s
+
+running (1m15.9s), 094/700 VUs, 7185 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [   3% ] 094/500 VUs  00.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m34.1s
+
+running (1m17.0s), 194/700 VUs, 7268 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [   6% ] 194/500 VUs  01.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m33.0s
+
+running (1m17.9s), 294/700 VUs, 7379 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  10% ] 294/500 VUs  02.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m32.1s
+
+running (1m18.9s), 394/700 VUs, 7502 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  13% ] 394/500 VUs  03.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m31.1s
+
+running (1m19.9s), 494/700 VUs, 7643 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  16% ] 494/500 VUs  04.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m30.1s
+
+running (1m21.0s), 500/700 VUs, 7776 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  20% ] 500/500 VUs  05.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m29.1s
+
+running (1m21.9s), 500/700 VUs, 7903 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  23% ] 500/500 VUs  06.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m28.1s
+
+running (1m22.9s), 500/700 VUs, 8023 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  26% ] 500/500 VUs  07.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m27.1s
+
+running (1m24.0s), 500/700 VUs, 8134 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  30% ] 500/500 VUs  09.0s/30.0s
+scenario_duplicate • [   0% ] waiting      0m26.0s
+
+running (1m24.9s), 500/700 VUs, 8284 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  33% ] 500/500 VUs  09.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m25.1s
+
+running (1m26.0s), 500/700 VUs, 8421 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  37% ] 500/500 VUs  11.0s/30.0s
+scenario_duplicate • [   0% ] waiting      0m24.0s
+
+running (1m27.0s), 500/700 VUs, 8543 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  40% ] 500/500 VUs  11.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m23.1s
+
+running (1m27.9s), 500/700 VUs, 8658 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  43% ] 500/500 VUs  12.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m22.1s
+
+running (1m29.0s), 500/700 VUs, 8777 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  46% ] 500/500 VUs  13.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m21.1s
+
+running (1m30.0s), 500/700 VUs, 8872 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  50% ] 500/500 VUs  14.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m20.1s
+
+running (1m30.9s), 500/700 VUs, 8964 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  53% ] 500/500 VUs  15.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m19.1s
+
+running (1m31.9s), 500/700 VUs, 9076 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  56% ] 500/500 VUs  16.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m18.1s
+
+running (1m33.0s), 500/700 VUs, 9173 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  60% ] 500/500 VUs  17.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m17.1s
+
+running (1m33.9s), 500/700 VUs, 9271 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  63% ] 500/500 VUs  18.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m16.1s
+
+running (1m34.9s), 500/700 VUs, 9334 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  66% ] 500/500 VUs  19.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m15.1s
+
+running (1m35.9s), 499/700 VUs, 9460 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  70% ] 499/500 VUs  20.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m14.1s
+
+running (1m36.9s), 469/700 VUs, 9581 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  73% ] 469/500 VUs  21.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m13.1s
+
+running (1m37.9s), 444/700 VUs, 9684 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  76% ] 444/500 VUs  22.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m12.1s
+
+running (1m38.9s), 411/700 VUs, 9829 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  80% ] 411/500 VUs  23.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m11.1s
+
+running (1m39.9s), 343/700 VUs, 9961 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  83% ] 343/500 VUs  24.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m10.1s
+
+running (1m40.9s), 285/700 VUs, 10091 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  86% ] 285/500 VUs  25.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m09.1s
+
+running (1m41.9s), 232/700 VUs, 10200 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  90% ] 232/500 VUs  26.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m08.1s
+
+running (1m42.9s), 156/700 VUs, 10346 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  93% ] 156/500 VUs  27.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m07.1s
+
+running (1m43.9s), 074/700 VUs, 10524 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [  96% ] 074/500 VUs  28.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m06.1s
+
+running (1m44.9s), 006/700 VUs, 10687 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike       [ 100% ] 006/500 VUs  29.9s/30.0s
+scenario_duplicate • [   0% ] waiting      0m05.1s
+
+running (1m46.0s), 000/700 VUs, 10693 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate • [   0% ] waiting      0m04.1s
+
+running (1m46.9s), 000/700 VUs, 10693 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate • [   0% ] waiting      0m03.1s
+
+running (1m48.0s), 000/700 VUs, 10693 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate • [   0% ] waiting      0m02.1s
+
+running (1m48.9s), 000/700 VUs, 10693 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate • [   0% ] waiting      0m01.1s
+
+running (1m49.9s), 000/700 VUs, 10693 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate • [   0% ] waiting      0m00.1s
+
+running (1m51.0s), 100/700 VUs, 10693 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [   5% ] 100 VUs      00.9s/20s
+
+running (1m51.9s), 100/700 VUs, 10700 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  10% ] 100 VUs      01.9s/20s
+
+running (1m53.0s), 100/700 VUs, 10793 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  15% ] 100 VUs      02.9s/20s
+
+running (1m54.0s), 100/700 VUs, 10795 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  20% ] 100 VUs      03.9s/20s
+
+running (1m54.9s), 100/700 VUs, 10846 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  25% ] 100 VUs      04.9s/20s
+
+running (1m56.0s), 100/700 VUs, 10900 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  30% ] 100 VUs      05.9s/20s
+
+running (1m56.9s), 100/700 VUs, 10965 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  35% ] 100 VUs      06.9s/20s
+
+running (1m58.0s), 100/700 VUs, 11012 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  40% ] 100 VUs      07.9s/20s
+
+running (1m59.0s), 100/700 VUs, 11036 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  45% ] 100 VUs      08.9s/20s
+
+running (1m59.9s), 100/700 VUs, 11091 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  50% ] 100 VUs      09.9s/20s
+
+running (2m00.9s), 100/700 VUs, 11151 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  55% ] 100 VUs      10.9s/20s
+
+running (2m02.0s), 100/700 VUs, 11206 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  60% ] 100 VUs      11.9s/20s
+
+running (2m02.9s), 100/700 VUs, 11260 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  65% ] 100 VUs      12.9s/20s
+
+running (2m04.0s), 100/700 VUs, 11314 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  70% ] 100 VUs      14.0s/20s
+
+running (2m04.9s), 100/700 VUs, 11336 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  75% ] 100 VUs      14.9s/20s
+
+running (2m05.9s), 100/700 VUs, 11393 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  80% ] 100 VUs      15.9s/20s
+
+running (2m06.9s), 100/700 VUs, 11451 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  85% ] 100 VUs      16.9s/20s
+
+running (2m07.9s), 100/700 VUs, 11508 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  90% ] 100 VUs      17.9s/20s
+
+running (2m09.0s), 100/700 VUs, 11555 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [  95% ] 100 VUs      19.0s/20s
+
+running (2m10.0s), 100/700 VUs, 11593 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate   [ 100% ] 100 VUs      20.0s/20s
+
+running (2m10.9s), 062/700 VUs, 11654 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate ↓ [ 100% ] 100 VUs      20s
+time="2026-04-02T14:35:07+09:00" level=info msg="=== 결과 해석 가이드 ===" source=console
+time="2026-04-02T14:35:07+09:00" level=info msg="enter_duration_ms: 대기열 진입 API 응답시간 분포" source=console
+time="2026-04-02T14:35:07+09:00" level=info msg="  - p50 < 10ms: Redis ZADD가 매우 빠르게 동작" source=console
+time="2026-04-02T14:35:07+09:00" level=info msg="  - p95 < 200ms: 고부하에서도 안정적" source=console
+time="2026-04-02T14:35:07+09:00" level=info msg="enter_success_rate: 1.00이면 모든 요청 성공" source=console
+time="2026-04-02T14:35:07+09:00" level=info msg="enter_under_*: 응답시간 분포 확인용" source=console
+time="2026-04-02T14:35:07+09:00" level=info msg="duplicate_returns_same_position: 1.00이면 NX 옵션 정상 동작" source=console
+
+
+  █ THRESHOLDS 
+
+    duplicate_returns_same_position
+    ✗ 'rate>0.99' rate=94.91%
+
+    enter_duration_ms{scenario:rampup}
+    ✗ 'p(95)<200' p(95)=1769
+
+    enter_duration_ms{scenario:spike}
+    ✗ 'p(95)<500' p(95)=5126.35
+
+    enter_success_rate{scenario:rampup}
+    ✗ 'rate>0.99' rate=90.60%
+
+    enter_success_rate{scenario:spike}
+    ✗ 'rate>0.95' rate=94.82%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 23432  178.085616/s
+    checks_succeeded...: 92.35% 21641 out of 23432
+    checks_failed......: 7.64%  1791 out of 23432
+
+    ✗ [rampup] HTTP 200
+      ↳  90% — ✓ 6468 / ✗ 671
+    ✗ [rampup] position 존재
+      ↳  90% — ✓ 6468 / ✗ 671
+    ✗ [spike] HTTP 200
+      ↳  94% — ✓ 3370 / ✗ 184
+    ✗ [spike] position 존재
+      ↳  94% — ✓ 3370 / ✗ 184
+    ✗ [duplicate] 중복 진입 시 동일 순번 반환
+      ↳  94% — ✓ 971 / ✗ 52
+    ✗ [duplicate] HTTP 200
+      ↳  97% — ✓ 994 / ✗ 29
+
+    CUSTOM
+    duplicate_enter_count.............: 1023   7.774905/s
+    duplicate_returns_same_position...: 94.91% 971 out of 1023
+    enter_duration_ms.................: avg=1613.639016 min=70       med=1155     max=6033  p(90)=4196.8 p(95)=4739   
+      { scenario:rampup }.............: avg=777.039081  min=70       med=669      max=2323  p(90)=1635   p(95)=1769   
+      { scenario:spike }..............: avg=3294.136185 min=71       med=3694     max=6033  p(90)=4928.4 p(95)=5126.35
+    enter_error_rate..................: 7.99%  855 out of 10693
+    enter_over_500ms..................: 56.39% 4026 out of 7139
+    enter_success_rate................: 92.00% 9838 out of 10693
+      { scenario:rampup }.............: 90.60% 6468 out of 7139
+      { scenario:spike }..............: 94.82% 3370 out of 3554
+    enter_total_requests..............: 10693  81.267903/s
+    enter_under_100ms.................: 11.62% 830 out of 7139
+    enter_under_10ms..................: 0.00%  0 out of 7139
+    enter_under_50ms..................: 0.00%  0 out of 7139
+
+    HTTP
+    http_req_duration.................: avg=1.43s       min=69.85ms  med=861.05ms max=6.03s p(90)=4.05s  p(95)=4.65s  
+      { expected_response:true }......: avg=1.47s       min=69.85ms  med=874.33ms max=6.03s p(90)=4.11s  p(95)=4.69s  
+    http_req_failed...................: 7.14%  910 out of 12739
+    http_reqs.........................: 12739  96.817714/s
+
+    EXECUTION
+    iteration_duration................: avg=1.72s       min=121.53ms med=1.38s    max=6.08s p(90)=4.18s  p(95)=4.74s  
+    iterations........................: 11716  89.042808/s
+    vus...............................: 61     min=0             max=500
+    vus_max...........................: 700    min=700           max=700
+
+    NETWORK
+    data_received.....................: 2.3 MB 18 kB/s
+    data_sent.........................: 2.6 MB 20 kB/s
+
+
+
+
+running (2m11.6s), 000/700 VUs, 11716 complete and 0 interrupted iterations
+scenario_rampup    ✓ [ 100% ] 000/200 VUs  1m10s
+scenario_spike     ✓ [ 100% ] 000/500 VUs  30s
+scenario_duplicate ✓ [ 100% ] 100 VUs      20s
+time="2026-04-02T14:35:07+09:00" level=error msg="thresholds on metrics 'duplicate_returns_same_position, enter_duration_ms{scenario:rampup}, enter_duration_ms{scenario:spike}, enter_success_rate{scenario:rampup}, enter_success_rate{scenario:spike}' have been crossed"
