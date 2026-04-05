@@ -31,6 +31,11 @@ spring:
       properties:
         enable.idempotence: true
 
+queue:
+  enabled: true
+  batch-size: 2
+  interval-ms: 400
+
 pg:
   base-url: http://localhost:8082
   connect-timeout: 3000
@@ -92,6 +97,9 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+queue:
+  enabled: false
 
 ---
 spring:

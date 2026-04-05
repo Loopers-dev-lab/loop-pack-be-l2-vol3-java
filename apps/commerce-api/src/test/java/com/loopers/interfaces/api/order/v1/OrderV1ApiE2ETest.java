@@ -1,5 +1,8 @@
 package com.loopers.interfaces.api.order.v1;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.awaitility.Awaitility.await;
+
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.createCoupon;
 import static com.loopers.interfaces.api.coupon.v1.CouponSteps.issueCoupon;
 import static com.loopers.interfaces.api.order.v1.OrderSteps.createOrder;
@@ -11,26 +14,29 @@ import static com.loopers.support.E2ETestHelper.userAuthHeaders;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.coupon.CouponType;
 import com.loopers.interfaces.api.coupon.v1.CouponDto;
 import com.loopers.support.error.ErrorType;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Pageable;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import com.loopers.domain.coupon.CouponRepository;
-import com.loopers.domain.coupon.OwnedCoupon;
 import com.loopers.domain.coupon.OwnedCouponFixture;
 import com.loopers.domain.coupon.OwnedCouponRepository;
 import com.loopers.interfaces.api.brand.v1.BrandDto;
@@ -40,7 +46,13 @@ import com.loopers.interfaces.api.product.v1.ProductSteps;
 import com.loopers.interfaces.api.user.v1.UserV1Dto;
 import com.loopers.support.BaseE2ETest;
 
+import org.springframework.test.context.TestPropertySource;
+
+@TestPropertySource(properties = "queue.enabled=true")
 class OrderV1ApiE2ETest extends BaseE2ETest {
+
+    private static final String ENTRY_TOKEN_KEY_PREFIX = "entry-token:";
+    private static final String HEADER_ENTRY_TOKEN = "X-Entry-Token";
 
     @Autowired
     private OwnedCouponRepository ownedCouponRepository;
@@ -48,14 +60,20 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
     @Autowired
     private CouponRepository couponRepository;
 
+    @Autowired
+    @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
+    private RedisTemplate<String, String> redisTemplate;
+
     private HttpHeaders userHeaders;
+    private Long userId;
     private Long productId;
 
     @BeforeEach
     void setUp() {
         var loginId = "testuser1";
         var loginPw = "Password1!";
-        signUp(testRestTemplate, new UserV1Dto.SignUpRequest(loginId, loginPw, "테스트", "2000-01-01", "test@test.com"));
+        var signUpResponse = signUp(testRestTemplate, new UserV1Dto.SignUpRequest(loginId, loginPw, "테스트", "2000-01-01", "test@test.com"));
+        userId = signUpResponse.getBody().data().id();
         userHeaders = userAuthHeaders(loginId, loginPw);
 
         var brandId = BrandSteps.createBrand(
@@ -66,6 +84,21 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
                 testRestTemplate,
                 new ProductDto.CreateProductRequest(brandId, "테스트 상품", "https://example.com/thumb.png", 10000L, 100L, "상품 설명")
         );
+
+        String entryToken = seedEntryToken(userId);
+        userHeaders.set(HEADER_ENTRY_TOKEN, entryToken);
+    }
+
+    private String seedEntryToken(Long targetUserId) {
+        String token = UUID.randomUUID().toString();
+        redisTemplate.opsForValue().set(ENTRY_TOKEN_KEY_PREFIX + targetUserId, token, Duration.ofSeconds(120));
+        return token;
+    }
+
+    private HttpHeaders headersWithEntryToken(String entryToken) {
+        var headers = new HttpHeaders(userHeaders);
+        headers.set(HEADER_ENTRY_TOKEN, entryToken);
+        return headers;
     }
 
     @DisplayName("POST /api/v1/orders")
@@ -208,6 +241,83 @@ class OrderV1ApiE2ETest extends BaseE2ETest {
 
             // assert
             assertErrorResponse(response, HttpStatus.BAD_REQUEST, ErrorType.COUPON_MIN_ORDER_PRICE_NOT_MET);
+        }
+
+        @DisplayName("유효한 진입 토큰 헤더로 주문하면, 주문이 생성된다.")
+        @Test
+        void createsOrder_whenValidEntryToken() {
+            // arrange
+            var entryToken = seedEntryToken(userId);
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    null
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, headersWithEntryToken(entryToken));
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED),
+                    () -> assertThat(response.getBody().data().orderId()).isNotNull()
+            );
+        }
+
+        @DisplayName("진입 토큰이 불일치하면, 403 Forbidden을 반환한다.")
+        @Test
+        void failsOrder_whenTokenMismatch() {
+            // arrange
+            seedEntryToken(userId);
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    null
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, headersWithEntryToken("wrong-token"));
+
+            // assert
+            assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.INVALID_ENTRY_TOKEN);
+        }
+
+        @DisplayName("Redis에 진입 토큰이 없으면, 403 Forbidden을 반환한다.")
+        @Test
+        void failsOrder_whenNoTokenInRedis() {
+            // arrange
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    null
+            );
+
+            // act
+            var response = createOrder(testRestTemplate, request, headersWithEntryToken("any-token"));
+
+            // assert
+            assertErrorResponse(response, HttpStatus.FORBIDDEN, ErrorType.INVALID_ENTRY_TOKEN);
+        }
+
+        @DisplayName("주문 성공 후 토큰이 삭제되면, 동일 토큰으로 재주문 시 403 Forbidden을 반환한다.")
+        @Test
+        void failsOrder_whenTokenDeletedAfterOrderSuccess() {
+            // arrange
+            var entryToken = seedEntryToken(userId);
+            var request = new OrderDto.CreateOrderRequest(
+                    List.of(new OrderDto.OrderItemRequest(productId, 2L)),
+                    null
+            );
+            var headers = headersWithEntryToken(entryToken);
+            createOrder(testRestTemplate, request, headers);
+
+            // AFTER_COMMIT + @Async로 토큰 삭제 대기
+            await().atMost(5, SECONDS).untilAsserted(() ->
+                    assertThat(redisTemplate.opsForValue().get(ENTRY_TOKEN_KEY_PREFIX + userId)).isNull()
+            );
+
+            // act - 토큰 삭제 후 동일 토큰으로 재주문
+            var secondResponse = createOrder(testRestTemplate, request, headers);
+
+            // assert
+            assertErrorResponse(secondResponse, HttpStatus.FORBIDDEN, ErrorType.INVALID_ENTRY_TOKEN);
         }
     }
 

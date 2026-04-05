@@ -91,6 +91,10 @@ public enum ErrorType {
     OWNED_COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "OWNED_COUPON_NOT_FOUND", "보유 쿠폰을 찾을 수 없습니다."),
     COUPON_ISSUE_STATUS_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON_ISSUE_STATUS_NOT_FOUND", "쿠폰 발급 상태를 찾을 수 없습니다."),
 
+    /** Queue 에러 */
+    QUEUE_NOT_ENTERED(HttpStatus.NOT_FOUND, "QUEUE_NOT_ENTERED", "대기열에 진입하지 않은 상태입니다."),
+    INVALID_ENTRY_TOKEN(HttpStatus.FORBIDDEN, "INVALID_ENTRY_TOKEN", "유효하지 않은 입장 토큰입니다."),
+
     /** Payment 도메인 에러 */
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다."),
     PAYMENT_NOT_READY(HttpStatus.BAD_REQUEST, "PAYMENT_NOT_READY", "결제 시작이 가능한 상태가 아닙니다."),
