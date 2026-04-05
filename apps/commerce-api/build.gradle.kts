@@ -10,6 +10,8 @@ dependencies {
     implementation("org.springframework.retry:spring-retry")
     implementation("org.springframework.boot:spring-boot-starter-aop")
     implementation("org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j")
+    implementation("net.javacrumbs.shedlock:shedlock-spring:${project.properties["shedlockVersion"]}")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:${project.properties["shedlockVersion"]}")
 
     // web
     implementation("org.springframework.boot:spring-boot-starter-web")

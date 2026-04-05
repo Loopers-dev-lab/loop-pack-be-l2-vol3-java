@@ -7,9 +7,11 @@ import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandDescription;
 import com.loopers.domain.brand.BrandName;
 import com.loopers.domain.user.Gender;
+import com.loopers.domain.queue.QueueRepository;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,8 +55,15 @@ class OrderE2ETest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
+    @Autowired
+    private QueueRepository queueRepository;
+
+    @Autowired
+    private RedisCleanUp redisCleanUp;
+
     private Long userId;
     private Long productId;
+    private String entryToken;
 
     @BeforeEach
     void setUp() {
@@ -81,11 +90,15 @@ class OrderE2ETest {
                 10
             )
         ).getId();
+
+        entryToken = java.util.UUID.randomUUID().toString();
+        queueRepository.issueToken(userId, entryToken, 300);
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     @DisplayName("POST /api/v1/orders: 주문 생성에 성공한다")
@@ -99,6 +112,7 @@ class OrderE2ETest {
 
         mockMvc.perform(post("/api/v1/orders")
                 .header("X-Loopers-User-Id", userId)
+                .header("X-Entry-Token", entryToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andDo(print())
@@ -118,8 +132,10 @@ class OrderE2ETest {
         Map<String, Object> body = new HashMap<>();
         body.put("items", List.of(item));
 
+        queueRepository.issueToken(userId, entryToken, 300);
         String created = mockMvc.perform(post("/api/v1/orders")
                 .header("X-Loopers-User-Id", userId)
+                .header("X-Entry-Token", entryToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
             .andExpect(status().isOk())

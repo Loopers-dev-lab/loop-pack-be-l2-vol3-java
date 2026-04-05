@@ -40,7 +40,13 @@ public enum ErrorType {
 
     // Payment 도메인
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제 정보를 찾을 수 없습니다."),
-    PAYMENT_ALREADY_PAID(HttpStatus.CONFLICT, "PAYMENT_ALREADY_PAID", "이미 결제된 주문입니다.");
+    PAYMENT_ALREADY_PAID(HttpStatus.CONFLICT, "PAYMENT_ALREADY_PAID", "이미 결제된 주문입니다."),
+
+    // Queue 도메인
+    QUEUE_ALREADY_ENTERED(HttpStatus.CONFLICT, "QUEUE_ALREADY_ENTERED", "이미 대기열에 진입한 상태입니다."),
+    QUEUE_NOT_ENTERED(HttpStatus.NOT_FOUND, "QUEUE_NOT_ENTERED", "대기열에 진입하지 않은 상태입니다."),
+    ENTRY_TOKEN_NOT_FOUND(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_NOT_FOUND", "입장 토큰이 없거나 만료되었습니다."),
+    ENTRY_TOKEN_INVALID(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_INVALID", "유효하지 않은 입장 토큰입니다.");
 
     private final HttpStatus status;
     private final String code;

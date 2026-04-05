@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import jakarta.persistence.OptimisticLockException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -30,8 +31,9 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ApiControllerAdvice {
     @ExceptionHandler
-    public ResponseEntity<ApiResponse<?>> handle(CoreException e) {
+    public ResponseEntity<ApiResponse<?>> handle(CoreException e, HttpServletRequest request) {
         log.warn("CoreException : {}", e.getCustomMessage() != null ? e.getCustomMessage() : e.getMessage(), e);
+        request.setAttribute("errorType", e.getErrorType());
         return failureResponse(e.getErrorType(), e.getCustomMessage());
     }
 
