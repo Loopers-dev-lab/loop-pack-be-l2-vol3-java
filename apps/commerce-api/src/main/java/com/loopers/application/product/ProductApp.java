@@ -7,6 +7,7 @@ import com.loopers.domain.product.ProductMetricsRepository;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ViewDedupRepository;
 import com.loopers.domain.product.vo.ProductId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -20,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -34,6 +36,7 @@ public class ProductApp {
     private final ProductCacheStore productCacheStore;
     private final ProductMetricsRepository productMetricsRepository;
     private final OutboxAppender outboxAppender;
+    private final ViewDedupRepository viewDedupRepository;
 
     @Transactional
     public ProductInfo createProduct(String productId, String brandId, String productName, BigDecimal price, int stockQuantity) {
@@ -42,7 +45,7 @@ public class ProductApp {
     }
 
     @Transactional
-    public ProductInfo getProduct(String productId) {
+    public ProductInfo getProduct(String productId, Long memberId) {
         ProductInfo info = productCacheStore.get(productId).orElseGet(() -> {
             ProductModel product = productRepository.findByProductId(new ProductId(productId))
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "해당 ID의 상품이 존재하지 않습니다."));
@@ -50,8 +53,17 @@ public class ProductApp {
             productCacheStore.put(productId, fresh);
             return fresh;
         });
-        publishViewEvent(info.id(), null);
+        if (shouldPublishViewEvent(info.id(), memberId)) {
+            publishViewEvent(info.id(), memberId);
+        }
         return info;
+    }
+
+    private boolean shouldPublishViewEvent(Long productDbId, Long memberId) {
+        if (memberId == null) {
+            return false;
+        }
+        return viewDedupRepository.markIfFirstView(productDbId, memberId, LocalDate.now());
     }
 
     private void publishViewEvent(Long productDbId, Long memberId) {

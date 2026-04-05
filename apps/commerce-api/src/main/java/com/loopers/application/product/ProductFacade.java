@@ -27,8 +27,8 @@ public class ProductFacade {
         return enrichProductInfo(product);
     }
 
-    public ProductInfo getProduct(String productId) {
-        ProductInfo product = productApp.getProduct(productId);
+    public ProductInfo getProduct(String productId, Long memberId) {
+        ProductInfo product = productApp.getProduct(productId, memberId);
         ProductInfo enriched = enrichProductInfo(product);
         return enrichWithRanking(enriched);
     }

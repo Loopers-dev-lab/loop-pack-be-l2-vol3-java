@@ -22,7 +22,9 @@ public interface ProductV1ApiSpec {
     })
     ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> getProduct(
             @Parameter(description = "상품 ID", example = "prod1")
-            @PathVariable String productId
+            @PathVariable String productId,
+            @Parameter(description = "유저 ID (View 이벤트 중복 방지용, 익명은 생략)", example = "42")
+            @org.springframework.web.bind.annotation.RequestHeader(name = "X-USER-ID", required = false) Long memberId
     );
 
     @Operation(summary = "상품 수정", description = "상품 정보(상품명, 가격, 재고)를 수정합니다.")
