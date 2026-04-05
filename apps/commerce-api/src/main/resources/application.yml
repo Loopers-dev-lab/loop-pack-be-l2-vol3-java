@@ -30,7 +30,18 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+queue:
+  batch-size: 3
+  scheduler-interval-ms: 1000
+  token-ttl-seconds: 120
+
 resilience4j:
+  ratelimiter:
+    instances:
+      order:
+        limit-for-period: 125        # 2 * N ≤ 250 (DB 한계) → N ≤ 125, 경계 버스트 제어
+        limit-refresh-period: 1s
+        timeout-duration: 10s        # 버스트 흡수 대기, 유저에게 429 최소화
   circuitbreaker:
     circuitBreakerAspectOrder: 1  # outer — CB(outer) → Retry(inner)
     instances:

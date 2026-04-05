@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
@@ -106,6 +107,11 @@ public class ApiControllerAdvice {
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handleNotFound(NoResourceFoundException e) {
         return failureResponse(ErrorType.NOT_FOUND, null);
+    }
+
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handle(RequestNotPermitted e) {
+        return failureResponse(ErrorType.SERVICE_UNAVAILABLE, null);
     }
 
     @ExceptionHandler

@@ -1,11 +1,13 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.application.queue.QueueFacade;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.user.UserFacade;
 import com.loopers.application.user.UserInfo;
 import com.loopers.config.WebMvcConfig;
 import com.loopers.interfaces.auth.AuthArgumentResolver;
 import com.loopers.interfaces.auth.AuthInterceptor;
+import com.loopers.interfaces.auth.EntryTokenInterceptor;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
@@ -30,7 +32,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@Import({AuthInterceptor.class, AuthArgumentResolver.class, WebMvcConfig.class})
+@Import({AuthInterceptor.class, EntryTokenInterceptor.class, AuthArgumentResolver.class, WebMvcConfig.class})
 @WebMvcTest(UserController.class)
 class UserControllerTest {
     @Autowired
@@ -39,6 +41,8 @@ class UserControllerTest {
     ObjectMapper objectMapper;
     @MockitoBean
     UserFacade userFacade;
+    @MockitoBean
+    QueueFacade queueFacade;
 
     @Test
     @DisplayName("회원가입 성공 시, 201 CREATED")

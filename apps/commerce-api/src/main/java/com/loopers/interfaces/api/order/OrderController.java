@@ -4,10 +4,16 @@ import com.loopers.application.order.OrderCommand;
 import com.loopers.application.order.OrderDetail;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderSummary;
+import com.loopers.application.queue.QueueFacade;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.AuthenticatedUser;
 import com.loopers.interfaces.auth.CurrentUser;
+import com.loopers.interfaces.auth.EntryTokenRequired;
 import com.loopers.interfaces.auth.LoginRequired;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
+import io.github.resilience4j.ratelimiter.RequestNotPermitted;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -23,8 +29,11 @@ import java.util.List;
 public class OrderController {
 
     private final OrderFacade orderFacade;
+    private final QueueFacade queueFacade;
 
+    @RateLimiter(name = "order", fallbackMethod = "createOrderFallback")
     @LoginRequired
+    @EntryTokenRequired
     @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/api/v1/orders")
     public ApiResponse<OrderDto.CreateOrderResponse> createOrder(@CurrentUser AuthenticatedUser user,
@@ -40,6 +49,13 @@ public class OrderController {
         String orderId = orderFacade.createOrder(user.id(), orderCommand);
         OrderDto.CreateOrderResponse response = new OrderDto.CreateOrderResponse(orderId);
         return ApiResponse.success(response);
+    }
+
+    public ApiResponse<OrderDto.CreateOrderResponse> createOrderFallback(AuthenticatedUser user,
+                                                                         OrderDto.CreateOrderRequest request,
+                                                                         RequestNotPermitted e) {
+        queueFacade.extendTokenIfNearExpiry(user.id());
+        throw new CoreException(ErrorType.SERVICE_UNAVAILABLE);
     }
 
     @LoginRequired
