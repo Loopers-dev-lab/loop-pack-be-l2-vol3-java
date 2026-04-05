@@ -10,6 +10,7 @@ import com.loopers.domain.payment.*;
 import com.loopers.domain.payment.PaymentGateway.PaymentGatewayOrderResponse;
 import com.loopers.domain.payment.PaymentGateway.PaymentGatewayRequest;
 import com.loopers.domain.payment.PaymentGateway.PaymentGatewayResponse;
+import com.loopers.domain.queue.QueueService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -49,6 +50,9 @@ class PaymentFacadeTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private QueueService queueService;
 
     @InjectMocks
     private PaymentFacade paymentFacade;

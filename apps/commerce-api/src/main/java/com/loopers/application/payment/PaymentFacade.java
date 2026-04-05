@@ -12,6 +12,7 @@ import com.loopers.domain.payment.PaymentGateway.PaymentGatewayRequest;
 import com.loopers.domain.payment.PaymentGateway.PaymentGatewayResponse;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.payment.PaymentStatus;
+import com.loopers.domain.queue.QueueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +32,7 @@ public class PaymentFacade {
     private final PaymentGateway paymentGateway;
     private final PaymentTransactionService paymentTransactionService;
     private final ApplicationEventPublisher eventPublisher;
+    private final QueueService queueService;
 
     @Value("${pg.callback-url:http://localhost:8080/api/v1/payments/callback}")
     private String callbackUrl;
@@ -60,6 +62,7 @@ public class PaymentFacade {
         // 3. PG 응답이 성공이면 즉시 완료 처리, PENDING이면 스케줄러에게 위임
         if (pgResponse.transactionKey() != null) {
             paymentTransactionService.completePayment(payment, pgResponse.transactionKey(), "결제 완료");
+            queueService.consumeToken(userId);
         } else {
             log.info("결제 처리 대기: orderId={}, reason={}", orderId, pgResponse.reason());
         }
@@ -78,6 +81,7 @@ public class PaymentFacade {
         if ("SUCCESS".equals(status)) {
             payment.markSuccess(transactionKey);
             order.completePayment();
+            queueService.consumeToken(payment.getUserId());
             eventPublisher.publishEvent(new PaymentCompletedEvent(
                     orderId, payment.getUserId(), transactionKey, "콜백: 결제 완료"
             ));
@@ -142,6 +146,7 @@ public class PaymentFacade {
         if ("SUCCESS".equals(latestTxn.status()) && payment.getStatus() != PaymentStatus.SUCCESS) {
             payment.markSuccess(latestTxn.transactionKey());
             order.completePayment();
+            queueService.consumeToken(payment.getUserId());
             eventPublisher.publishEvent(new PaymentCompletedEvent(
                     payment.getOrderId(), payment.getUserId(), latestTxn.transactionKey(), "스케줄러: 결제 복구 완료"
             ));
