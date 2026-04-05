@@ -40,7 +40,9 @@ public class ProductV1Dto {
             BigDecimal price,
             int stockQuantity,
             BrandInfo brand,
-            long likesCount
+            long likesCount,
+            Long rank,
+            Double rankingScore
     ) {
         public static ProductResponse from(ProductInfo info) {
             return new ProductResponse(
@@ -51,7 +53,9 @@ public class ProductV1Dto {
                     info.price(),
                     info.stockQuantity(),
                     info.brand(),
-                    info.likesCount()
+                    info.likesCount(),
+                    info.rank(),
+                    info.rankingScore()
             );
         }
     }

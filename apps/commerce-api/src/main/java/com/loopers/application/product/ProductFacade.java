@@ -2,6 +2,8 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandApp;
 import com.loopers.application.brand.BrandInfo;
+import com.loopers.application.ranking.ProductRankingInfo;
+import com.loopers.application.ranking.RankingApp;
 import com.loopers.domain.common.cursor.CursorPageResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -9,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -16,6 +20,7 @@ public class ProductFacade {
 
     private final ProductApp productApp;
     private final BrandApp brandApp;
+    private final RankingApp rankingApp;
 
     public ProductInfo createProduct(String productId, String brandId, String productName, BigDecimal price, int stockQuantity) {
         ProductInfo product = productApp.createProduct(productId, brandId, productName, price, stockQuantity);
@@ -24,7 +29,20 @@ public class ProductFacade {
 
     public ProductInfo getProduct(String productId) {
         ProductInfo product = productApp.getProduct(productId);
-        return enrichProductInfo(product);
+        ProductInfo enriched = enrichProductInfo(product);
+        return enrichWithRanking(enriched);
+    }
+
+    private ProductInfo enrichWithRanking(ProductInfo product) {
+        try {
+            Optional<ProductRankingInfo> ranking = rankingApp.getProductRanking(product.id(), LocalDate.now());
+            if (ranking.isEmpty()) {
+                return product;
+            }
+            return product.withRanking(ranking.get().rank(), ranking.get().score());
+        } catch (Exception e) {
+            return product;
+        }
     }
 
     public ProductInfo updateProduct(String productId, String productName, BigDecimal price, int stockQuantity) {
