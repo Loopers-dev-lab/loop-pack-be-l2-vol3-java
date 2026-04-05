@@ -48,6 +48,38 @@ public class RankingRedisRepository implements RankingRepository {
     }
 
     @Override
+    public List<RankingEntry> findByCursor(LocalDate date, Double cursorScore, long size) {
+        String key = RankingKeyGenerator.dailyKey(date);
+        double max = cursorScore != null ? cursorScore : Double.POSITIVE_INFINITY;
+        long fetchSize = cursorScore != null ? size + 1 : size;
+
+        Set<ZSetOperations.TypedTuple<String>> tuples =
+                redisTemplate.opsForZSet().reverseRangeByScoreWithScores(
+                        key, Double.NEGATIVE_INFINITY, max, 0, fetchSize);
+
+        if (tuples == null || tuples.isEmpty()) {
+            return List.of();
+        }
+
+        List<RankingEntry> result = new ArrayList<>(tuples.size());
+        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
+            String member = tuple.getValue();
+            Double score = tuple.getScore();
+            if (member == null || score == null) {
+                continue;
+            }
+            if (cursorScore != null && score >= cursorScore) {
+                continue;
+            }
+            result.add(new RankingEntry(Long.parseLong(member), score));
+            if (result.size() >= size) {
+                break;
+            }
+        }
+        return result;
+    }
+
+    @Override
     public Optional<Long> findRank(LocalDate date, Long productDbId) {
         String key = RankingKeyGenerator.dailyKey(date);
         Long rank = redisTemplate.opsForZSet().reverseRank(key, String.valueOf(productDbId));

@@ -132,4 +132,12 @@ public class ProductRepositoryImpl implements ProductRepository {
     public Optional<ProductModel> findById(Long id) {
         return productJpaRepository.findById(id);
     }
+
+    @Override
+    public List<ProductModel> findAllByIdIncludingDeleted(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return productJpaRepository.findAllById(ids);
+    }
 }
