@@ -3,6 +3,7 @@ POST {{commerce-api}}/api/v1/orders
 Content-Type: application/json
 X-Loopers-LoginId: testuser
 X-Loopers-LoginPw: Test1234!
+X-Queue-Token: {{queue-token}}
 
 {
   "items": [

@@ -5,6 +5,7 @@ import com.loopers.domain.event.OutboxEventModel;
 import com.loopers.infrastructure.event.OutboxEventJpaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ public class OutboxPublisherScheduler {
     private final ObjectMapper objectMapper;
 
     @Scheduled(fixedDelayString = "${commerce.outbox.publish.fixed-delay-ms:1000}")
+    @SchedulerLock(name = "publishPendingEvents", lockAtLeastFor = "PT1S")
     public void publishPendingEvents() {
         List<OutboxEventModel> events = outboxEventJpaRepository.findTop100ByPublishedAtIsNullOrderByIdAsc();
         for (OutboxEventModel event : events) {

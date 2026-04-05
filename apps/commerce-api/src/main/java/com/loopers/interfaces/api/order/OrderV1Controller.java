@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order;
 import com.loopers.application.order.OrderDetailInfo;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderSummaryInfo;
+import com.loopers.application.queue.QueueService;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,16 +27,20 @@ public class OrderV1Controller implements OrderV1ApiSpec {
 
     private static final String HEADER_LOGIN_ID = "X-Loopers-LoginId";
     private static final String HEADER_LOGIN_PW = "X-Loopers-LoginPw";
+    private static final String HEADER_QUEUE_TOKEN = "X-Queue-Token";
 
     private final OrderFacade orderFacade;
+    private final QueueService queueService;
 
     @PostMapping
     @Override
     public ApiResponse<OrderV1Dto.OrderDetailResponse> placeOrder(
         @RequestHeader(HEADER_LOGIN_ID) String loginId,
         @RequestHeader(HEADER_LOGIN_PW) String password,
+        @RequestHeader(HEADER_QUEUE_TOKEN) String queueToken,
         @Valid @RequestBody OrderV1Dto.PlaceOrderRequest request
     ) {
+        queueService.validateTokenOrThrow(loginId, password, queueToken);
         OrderDetailInfo info = orderFacade.placeOrder(
             loginId,
             password,
@@ -44,6 +49,7 @@ public class OrderV1Controller implements OrderV1ApiSpec {
                 .toList(),
             request.couponId()
         );
+        queueService.consumeToken(loginId, password, queueToken);
         return ApiResponse.success(OrderV1Dto.OrderDetailResponse.from(info));
     }
 
