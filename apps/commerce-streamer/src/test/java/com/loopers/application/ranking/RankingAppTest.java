@@ -68,6 +68,28 @@ class RankingAppTest {
     }
 
     @Nested
+    @DisplayName("applyViewScore()")
+    class ApplyViewScore {
+
+        @Test
+        @DisplayName("View 점수는 viewWeight(0.1)로 고정 증가한다")
+        void viewScoreIsViewWeight() {
+            Long productDbId = 42L;
+            LocalDate date = LocalDate.of(2026, 4, 5);
+
+            rankingApp.applyViewScore(productDbId, date);
+
+            ArgumentCaptor<Double> scoreCaptor = ArgumentCaptor.forClass(Double.class);
+            verify(rankingRepository).incrementScore(
+                    org.mockito.ArgumentMatchers.eq(date),
+                    org.mockito.ArgumentMatchers.eq(productDbId),
+                    scoreCaptor.capture()
+            );
+            assertThat(scoreCaptor.getValue()).isEqualTo(0.1);
+        }
+    }
+
+    @Nested
     @DisplayName("applyOrderScore()")
     class ApplyOrderScore {
 

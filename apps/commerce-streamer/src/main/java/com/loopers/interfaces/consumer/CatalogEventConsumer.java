@@ -3,6 +3,8 @@ package com.loopers.interfaces.consumer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.ProductMetricsApp;
 import com.loopers.application.ranking.RankingApp;
+import com.loopers.domain.eventhandled.EventHandledModel;
+import com.loopers.domain.eventhandled.EventHandledRepository;
 import com.loopers.infrastructure.kafka.StreamerKafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +12,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -22,10 +25,12 @@ public class CatalogEventConsumer {
 
     private final ProductMetricsApp productMetricsApp;
     private final RankingApp rankingApp;
+    private final EventHandledRepository eventHandledRepository;
     private final ObjectMapper objectMapper;
 
-    private static final java.util.Set<String> SUPPORTED_EVENT_TYPES =
+    private static final java.util.Set<String> LIKE_EVENT_TYPES =
             java.util.Set.of("LikedEvent", "LikeRemovedEvent");
+    private static final String VIEWED_EVENT_TYPE = "ViewedEvent";
 
     @KafkaListener(
             topics = TOPIC,
@@ -37,23 +42,25 @@ public class CatalogEventConsumer {
             ConsumerRecord<Object, Object> record = records.get(i);
             try {
                 CatalogEventPayload payload = parse(record);
-                if (!SUPPORTED_EVENT_TYPES.contains(payload.eventType())) {
-                    log.warn("[CATALOG_EVENT] 미지원 eventType={}, offset={} — 건너뜀",
-                            payload.eventType(), record.offset());
-                    continue;
-                }
-                boolean processed = productMetricsApp.applyLikeDelta(
-                        payload.eventId(),
-                        payload.productDbId(),
-                        payload.delta(),
-                        payload.likedAt()
-                );
-                if (processed) {
-                    rankingApp.applyLikeDelta(
+                if (LIKE_EVENT_TYPES.contains(payload.eventType())) {
+                    boolean processed = productMetricsApp.applyLikeDelta(
+                            payload.eventId(),
                             payload.productDbId(),
                             payload.delta(),
-                            payload.likedAt().toLocalDate()
+                            payload.likedAt()
                     );
+                    if (processed) {
+                        rankingApp.applyLikeDelta(
+                                payload.productDbId(),
+                                payload.delta(),
+                                payload.likedAt().toLocalDate()
+                        );
+                    }
+                } else if (VIEWED_EVENT_TYPE.equals(payload.eventType())) {
+                    processViewIfNotHandled(payload);
+                } else {
+                    log.warn("[CATALOG_EVENT] 미지원 eventType={}, offset={} — 건너뜀",
+                            payload.eventType(), record.offset());
                 }
             } catch (Exception e) {
                 log.error("[CATALOG_EVENT_FAILED] offset={}, key={}", record.offset(), record.key(), e);
@@ -62,6 +69,15 @@ public class CatalogEventConsumer {
             }
         }
         acknowledgment.acknowledge();
+    }
+
+    @Transactional
+    public void processViewIfNotHandled(CatalogEventPayload payload) {
+        if (eventHandledRepository.existsByEventId(payload.eventId())) {
+            return;
+        }
+        rankingApp.applyViewScore(payload.productDbId(), payload.likedAt().toLocalDate());
+        eventHandledRepository.save(EventHandledModel.create(payload.eventId(), TOPIC));
     }
 
     private CatalogEventPayload parse(ConsumerRecord<Object, Object> record) {

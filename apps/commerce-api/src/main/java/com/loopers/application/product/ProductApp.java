@@ -1,5 +1,6 @@
 package com.loopers.application.product;
 
+import com.loopers.application.outbox.OutboxAppender;
 import com.loopers.domain.common.cursor.CursorPageResult;
 import com.loopers.domain.product.ProductMetricsModel;
 import com.loopers.domain.product.ProductMetricsRepository;
@@ -19,15 +20,20 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @RequiredArgsConstructor
 @Component
 public class ProductApp {
 
+    private static final String CATALOG_EVENTS_TOPIC = "catalog-events";
+
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final ProductCacheStore productCacheStore;
     private final ProductMetricsRepository productMetricsRepository;
+    private final OutboxAppender outboxAppender;
 
     @Transactional
     public ProductInfo createProduct(String productId, String brandId, String productName, BigDecimal price, int stockQuantity) {
@@ -35,15 +41,25 @@ public class ProductApp {
         return ProductInfo.from(product);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public ProductInfo getProduct(String productId) {
-        return productCacheStore.get(productId).orElseGet(() -> {
+        ProductInfo info = productCacheStore.get(productId).orElseGet(() -> {
             ProductModel product = productRepository.findByProductId(new ProductId(productId))
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "해당 ID의 상품이 존재하지 않습니다."));
-            ProductInfo info = ProductInfo.from(product);
-            productCacheStore.put(productId, info);
-            return info;
+            ProductInfo fresh = ProductInfo.from(product);
+            productCacheStore.put(productId, fresh);
+            return fresh;
         });
+        publishViewEvent(info.id(), null);
+        return info;
+    }
+
+    private void publishViewEvent(Long productDbId, Long memberId) {
+        String eventId = UUID.randomUUID().toString();
+        LocalDateTime now = LocalDateTime.now();
+        ViewOutboxPayload payload = new ViewOutboxPayload(
+                eventId, "ViewedEvent", 1, productDbId, memberId, 1, now);
+        outboxAppender.append("product", String.valueOf(productDbId), "ViewedEvent", CATALOG_EVENTS_TOPIC, payload);
     }
 
     @Caching(evict = {

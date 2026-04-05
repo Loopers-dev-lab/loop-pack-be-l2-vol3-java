@@ -20,6 +20,11 @@ public class RankingApp {
         rankingRepository.incrementScore(date, productDbId, score);
     }
 
+    public void applyViewScore(Long productDbId, LocalDate date) {
+        double score = weightProperties.view();
+        rankingRepository.incrementScore(date, productDbId, score);
+    }
+
     public void applyOrderScore(Long productDbId, BigDecimal price, int quantity, LocalDate date) {
         double rawScore = price.doubleValue() * quantity;
         double score = weightProperties.order() * rawScore;
