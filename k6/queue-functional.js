@@ -23,6 +23,7 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Trend, Rate } from 'k6/metrics';
+import exec from 'k6/execution';
 
 // ── Custom Metrics ───────────────────────────────────────────────
 const queueEnterErrors   = new Counter('queue_enter_errors');
@@ -39,6 +40,27 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' };
 // 토큰 대기 최대 시간 (스케줄러 100ms × 배치 처리 고려 → 최대 30s)
 const TOKEN_POLL_MAX_MS  = 30_000;
 const TOKEN_POLL_INTERVAL_S = 0.2;
+
+function parseDataId(res) {
+  try {
+    return res.json('data.id');
+  } catch (_) {
+    return null;
+  }
+}
+
+function abortSetup(stepName, res) {
+  console.error(`[setup:${stepName}] FAILED (${res.status}): ${res.body}`);
+  throw new Error(`setup failed at ${stepName}`);
+}
+
+function requireSetupId(stepName, res) {
+  const id = parseDataId(res);
+  if (res.status !== 200 || !id) {
+    abortSetup(stepName, res);
+  }
+  return id;
+}
 
 // ── Scenario Options ─────────────────────────────────────────────
 const scenarios = {
@@ -80,7 +102,7 @@ export function setup() {
     JSON.stringify({ name: 'K6-테스트-브랜드' }),
     { headers: { ...JSON_HEADERS, 'X-Loopers-Ldap': 'admin' } }
   );
-  const brandId = brandRes.json('data.id');
+  const brandId = requireSetupId('brand', brandRes);
 
   // 상품 생성
   const productRes = http.post(
@@ -88,7 +110,7 @@ export function setup() {
     JSON.stringify({ brandId, name: 'K6-테스트-상품', basePrice: 10000 }),
     { headers: { ...JSON_HEADERS, 'X-Loopers-Ldap': 'admin' } }
   );
-  const productId = productRes.json('data.id');
+  const productId = requireSetupId('product', productRes);
 
   // 옵션 생성 (충분한 재고)
   const optionRes = http.post(
@@ -96,16 +118,19 @@ export function setup() {
     JSON.stringify({ name: '기본', additionalPrice: 0, stock: 100000 }),
     { headers: { ...JSON_HEADERS, 'X-Loopers-Ldap': 'admin' } }
   );
-  const optionId = optionRes.json('data.id');
+  const optionId = requireSetupId('option', optionRes);
 
+  if (!optionId) {
+    abortSetup('option', optionRes);
+  }
   return { optionId };
 }
 
 // ── Case 1: 전체 흐름 기능 검증 ──────────────────────────────────
 function runCase1(data) {
   // memberId: 영숫자만 4~10자 (MemberId VO 제약)
-  // VU(1~20) × ITER(0~N) → 최대 5자리 숫자로 고유 ID 생성
-  const uid = `u${String(__VU).padStart(2, '0')}${String(__ITER % 1000).padStart(3, '0')}`;
+  // scenario 전역 iteration 번호를 써서 테스트 전체에서 충돌 없는 ID 생성
+  const uid = `u${String(exec.scenario.iterationInTest).padStart(6, '0')}`;
   const pw  = 'Password1!';
 
   // 1. 회원가입
