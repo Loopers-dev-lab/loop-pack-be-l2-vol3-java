@@ -88,6 +88,8 @@ spring:
 queue:
   scheduler:
     enabled: true
+    batch-size: 20
+    fixed-rate: 50
 
 ---
 spring:

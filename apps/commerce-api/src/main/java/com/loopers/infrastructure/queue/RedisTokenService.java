@@ -1,7 +1,8 @@
 package com.loopers.infrastructure.queue;
 
 import com.loopers.application.queue.TokenService;
-import lombok.RequiredArgsConstructor;
+import com.loopers.config.redis.RedisConfig;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -9,7 +10,6 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 
 @Component
-@RequiredArgsConstructor
 public class RedisTokenService implements TokenService {
 
     private static final String TOKEN_KEY_PREFIX = "entry-token:";
@@ -18,6 +18,12 @@ public class RedisTokenService implements TokenService {
     private long tokenTtlSeconds;
 
     private final StringRedisTemplate redisTemplateMaster;
+
+    public RedisTokenService(
+            @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) StringRedisTemplate redisTemplateMaster
+    ) {
+        this.redisTemplateMaster = redisTemplateMaster;
+    }
 
     @Override
     public void issue(Long userId) {

@@ -4,6 +4,8 @@ import com.loopers.application.queue.QueueService;
 import com.loopers.application.queue.TokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,9 +23,11 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "queue.scheduler.enabled", havingValue = "true", matchIfMissing = false)
 public class QueueScheduler {
+    private static final String QUEUE_ENTER_LOCK_KEY = "order:waiting-queue:lock";
 
     private final QueueService queueService;
     private final TokenService tokenService;
+    private final RedissonClient redissonClient;
 
     /**
      * 배치 크기 산정 근거:
@@ -52,23 +56,31 @@ public class QueueScheduler {
 
     @Scheduled(fixedRateString = "${queue.scheduler.fixed-rate:100}")
     public void process() {
-        List<Long> users = queueService.peekBatch(batchSize);
-        if (users.isEmpty()) {
-            return;
-        }
-        users.forEach(userId -> {
-            queueService.remove(userId);  // 즉시 큐에서 제거
-            if (tokenService.validate(userId)) {
-                return;  // 이미 토큰 있음 → TTL 유지
+        RLock lock = redissonClient.getLock(QUEUE_ENTER_LOCK_KEY);
+        lock.lock();
+        try {
+            List<Long> users = queueService.peekBatch(batchSize);
+            if (users.isEmpty()) {
+                return;
             }
-            long jitterMs = ThreadLocalRandom.current().nextLong(0, fixedRate);
-            jitterExecutor.schedule(
-                () -> {
-                    tokenService.issue(userId);
-                    log.debug("입장 토큰 발급 (jitter={}ms): userId={}", jitterMs, userId);
-                },
-                jitterMs, TimeUnit.MILLISECONDS
-            );
-        });
+            users.forEach(userId -> {
+                queueService.remove(userId);  // 즉시 큐에서 제거
+                if (tokenService.validate(userId)) {
+                    return;  // 이미 토큰 있음 → TTL 유지
+                }
+                long jitterMs = ThreadLocalRandom.current().nextLong(0, fixedRate);
+                jitterExecutor.schedule(
+                    () -> {
+                        tokenService.issue(userId);
+                        log.debug("입장 토큰 발급 (jitter={}ms): userId={}", jitterMs, userId);
+                    },
+                    jitterMs, TimeUnit.MILLISECONDS
+                );
+            });
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
     }
 }

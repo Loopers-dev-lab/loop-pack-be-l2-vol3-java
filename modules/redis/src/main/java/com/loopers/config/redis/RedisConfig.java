@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.RedisStaticMasterReplicaConfiguration;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -52,11 +53,7 @@ public class RedisConfig{
     public LettuceConnectionFactory masterRedisConnectionFactory() {
         int database = redisProperties.database();
         RedisNodeInfo master = redisProperties.master();
-        List<RedisNodeInfo> replicas = redisProperties.replicas();
-        return lettuceConnectionFactory(
-                database, master, replicas,
-                b -> b.readFrom(ReadFrom.MASTER)
-        );
+        return masterOnlyLettuceConnectionFactory(database, master);
     }
 
     @Primary
@@ -67,7 +64,7 @@ public class RedisConfig{
     }
 
     @Qualifier(REDIS_TEMPLATE_MASTER)
-    @Bean
+    @Bean(name = REDIS_TEMPLATE_MASTER)
     public StringRedisTemplate masterRedisTemplate(
             @Qualifier(CONNECTION_MASTER) LettuceConnectionFactory lettuceConnectionFactory
     ) {
@@ -102,6 +99,28 @@ public class RedisConfig{
             masterReplicaConfig.addNode(r.host(), r.port());
         }
         return new LettuceConnectionFactory(masterReplicaConfig, clientConfig);
+    }
+
+    private LettuceConnectionFactory masterOnlyLettuceConnectionFactory(
+            int database,
+            RedisNodeInfo master
+    ) {
+        SocketOptions socketOptions = SocketOptions.builder()
+                .connectTimeout(CONNECT_TIMEOUT)
+                .build();
+        ClientOptions clientOptions = ClientOptions.builder()
+                .socketOptions(socketOptions)
+                .timeoutOptions(TimeoutOptions.enabled(COMMAND_TIMEOUT))
+                .disconnectedBehavior(ClientOptions.DisconnectedBehavior.REJECT_COMMANDS)
+                .build();
+        LettuceClientConfiguration clientConfig = LettuceClientConfiguration.builder()
+                .commandTimeout(COMMAND_TIMEOUT)
+                .readFrom(ReadFrom.MASTER)
+                .clientOptions(clientOptions)
+                .build();
+        RedisStandaloneConfiguration standaloneConfig = new RedisStandaloneConfiguration(master.host(), master.port());
+        standaloneConfig.setDatabase(database);
+        return new LettuceConnectionFactory(standaloneConfig, clientConfig);
     }
 
     private <K,V> RedisTemplate<K,V> defaultRedisTemplate(

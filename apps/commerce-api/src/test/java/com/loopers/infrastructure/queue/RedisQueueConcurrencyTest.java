@@ -10,6 +10,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,10 +27,12 @@ class RedisQueueConcurrencyTest {
     private StringRedisTemplate redisTemplate;
 
     private static final String QUEUE_KEY = "order:waiting-queue";
+    private static final String QUEUE_SEQUENCE_KEY = "order:waiting-queue:sequence";
 
     @AfterEach
     void tearDown() {
         redisTemplate.delete(QUEUE_KEY);
+        redisTemplate.delete(QUEUE_SEQUENCE_KEY);
     }
 
     @DisplayName("동시에 여러 유저가 진입해도 모두 대기열에 정확히 등록된다.")
@@ -38,12 +41,15 @@ class RedisQueueConcurrencyTest {
         int threadCount = 100;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
         CountDownLatch latch = new CountDownLatch(threadCount);
+        ConcurrentLinkedQueue<Throwable> failures = new ConcurrentLinkedQueue<>();
 
         for (long userId = 1; userId <= threadCount; userId++) {
             long id = userId;
             executor.submit(() -> {
                 try {
                     queueService.enter(id);
+                } catch (Throwable t) {
+                    failures.add(t);
                 } finally {
                     latch.countDown();
                 }
@@ -53,6 +59,7 @@ class RedisQueueConcurrencyTest {
         latch.await();
         executor.shutdown();
 
+        assertThat(failures).isEmpty();
         assertThat(queueService.getSize()).isEqualTo(threadCount);
 
         List<Long> finalRanks = new ArrayList<>();
@@ -69,12 +76,15 @@ class RedisQueueConcurrencyTest {
         int overflowCount = 50;
         CountDownLatch latch = new CountDownLatch(overflowCount);
         ExecutorService executor = Executors.newFixedThreadPool(overflowCount);
+        ConcurrentLinkedQueue<Throwable> failures = new ConcurrentLinkedQueue<>();
 
         for (long userId = 1; userId <= overflowCount; userId++) {
             long id = userId;
             executor.submit(() -> {
                 try {
                     queueService.enter(id);
+                } catch (Throwable t) {
+                    failures.add(t);
                 } finally {
                     latch.countDown();
                 }
@@ -84,6 +94,7 @@ class RedisQueueConcurrencyTest {
         latch.await();
         executor.shutdown();
 
+        assertThat(failures).isEmpty();
         // 50명 모두 큐에 등록되어야 함 (스케줄러 없이)
         assertThat(queueService.getSize()).isEqualTo(overflowCount);
         // 배치 크기(14)를 초과한 인원이 큐에 남아있어야 함

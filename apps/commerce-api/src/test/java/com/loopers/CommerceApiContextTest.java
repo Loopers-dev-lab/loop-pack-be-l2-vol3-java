@@ -1,14 +1,56 @@
 package com.loopers;
 
+import com.loopers.application.coupon.CouponIssueRequestAppService;
+import com.loopers.config.redis.RedisConfig;
+import com.loopers.infrastructure.queue.RedisQueueService;
+import com.loopers.infrastructure.queue.RedisTokenService;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 class CommerceApiContextTest {
 
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    @Autowired
+    private RedisQueueService redisQueueService;
+
+    @Autowired
+    private RedisTokenService redisTokenService;
+
+    @Autowired
+    private CouponIssueRequestAppService couponIssueRequestAppService;
+
     @Test
     void contextLoads() {
-        // 이 테스트는 Spring Boot 애플리케이션 컨텍스트가 로드되는지 확인합니다.
-        // 모든 빈이 올바르게 로드되었는지 확인하는 데 사용됩니다.
+        StringRedisTemplate masterTemplate = applicationContext.getBean(RedisConfig.REDIS_TEMPLATE_MASTER, StringRedisTemplate.class);
+        StringRedisTemplate tokenTemplate = (StringRedisTemplate) ReflectionTestUtils.getField(redisTokenService, "redisTemplateMaster");
+        StringRedisTemplate couponTemplate = (StringRedisTemplate) ReflectionTestUtils.getField(couponIssueRequestAppService, "redisTemplate");
+
+        assertThat(applicationContext.getBeansOfType(StringRedisTemplate.class)).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(redisQueueService).isNotNull();
+        assertThat(tokenTemplate).isSameAs(masterTemplate);
+        assertThat(couponTemplate).isSameAs(masterTemplate);
+    }
+
+    @TestConfiguration
+    static class AdditionalRedisTemplateConfig {
+
+        @Bean
+        StringRedisTemplate secondaryStringRedisTemplate(LettuceConnectionFactory lettuceConnectionFactory) {
+            StringRedisTemplate redisTemplate = new StringRedisTemplate();
+            redisTemplate.setConnectionFactory(lettuceConnectionFactory);
+            return redisTemplate;
+        }
     }
 }

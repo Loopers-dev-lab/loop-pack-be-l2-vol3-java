@@ -12,7 +12,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest
+@SpringBootTest(properties = "queue.scheduler.enabled=false")
 class RedisQueueServiceTest {
 
     @Autowired
@@ -23,10 +23,12 @@ class RedisQueueServiceTest {
 
 
     private static final String QUEUE_KEY = "order:waiting-queue";
+    private static final String QUEUE_SEQUENCE_KEY = "order:waiting-queue:sequence";
 
     @AfterEach
     void tearDown() {
         redisTemplate.delete(QUEUE_KEY);
+        redisTemplate.delete(QUEUE_SEQUENCE_KEY);
     }
 
     @Test
