@@ -4,4 +4,12 @@ import java.time.LocalDate;
 
 public interface RankingRepository {
     void incrementScore(LocalDate date, Long productDbId, double score);
+
+    /**
+     * {@code sourceDate}의 ZSET을 {@code destDate}의 ZSET으로 carry-over 한다.
+     * ZUNIONSTORE로 score에 {@code weight}를 곱해서 저장하여 전날 상위 상품을 초기값으로 설정.
+     *
+     * @return carry-over된 멤버 수
+     */
+    long carryOver(LocalDate sourceDate, LocalDate destDate, double weight);
 }

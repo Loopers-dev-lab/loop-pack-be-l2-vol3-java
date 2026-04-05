@@ -30,4 +30,8 @@ public class RankingApp {
         double score = weightProperties.order() * rawScore;
         rankingRepository.incrementScore(date, productDbId, score);
     }
+
+    public long carryOver(LocalDate sourceDate, LocalDate destDate, double weight) {
+        return rankingRepository.carryOver(sourceDate, destDate, weight);
+    }
 }

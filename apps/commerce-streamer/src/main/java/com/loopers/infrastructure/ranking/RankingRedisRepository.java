@@ -4,6 +4,8 @@ import com.loopers.domain.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankingRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.redis.connection.zset.Aggregate;
+import org.springframework.data.redis.connection.zset.Weights;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scripting.support.ResourceScriptSource;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 
 import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
@@ -53,5 +56,26 @@ public class RankingRedisRepository implements RankingRepository {
         if (Boolean.FALSE.equals(hasKey)) {
             redisTemplate.expire(key, TTL);
         }
+    }
+
+    @Override
+    public long carryOver(LocalDate sourceDate, LocalDate destDate, double weight) {
+        String sourceKey = RankingKeyGenerator.dailyKey(sourceDate);
+        String destKey = RankingKeyGenerator.dailyKey(destDate);
+
+        Boolean sourceExists = redisTemplate.hasKey(sourceKey);
+        if (Boolean.FALSE.equals(sourceExists)) {
+            return 0L;
+        }
+
+        Long count = redisTemplate.opsForZSet().unionAndStore(
+                sourceKey,
+                Collections.emptyList(),
+                destKey,
+                Aggregate.SUM,
+                Weights.of(weight)
+        );
+        redisTemplate.expire(destKey, TTL);
+        return count != null ? count : 0L;
     }
 }
