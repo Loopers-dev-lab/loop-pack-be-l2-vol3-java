@@ -26,6 +26,7 @@ spring:
       - resilience4j.yml
       - logging.yml
       - monitoring.yml
+      - queue.yml
 
 springdoc:
   use-fqn: true

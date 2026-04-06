@@ -1,0 +1,12 @@
+queue:
+  throughput-per-second: 175    # 초당 처리 가능 인원
+  redis-key: waiting-queue       # Sorted Set 키
+  token-prefix: entry-token      # 토큰 키 prefix
+  token-ttl-seconds: 300         # 토큰 TTL (5분)
+  scheduler-enabled: true        # 스케줄러 활성화 여부
+
+---
+spring.config.activate.on-profile: test
+
+queue:
+  scheduler-enabled: false       # 테스트 시 스케줄러 비활성화

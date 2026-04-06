@@ -2,6 +2,7 @@ package com.loopers.application.order;
 
 import com.loopers.application.event.OrderCompletedEvent;
 import com.loopers.application.event.UserActionEvent;
+import com.loopers.application.queue.TokenService;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.CouponTemplateRepository;
@@ -18,6 +19,7 @@ import com.loopers.domain.useraction.ActionType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,7 @@ import java.util.List;
  * 주문 Application Service.
  * 여러 BC 조합 및 트랜잭션 경계 담당.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderApplicationService {
@@ -39,6 +42,7 @@ public class OrderApplicationService {
     private final IssuedCouponRepository issuedCouponRepository;
     private final UserPointRepository userPointRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TokenService tokenService;
 
     /**
      * 주문 생성.
@@ -82,6 +86,9 @@ public class OrderApplicationService {
 
         // 5) 이벤트 발행
         publishOrderEvents(saved, userId, items);
+
+        // 6) 입장 토큰 삭제 (트랜잭션 외부에서 실행해도 무방 - TTL로 자연 만료됨)
+        deleteEntryToken(userId);
 
         return OrderResult.from(saved);
     }
@@ -216,6 +223,9 @@ public class OrderApplicationService {
         // 8. 이벤트 발행
         publishOrderEvents(saved, userId, request.items());
 
+        // 9. 입장 토큰 삭제 (트랜잭션 외부에서 실행해도 무방 - TTL로 자연 만료됨)
+        deleteEntryToken(userId);
+
         return OrderResult.from(saved);
     }
 
@@ -231,5 +241,15 @@ public class OrderApplicationService {
             order.getTotalPrice().amount()
         ));
         eventPublisher.publishEvent(UserActionEvent.of(userId, ActionType.ORDER, order.getId()));
+    }
+
+    private void deleteEntryToken(Long userId) {
+        try {
+            tokenService.deleteToken(userId);
+            log.info("Entry token deleted after order completion: userId={}", userId);
+        } catch (Exception e) {
+            // 토큰 삭제 실패는 무시 (TTL로 자연 만료됨)
+            log.warn("Failed to delete entry token for userId={}, will expire by TTL", userId, e);
+        }
     }
 }

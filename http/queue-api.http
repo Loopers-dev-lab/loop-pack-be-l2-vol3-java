@@ -1,0 +1,31 @@
+### Queue API - 대기열 관련 API
+
+### 대기열 진입
+POST {{baseUrl}}/api/v1/queue/enter
+Content-Type: application/json
+
+{
+  "userId": 1
+}
+
+### 순번 조회
+GET {{baseUrl}}/api/v1/queue/position?userId=1
+
+### 대기열 이탈
+DELETE {{baseUrl}}/api/v1/queue/leave?userId=1
+
+### 주문 (토큰 필요)
+# 대기열에서 토큰을 발급받은 후 주문 가능
+POST {{baseUrl}}/api/v1/orders
+Content-Type: application/json
+X-User-Id: 1
+X-Entry-Token: {{entryToken}}
+
+{
+  "items": [
+    {
+      "productId": 1,
+      "quantity": 1
+    }
+  ]
+}

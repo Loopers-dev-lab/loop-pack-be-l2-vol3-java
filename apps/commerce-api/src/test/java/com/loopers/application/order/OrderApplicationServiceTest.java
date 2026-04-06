@@ -16,6 +16,7 @@ import com.loopers.fake.FakeCouponTemplateRepository;
 import com.loopers.fake.FakeIssuedCouponRepository;
 import com.loopers.fake.FakeOrderRepository;
 import com.loopers.fake.FakeProductRepository;
+import com.loopers.fake.FakeTokenService;
 import com.loopers.fake.FakeUserPointRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -39,6 +40,7 @@ class OrderApplicationServiceTest {
     private FakeIssuedCouponRepository fakeIssuedCouponRepository;
     private FakeUserPointRepository fakeUserPointRepository;
     private FakeApplicationEventPublisher fakeEventPublisher;
+    private FakeTokenService fakeTokenService;
     private OrderApplicationService orderApplicationService;
 
     @BeforeEach
@@ -49,13 +51,15 @@ class OrderApplicationServiceTest {
         fakeIssuedCouponRepository = new FakeIssuedCouponRepository();
         fakeUserPointRepository = new FakeUserPointRepository();
         fakeEventPublisher = new FakeApplicationEventPublisher();
+        fakeTokenService = new FakeTokenService();
         orderApplicationService = new OrderApplicationService(
             fakeProductRepository,
             fakeOrderRepository,
             fakeCouponTemplateRepository,
             fakeIssuedCouponRepository,
             fakeUserPointRepository,
-            fakeEventPublisher
+            fakeEventPublisher,
+            fakeTokenService
         );
     }
 
