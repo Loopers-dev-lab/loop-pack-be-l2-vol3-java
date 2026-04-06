@@ -22,6 +22,9 @@ public class ProductMetrics {
     @Column(name = "order_count", nullable = false)
     private Long orderCount = 0L;
 
+    @Column(name = "view_count", nullable = false)
+    private Long viewCount = 0L;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private ZonedDateTime createdAt;
 
@@ -53,6 +56,10 @@ public class ProductMetrics {
 
     public void applyOrder(long quantity) {
         this.orderCount += quantity;
+    }
+
+    public void applyView() {
+        this.viewCount += 1;
     }
 
     /**

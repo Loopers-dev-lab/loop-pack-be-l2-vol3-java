@@ -5,6 +5,7 @@ import com.loopers.infrastructure.eventhandled.EventHandled;
 import com.loopers.infrastructure.eventhandled.EventHandledJpaRepository;
 import com.loopers.interfaces.consumer.payload.CatalogEventPayload;
 import com.loopers.interfaces.consumer.payload.OrderCreatedEventPayload;
+import com.loopers.interfaces.consumer.payload.ProductViewEventPayload;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,5 +34,10 @@ public class ProductMetricsFacade {
         payload.items().forEach(item ->
                 productMetricsRepository.upsertOrder(item.productId(), item.quantity()));
         eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
+    }
+
+    @Transactional
+    public void applyView(ProductViewEventPayload payload) {
+        productMetricsRepository.upsertView(payload.productId());
     }
 }

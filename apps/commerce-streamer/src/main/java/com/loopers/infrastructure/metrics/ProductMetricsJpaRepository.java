@@ -10,17 +10,25 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
 
     @Modifying
     @Query(value = """
-            INSERT INTO product_metrics (product_id, like_count, order_count)
-            VALUES (:productId, :delta, 0)
+            INSERT INTO product_metrics (product_id, like_count, order_count, view_count)
+            VALUES (:productId, :delta, 0, 0)
             ON DUPLICATE KEY UPDATE like_count = like_count + :delta
             """, nativeQuery = true)
     void upsertLike(@Param("productId") Long productId, @Param("delta") int delta);
 
     @Modifying
     @Query(value = """
-            INSERT INTO product_metrics (product_id, like_count, order_count)
-            VALUES (:productId, 0, :quantity)
+            INSERT INTO product_metrics (product_id, like_count, order_count, view_count)
+            VALUES (:productId, 0, :quantity, 0)
             ON DUPLICATE KEY UPDATE order_count = order_count + :quantity
             """, nativeQuery = true)
     void upsertOrder(@Param("productId") Long productId, @Param("quantity") long quantity);
+
+    @Modifying
+    @Query(value = """
+            INSERT INTO product_metrics (product_id, like_count, order_count, view_count)
+            VALUES (:productId, 0, 0, 1)
+            ON DUPLICATE KEY UPDATE view_count = view_count + 1
+            """, nativeQuery = true)
+    void upsertView(@Param("productId") Long productId);
 }

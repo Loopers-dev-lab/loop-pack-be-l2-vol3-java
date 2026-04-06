@@ -5,6 +5,8 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.ProductViewEvent;
+import com.loopers.domain.product.ProductViewEventPublisher;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.support.error.CoreException;
@@ -22,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -32,7 +35,8 @@ class ProductFacadeTest {
     LikeRepository likeRepository = mock(LikeRepository.class);
     ProductAssembler productAssembler = new ProductAssembler();
     ProductQueryService productQueryService = mock(ProductQueryService.class);
-    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler, productQueryService);
+    ProductViewEventPublisher productViewEventPublisher = mock(ProductViewEventPublisher.class);
+    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler, productQueryService, productViewEventPublisher);
 
     @DisplayName("상품 등록 시, ")
     @Nested
@@ -154,7 +158,7 @@ class ProductFacadeTest {
     @Nested
     class GetDetail {
 
-        @DisplayName("존재하는 상품이면, ProductQueryService 에 위임한다.")
+        @DisplayName("존재하는 상품이면, ProductQueryService 에 위임하고 조회 이벤트를 발행한다.")
         @Test
         void delegatesToProductQueryService_whenProductExists() {
             // arrange
@@ -167,7 +171,22 @@ class ProductFacadeTest {
 
             // assert
             verify(productQueryService).getDetail(productId);
+            verify(productViewEventPublisher).publish(new ProductViewEvent.Viewed(productId));
             assertThat(result).isEqualTo(expected);
+        }
+
+        @DisplayName("존재하지 않는 상품이면, 조회 이벤트가 발행되지 않는다.")
+        @Test
+        void doesNotPublishEvent_whenProductNotFound() {
+            // arrange
+            Long productId = 999L;
+            when(productQueryService.getDetail(productId)).thenThrow(new CoreException(com.loopers.support.error.ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
+
+            // act
+            assertThrows(CoreException.class, () -> productFacade.getDetail(productId));
+
+            // assert
+            verify(productViewEventPublisher, never()).publish(any());
         }
     }
 

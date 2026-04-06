@@ -5,6 +5,8 @@ import com.loopers.domain.brand.BrandRepository;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.product.ProductViewEvent;
+import com.loopers.domain.product.ProductViewEventPublisher;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.support.error.CoreException;
@@ -28,6 +30,7 @@ public class ProductFacade {
     private final LikeRepository likeRepository;
     private final ProductAssembler productAssembler;
     private final ProductQueryService productQueryService;
+    private final ProductViewEventPublisher productViewEventPublisher;
 
     @Transactional
     public void register(String name, String description, Integer stock, Integer price, Long brandId) {
@@ -74,7 +77,9 @@ public class ProductFacade {
 
     @Transactional(readOnly = true)
     public ProductInfo getDetail(Long productId) {
-        return productQueryService.getDetail(productId);
+        ProductInfo result = productQueryService.getDetail(productId);
+        productViewEventPublisher.publish(new ProductViewEvent.Viewed(productId));
+        return result;
     }
 
     @Transactional

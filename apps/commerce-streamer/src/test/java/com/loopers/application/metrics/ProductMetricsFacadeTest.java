@@ -4,6 +4,7 @@ import com.loopers.domain.metrics.ProductMetricsRepository;
 import com.loopers.infrastructure.eventhandled.EventHandledJpaRepository;
 import com.loopers.interfaces.consumer.payload.CatalogEventPayload;
 import com.loopers.interfaces.consumer.payload.OrderCreatedEventPayload;
+import com.loopers.interfaces.consumer.payload.ProductViewEventPayload;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -95,6 +96,24 @@ class ProductMetricsFacadeTest {
 
             // assert
             verify(productMetricsRepository, never()).upsertOrder(anyLong(), anyLong());
+        }
+    }
+
+    @DisplayName("applyView() 를 호출할 때, ")
+    @Nested
+    class ApplyView {
+
+        @DisplayName("viewCount 가 반영된다.")
+        @Test
+        void appliesView() {
+            // arrange
+            ProductViewEventPayload payload = new ProductViewEventPayload(42L);
+
+            // act
+            facade.applyView(payload);
+
+            // assert
+            verify(productMetricsRepository).upsertView(42L);
         }
     }
 }

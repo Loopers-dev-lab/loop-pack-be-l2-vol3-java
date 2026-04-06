@@ -19,4 +19,9 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     public void upsertOrder(Long productId, long quantity) {
         jpaRepository.upsertOrder(productId, quantity);
     }
+
+    @Override
+    public void upsertView(Long productId) {
+        jpaRepository.upsertView(productId);
+    }
 }
