@@ -9,7 +9,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 
 import com.loopers.domain.eventhandled.EventHandledRepository;
-import com.loopers.domain.ranking.ProductRankingRepository;
+import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.domain.ranking.RankingEvent;
 import com.loopers.domain.ranking.RankingScoreCalculator;
 
@@ -32,7 +32,7 @@ public class RankingService {
 
     private final EventHandledRepository eventHandledRepository;
     private final RankingScoreCalculator scoreCalculator;
-    private final ProductRankingRepository productRankingRepository;
+    private final RankingRepository rankingRepository;
 
     /**
      * 랭킹 이벤트 배치를 처리한다.
@@ -62,7 +62,7 @@ public class RankingService {
         }
         scores.values().removeIf(score -> score == 0.0);
         if (!scores.isEmpty()) {
-            productRankingRepository.incrementScores(todayKey(), scores);
+            rankingRepository.incrementScores(todayKey(), scores);
         }
     }
 

@@ -25,7 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.loopers.domain.eventhandled.EventHandledRepository;
-import com.loopers.domain.ranking.ProductRankingRepository;
+import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.domain.ranking.RankingEvent;
 import com.loopers.domain.ranking.RankingScoreCalculator;
 
@@ -45,7 +45,7 @@ class RankingServiceTest {
     private RankingScoreCalculator scoreCalculator;
 
     @Mock
-    private ProductRankingRepository productRankingRepository;
+    private RankingRepository rankingRepository;
 
     @Captor
     private ArgumentCaptor<Map<Long, Double>> scoresCaptor;
@@ -70,7 +70,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert
-            then(productRankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
+            then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
             Map<Long, Double> scores = scoresCaptor.getValue();
             assertThat(scores.get(1L)).isCloseTo(0.2, offset(0.001));
             assertThat(scores.get(2L)).isCloseTo(0.1, offset(0.001));
@@ -93,7 +93,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert
-            then(productRankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
+            then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
             assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(0.2, offset(0.001));
         }
 
@@ -113,7 +113,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert
-            then(productRankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
+            then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
             assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(5.82, offset(0.001));
         }
 
@@ -135,7 +135,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert
-            then(productRankingRepository).should(times(1)).incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
+            then(rankingRepository).should(times(1)).incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
             assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(3.12, offset(0.001));
         }
 
@@ -146,7 +146,7 @@ class RankingServiceTest {
             rankingService.processBatch(List.of());
 
             // assert
-            then(productRankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
+            then(rankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
         }
 
         @DisplayName("중복 이벤트는 skip한다.")
@@ -165,7 +165,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert — e2는 skip되어 score가 0.1만 반영
-            then(productRankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
+            then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
             assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(0.1, offset(0.001));
         }
 
@@ -187,7 +187,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert — productId=1은 0.0이므로 제외, productId=2만 포함
-            then(productRankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
+            then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
             Map<Long, Double> scores = scoresCaptor.getValue();
             assertThat(scores).doesNotContainKey(1L);
             assertThat(scores.get(2L)).isCloseTo(0.1, offset(0.001));
@@ -207,7 +207,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert
-            then(productRankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
+            then(rankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
         }
     }
 }

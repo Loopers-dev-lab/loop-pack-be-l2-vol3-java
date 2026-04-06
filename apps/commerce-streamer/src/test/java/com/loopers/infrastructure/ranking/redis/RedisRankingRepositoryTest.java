@@ -20,10 +20,10 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @ExtendWith(MockitoExtension.class)
-class RedisProductRankingRepositoryTest {
+class RedisRankingRepositoryTest {
 
     @InjectMocks
-    private RedisProductRankingRepository repository;
+    private RedisRankingRepository repository;
 
     @Mock
     private RedisTemplate<String, String> redisTemplate;
