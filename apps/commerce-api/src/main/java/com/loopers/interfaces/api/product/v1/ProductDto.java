@@ -97,7 +97,8 @@ public class ProductDto {
             String description,
             BrandInfo brand,
             Long likeCount,
-            boolean liked
+            boolean liked,
+            Integer rank
     ) {
 
         public static ProductDetailResponse from(ProductDetail productDetail) {
@@ -110,7 +111,8 @@ public class ProductDto {
                     productDetail.description(),
                     BrandInfo.from(productDetail),
                     productDetail.likeCount(),
-                    productDetail.liked()
+                    productDetail.liked(),
+                    productDetail.rank()
             );
         }
 

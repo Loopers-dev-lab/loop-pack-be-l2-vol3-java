@@ -190,6 +190,101 @@ class ProductCacheReaderTest {
         }
     }
 
+    @DisplayName("ID 목록으로 활성 상품을 조회할 때,")
+    @Nested
+    class ReadActiveProductsByIds {
+
+        @DisplayName("전체 캐시 HIT이면, DB를 호출하지 않고 입력 순서대로 반환한다.")
+        @Test
+        void returnsFromCacheInOrder_whenAllHit() {
+            // arrange
+            var product1 = ProductFixture.createProduct(1L);
+            var product2 = ProductFixture.createProduct(2L);
+            var product3 = ProductFixture.createProduct(3L);
+            List<Long> ids = List.of(3L, 1L, 2L);
+
+            given(cacheRepository.multiGet(anyList(), any(CacheType.class)))
+                    .willReturn(List.of(product3, product1, product2));
+
+            // act
+            List<Product> result = productCacheReader.readActiveProductsByIds(ids);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result).hasSize(3),
+                    () -> assertThat(result.get(0).getId()).isEqualTo(3L),
+                    () -> assertThat(result.get(1).getId()).isEqualTo(1L),
+                    () -> assertThat(result.get(2).getId()).isEqualTo(2L)
+            );
+            then(productService).shouldHaveNoInteractions();
+        }
+
+        @DisplayName("부분 캐시 MISS이면, 미스된 상품만 DB에서 조회하고 캐싱한다.")
+        @Test
+        void fetchesMissingFromDb_whenPartialMiss() {
+            // arrange
+            var product1 = ProductFixture.createProduct(1L);
+            var product2 = ProductFixture.createProduct(2L);
+            var product3 = ProductFixture.createProduct(3L);
+            List<Long> ids = List.of(1L, 2L, 3L);
+
+            given(cacheRepository.multiGet(anyList(), any(CacheType.class)))
+                    .willReturn(Arrays.asList(product1, null, product3));
+            given(productService.getActiveProductsByIds(List.of(2L)))
+                    .willReturn(Map.of(2L, product2));
+
+            // act
+            List<Product> result = productCacheReader.readActiveProductsByIds(ids);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result).hasSize(3),
+                    () -> assertThat(result.get(0).getId()).isEqualTo(1L),
+                    () -> assertThat(result.get(1).getId()).isEqualTo(2L),
+                    () -> assertThat(result.get(2).getId()).isEqualTo(3L)
+            );
+            then(cacheRepository).should().multiPut(multiPutCaptor.capture(), any(Supplier.class));
+            assertThat(multiPutCaptor.getValue()).containsKey(ProductCacheConstants.DETAIL_KEY.of(2L));
+        }
+
+        @DisplayName("전체 캐시 MISS이면, 전체를 DB에서 조회하고 캐싱한다.")
+        @Test
+        void fetchesAllFromDb_whenAllMiss() {
+            // arrange
+            var product1 = ProductFixture.createProduct(1L);
+            var product2 = ProductFixture.createProduct(2L);
+            List<Long> ids = List.of(1L, 2L);
+
+            given(cacheRepository.multiGet(anyList(), any(CacheType.class)))
+                    .willReturn(Arrays.asList(null, null));
+            given(productService.getActiveProductsByIds(ids))
+                    .willReturn(Map.of(1L, product1, 2L, product2));
+
+            // act
+            List<Product> result = productCacheReader.readActiveProductsByIds(ids);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result).hasSize(2),
+                    () -> assertThat(result.get(0).getId()).isEqualTo(1L),
+                    () -> assertThat(result.get(1).getId()).isEqualTo(2L)
+            );
+            then(cacheRepository).should().multiPut(multiPutCaptor.capture(), any(Supplier.class));
+            assertThat(multiPutCaptor.getValue()).hasSize(2);
+        }
+
+        @DisplayName("빈 ID 목록이면, 빈 리스트를 반환한다.")
+        @Test
+        void returnsEmptyList_whenEmptyIds() {
+            // act
+            List<Product> result = productCacheReader.readActiveProductsByIds(List.of());
+
+            // assert
+            assertThat(result).isEmpty();
+            then(cacheRepository).shouldHaveNoInteractions();
+        }
+    }
+
     @DisplayName("Lock 메모리 관리를 할 때,")
     @Nested
     class LockCleanup {

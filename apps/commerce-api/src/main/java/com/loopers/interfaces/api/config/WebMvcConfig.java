@@ -30,7 +30,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")
-                .excludePathPatterns("/api/v1/users", "/api/v1/brands/**", "/api/v1/payments/callback");
+                .excludePathPatterns("/api/v1/users", "/api/v1/brands/**", "/api/v1/payments/callback", "/api/v1/rankings");
 
         registry.addInterceptor(entryTokenInterceptor)
                 .addPathPatterns("/api/v1/orders");
