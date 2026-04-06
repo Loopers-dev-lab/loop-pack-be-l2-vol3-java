@@ -12,17 +12,17 @@ public class EntryTokenService {
 
     private final EntryTokenRepository entryTokenRepository;
 
-    public void validate(Long userId, String token) {
+    public void validateAndConsume(Long userId, String token) {
         if (token == null) {
             throw new CoreException(ErrorType.ENTRY_TOKEN_REQUIRED);
         }
 
-        if (!entryTokenRepository.validateToken(userId, token)) {
+        if (!entryTokenRepository.consumeIfMatch(userId, token)) {
             throw new CoreException(ErrorType.ENTRY_TOKEN_INVALID);
         }
     }
 
-    public void consume(Long userId) {
-        entryTokenRepository.deleteToken(userId);
+    public void restore(Long userId, String token) {
+        entryTokenRepository.restoreToken(userId, token);
     }
 }

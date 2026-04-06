@@ -10,9 +10,9 @@ public interface EntryTokenRepository {
     /** 유저의 입장 토큰을 조회한다. */
     Optional<String> getToken(Long userId);
 
-    /** 입장 토큰을 삭제한다. (사용 완료) */
-    void deleteToken(Long userId);
+    /** 토큰이 일치하면 원자적으로 삭제하고 true를 반환한다. */
+    boolean consumeIfMatch(Long userId, String token);
 
-    /** 토큰이 유효한지 검증한다. */
-    boolean validateToken(Long userId, String token);
+    /** 주문 실패 시 소비된 토큰을 복원한다. */
+    void restoreToken(Long userId, String token);
 }

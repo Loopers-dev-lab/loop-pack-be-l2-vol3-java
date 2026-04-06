@@ -105,6 +105,21 @@ class OrderFacadeQueueTest {
                     .isEqualTo(ErrorType.ENTRY_TOKEN_REQUIRED);
         }
 
+        @DisplayName("주문 생성에 실패하면 토큰이 복원된다.")
+        @Test
+        void restoresToken_whenOrderFails() {
+            // arrange
+            entryTokenRepository.issueToken(1L, "valid-token", Duration.ofMinutes(5));
+            given(productService.getActiveProductsByIdsOrThrow(any()))
+                    .willThrow(new CoreException(ErrorType.INSUFFICIENT_STOCK));
+
+            // act & assert
+            assertThatThrownBy(() -> orderFacade.createOrder(createCommand(1L), "valid-token"))
+                    .isInstanceOf(CoreException.class);
+
+            assertThat(entryTokenRepository.getToken(1L)).isPresent().hasValue("valid-token");
+        }
+
         @DisplayName("토큰이 유효하지 않으면 예외가 발생한다.")
         @Test
         void throwsException_whenTokenInvalid() {

@@ -29,15 +29,19 @@ public class InMemoryEntryTokenRepository implements EntryTokenRepository {
     }
 
     @Override
-    public void deleteToken(Long userId) {
-        store.remove(userId);
+    public synchronized boolean consumeIfMatch(Long userId, String token) {
+        return getToken(userId)
+                .filter(stored -> stored.equals(token))
+                .map(stored -> {
+                    store.remove(userId);
+                    return true;
+                })
+                .orElse(false);
     }
 
     @Override
-    public boolean validateToken(Long userId, String token) {
-        return getToken(userId)
-                .map(stored -> stored.equals(token))
-                .orElse(false);
+    public void restoreToken(Long userId, String token) {
+        store.put(userId, new TokenEntry(token, Instant.now().plus(Duration.ofMinutes(5))));
     }
 
     private record TokenEntry(String token, Instant expiresAt) {

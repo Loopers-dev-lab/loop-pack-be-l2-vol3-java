@@ -41,10 +41,13 @@ public class OrderFacade {
         }
 
         if (queueEnabled) {
-            entryTokenService.validate(command.userId(), entryToken);
-            OrderInfo orderInfo = createOrder(command);
-            entryTokenService.consume(command.userId());
-            return orderInfo;
+            entryTokenService.validateAndConsume(command.userId(), entryToken);
+            try {
+                return createOrder(command);
+            } catch (Exception e) {
+                entryTokenService.restore(command.userId(), entryToken);
+                throw e;
+            }
         }
 
         return createOrder(command);

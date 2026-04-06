@@ -24,25 +24,28 @@ class EntryTokenServiceTest {
         entryTokenService = new EntryTokenService(entryTokenRepository);
     }
 
-    @DisplayName("토큰 검증 시, ")
+    @DisplayName("토큰 검증 및 소비 시, ")
     @Nested
-    class Validate {
+    class ValidateAndConsume {
 
-        @DisplayName("유효한 토큰이면 정상 통과한다.")
+        @DisplayName("유효한 토큰이면 소비되고 정상 통과한다.")
         @Test
-        void passes_whenValidToken() {
+        void consumesToken_whenValid() {
             // arrange
             entryTokenRepository.issueToken(1L, "valid-token", Duration.ofMinutes(5));
 
-            // act & assert: 예외 없이 통과
-            entryTokenService.validate(1L, "valid-token");
+            // act
+            entryTokenService.validateAndConsume(1L, "valid-token");
+
+            // assert
+            assertThat(entryTokenRepository.getToken(1L)).isEmpty();
         }
 
         @DisplayName("토큰이 null이면 예외가 발생한다.")
         @Test
         void throwsException_whenTokenIsNull() {
             // act & assert
-            assertThatThrownBy(() -> entryTokenService.validate(1L, null))
+            assertThatThrownBy(() -> entryTokenService.validateAndConsume(1L, null))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.ENTRY_TOKEN_REQUIRED);
@@ -55,7 +58,7 @@ class EntryTokenServiceTest {
             entryTokenRepository.issueToken(1L, "valid-token", Duration.ofMinutes(5));
 
             // act & assert
-            assertThatThrownBy(() -> entryTokenService.validate(1L, "wrong-token"))
+            assertThatThrownBy(() -> entryTokenService.validateAndConsume(1L, "wrong-token"))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.ENTRY_TOKEN_INVALID);
@@ -67,29 +70,25 @@ class EntryTokenServiceTest {
             // arrange: 음수 TTL로 즉시 만료
             entryTokenRepository.issueToken(1L, "expired-token", Duration.ofMillis(-1));
 
-            // act & assert: 토큰을 제공했지만 만료되어 유효하지 않음
-            assertThatThrownBy(() -> entryTokenService.validate(1L, "expired-token"))
+            // act & assert
+            assertThatThrownBy(() -> entryTokenService.validateAndConsume(1L, "expired-token"))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.ENTRY_TOKEN_INVALID);
         }
-    }
 
-    @DisplayName("토큰 소비 시, ")
-    @Nested
-    class Consume {
-
-        @DisplayName("토큰이 삭제된다.")
+        @DisplayName("이미 소비된 토큰은 재사용할 수 없다.")
         @Test
-        void deletesToken() {
+        void throwsException_whenAlreadyConsumed() {
             // arrange
             entryTokenRepository.issueToken(1L, "token", Duration.ofMinutes(5));
+            entryTokenService.validateAndConsume(1L, "token");
 
-            // act
-            entryTokenService.consume(1L);
-
-            // assert
-            assertThat(entryTokenRepository.getToken(1L)).isEmpty();
+            // act & assert
+            assertThatThrownBy(() -> entryTokenService.validateAndConsume(1L, "token"))
+                    .isInstanceOf(CoreException.class)
+                    .extracting(e -> ((CoreException) e).getErrorType())
+                    .isEqualTo(ErrorType.ENTRY_TOKEN_INVALID);
         }
     }
 }
