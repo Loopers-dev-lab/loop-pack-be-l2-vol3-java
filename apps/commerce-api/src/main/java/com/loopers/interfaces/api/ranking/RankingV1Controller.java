@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
@@ -41,7 +42,7 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         @RequestParam(defaultValue = "0") @Min(value = 0, message = "page는 0 이상이어야 합니다.") int page,
         @RequestParam(defaultValue = "20") @Min(value = 1, message = "size는 1 이상이어야 합니다.") int size
     ) {
-        String resolvedDate = (date != null) ? date : LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String resolvedDate = (date != null) ? date : LocalDate.now(KST).format(DateTimeFormatter.ofPattern("uuuuMMdd"));
         validateDate(resolvedDate);
         PageResult<ProductRanking> rankings = rankingQueryService.getDailyRanking(resolvedDate, page, size);
 
@@ -56,8 +57,9 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         return ApiResponse.success(RankingV1Dto.RankingPageResponse.from(rankings, productMap));
     }
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter STRICT_DAY_FORMAT =
-        DateTimeFormatter.ofPattern("yyyyMMdd").withResolverStyle(ResolverStyle.STRICT);
+        DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT);
 
     private void validateDate(String date) {
         try {

@@ -11,9 +11,11 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 @Component
 public class RankingCarryOverScheduler {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final String LOCK_KEY = "ranking:lock:carry-over";
     private static final long LOCK_TTL_MS = 300_000;
     private static final String RELEASE_LOCK_SCRIPT =
@@ -38,6 +41,10 @@ public class RankingCarryOverScheduler {
         @Value("${ranking.carry-over.weight}") double carryOverWeight,
         @Value("${ranking.ttl.day-seconds}") long dayTtlSeconds
     ) {
+        Assert.state(carryOverWeight > 0.0 && carryOverWeight <= 1.0,
+            "ranking.carry-over.weight must be in (0, 1]. 현재: " + carryOverWeight);
+        Assert.state(dayTtlSeconds > 0,
+            "ranking.ttl.day-seconds must be > 0. 현재: " + dayTtlSeconds);
         this.redisTemplate = redisTemplate;
         this.carryOverWeight = carryOverWeight;
         this.dayTtlSeconds = dayTtlSeconds;
@@ -52,7 +59,7 @@ public class RankingCarryOverScheduler {
         }
 
         try {
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(KST);
             LocalDate tomorrow = today.plusDays(1);
             String todayKey = RankingKeyConstants.dayKey(today);
             String tomorrowKey = RankingKeyConstants.dayKey(tomorrow);
@@ -69,7 +76,11 @@ public class RankingCarryOverScheduler {
                 )
             );
 
-            redisTemplate.expire(tomorrowKey, dayTtlSeconds, TimeUnit.SECONDS);
+            Boolean ttlApplied = redisTemplate.expire(tomorrowKey, dayTtlSeconds, TimeUnit.SECONDS);
+            if (!Boolean.TRUE.equals(ttlApplied)) {
+                log.warn("[RankingCarryOver] TTL 적용 실패: key={}, ttlSeconds={}",
+                    tomorrowKey, dayTtlSeconds);
+            }
             log.info("[RankingCarryOver] carry-over 완료: {} → {} (weight={})",
                 todayKey, tomorrowKey, carryOverWeight);
         } catch (Exception e) {

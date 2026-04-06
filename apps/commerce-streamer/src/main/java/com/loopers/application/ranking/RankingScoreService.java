@@ -82,7 +82,11 @@ public class RankingScoreService {
         LocalDateTime now = LocalDateTime.now();
         String dayKey = RankingKeyConstants.dayKey(now.toLocalDate());
         String hourKey = RankingKeyConstants.hourKey(now);
-        rankingRepository.incrementScore(dayKey, productId, score, dayTtlSeconds);
-        rankingRepository.incrementScore(hourKey, productId, score, hourTtlSeconds);
+        try {
+            rankingRepository.incrementScore(dayKey, productId, score, dayTtlSeconds);
+            rankingRepository.incrementScore(hourKey, productId, score, hourTtlSeconds);
+        } catch (Exception e) {
+            log.warn("[Ranking] 점수 업데이트 실패. productId={}, score={}", productId, score, e);
+        }
     }
 }
