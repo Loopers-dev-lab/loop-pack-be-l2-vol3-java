@@ -16,9 +16,12 @@ allowed-tools: Read, Grep, Bash, Edit, Write
 
 ## 핵심 원칙: "PR만 읽으면 코드가 보인다"
 
-PR 문서의 목적은 두 가지다:
+PR 문서는 세 가지 레벨을 동시에 달성해야 한다:
 1. **왜 이 설계인가** — 주어진 제약 하에서 이 설계가 논리적 귀결임을 증명
 2. **어떻게 동작하는가** — 코드를 열지 않아도 요청이 시스템을 관통하는 흐름이 머릿속에 그려지는 것
+3. **코드가 어떤 모양인가** — 핵심 메서드 시그니처, 객체 구조, 경계 처리가 실제로 어떻게 짜여 있는지 리뷰어가 예측할 수 있는 것
+
+레벨 1~2는 "설계 설명서", 레벨 3이 추가되어야 "PR 코드 리뷰 가이드"가 된다.
 
 ### 좋은 PR의 서사 구조
 
@@ -104,9 +107,9 @@ Step 1 분석을 바탕으로 PR 문서를 생성한다.
 
 ## PR 문서 구조 및 작성 규칙
 
-### 목표 분량: 200~300줄
+### 목표 분량: 250~350줄
 
-300줄을 넘기면 리뷰어가 읽지 않는다. 밀도를 높이되 분량은 줄인다.
+코드 조각과 객체 단면이 추가되므로 기존 200~300줄보다 약간 넓다. 그래도 400줄을 넘기면 리뷰어가 읽지 않는다. 밀도를 높이되 분량은 줄인다.
 
 ---
 
@@ -285,6 +288,86 @@ sequenceDiagram
 
 ---
 
+### Code Guide — 리뷰어를 위한 코드 탐색 가이드
+
+이 섹션의 목표: **리뷰어가 코드를 열었을 때, 어디부터 읽고 무엇을 기대해야 하는지 알려주는 것.** Implementation Overview가 "구조와 흐름"이라면, Code Guide는 "코드의 질감"이다.
+
+```markdown
+## Code Guide
+
+### 리뷰 시작점
+
+이 PR은 {N}파일 변경이지만, 아래 {3~5}개 파일만 먼저 보면 전체가 파악됩니다:
+
+1. `{파일 경로}` — {왜 이 파일이 진입점인지 한 문장}
+2. `{파일 경로}` — ...
+3. `{파일 경로}` — ...
+
+추천 읽기 순서: 1 → 3 → 2 (Consumer 흐름 먼저 → Repository → API)
+
+### 핵심 코드
+
+**{코드 조각 제목}** (`{파일명}:{라인 범위}`)
+```java
+// 실제 코드 10~20줄
+```
+{이 코드가 왜 중요한지, 무엇을 보여주는지 — 1~2문장}
+
+**{코드 조각 제목}** (`{파일명}:{라인 범위}`)
+```lua
+-- 실제 코드
+```
+{설명}
+
+### 경계 명세
+
+| 경계 | 위치 | 처리 방식 |
+|------|------|-----------|
+| 멱등성 | `{클래스명}.{메서드}()` | {EventHandledRepository로 eventId 중복 체크} |
+| 트랜잭션 | `{클래스명}.{메서드}()` | {`@Transactional` — DB 적재와 이벤트 기록이 원자적} |
+| 예외 전파 | `{클래스명}.{메서드}()` | {`BatchListenerFailedException` → Kafka 재시도 → DLQ} |
+| 실패 격리 | `{클래스명}.{메서드}()` | {try-catch로 랭킹 실패가 상품 조회를 막지 않음} |
+
+### 객체 설계 단면
+
+**{Payload/DTO 이름}** — {용도 한 문장}
+```java
+// record 정의 또는 핵심 필드
+public record XxxPayload(
+    String eventId,
+    String eventType,
+    Long productDbId,
+    ...
+) {}
+```
+
+**{Repository Interface}** — {포트 역할 한 문장}
+```java
+public interface XxxRepository {
+    void incrementScore(LocalDate date, Long productDbId, double score);
+    List<XxxEntry> findTopN(LocalDate date, long offset, long size);
+}
+```
+```
+
+**규칙:**
+- **리뷰 시작점**: 3~5개 파일. "N파일 변경이지만 이것만 보면 됩니다" 형태. 추천 읽기 순서까지
+- **핵심 코드**: 실제 코드 스니펫 **2~3개**. 각 10~20줄. PR에서 가장 중요한 로직을 보여준다
+  - 코드 스니펫은 **실제 코드에서 복사**한다 — 의사 코드나 요약 금지
+  - 스니펫 아래에 **왜 이 코드가 중요한지** 1~2문장 설명
+  - 선정 기준: 핵심 비즈니스 로직, 원자성/동시성 처리, 비직관적 분기
+  - **코드가 20줄 이상이거나 분기/흐름이 복잡하면 Mermaid로 대체**:
+    - 분기 로직 → `flowchart` (if/else 분기가 한눈에 보임)
+    - 객체 관계/인터페이스 구조 → `classDiagram` (record 필드, interface 시그니처)
+    - 상태 전이 → `stateDiagram-v2`
+    - 코드 10줄 이하의 핵심 로직(Lua Script, 단일 메서드)은 코드 스니펫이 더 효과적
+- **경계 명세**: 멱등성·트랜잭션·예외 전파·실패 격리가 **어느 클래스, 어느 메서드**에서 처리되는지 테이블로 명시
+  - "멱등성 체크를 한다"가 아니라 "`CatalogEventConsumer.processViewIfNotHandled()`에서 `EventHandledRepository.existsByEventId()`로 중복 검사"처럼 구체적으로
+- **객체 설계 단면**: 핵심 record/interface의 실제 정의 **2~3개**. payload JSON 예시나 interface 시그니처
+  - 리뷰어가 "이 객체가 어떤 모양인지" 코드를 열지 않고 알 수 있게
+
+---
+
 ### Trade-offs — 전용 섹션으로 분리
 
 ```markdown
@@ -350,9 +433,13 @@ sequenceDiagram
 | 정보 유형 | 한 번만 등장할 곳 |
 |-----------|-------------------|
 | 수치 도출 과정 (계산식) | Context & Decision |
-| 수치 요약 테이블 | Design Overview의 "핵심 수치 도출" |
+| 수치 요약 테이블 | Implementation Overview의 "핵심 수치 도출" |
 | k6/부하 테스트 결과 | Context & Decision (해당 결정의 검증으로) |
-| 컴포넌트 목록 | Design Overview |
+| 클래스 책임·협력 관계 | Implementation Overview 구현 구조 테이블 |
+| 동작 흐름 서술 | Implementation Overview 핵심 흐름 |
+| 코드 스니펫 | Code Guide 핵심 코드 (Implementation Overview에서 반복 금지) |
+| 경계 처리 (멱등/트랜잭션/예외) | Code Guide 경계 명세 테이블 |
+| 객체 구조 (record/interface) | Code Guide 객체 설계 단면 |
 | 트레이드오프 | Trade-offs 테이블 (Context에서 서술 → 테이블에서 요약) |
 
 ---
