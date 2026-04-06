@@ -1,6 +1,6 @@
 ---
 name: pr-creation
-description: PR 문서 작성 워크플로우. 문제 정의 → 대안 비교 → 수치 검증 → 의사결정 서사. git 로그 분석, Mermaid 다이어그램. PR 작성 시 필수 사용
+description: PR 문서 작성 워크플로우. 문제 정의 → 대안 비교 → 수치 검증 → 구현 흐름 서사. PR만 읽어도 코드를 열지 않고 구현을 이해할 수 있게 작성. PR 작성 시 필수 사용
 disable-model-invocation: true
 user-invocable: true
 allowed-tools: Read, Grep, Bash, Edit, Write
@@ -14,9 +14,11 @@ allowed-tools: Read, Grep, Bash, Edit, Write
 
 ---
 
-## 핵심 원칙: "왜 이 선택밖에 없었는가"를 증명한다
+## 핵심 원칙: "PR만 읽으면 코드가 보인다"
 
-PR 문서의 목적은 **"무엇을 구현했다"가 아니라 "주어진 제약 하에서 왜 이 설계가 논리적 귀결인지 증명하는 것"**이다.
+PR 문서의 목적은 두 가지다:
+1. **왜 이 설계인가** — 주어진 제약 하에서 이 설계가 논리적 귀결임을 증명
+2. **어떻게 동작하는가** — 코드를 열지 않아도 요청이 시스템을 관통하는 흐름이 머릿속에 그려지는 것
 
 ### 좋은 PR의 서사 구조
 
@@ -204,41 +206,59 @@ Step 1 분석을 바탕으로 PR 문서를 생성한다.
 
 ---
 
-### Design Overview — 구조와 수치를 한눈에
+### Implementation Overview — 코드를 열지 않아도 구현이 보여야 한다
+
+이 섹션의 목표: **리뷰어가 이 섹션만 읽고 "어떤 클래스가, 어떤 순서로, 무슨 일을 하는지" 머릿속에 그릴 수 있어야 한다.**
 
 ```markdown
-## Design Overview
+## Implementation Overview
 
-### 단계적 구현 전략
+### 구현 구조
 
-| 단계 | 전략 | 이전 단계의 한계 → 해결 |
-|------|------|------------------------|
-| Step 1 | ... | 출발점 |
-| Step 2 | ... | Step 1은 ~를 제어하지 못함 |
+| 레이어 | 클래스 | 책임 | 협력 대상 |
+|--------|--------|------|-----------|
+| Interfaces | `OrderV1Controller` | 주문 요청 수신, DTO 변환 | `OrderFacade` |
+| Application | `OrderFacade` | 재고 차감 + 주문 생성 조율 | `StockApp`, `OrderApp` |
+| Domain | `OrderService` | 주문 유효성 검증, 상태 전이 | `OrderRepository` |
+| Infrastructure | `OrderRepositoryImpl` | JPA 영속화 | `OrderJpaRepository` |
 
-### 주요 컴포넌트
+### 핵심 흐름: {API 이름} `{METHOD} {PATH}`
 
-* `{클래스명}`: {역할} — {왜 이 컴포넌트에 이 책임인지}
+요청이 시스템을 관통하는 과정을 자연어로 서술한다:
+
+1. 클라이언트가 `POST /api/v1/orders`를 호출한다
+2. `OrderV1Controller`가 DTO를 Command로 변환하여 `OrderFacade`에 전달한다
+3. `OrderFacade`가 `StockApp.decrease()`로 재고를 먼저 차감한다
+4. 재고 차감 성공 시 `OrderApp.create()`로 주문을 생성한다
+5. `OrderService`가 주문 금액 검증 + 상태를 CREATED로 설정한다
+6. 트랜잭션 커밋 시 dirty checking으로 flush된다
+7. 실패 시 `StockApp.rollback()`으로 재고를 복구한다
 
 ### 핵심 수치 도출
 
 | 설정 | 값 | 도출 근거 |
 |------|-----|-----------|
-| ... | ... | {계산식 또는 테스트 결과 요약} |
+| ... | ... | {한 줄 요약 — 상세 과정은 Context & Decision 참조} |
 ```
 
 **규칙:**
-- 컴포넌트 나열은 5~8개 이내. 전부 나열하지 않는다
-- 수치 도출은 **테이블로 압축**. 본문에서 풀어 설명한 계산을 여기서 반복하지 않는다
-- 다이어그램은 **핵심 흐름 1~2개만**. 4개 이상은 과잉
+- **구현 구조 테이블**: 이 PR에서 핵심적인 클래스 5~8개. 전부 나열하지 않는다
+  - "책임" 열: 그 클래스가 **무엇을 하는지** 한 문장 (코드를 열지 않아도 알 수 있게)
+  - "협력 대상" 열: 그 클래스가 **누구에게 위임하는지** — 의존 방향이 보여야 한다
+- **핵심 흐름**: 가장 중요한 API 1~2개만 자연어로 서술
+  - 번호 매긴 단계로 작성 — 각 단계에 **클래스명 + 메서드 역할**을 명시
+  - "무슨 클래스의 무슨 행위"가 빠진 추상적 서술 금지 (예: "주문을 처리한다" → "OrderService가 금액을 검증하고 상태를 CREATED로 전이한다")
+  - 분기(성공/실패, 조건별)가 있으면 분기도 서술한다
+  - 5~10단계. 15단계 이상은 요약이 부족한 것
+- **수치 도출**: 테이블로 압축. Context & Decision에서 풀어 설명한 계산을 반복하지 않는다
 
 ---
 
 ### Flow Diagram — 핵심만
 
-```markdown
-## Flow Diagram
+핵심 흐름 서술을 **시각적으로 보강**하는 용도. 텍스트 흐름과 중복되더라도 다이어그램이 있으면 전체 구조가 한눈에 들어온다.
 
+```markdown
 ### {핵심 API 이름} `{METHOD} {PATH}`
 
 ```mermaid
@@ -250,9 +270,10 @@ sequenceDiagram
 ```
 
 **규칙:**
-- participant는 **최대 6~7개**. 11개는 읽을 수 없다
+- participant는 **최대 6~7개**
 - 핵심 흐름 1개 + 장애/예외 흐름 1개 = **최대 2~3개**
 - 모든 API에 다이어그램을 만들지 않는다 — 복잡하거나 비직관적인 흐름만
+- 단순 CRUD는 텍스트 흐름만으로 충분. 다이어그램 생략 가능
 
 #### Mermaid 규칙
 
