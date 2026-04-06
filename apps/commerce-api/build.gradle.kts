@@ -2,6 +2,7 @@ dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
+    implementation(project(":modules:kafka"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
@@ -20,6 +21,9 @@ dependencies {
     // resilience4j
     implementation("io.github.resilience4j:resilience4j-spring-boot3")
     implementation("org.springframework.boot:spring-boot-starter-aop")
+
+    // caffeine cache
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")

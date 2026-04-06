@@ -11,6 +11,7 @@ import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RequiredArgsConstructor
@@ -47,6 +48,11 @@ public class OrderService {
     public Orders getOrderByOrderNumber(String orderNumber) {
         return orderRepository.findByOrderNumber(orderNumber)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다."));
+    }
+
+    public List<Orders> findExpiredOrders() {
+        LocalDateTime expireBefore = LocalDateTime.now().minusMinutes(30);
+        return orderRepository.findExpiredOrders(OrderStatus.CREATED, expireBefore);
     }
 
     public Orders getOrder(OrderCommand.GetByMember command) {

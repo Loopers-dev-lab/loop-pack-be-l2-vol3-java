@@ -46,6 +46,14 @@ public class OrderRepositoryImpl implements OrderRepository {
     }
 
     @Override
+    public List<Orders> findExpiredOrders(OrderStatus status, LocalDateTime expireBefore) {
+        ZonedDateTime zonedExpire = expireBefore.atZone(ZoneId.systemDefault());
+        return orderJpaRepository.findByStatusAndCreatedAtBefore(status, zonedExpire).stream()
+                .map(OrderEntity::toModel)
+                .toList();
+    }
+
+    @Override
     public List<Orders> findByMemberIdAndCreatedAtBetween(Long memberId, LocalDateTime startAt, LocalDateTime endAt) {
         ZonedDateTime zonedStart = startAt.atZone(ZoneId.systemDefault());
         ZonedDateTime zonedEnd = endAt.atZone(ZoneId.systemDefault());

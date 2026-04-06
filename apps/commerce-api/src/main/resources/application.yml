@@ -21,6 +21,7 @@ spring:
     import:
       - jpa.yml
       - redis.yml
+      - kafka.yml
       - logging.yml
       - monitoring.yml
 
@@ -47,6 +48,8 @@ resilience4j:
       pg-command:
         baseConfig: default
       pg-query:
+        baseConfig: default
+      redis-queue:
         baseConfig: default
 
   retry:
@@ -77,6 +80,8 @@ spring:
   config:
     activate:
       on-profile: local, test
+  main:
+    allow-bean-definition-overriding: true
 
 ---
 spring:

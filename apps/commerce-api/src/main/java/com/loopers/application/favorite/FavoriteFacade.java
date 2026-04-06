@@ -1,5 +1,7 @@
 package com.loopers.application.favorite;
 
+import com.loopers.domain.event.FavoriteAddedEvent;
+import com.loopers.domain.event.FavoriteRemovedEvent;
 import com.loopers.domain.favorite.model.FavoriteCommand;
 import com.loopers.domain.favorite.service.FavoriteService;
 import com.loopers.domain.member.model.Member;
@@ -7,6 +9,7 @@ import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.product.model.Product;
 import com.loopers.domain.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +21,7 @@ public class FavoriteFacade {
     private final FavoriteService favoriteService;
     private final MemberService memberService;
     private final ProductService productService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(rollbackFor = {Exception.class})
     public void addFavorite(String loginId, String password, Long productId) {
@@ -26,7 +30,7 @@ public class FavoriteFacade {
         FavoriteCommand.Add command = new FavoriteCommand.Add(member.getId(), product.getId());
         boolean added = favoriteService.addFavorite(command);
         if (added) {
-            productService.increaseLikeCount(product.getId());
+            eventPublisher.publishEvent(new FavoriteAddedEvent(product.getId(), member.getId()));
         }
     }
 
@@ -36,6 +40,6 @@ public class FavoriteFacade {
         Product product = productService.findProduct(productId);
         FavoriteCommand.Delete command = new FavoriteCommand.Delete(member.getId(), product.getId());
         favoriteService.delete(command);
-        productService.decreaseLikeCount(product.getId());
+        eventPublisher.publishEvent(new FavoriteRemovedEvent(product.getId(), member.getId()));
     }
 }

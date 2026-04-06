@@ -6,6 +6,8 @@ import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.product.model.Product;
 import com.loopers.domain.product.vo.DisplayStatus;
+import com.loopers.domain.event.FavoriteAddedEvent;
+import com.loopers.domain.event.FavoriteRemovedEvent;
 import com.loopers.domain.product.service.ProductService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 
@@ -40,6 +43,9 @@ class FavoriteFacadeTest {
 
     @Mock
     private ProductService productService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private static Member createTestMember() {
         return Member.reconstruct(1L, "testuser", "encodedPw", "홍길동", LocalDate.of(1990, 1, 1), "test@test.com");
@@ -98,9 +104,9 @@ class FavoriteFacadeTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.CONFLICT));
         }
 
-        @DisplayName("정상 등록 시 favoriteService.addFavorite과 productService.increaseLikeCount가 호출된다")
+        @DisplayName("정상 등록 시 favoriteService.addFavorite 호출 후 FavoriteAddedEvent가 발행된다")
         @Test
-        void callsAddFavoriteAndIncreaseLikeCount_onSuccess() {
+        void callsAddFavoriteAndPublishesEvent_onSuccess() {
             // arrange
             Member member = createTestMember();
             Product product = createTestProduct();
@@ -113,7 +119,7 @@ class FavoriteFacadeTest {
 
             // assert
             verify(favoriteService).addFavorite(any(FavoriteCommand.Add.class));
-            verify(productService).increaseLikeCount(1L);
+            verify(eventPublisher).publishEvent(any(FavoriteAddedEvent.class));
         }
     }
 
@@ -151,9 +157,9 @@ class FavoriteFacadeTest {
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
 
-        @DisplayName("정상 취소 시 favoriteService.delete와 productService.decreaseLikeCount가 호출된다")
+        @DisplayName("정상 취소 시 favoriteService.delete 호출 후 FavoriteRemovedEvent가 발행된다")
         @Test
-        void callsDeleteAndDecreaseLikeCount_onSuccess() {
+        void callsDeleteAndPublishesEvent_onSuccess() {
             // arrange
             Member member = createTestMember();
             Product product = createTestProduct();
@@ -165,7 +171,7 @@ class FavoriteFacadeTest {
 
             // assert
             verify(favoriteService).delete(any(FavoriteCommand.Delete.class));
-            verify(productService).decreaseLikeCount(1L);
+            verify(eventPublisher).publishEvent(any(FavoriteRemovedEvent.class));
         }
     }
 }

@@ -4,6 +4,7 @@ import com.loopers.application.order.dto.CreateOrderReqDto;
 import com.loopers.application.order.dto.FindOrderResDto;
 import com.loopers.domain.coupon.model.CouponTemplate;
 import com.loopers.domain.coupon.service.CouponService;
+import com.loopers.domain.event.OrderCreatedEvent;
 import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.order.model.OrderProduct;
@@ -13,6 +14,7 @@ import com.loopers.domain.order.service.OrderProductService;
 import com.loopers.domain.order.service.OrderService;
 import com.loopers.domain.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class OrderFacade {
     private final MemberService memberService;
     private final ProductService productService;
     private final CouponService couponService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(rollbackFor = {Exception.class})
     public FindOrderResDto createOrder(String loginId, String password, CreateOrderReqDto dto) {
@@ -40,7 +43,11 @@ public class OrderFacade {
         int discountAmount = calculateDiscount(dto.userCouponId(), member.getId(), subtotal);
 
         OrderCommand.Create command = new OrderCommand.Create(member.getId(), orderProducts, discountAmount, dto.userCouponId());
-        return FindOrderResDto.from(orderService.createOrder(command));
+        Orders savedOrder = orderService.createOrder(command);
+
+        eventPublisher.publishEvent(new OrderCreatedEvent(savedOrder.getId(), member.getId(), savedOrder.getTotalPrice().value()));
+
+        return FindOrderResDto.from(savedOrder);
     }
 
     public List<FindOrderResDto> getOrders(String loginId, String password, LocalDateTime startAt, LocalDateTime endAt) {

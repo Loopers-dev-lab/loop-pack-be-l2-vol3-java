@@ -68,6 +68,18 @@ public class RedisConfig{
         return defaultRedisTemplate(redisTemplate, lettuceConnectionFactory);
     }
 
+    @Bean
+    public RedisTemplate<String, Object> objectRedisTemplate(LettuceConnectionFactory lettuceConnectionFactory) {
+        RedisTemplate<String, Object> redisTemplate = new RedisTemplate<>();
+        StringRedisSerializer s = new StringRedisSerializer();
+        redisTemplate.setKeySerializer(s);
+        redisTemplate.setValueSerializer(s);
+        redisTemplate.setHashKeySerializer(s);
+        redisTemplate.setHashValueSerializer(s);
+        redisTemplate.setConnectionFactory(lettuceConnectionFactory);
+        return redisTemplate;
+    }
+
 
     private LettuceConnectionFactory lettuceConnectionFactory(
             int database,

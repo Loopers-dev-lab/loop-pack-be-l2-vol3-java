@@ -183,7 +183,7 @@ class Ch5_FallbackTest {
                 String cardType = result.cardType();
                 String cardNo = result.cardNo();
                 String amount = result.amount();
-                String status = result.status();
+                Object status = result.status();
 
                 // null-safe 연산도 문제없이 동작
                 boolean hasTxn = txnKey != null;
