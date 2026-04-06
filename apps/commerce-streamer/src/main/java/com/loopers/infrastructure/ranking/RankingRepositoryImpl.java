@@ -19,8 +19,8 @@ public class RankingRepositoryImpl implements RankingRepository {
     }
 
     @Override
-    public void incrementScore(String key, Long productId, double score, long ttlSeconds) {
-        redisTemplate.opsForZSet().incrementScore(key, productId.toString(), score);
+    public void putScore(String key, Long productId, double compositeScore, long ttlSeconds) {
+        redisTemplate.opsForZSet().add(key, productId.toString(), compositeScore);
         Long expireSeconds = redisTemplate.getExpire(key, TimeUnit.SECONDS);
         if (expireSeconds != null && expireSeconds == -1) {
             redisTemplate.expire(key, ttlSeconds, TimeUnit.SECONDS);

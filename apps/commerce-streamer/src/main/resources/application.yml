@@ -39,6 +39,10 @@ ranking:
   carry-over:
     enabled: true
     weight: 0.1
+  sync:
+    enabled: true
+    fixed-delay-ms: 5000
+    batch-size: 500
 
 ---
 spring:

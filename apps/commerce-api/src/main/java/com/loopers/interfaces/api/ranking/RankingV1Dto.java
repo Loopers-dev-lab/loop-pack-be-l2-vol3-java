@@ -14,8 +14,7 @@ public class RankingV1Dto {
         Long productId,
         String productName,
         int price,
-        long rank,
-        double score
+        long rank
     ) {
         public static RankingProductResponse from(ProductRanking ranking, ProductReadModel product) {
             Objects.requireNonNull(product, "product must not be null");
@@ -23,8 +22,7 @@ public class RankingV1Dto {
                 ranking.productId(),
                 product.name(),
                 product.price(),
-                ranking.rank(),
-                ranking.score()
+                ranking.rank()
             );
         }
     }

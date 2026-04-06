@@ -1,8 +1,8 @@
 package com.loopers.application.ranking;
 
 import com.loopers.domain.event.OrderItemPayload;
-import com.loopers.domain.ranking.FakeRankingRepository;
-import com.loopers.support.redis.RankingKeyConstants;
+import com.loopers.domain.ranking.FakeRankingScoreLedgerRepository;
+import com.loopers.domain.ranking.RankingScoreLedger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -10,37 +10,56 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 class RankingScoreServiceTest {
 
-    private FakeRankingRepository rankingRepository;
-    private RankingScoreService rankingScoreService;
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
     private static final double VIEW_WEIGHT = 0.1;
     private static final double LIKE_WEIGHT = 0.2;
     private static final double ORDER_WEIGHT = 0.7;
-    private static final long DAY_TTL = 172800;
-    private static final long HOUR_TTL = 86400;
+
+    private FakeRankingScoreLedgerRepository ledgerRepository;
+    private RankingScoreService rankingScoreService;
 
     @BeforeEach
     void setUp() {
-        rankingRepository = new FakeRankingRepository();
+        ledgerRepository = new FakeRankingScoreLedgerRepository();
         rankingScoreService = new RankingScoreService(
-            rankingRepository, VIEW_WEIGHT, LIKE_WEIGHT, ORDER_WEIGHT, DAY_TTL, HOUR_TTL
+            ledgerRepository, VIEW_WEIGHT, LIKE_WEIGHT, ORDER_WEIGHT
         );
     }
 
-    private String todayDayKey() {
-        return RankingKeyConstants.dayKey(LocalDate.now());
+    private String todayBucket() {
+        return LocalDate.now(KST).format(DAY_FORMAT);
     }
 
-    private String currentHourKey() {
-        return RankingKeyConstants.hourKey(LocalDateTime.now());
+    private String currentHourBucket() {
+        return LocalDateTime.now(KST).format(HOUR_FORMAT);
+    }
+
+    private double dayPoints(Long productId) {
+        return ledgerRepository
+            .findByBucket(RankingScoreLedger.BucketType.DAY, todayBucket(), productId)
+            .map(RankingScoreLedger::getBasePoints)
+            .orElse(0.0);
+    }
+
+    private double hourPoints(Long productId) {
+        return ledgerRepository
+            .findByBucket(RankingScoreLedger.BucketType.HOUR, currentHourBucket(), productId)
+            .map(RankingScoreLedger::getBasePoints)
+            .orElse(0.0);
     }
 
     @DisplayName("조회 이벤트 점수 반영할 때, ")
@@ -52,10 +71,8 @@ class RankingScoreServiceTest {
         void incrementsByViewWeight() {
             rankingScoreService.addViewScore(101L);
 
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(VIEW_WEIGHT, within(0.001));
-            assertThat(rankingRepository.getScore(currentHourKey(), 101L))
-                .isCloseTo(VIEW_WEIGHT, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(VIEW_WEIGHT, within(0.001));
+            assertThat(hourPoints(101L)).isCloseTo(VIEW_WEIGHT, within(0.001));
         }
 
         @DisplayName("여러 번 호출하면 점수가 누적된다.")
@@ -65,8 +82,18 @@ class RankingScoreServiceTest {
             rankingScoreService.addViewScore(101L);
             rankingScoreService.addViewScore(101L);
 
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(VIEW_WEIGHT * 3, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(VIEW_WEIGHT * 3, within(0.001));
+        }
+
+        @DisplayName("ledger 행이 dirty 상태가 된다.")
+        @Test
+        void marksDirty() {
+            rankingScoreService.addViewScore(101L);
+
+            Optional<RankingScoreLedger> row =
+                ledgerRepository.findByBucket(RankingScoreLedger.BucketType.DAY, todayBucket(), 101L);
+            assertThat(row).isPresent();
+            assertThat(row.get().isDirty()).isTrue();
         }
     }
 
@@ -79,8 +106,7 @@ class RankingScoreServiceTest {
         void incrementsByLikeWeight() {
             rankingScoreService.addLikeScore(101L);
 
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(LIKE_WEIGHT, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(LIKE_WEIGHT, within(0.001));
         }
     }
 
@@ -91,15 +117,12 @@ class RankingScoreServiceTest {
         @DisplayName("log10(price * quantity) * order weight로 점수가 반영된다.")
         @Test
         void incrementsByOrderWeightWithLog() {
-            List<OrderItemPayload> items = List.of(
-                new OrderItemPayload(101L, 2, 10000)
-            );
+            List<OrderItemPayload> items = List.of(new OrderItemPayload(101L, 2, 10000));
 
             rankingScoreService.addOrderScores(items);
 
             double expected = ORDER_WEIGHT * Math.log10(10000.0 * 2);
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(expected, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(expected, within(0.001));
         }
 
         @DisplayName("같은 상품 여러 건이면 합산 후 반영된다.")
@@ -113,35 +136,29 @@ class RankingScoreServiceTest {
             rankingScoreService.addOrderScores(items);
 
             double expected = ORDER_WEIGHT * Math.log10(5000.0) + ORDER_WEIGHT * Math.log10(8000.0 * 3);
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(expected, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(expected, within(0.001));
         }
 
         @DisplayName("price가 0이면 log10(1) = 0으로 처리된다.")
         @Test
         void handlesZeroPrice() {
-            List<OrderItemPayload> items = List.of(
-                new OrderItemPayload(101L, 1, 0)
-            );
+            List<OrderItemPayload> items = List.of(new OrderItemPayload(101L, 1, 0));
 
             rankingScoreService.addOrderScores(items);
 
             double expected = ORDER_WEIGHT * Math.log10(1);
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(expected, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(expected, within(0.001));
         }
 
-        @DisplayName("day와 hour 키 모두에 반영된다.")
+        @DisplayName("day와 hour 버킷 모두에 반영된다.")
         @Test
-        void incrementsBothDayAndHourKeys() {
-            List<OrderItemPayload> items = List.of(
-                new OrderItemPayload(101L, 1, 10000)
-            );
+        void incrementsBothDayAndHourBuckets() {
+            List<OrderItemPayload> items = List.of(new OrderItemPayload(101L, 1, 10000));
 
             rankingScoreService.addOrderScores(items);
 
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L)).isGreaterThan(0);
-            assertThat(rankingRepository.getScore(currentHourKey(), 101L)).isGreaterThan(0);
+            assertThat(dayPoints(101L)).isGreaterThan(0);
+            assertThat(hourPoints(101L)).isGreaterThan(0);
         }
     }
 
@@ -152,25 +169,18 @@ class RankingScoreServiceTest {
         @DisplayName("같은 상품 3건이면 weight × 3으로 합산 반영된다.")
         @Test
         void aggregatesSameProduct() {
-            Map<Long, Integer> counts = Map.of(101L, 3);
+            rankingScoreService.addViewScores(Map.of(101L, 3));
 
-            rankingScoreService.addViewScores(counts);
-
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(VIEW_WEIGHT * 3, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(VIEW_WEIGHT * 3, within(0.001));
         }
 
         @DisplayName("다른 상품 2종이면 각각 반영된다.")
         @Test
         void handlesMultipleProducts() {
-            Map<Long, Integer> counts = Map.of(101L, 2, 102L, 1);
+            rankingScoreService.addViewScores(Map.of(101L, 2, 102L, 1));
 
-            rankingScoreService.addViewScores(counts);
-
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(VIEW_WEIGHT * 2, within(0.001));
-            assertThat(rankingRepository.getScore(todayDayKey(), 102L))
-                .isCloseTo(VIEW_WEIGHT, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(VIEW_WEIGHT * 2, within(0.001));
+            assertThat(dayPoints(102L)).isCloseTo(VIEW_WEIGHT, within(0.001));
         }
     }
 
@@ -181,12 +191,9 @@ class RankingScoreServiceTest {
         @DisplayName("같은 상품 여러 건이면 weight × count로 합산 반영된다.")
         @Test
         void aggregatesSameProduct() {
-            Map<Long, Integer> counts = Map.of(101L, 5);
+            rankingScoreService.addLikeScores(Map.of(101L, 5));
 
-            rankingScoreService.addLikeScores(counts);
-
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(LIKE_WEIGHT * 5, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(LIKE_WEIGHT * 5, within(0.001));
         }
     }
 
@@ -201,8 +208,7 @@ class RankingScoreServiceTest {
 
             rankingScoreService.subtractLikeScores(Map.of(101L, 3));
 
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(LIKE_WEIGHT * 2, within(0.001));
+            assertThat(dayPoints(101L)).isCloseTo(LIKE_WEIGHT * 2, within(0.001));
         }
 
         @DisplayName("좋아요 후 같은 수만큼 취소하면 점수가 0이 된다.")
@@ -212,22 +218,7 @@ class RankingScoreServiceTest {
 
             rankingScoreService.subtractLikeScores(Map.of(101L, 3));
 
-            assertThat(rankingRepository.getScore(todayDayKey(), 101L))
-                .isCloseTo(0.0, within(0.001));
-        }
-    }
-
-    @DisplayName("TTL이 설정될 때, ")
-    @Nested
-    class TtlSetting {
-
-        @DisplayName("day 키에는 day TTL이, hour 키에는 hour TTL이 설정된다.")
-        @Test
-        void setsCorrectTtl() {
-            rankingScoreService.addViewScore(101L);
-
-            assertThat(rankingRepository.getTtl(todayDayKey())).isEqualTo(DAY_TTL);
-            assertThat(rankingRepository.getTtl(currentHourKey())).isEqualTo(HOUR_TTL);
+            assertThat(dayPoints(101L)).isCloseTo(0.0, within(0.001));
         }
     }
 }

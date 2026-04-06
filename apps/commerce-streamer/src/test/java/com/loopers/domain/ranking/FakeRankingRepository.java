@@ -9,9 +9,9 @@ public class FakeRankingRepository implements RankingRepository {
     private final Map<String, Long> ttlStore = new HashMap<>();
 
     @Override
-    public void incrementScore(String key, Long productId, double score, long ttlSeconds) {
+    public void putScore(String key, Long productId, double compositeScore, long ttlSeconds) {
         store.computeIfAbsent(key, k -> new HashMap<>())
-            .merge(productId, score, Double::sum);
+            .put(productId, compositeScore);
         ttlStore.putIfAbsent(key, ttlSeconds);
     }
 
