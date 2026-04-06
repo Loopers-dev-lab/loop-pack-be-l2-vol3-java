@@ -1,6 +1,7 @@
 package com.loopers.application.queue;
 
-import com.loopers.interfaces.api.queue.config.QueueProperties;
+import com.loopers.application.queue.config.QueueProperties;
+import com.loopers.domain.queue.QueueMode;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -8,19 +9,17 @@ import java.time.Instant;
 @Component
 public class ModeManager {
 
-    public enum Mode { NORMAL, EVENT, DRAIN }
-
     public record ModeState(
-            Mode mode,
+            QueueMode mode,
             Instant graceDeadline
     ) {
         static ModeState normal() {
-            return new ModeState(Mode.NORMAL, Instant.MIN);
+            return new ModeState(QueueMode.NORMAL, Instant.MIN);
         }
 
-        boolean isEvent() { return mode == Mode.EVENT; }
-        boolean isDrain() { return mode == Mode.DRAIN; }
-        boolean isInGracePeriod() { return mode == Mode.DRAIN && Instant.now().isBefore(graceDeadline); }
+        boolean isEvent() { return mode == QueueMode.EVENT; }
+        boolean isDrain() { return mode == QueueMode.DRAIN; }
+        boolean isInGracePeriod() { return mode == QueueMode.DRAIN && Instant.now().isBefore(graceDeadline); }
     }
 
     private final QueueProperties queueProperties;
@@ -48,12 +47,12 @@ public class ModeManager {
     // 원자적 전환 — volatile write 1회
 
     public void switchToEvent() {
-        this.state = new ModeState(Mode.EVENT, Instant.MIN);
+        this.state = new ModeState(QueueMode.EVENT, Instant.MIN);
     }
 
     public void switchToDrain() {
         this.state = new ModeState(
-                Mode.DRAIN,
+                QueueMode.DRAIN,
                 Instant.now().plusSeconds(queueProperties.getGracePeriodSeconds())
         );
     }

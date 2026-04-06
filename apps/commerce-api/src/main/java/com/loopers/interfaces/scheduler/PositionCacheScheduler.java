@@ -1,6 +1,7 @@
 package com.loopers.interfaces.scheduler;
 
 import com.loopers.application.queue.ModeManager;
+import com.loopers.domain.queue.QueueKeys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -18,8 +19,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 public class PositionCacheScheduler {
-
-    private static final String WAITING_QUEUE_KEY = "waiting-queue:bf-2025";
 
     private final RedisTemplate<String, String> defaultRedisTemplate;
     private final ModeManager modeManager;
@@ -42,7 +41,7 @@ public class PositionCacheScheduler {
         }
 
         try {
-            Set<String> members = defaultRedisTemplate.opsForZSet().range(WAITING_QUEUE_KEY, 0, -1);
+            Set<String> members = defaultRedisTemplate.opsForZSet().range(QueueKeys.WAITING_QUEUE, 0, -1);
 
             if (members == null || members.isEmpty()) {
                 rankCache = Map.of();

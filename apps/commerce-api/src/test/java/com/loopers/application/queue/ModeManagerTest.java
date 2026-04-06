@@ -1,6 +1,6 @@
 package com.loopers.application.queue;
 
-import com.loopers.interfaces.api.queue.config.QueueProperties;
+import com.loopers.application.queue.config.QueueProperties;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Nested;

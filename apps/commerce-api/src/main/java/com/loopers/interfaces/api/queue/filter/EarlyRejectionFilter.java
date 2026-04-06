@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.queue.ModeManager;
 import com.loopers.application.queue.QueueSizeCache;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.queue.config.QueueProperties;
+import com.loopers.application.queue.config.QueueProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,8 +33,12 @@ public class EarlyRejectionFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !("POST".equals(request.getMethod())
-                && "/api/v1/queue/enter".equals(request.getRequestURI()));
+        return !shouldFilter(request);
+    }
+
+    private boolean shouldFilter(HttpServletRequest request) {
+        return "POST".equals(request.getMethod())
+                && "/api/v1/queue/enter".equals(request.getRequestURI());
     }
 
     @Override

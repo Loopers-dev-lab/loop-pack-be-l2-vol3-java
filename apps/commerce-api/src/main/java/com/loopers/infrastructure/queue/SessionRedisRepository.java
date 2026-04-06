@@ -1,6 +1,9 @@
 package com.loopers.infrastructure.queue;
 
+import com.loopers.domain.queue.SessionConsumeResult;
+import com.loopers.domain.queue.SessionExtensionPolicy;
 import com.loopers.domain.queue.SessionRepository;
+import com.loopers.domain.queue.SessionStatus;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -20,6 +23,12 @@ public class SessionRedisRepository implements SessionRepository {
     private static final String SESSION_TRACKER_KEY = "session-tracker";
     private static final String EXTEND_RATE_KEY = "rate:extend:";
 
+    /**
+     * CAS (Compare-And-Swap) — 세션 상태 원자적 전환.
+     * KEYS[1]: session:{userId}
+     * ARGV[1]: expectedStatus, ARGV[2]: newStatus
+     * @return 1(성공), 0(상태 불일치), -1(키 없음)
+     */
     private static final String CAS_LUA =
             "local status = redis.call('HGET', KEYS[1], 'status') " +
             "if status == false then return -1 end " +
@@ -29,6 +38,13 @@ public class SessionRedisRepository implements SessionRepository {
             "end " +
             "return 0";
 
+    /**
+     * TTL 연장 — Hard TTL 초과 방지 + Rate Limit 원자적 처리.
+     * KEYS[1]: session:{userId}, KEYS[2]: rate:extend:{userId}
+     * 인프라 파라미터(ARGV[1]~[2], [4])는 구현체가 생성, 정책 파라미터(ARGV[3], [5], [6])는 SessionExtensionPolicy에서 전달.
+     * Lua 내 EXPIRE 60은 rate limit window TTL (1분 고정).
+     * @return 1(연장 성공), 0(실패 — 키 없음/Hard TTL 초과/Rate Limit 초과)
+     */
     private static final String EXTEND_TTL_LUA =
             "local createdAt = redis.call('HGET', KEYS[1], 'createdAt') " +
             "if createdAt == false then return 0 end " +
@@ -58,7 +74,7 @@ public class SessionRedisRepository implements SessionRepository {
         long now = Instant.now().getEpochSecond();
 
         masterRedisTemplate.opsForHash().putAll(key, Map.of(
-                "status", "ACTIVE",
+                "status", SessionStatus.ACTIVE.name(),
                 "createdAt", String.valueOf(now)
         ));
         masterRedisTemplate.expire(key, Duration.ofSeconds(accessTtlSeconds));
@@ -68,13 +84,13 @@ public class SessionRedisRepository implements SessionRepository {
     }
 
     @Override
-    public long compareAndSwap(Long userId, String expectedStatus, String newStatus) {
+    public SessionConsumeResult compareAndSwap(Long userId, SessionStatus expectedStatus, SessionStatus newStatus) {
         DefaultRedisScript<Long> script = new DefaultRedisScript<>(CAS_LUA, Long.class);
         Long result = masterRedisTemplate.execute(script,
                 Collections.singletonList(sessionKey(userId)),
-                expectedStatus, newStatus);
+                expectedStatus.name(), newStatus.name());
 
-        return result != null ? result : -1;
+        return SessionConsumeResult.fromLuaResult(result != null ? result : -1);
     }
 
     @Override
@@ -84,7 +100,7 @@ public class SessionRedisRepository implements SessionRepository {
     }
 
     @Override
-    public boolean extendTtl(Long userId, int hardTtlSeconds, int extensionSeconds, int maxExtensionsPerMinute) {
+    public boolean extendTtl(Long userId, SessionExtensionPolicy policy) {
         String sessionKey = sessionKey(userId);
         String rateKey = EXTEND_RATE_KEY + userId;
         long now = Instant.now().getEpochSecond();
@@ -95,10 +111,10 @@ public class SessionRedisRepository implements SessionRepository {
                 List.of(sessionKey, rateKey),
                 String.valueOf(windowStart),
                 String.valueOf(now),
-                String.valueOf(maxExtensionsPerMinute),
+                String.valueOf(policy.maxExtensionsPerMinute()),
                 UUID.randomUUID().toString(),
-                String.valueOf(hardTtlSeconds),
-                String.valueOf(extensionSeconds));
+                String.valueOf(policy.hardTtlSeconds()),
+                String.valueOf(policy.extensionSeconds()));
 
         return result != null && result == 1;
     }
@@ -125,7 +141,7 @@ public class SessionRedisRepository implements SessionRepository {
 
         String status = (String) entries.get("status");
         String createdAt = (String) entries.get("createdAt");
-        return new SessionData(status, createdAt);
+        return new SessionData(SessionStatus.valueOf(status), createdAt);
     }
 
     @Override

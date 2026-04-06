@@ -1,5 +1,7 @@
 package com.loopers.application.queue;
 
+import com.loopers.domain.queue.SessionConsumeResult;
+import com.loopers.domain.queue.SessionStatus;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +55,7 @@ class SessionServiceIntegrationTest {
             SessionService.SessionInfo info = sessionService.getSession(1L);
 
             assertThat(info).isNotNull();
-            assertThat(info.status()).isEqualTo(SessionService.STATUS_ACTIVE);
+            assertThat(info.status()).isEqualTo(SessionStatus.ACTIVE);
             assertThat(info.createdAt()).isNotNull();
         }
     }
@@ -65,36 +67,36 @@ class SessionServiceIntegrationTest {
         void ACTIVE에서_CONSUMED로_전환하면_성공을_반환한다() {
             sessionService.createSession(1L);
 
-            long result = sessionService.compareAndSwap(1L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            SessionConsumeResult result = sessionService.compareAndSwap(1L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
-            assertThat(result).isEqualTo(SessionService.CAS_SUCCESS);
+            assertThat(result).isEqualTo(SessionConsumeResult.CONSUMED);
         }
 
         @Test
         void 상태가_기대값과_다르면_불일치를_반환한다() {
             sessionService.createSession(1L);
-            sessionService.compareAndSwap(1L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            sessionService.compareAndSwap(1L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
-            long result = sessionService.compareAndSwap(1L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            SessionConsumeResult result = sessionService.compareAndSwap(1L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
-            assertThat(result).isEqualTo(SessionService.CAS_STATUS_MISMATCH);
+            assertThat(result).isEqualTo(SessionConsumeResult.ALREADY_CONSUMED);
         }
 
         @Test
         void 세션이_없으면_키_없음을_반환한다() {
-            long result = sessionService.compareAndSwap(999L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            SessionConsumeResult result = sessionService.compareAndSwap(999L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
-            assertThat(result).isEqualTo(SessionService.CAS_KEY_NOT_FOUND);
+            assertThat(result).isEqualTo(SessionConsumeResult.SESSION_EXPIRED);
         }
 
         @Test
         void CONSUMED에서_ACTIVE로_복원할_수_있다() {
             sessionService.createSession(1L);
-            sessionService.compareAndSwap(1L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            sessionService.compareAndSwap(1L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
-            long result = sessionService.compareAndSwap(1L, SessionService.STATUS_CONSUMED, SessionService.STATUS_ACTIVE);
+            SessionConsumeResult result = sessionService.compareAndSwap(1L, SessionStatus.CONSUMED, SessionStatus.ACTIVE);
 
-            assertThat(result).isEqualTo(SessionService.CAS_SUCCESS);
+            assertThat(result).isEqualTo(SessionConsumeResult.CONSUMED);
             assertThat(sessionService.hasActiveSession(1L)).isTrue();
         }
     }
@@ -119,7 +121,7 @@ class SessionServiceIntegrationTest {
         void ACTIVE_세션이면_QUERY_접근이_허용된다() {
             sessionService.createSession(1L);
 
-            SessionService.SessionValidation result = sessionService.validateAccess(1L, SessionService.AccessType.QUERY);
+            SessionService.SessionValidation result = sessionService.validateAndExtendAccess(1L, SessionService.AccessType.QUERY);
 
             assertThat(result.isAllowed()).isTrue();
         }
@@ -128,7 +130,7 @@ class SessionServiceIntegrationTest {
         void ACTIVE_세션이면_ORDER_접근이_허용된다() {
             sessionService.createSession(1L);
 
-            SessionService.SessionValidation result = sessionService.validateAccess(1L, SessionService.AccessType.ORDER);
+            SessionService.SessionValidation result = sessionService.validateAndExtendAccess(1L, SessionService.AccessType.ORDER);
 
             assertThat(result.isAllowed()).isTrue();
         }
@@ -136,9 +138,9 @@ class SessionServiceIntegrationTest {
         @Test
         void CONSUMED_세션이면_QUERY_접근이_허용된다() {
             sessionService.createSession(1L);
-            sessionService.compareAndSwap(1L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            sessionService.compareAndSwap(1L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
-            SessionService.SessionValidation result = sessionService.validateAccess(1L, SessionService.AccessType.QUERY);
+            SessionService.SessionValidation result = sessionService.validateAndExtendAccess(1L, SessionService.AccessType.QUERY);
 
             assertThat(result.isAllowed()).isTrue();
         }
@@ -146,16 +148,16 @@ class SessionServiceIntegrationTest {
         @Test
         void CONSUMED_세션이면_ORDER_접근이_거부된다() {
             sessionService.createSession(1L);
-            sessionService.compareAndSwap(1L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            sessionService.compareAndSwap(1L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
-            SessionService.SessionValidation result = sessionService.validateAccess(1L, SessionService.AccessType.ORDER);
+            SessionService.SessionValidation result = sessionService.validateAndExtendAccess(1L, SessionService.AccessType.ORDER);
 
             assertThat(result.isAllowed()).isFalse();
         }
 
         @Test
         void 세션이_없으면_접근이_거부된다() {
-            SessionService.SessionValidation result = sessionService.validateAccess(999L, SessionService.AccessType.QUERY);
+            SessionService.SessionValidation result = sessionService.validateAndExtendAccess(999L, SessionService.AccessType.QUERY);
 
             assertThat(result.isAllowed()).isFalse();
         }

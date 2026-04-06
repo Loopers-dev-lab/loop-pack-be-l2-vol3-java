@@ -6,7 +6,7 @@ import com.loopers.application.payment.PaymentFacade;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.queue.ModeManager;
 import com.loopers.application.queue.QueueFacade;
-import com.loopers.application.queue.SessionService;
+import com.loopers.domain.queue.SessionConsumeResult;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
@@ -57,11 +57,11 @@ public class OrderFacade {
                 && (modeManager.isEvent() || modeManager.isDrain());
 
         if (isEventMode) {
-            long casResult = queueFacade.consumeSession(userId);
-            if (casResult == SessionService.CAS_KEY_NOT_FOUND) {
+            SessionConsumeResult result = queueFacade.consumeSession(userId);
+            if (result == SessionConsumeResult.SESSION_EXPIRED) {
                 throw new CoreException(ErrorType.UNAUTHORIZED, "세션이 만료되었습니다. 대기열에 다시 진입해주세요");
             }
-            if (casResult == SessionService.CAS_STATUS_MISMATCH) {
+            if (result == SessionConsumeResult.ALREADY_CONSUMED) {
                 throw new CoreException(ErrorType.CONFLICT, "이미 주문이 진행 중입니다");
             }
         }

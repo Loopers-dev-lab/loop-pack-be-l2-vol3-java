@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.queue;
 
 import com.loopers.application.queue.QueueFacade;
+import com.loopers.domain.queue.QueueMode;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,8 @@ public class QueueAdminV1Controller {
 
     @PostMapping("/mode")
     public ApiResponse<Void> changeMode(@Valid @RequestBody QueueRequest.ModeChange request) {
-        queueFacade.changeMode(request.mode().name());
+        QueueMode mode = QueueMode.valueOf(request.mode().name());
+        queueFacade.changeMode(mode);
         return ApiResponse.success();
     }
 }

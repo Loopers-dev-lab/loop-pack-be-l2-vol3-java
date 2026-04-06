@@ -1,22 +1,19 @@
 package com.loopers.application.queue;
 
+import com.loopers.domain.queue.SessionConsumeResult;
+import com.loopers.domain.queue.SessionExtensionPolicy;
 import com.loopers.domain.queue.SessionRepository;
-import com.loopers.interfaces.api.queue.config.QueueProperties;
+import com.loopers.domain.queue.SessionStatus;
+import com.loopers.application.queue.config.QueueProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
 public class SessionService {
-
-    public static final String STATUS_ACTIVE = "ACTIVE";
-    public static final String STATUS_CONSUMED = "CONSUMED";
-
-    /** CAS 결과 */
-    public static final long CAS_SUCCESS = 1;
-    public static final long CAS_STATUS_MISMATCH = 0;
-    public static final long CAS_KEY_NOT_FOUND = -1;
 
     /** 접근 요청 유형 — 비즈니스 컨텍스트 */
     public enum AccessType { ORDER, QUERY }
@@ -41,7 +38,7 @@ public class SessionService {
         sessionRepository.create(userId, props.getAccessTtlSeconds(), props.getHardTtlSeconds());
     }
 
-    public long compareAndSwap(Long userId, String expectedStatus, String newStatus) {
+    public SessionConsumeResult compareAndSwap(Long userId, SessionStatus expectedStatus, SessionStatus newStatus) {
         return sessionRepository.compareAndSwap(userId, expectedStatus, newStatus);
     }
 
@@ -63,11 +60,11 @@ public class SessionService {
      * 세션 기반 접근 검증 — 비즈니스 판단 + TTL 연장(부수효과)을 포함.
      * 필터는 이 결과만 받아서 통과/차단.
      */
-    public SessionValidation validateAccess(Long userId, AccessType type) {
+    public SessionValidation validateAndExtendAccess(Long userId, AccessType type) {
         SessionInfo session;
         try {
             session = getSession(userId);
-        } catch (Exception e) {
+        } catch (RedisConnectionFailureException | RedisSystemException e) {
             // Redis 장애 → fallbackMode 또는 Grace Period 시 소프트 바이패스
             if (modeManager.isFallbackMode() || modeManager.isInGracePeriod()) {
                 log.warn("Redis 장애 소프트 바이패스: userId={}, fallback={}, gracePeriod={}",
@@ -83,7 +80,7 @@ public class SessionService {
         }
 
         // 주문은 ACTIVE만 허용, 조회는 ACTIVE+CONSUMED 허용
-        if (type == AccessType.ORDER && !STATUS_ACTIVE.equals(session.status())) {
+        if (type == AccessType.ORDER && session.status() != SessionStatus.ACTIVE) {
             return SessionValidation.denied(HttpStatus.FORBIDDEN, "주문 가능한 세션 상태가 아닙니다");
         }
 
@@ -105,7 +102,7 @@ public class SessionService {
 
     public boolean hasActiveSession(Long userId) {
         SessionInfo session = getSession(userId);
-        return session != null && STATUS_ACTIVE.equals(session.status());
+        return session != null && session.status() == SessionStatus.ACTIVE;
     }
 
     public boolean hasSession(Long userId) {
@@ -113,15 +110,15 @@ public class SessionService {
     }
 
     private boolean extendTtl(Long userId) {
-        return sessionRepository.extendTtl(
-                userId,
+        SessionExtensionPolicy policy = new SessionExtensionPolicy(
                 props.getHardTtlSeconds(),
                 props.getActivityExtensionSeconds(),
                 props.getMaxExtensionsPerMinute()
         );
+        return sessionRepository.extendTtl(userId, policy);
     }
 
-    public record SessionInfo(String status, String createdAt) {}
+    public record SessionInfo(SessionStatus status, String createdAt) {}
 
     public record SessionValidation(boolean isAllowed, HttpStatus httpStatus, String message) {
         public static SessionValidation allowed() {

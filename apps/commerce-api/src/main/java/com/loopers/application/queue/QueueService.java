@@ -1,7 +1,7 @@
 package com.loopers.application.queue;
 
 import com.loopers.domain.queue.QueueRepository;
-import com.loopers.interfaces.api.queue.config.QueueProperties;
+import com.loopers.application.queue.config.QueueProperties;
 import org.springframework.stereotype.Service;
 
 import java.util.Set;

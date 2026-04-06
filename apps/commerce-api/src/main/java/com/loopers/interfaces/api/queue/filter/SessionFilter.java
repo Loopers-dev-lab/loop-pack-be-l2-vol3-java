@@ -5,7 +5,7 @@ import com.loopers.application.queue.ModeManager;
 import com.loopers.application.queue.SessionService;
 import com.loopers.application.queue.SessionService.SessionValidation;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.queue.config.QueueProperties;
+import com.loopers.application.queue.config.QueueProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +21,7 @@ import java.io.IOException;
 
 /**
  * 블프 전체 API 세션 검증 필터.
- * 통과/차단 판단만 수행. 비즈니스 로직은 SessionService.validateAccess()에 위임.
+ * 통과/차단 판단만 수행. 비즈니스 로직은 SessionService.validateAndExtendAccess()에 위임.
  */
 @Component
 @Order(3)
@@ -35,11 +35,15 @@ public class SessionFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        if (!queueProperties.isSessionValidationEnabled()) return true;
-        if (!modeManager.isEvent() && !modeManager.isDrain()) return true;
+        return !shouldFilter(request);
+    }
+
+    private boolean shouldFilter(HttpServletRequest request) {
+        if (!queueProperties.isSessionValidationEnabled()) return false;
+        if (!modeManager.isEvent() && !modeManager.isDrain()) return false;
 
         String uri = request.getRequestURI();
-        return !(uri.startsWith("/api/v1/products") || uri.equals("/api/v1/orders"));
+        return uri.startsWith("/api/v1/products") || uri.equals("/api/v1/orders");
     }
 
     @Override
@@ -56,7 +60,7 @@ public class SessionFilter extends OncePerRequestFilter {
                 ? SessionService.AccessType.ORDER
                 : SessionService.AccessType.QUERY;
 
-        SessionValidation result = sessionService.validateAccess(userId, type);
+        SessionValidation result = sessionService.validateAndExtendAccess(userId, type);
 
         if (!result.isAllowed()) {
             reject(response, result.httpStatus(), result.message());

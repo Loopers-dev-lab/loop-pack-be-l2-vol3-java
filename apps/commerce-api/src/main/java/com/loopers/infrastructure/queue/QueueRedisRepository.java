@@ -1,5 +1,6 @@
 package com.loopers.infrastructure.queue;
 
+import com.loopers.domain.queue.QueueKeys;
 import com.loopers.domain.queue.QueueRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -13,8 +14,12 @@ import java.util.Set;
 @Repository
 public class QueueRedisRepository implements QueueRepository {
 
-    private static final String WAITING_QUEUE_KEY = "waiting-queue:bf-2025";
-
+    /**
+     * 크기 상한 ZADD — 기존 멤버는 score 갱신, 신규 멤버는 크기 체크 후 추가.
+     * KEYS[1]: waiting-queue key
+     * ARGV[1]: maxSize, ARGV[2]: score (timestamp), ARGV[3]: userId
+     * @return 1(추가/갱신 성공), 0(만석)
+     */
     private static final String ZADD_WITH_LIMIT_LUA =
             "local exists = redis.call('ZSCORE', KEYS[1], ARGV[3]) " +
             "if exists then " +
@@ -44,7 +49,7 @@ public class QueueRedisRepository implements QueueRepository {
         double score = Instant.now().toEpochMilli() / 1000.0;
         DefaultRedisScript<Long> script = new DefaultRedisScript<>(ZADD_WITH_LIMIT_LUA, Long.class);
         Long result = masterRedisTemplate.execute(script,
-                Collections.singletonList(WAITING_QUEUE_KEY),
+                Collections.singletonList(QueueKeys.WAITING_QUEUE),
                 String.valueOf(maxSize),
                 String.valueOf(score),
                 userId.toString());
@@ -54,25 +59,25 @@ public class QueueRedisRepository implements QueueRepository {
 
     @Override
     public void dequeue(String... userIds) {
-        masterRedisTemplate.opsForZSet().remove(WAITING_QUEUE_KEY, (Object[]) userIds);
+        masterRedisTemplate.opsForZSet().remove(QueueKeys.WAITING_QUEUE, (Object[]) userIds);
     }
 
     // Query
 
     @Override
     public Set<String> peekTop(int count) {
-        return masterRedisTemplate.opsForZSet().range(WAITING_QUEUE_KEY, 0, count - 1);
+        return masterRedisTemplate.opsForZSet().range(QueueKeys.WAITING_QUEUE, 0, count - 1);
     }
 
     @Override
     public Long getRank(Long userId) {
-        Long rank = defaultRedisTemplate.opsForZSet().rank(WAITING_QUEUE_KEY, userId.toString());
+        Long rank = defaultRedisTemplate.opsForZSet().rank(QueueKeys.WAITING_QUEUE, userId.toString());
         return rank != null ? rank + 1 : null;
     }
 
     @Override
     public long size() {
-        Long size = defaultRedisTemplate.opsForZSet().zCard(WAITING_QUEUE_KEY);
+        Long size = defaultRedisTemplate.opsForZSet().zCard(QueueKeys.WAITING_QUEUE);
         return size != null ? size : 0;
     }
 }

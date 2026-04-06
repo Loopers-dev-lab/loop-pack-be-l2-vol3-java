@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import com.loopers.domain.queue.QueueMode;
+import com.loopers.domain.queue.SessionStatus;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -93,7 +96,7 @@ class QueueFacadeIntegrationTest {
         void CONSUMED_세션이_있는_유저는_세션_삭제_후_진입할_수_있다() {
             modeManager.switchToEvent();
             sessionService.createSession(1L);
-            sessionService.compareAndSwap(1L, SessionService.STATUS_ACTIVE, SessionService.STATUS_CONSUMED);
+            sessionService.compareAndSwap(1L, SessionStatus.ACTIVE, SessionStatus.CONSUMED);
 
             var response = queueFacade.enter(1L);
 
@@ -178,25 +181,25 @@ class QueueFacadeIntegrationTest {
 
         @Test
         void EVENT_모드로_전환할_수_있다() {
-            queueFacade.changeMode("EVENT");
+            queueFacade.changeMode(QueueMode.EVENT);
 
             assertThat(modeManager.isEvent()).isTrue();
         }
 
         @Test
         void DRAIN_모드로_전환할_수_있다() {
-            queueFacade.changeMode("EVENT");
+            queueFacade.changeMode(QueueMode.EVENT);
 
-            queueFacade.changeMode("DRAIN");
+            queueFacade.changeMode(QueueMode.DRAIN);
 
             assertThat(modeManager.isDrain()).isTrue();
         }
 
         @Test
         void NORMAL_모드로_전환할_수_있다() {
-            queueFacade.changeMode("EVENT");
+            queueFacade.changeMode(QueueMode.EVENT);
 
-            queueFacade.changeMode("NORMAL");
+            queueFacade.changeMode(QueueMode.NORMAL);
 
             assertThat(modeManager.isEvent()).isFalse();
             assertThat(modeManager.isDrain()).isFalse();

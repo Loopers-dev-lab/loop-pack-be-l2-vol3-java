@@ -3,7 +3,7 @@ package com.loopers.interfaces.api.queue.filter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.queue.ModeManager;
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.api.queue.config.QueueProperties;
+import com.loopers.application.queue.config.QueueProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -31,6 +31,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Order(1)
 public class RateLimitFilter extends OncePerRequestFilter {
 
+    /**
+     * Sliding Window Rate Limit — 만료 제거 + 추가 + 카운트 원자적 처리.
+     * KEYS[1]: rate:user:{userId}:{api}
+     * ARGV[1]: windowStart, ARGV[2]: now, ARGV[3]: UUID (member), ARGV[4]: TTL seconds
+     * @return 현재 윈도우 내 요청 수
+     */
     private static final String SLIDING_WINDOW_LUA =
             "redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1]) " +
             "redis.call('ZADD', KEYS[1], ARGV[2], ARGV[3]) " +
@@ -66,12 +72,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        if (!modeManager.isEvent() && !modeManager.isDrain()) return true;
+        return !shouldFilter(request);
+    }
+
+    private boolean shouldFilter(HttpServletRequest request) {
+        if (!modeManager.isEvent() && !modeManager.isDrain()) return false;
 
         String uri = request.getRequestURI();
-        return !(uri.startsWith("/api/v1/queue")
+        return uri.startsWith("/api/v1/queue")
                 || uri.equals("/api/v1/orders")
-                || uri.startsWith("/api/v1/products"));
+                || uri.startsWith("/api/v1/products");
     }
 
     @Override

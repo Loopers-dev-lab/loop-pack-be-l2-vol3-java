@@ -8,9 +8,8 @@ public interface SessionRepository {
 
     /**
      * CAS: status가 expected와 일치하면 newStatus로 변경.
-     * @return 1(성공), 0(상태 불일치), -1(키 없음/세션 만료)
      */
-    long compareAndSwap(Long userId, String expectedStatus, String newStatus);
+    SessionConsumeResult compareAndSwap(Long userId, SessionStatus expectedStatus, SessionStatus newStatus);
 
     void delete(Long userId);
 
@@ -18,7 +17,7 @@ public interface SessionRepository {
      * Activity TTL 연장 — rate limit + Hard TTL + EXPIRE를 원자적으로 처리.
      * @return true면 연장 성공
      */
-    boolean extendTtl(Long userId, int hardTtlSeconds, int extensionSeconds, int maxExtensionsPerMinute);
+    boolean extendTtl(Long userId, SessionExtensionPolicy policy);
 
     void removeExpiredTrackerEntries(double maxScore);
 
@@ -30,5 +29,5 @@ public interface SessionRepository {
 
     boolean exists(Long userId);
 
-    record SessionData(String status, String createdAt) {}
+    record SessionData(SessionStatus status, String createdAt) {}
 }
