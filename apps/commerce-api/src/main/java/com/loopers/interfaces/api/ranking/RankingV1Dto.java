@@ -6,6 +6,7 @@ import com.loopers.domain.ranking.ProductRanking;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class RankingV1Dto {
 
@@ -17,10 +18,11 @@ public class RankingV1Dto {
         double score
     ) {
         public static RankingProductResponse from(ProductRanking ranking, ProductReadModel product) {
+            Objects.requireNonNull(product, "product must not be null");
             return new RankingProductResponse(
                 ranking.productId(),
-                product != null ? product.name() : null,
-                product != null ? product.price() : 0,
+                product.name(),
+                product.price(),
                 ranking.rank(),
                 ranking.score()
             );
@@ -39,6 +41,7 @@ public class RankingV1Dto {
             Map<Long, ProductReadModel> productMap
         ) {
             List<RankingProductResponse> content = rankings.items().stream()
+                .filter(ranking -> productMap.containsKey(ranking.productId()))
                 .map(ranking -> RankingProductResponse.from(
                     ranking, productMap.get(ranking.productId())
                 ))

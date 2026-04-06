@@ -32,7 +32,6 @@ public class RankingCarryOverScheduler {
     private final RedisTemplate<String, String> redisTemplate;
     private final double carryOverWeight;
     private final long dayTtlSeconds;
-    private String lockValue;
 
     public RankingCarryOverScheduler(
         @Qualifier("redisTemplateMaster") RedisTemplate<String, String> redisTemplate,
@@ -46,7 +45,8 @@ public class RankingCarryOverScheduler {
 
     @Scheduled(cron = "0 50 23 * * *")
     public void carryOver() {
-        if (!acquireLock()) {
+        String lockValue = acquireLock();
+        if (lockValue == null) {
             log.debug("[RankingCarryOver] 다른 인스턴스가 실행 중. skip.");
             return;
         }
@@ -75,18 +75,18 @@ public class RankingCarryOverScheduler {
         } catch (Exception e) {
             log.error("[RankingCarryOver] carry-over 실패: {}", e.getMessage(), e);
         } finally {
-            releaseLock();
+            releaseLock(lockValue);
         }
     }
 
-    private boolean acquireLock() {
-        lockValue = UUID.randomUUID().toString();
+    private String acquireLock() {
+        String lockValue = UUID.randomUUID().toString();
         Boolean acquired = redisTemplate.opsForValue()
             .setIfAbsent(LOCK_KEY, lockValue, LOCK_TTL_MS, TimeUnit.MILLISECONDS);
-        return Boolean.TRUE.equals(acquired);
+        return Boolean.TRUE.equals(acquired) ? lockValue : null;
     }
 
-    private void releaseLock() {
+    private void releaseLock(String lockValue) {
         DefaultRedisScript<Long> script = new DefaultRedisScript<>(RELEASE_LOCK_SCRIPT, Long.class);
         redisTemplate.execute(script, List.of(LOCK_KEY), lockValue);
     }

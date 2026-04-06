@@ -6,6 +6,8 @@ import com.loopers.application.ranking.RankingQueryService;
 import com.loopers.domain.PageResult;
 import com.loopers.domain.ranking.ProductRanking;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -38,6 +42,7 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         @RequestParam(defaultValue = "20") @Min(value = 1, message = "size는 1 이상이어야 합니다.") int size
     ) {
         String resolvedDate = (date != null) ? date : LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        validateDate(resolvedDate);
         PageResult<ProductRanking> rankings = rankingQueryService.getDailyRanking(resolvedDate, page, size);
 
         Set<Long> productIds = rankings.items().stream()
@@ -49,5 +54,16 @@ public class RankingV1Controller implements RankingV1ApiSpec {
             .collect(Collectors.toMap(Map.Entry::getKey, e -> ProductReadModel.from(e.getValue())));
 
         return ApiResponse.success(RankingV1Dto.RankingPageResponse.from(rankings, productMap));
+    }
+
+    private static final DateTimeFormatter STRICT_DAY_FORMAT =
+        DateTimeFormatter.ofPattern("yyyyMMdd").withResolverStyle(ResolverStyle.STRICT);
+
+    private void validateDate(String date) {
+        try {
+            LocalDate.parse(date, STRICT_DAY_FORMAT);
+        } catch (DateTimeParseException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 날짜입니다: " + date);
+        }
     }
 }

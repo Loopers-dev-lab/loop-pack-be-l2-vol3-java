@@ -71,7 +71,7 @@ public class RankingScoreService {
     public void addOrderScores(List<OrderItemPayload> items) {
         Map<Long, Double> aggregated = new HashMap<>();
         for (OrderItemPayload item : items) {
-            double rawValue = Math.max((long) item.price() * item.quantity(), 1);
+            double rawValue = Math.max((long) item.price() * (long) item.quantity(), 1);
             double score = orderWeight * Math.log10(rawValue);
             aggregated.merge(item.productId(), score, Double::sum);
         }
