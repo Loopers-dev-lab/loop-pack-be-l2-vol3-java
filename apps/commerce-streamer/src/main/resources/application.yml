@@ -29,6 +29,10 @@ demo-kafka:
   test:
     topic-name: demo.internal.topic-v1
 
+ranking:
+  kafka:
+    topic-name: order-events
+
 ---
 spring:
   config:
