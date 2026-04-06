@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductJpaRepository extends JpaRepository<Product, Long> {
@@ -18,4 +19,6 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
     Optional<Product> findByIdWithLock(@Param("id") Long id);
 
     Page<Product> findByBrandId(Long brandId, Pageable pageable);
+
+    List<Product> findAllByIdIn(List<Long> ids);
 }
