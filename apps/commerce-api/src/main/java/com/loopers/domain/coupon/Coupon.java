@@ -7,7 +7,6 @@ import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Entity
@@ -109,11 +108,7 @@ public class Coupon extends BaseEntity {
     }
 
     public BigDecimal calculateDiscount(BigDecimal totalAmount) {
-        return switch (type) {
-            case FIXED -> totalAmount.min(BigDecimal.valueOf(value));
-            case RATE -> totalAmount.multiply(BigDecimal.valueOf(value))
-                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN);
-        };
+        return type.calculateDiscount(value, totalAmount);
     }
 
     private void validateNotDeleted() {
