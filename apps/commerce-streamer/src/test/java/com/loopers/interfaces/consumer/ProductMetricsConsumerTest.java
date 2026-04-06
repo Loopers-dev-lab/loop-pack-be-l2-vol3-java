@@ -102,7 +102,7 @@ class ProductMetricsConsumerTest {
             // arrange
             ConsumerRecord<String, Object> record = new ConsumerRecord<>(
                     "order-completed-v1", 0, 0, "1",
-                    "{\"eventId\":\"uuid\",\"orderId\":1,\"orderItems\":[{\"productId\":10,\"quantity\":2},{\"productId\":20,\"quantity\":3}]}");
+                    "{\"eventId\":\"uuid\",\"orderId\":1,\"orderItems\":[{\"productId\":10,\"quantity\":2,\"price\":50000},{\"productId\":20,\"quantity\":3,\"price\":30000}]}");
 
             // act
             productMetricsConsumer.consumeOrderEvents(List.of(record), acknowledgment);

@@ -74,7 +74,7 @@ public class ProductMetricsConsumer {
             try {
                 OrderCompletedMessage msg = kafkaMessageParser.parse(record.value(), OrderCompletedMessage.class);
                 List<MetricsPayload.Order.OrderItem> items = msg.orderItems().stream()
-                        .map(item -> new MetricsPayload.Order.OrderItem(item.productId(), item.quantity()))
+                        .map(item -> new MetricsPayload.Order.OrderItem(item.productId(), item.quantity(), item.price()))
                         .toList();
                 productMetricsService.handleEvent(
                         new MetricsEventMeta(msg.eventId(), MetricsEventType.ORDER_COMPLETED),

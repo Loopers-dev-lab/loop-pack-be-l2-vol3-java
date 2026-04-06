@@ -14,7 +14,7 @@ public sealed interface MetricsPayload permits MetricsPayload.Like, MetricsPaylo
     }
 
     record Order(List<OrderItem> orderItems) implements MetricsPayload {
-        public record OrderItem(Long productId, Long quantity) {
+        public record OrderItem(Long productId, Long quantity, Long price) {
         }
     }
 
