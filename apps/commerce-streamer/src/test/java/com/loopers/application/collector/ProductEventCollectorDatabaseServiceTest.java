@@ -1,6 +1,7 @@
 package com.loopers.application.collector;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.ranking.RankingMetricsRedisSyncService;
 import com.loopers.domain.ranking.RankingScoreCalculator;
 import com.loopers.domain.ranking.RankingScoreWeights;
 import com.loopers.domain.ranking.RankingWriteRepository;
@@ -43,14 +44,22 @@ class ProductEventCollectorDatabaseServiceTest {
     private SimpleMeterRegistry meterRegistry;
     private ProductEventCollectorDatabaseService databaseService;
 
+    /**
+     * 테스트 설정
+     * @param productMetricsJpaRepository 상품 매트릭 JPA 리포지토리
+     * @param rankingWriteRepository 랭킹 쓰기 리포지토리
+     */
     @BeforeEach
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
+        RankingMetricsRedisSyncService rankingSync = new RankingMetricsRedisSyncService(
+                new RankingScoreCalculator(RankingScoreWeights.questExample()),
+                rankingWriteRepository
+        );
         databaseService = new ProductEventCollectorDatabaseService(
                 eventHandledJpaRepository,
                 productMetricsJpaRepository,
-                new RankingScoreCalculator(RankingScoreWeights.questExample()),
-                rankingWriteRepository,
+                rankingSync,
                 meterRegistry
         );
     }
@@ -59,6 +68,7 @@ class ProductEventCollectorDatabaseServiceTest {
     @DisplayName("신규 PRODUCT_LIKE_CHANGED 이벤트는 event_handled 저장 후 like delta를 반영한다.")
     void processDb_whenNewLikeEvent_shouldRecordHandledAndUpdateMetrics() {
         ProductMetricsModel metrics = org.mockito.Mockito.mock(ProductMetricsModel.class);
+        when(metrics.getProductId()).thenReturn(101L);
         when(metrics.getViewCount()).thenReturn(0L);
         when(metrics.getLikeCount()).thenReturn(1L);
         when(metrics.getSoldQuantity()).thenReturn(0L);
