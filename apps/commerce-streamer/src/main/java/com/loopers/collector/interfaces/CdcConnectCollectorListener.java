@@ -17,7 +17,7 @@ public class CdcConnectCollectorListener {
     }
 
     @KafkaListener(
-            topicPattern = "${cdc.connect.topic-pattern:^cdc-connect-.*$}",
+            topicPattern = "${cdc.connect.topic-pattern:^cdc-connect-(?!errors$).+$}",
             groupId = "${cdc.connect.consumer-group:loopers-cdc-connect-consumer}",
             containerFactory = CdcConnectConsumerConfig.CDC_CONNECT_EVENT_LISTENER
     )

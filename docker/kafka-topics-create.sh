@@ -28,6 +28,7 @@ TOPICS=(
   "user-events"
   "user-events.DLQ"
   "coupon-issue-requests"
+  "queue-join-fallback"
 )
 
 if ! docker ps --format '{{.Names}}' | grep -qx "${CONTAINER}"; then

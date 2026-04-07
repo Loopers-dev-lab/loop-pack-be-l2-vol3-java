@@ -3,8 +3,7 @@ package com.loopers.application.coupon;
 import com.loopers.domain.coupon.CouponIssueRequestModel;
 import com.loopers.domain.coupon.CouponIssueRequestRepository;
 import com.loopers.domain.coupon.CouponService;
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -46,9 +45,9 @@ public class CouponIssueRequestOutboxService {
 
         transactionalOutboxWriter.record(
                 requestId,
-                DomainKafkaTopics.COUPON_ISSUE_REQUESTS,
+                DomainEvents.Topic.COUPON_ISSUE_REQUESTS,
                 String.valueOf(couponTemplateId),
-                DomainEventTypes.COUPON_ISSUE_REQUESTED,
+                DomainEvents.Type.COUPON_ISSUE_REQUESTED,
                 Map.of(
                         "requestId", requestId,
                         "userId", userId,

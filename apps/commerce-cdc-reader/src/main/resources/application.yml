@@ -16,10 +16,13 @@ cdc:
   reader:
     mysql-host: localhost
     mysql-port: 3307
-    username: root
-    password: root
+    username: ${CDC_READER_MYSQL_USERNAME:root}
+    password: ${CDC_READER_MYSQL_PASSWORD:root}
     server-id: 223346
     topic-prefix: cdc-app
+    send-timeout: 30s
+    kafka-send-max-retries: 3
+    kafka-send-backoff-initial-ms: 100
     include-databases:
       - loopers
     include-tables:

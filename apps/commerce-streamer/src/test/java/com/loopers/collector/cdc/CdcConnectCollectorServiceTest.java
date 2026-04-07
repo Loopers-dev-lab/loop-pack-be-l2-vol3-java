@@ -1,7 +1,6 @@
 package com.loopers.collector.cdc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.infrastructure.collector.EventHandledJpaRepository;
 import com.loopers.infrastructure.collector.EventHandledModel;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -26,7 +25,7 @@ import static org.mockito.Mockito.verify;
 class CdcConnectCollectorServiceTest {
 
     @Mock
-    private EventHandledJpaRepository eventHandledJpaRepository;
+    private CdcEventHandledPersistence eventHandledPersistence;
 
     private SimpleMeterRegistry meterRegistry;
     private CdcConnectCollectorService service;
@@ -35,7 +34,7 @@ class CdcConnectCollectorServiceTest {
     void setUp() {
         meterRegistry = new SimpleMeterRegistry();
         service = new CdcConnectCollectorService(
-                eventHandledJpaRepository,
+                eventHandledPersistence,
                 new ObjectMapper().findAndRegisterModules(),
                 meterRegistry
         );
@@ -50,7 +49,7 @@ class CdcConnectCollectorServiceTest {
 
         service.process(record);
 
-        verify(eventHandledJpaRepository).saveAndFlush(any());
+        verify(eventHandledPersistence).insert(any());
         assertThat(meterRegistry.find("kafka.collector.cdc.events.processed").counter().count()).isEqualTo(1.0);
     }
 
@@ -64,7 +63,7 @@ class CdcConnectCollectorServiceTest {
         service.process(record);
 
         ArgumentCaptor<EventHandledModel> captor = ArgumentCaptor.forClass(EventHandledModel.class);
-        verify(eventHandledJpaRepository).saveAndFlush(captor.capture());
+        verify(eventHandledPersistence).insert(captor.capture());
         assertThat(readEventId(captor.getValue())).isEqualTo("cdc:binlog.000003:128");
     }
 
@@ -74,7 +73,7 @@ class CdcConnectCollectorServiceTest {
         ConsumerRecord<Object, Object> record =
                 new ConsumerRecord<>("cdc-connect-product_metrics", 0, 11L, "1", "{\"id\":1}".getBytes());
         doThrow(new DataIntegrityViolationException("dup"))
-                .when(eventHandledJpaRepository).saveAndFlush(any());
+                .when(eventHandledPersistence).insert(any());
 
         service.process(record);
 

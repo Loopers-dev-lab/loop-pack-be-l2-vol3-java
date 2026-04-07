@@ -43,6 +43,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     }
 
     @Override
+    public Optional<PaymentModel> findTopPendingByOrderIdForUpdate(Long orderId) {
+        return jpaRepository.findFirstByOrderIdAndStatusOrderByCreatedAtDescIdDesc(orderId, PaymentStatus.PENDING);
+    }
+
+    @Override
     public List<PaymentModel> findStalePendingPayments(PaymentStatus status, ZonedDateTime createdAt, int maxResults) {
         return jpaRepository.findStalePendingPayments(status, createdAt, PageRequest.of(0, maxResults));
     }

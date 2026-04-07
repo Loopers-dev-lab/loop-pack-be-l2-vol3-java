@@ -3,9 +3,17 @@ package com.loopers.interfaces.api;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
+import com.loopers.infrastructure.metrics.QueueInfrastructureMetrics;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -24,13 +32,35 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+/**
+ * ({@link ApiResponse})와 HTTP 상태를 맞추기 위한 전역 예외 처리.
+ * <p>
+ * 저장소 계층 예외 중 컨트롤러까지 올라온 {@link org.springframework.dao.DataAccessException},
+ * {@link org.springframework.data.redis.RedisConnectionFailureException},
+ * {@link org.springframework.data.redis.RedisSystemException}은 사용자에게 동일한 안내 문구를 주고
+ * {@link com.loopers.infrastructure.metrics.QueueInfrastructureMetrics#recordApiBackendFailure()}로 누적한다.
+ * 도메인에서 이미 {@link CoreException}으로 감싼 경우(예: 대기열 비활성 시 내부 오류)는 본 핸들러가 아니라
+ * {@link #handle(CoreException)}이 처리한다.
+ */
 @RestControllerAdvice
+@RequiredArgsConstructor
 @Slf4j
 public class ApiControllerAdvice {
+
+    private static final String BACKEND_TEMPORARILY_UNAVAILABLE =
+            "일시적으로 저장소에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+
+    private final QueueInfrastructureMetrics queueInfrastructureMetrics;
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handle(CoreException e) {
         log.warn("CoreException : {}", e.getCustomMessage() != null ? e.getCustomMessage() : e.getMessage(), e);
-        return failureResponse(e.getErrorType(), e.getCustomMessage());
+        ErrorType errorType = e.getErrorType();
+        String message = e.getCustomMessage() != null ? e.getCustomMessage() : errorType.getMessage();
+        ResponseEntity.BodyBuilder builder = ResponseEntity.status(errorType.getStatus()).contentType(MediaType.APPLICATION_JSON);
+        if (errorType == ErrorType.TOO_MANY_REQUESTS) {
+            builder.header(HttpHeaders.RETRY_AFTER, "1");
+        }
+        return builder.body(ApiResponse.fail(errorType.getCode(), message));
     }
 
     @ExceptionHandler
@@ -127,6 +157,22 @@ public class ApiControllerAdvice {
     @ExceptionHandler
     public ResponseEntity<ApiResponse<?>> handleNotFound(NoResourceFoundException e) {
         return failureResponse(ErrorType.NOT_FOUND, null);
+    }
+
+    /**
+     * 저장소 일시 장애를 공통 응답·메트릭으로 처리한다.
+     *
+     * @see #handle(CoreException) 도메인에서 이미 래핑된 예외
+     */
+    @ExceptionHandler({
+            DataAccessException.class,
+            RedisConnectionFailureException.class,
+            RedisSystemException.class
+    })
+    public ResponseEntity<ApiResponse<?>> handleBackendDataAccessFailure(Exception e) {
+        queueInfrastructureMetrics.recordApiBackendFailure();
+        log.warn("Backend data store failure: {}", e.getMessage(), e);
+        return failureResponse(ErrorType.INTERNAL_ERROR, BACKEND_TEMPORARILY_UNAVAILABLE);
     }
 
     /**

@@ -25,6 +25,11 @@ public interface PaymentRepository {
     Optional<PaymentModel> findTopByOrderIdOrderByCreatedAtDesc(Long orderId);
 
     /**
+     * 해당 주문의 최신 PENDING 결제를 비관적 락으로 조회 (PG 콜백 동시성).
+     */
+    Optional<PaymentModel> findTopPendingByOrderIdForUpdate(Long orderId);
+
+    /**
      * stale PENDING(= createdAt이 임계값 이하) 결제를 최대 {@code maxResults}건만 조회.
      * 배치 한 번에 메모리·PG 호출 상한을 두기 위함 (Phase 8).
      */

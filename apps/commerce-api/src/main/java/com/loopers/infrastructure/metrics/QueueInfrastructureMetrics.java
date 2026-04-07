@@ -1,0 +1,115 @@
+package com.loopers.infrastructure.metrics;
+
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.stereotype.Component;
+
+/**
+ * 대기열·저장소 관련 관측 카운터를 한 빈에서 등록한다.
+ * <p>
+ * <b>분리 이유</b>: Micrometer 미터 이름·설명을 API 계층({@link com.loopers.interfaces.api.ApiControllerAdvice}),
+ * Kafka 발행({@link com.loopers.infrastructure.queue.KafkaQueueJoinFallbackPublisher}),
+ * Kafka 소비({@link com.loopers.infrastructure.queue.QueueJoinFallbackKafkaListener}),
+ * 입장 스케줄러 관측({@link QueueSchedulerObservationConfig})에 걸쳐 동일하게 유지하고,
+ * 각 컴포넌트는 카운터 증가만 호출하도록 하기 위함이다. 발행/리스너 안에 카운터를 흩뿌리면 이름 불일치·중복 등록 위험이 있다.
+ */
+@Component
+public class QueueInfrastructureMetrics {
+
+    private final MeterRegistry meterRegistry;
+    private final Counter apiBackendFailures;
+    private final Counter kafkaJoinFallbackPublished;
+    private final Counter kafkaJoinFallbackPublishFailed;
+    private final Counter kafkaJoinFallbackRecovered;
+    private final Counter kafkaJoinFallbackDlt;
+    private final Counter schedulerLockSkipped;
+    private final Counter schedulerInvocations;
+    private final Counter sseConcurrencyRejected;
+
+    /**
+     * @param meterRegistry 미터(Meter) 및 메트릭(Metrics)을 관리·등록하는 Micrometer의 중앙 저장소 객체
+     *                      각종 카운터·게이지·타이머 등의 지표를 여기에 등록하면,
+     *                      Spring Boot Actuator, Prometheus 등 외부 시스템에서 수집할 수 있다.
+     */
+    public QueueInfrastructureMetrics(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
+        this.apiBackendFailures = Counter.builder("loopers.queue.backend.failures")
+                .description("API에서 저장소(Redis/DB) 일시 장애로 매핑된 횟수")
+                .tag("layer", "api")
+                .register(meterRegistry);
+        this.kafkaJoinFallbackPublished = Counter.builder("loopers.queue.join.fallback.kafka.published")
+                .description("Redis 장애 시 대기열 진입 의도를 Kafka로 발행한 횟수")
+                .register(meterRegistry);
+        this.kafkaJoinFallbackPublishFailed = Counter.builder("loopers.queue.join.fallback.kafka.publish.failed")
+                .description("대기열 Kafka 폴백 발행 실패 횟수")
+                .register(meterRegistry);
+        this.kafkaJoinFallbackRecovered = Counter.builder("loopers.queue.join.fallback.recovered")
+                .description("Kafka 폴백 메시지 처리로 Redis 대기열에 반영한 횟수")
+                .register(meterRegistry);
+        this.kafkaJoinFallbackDlt = Counter.builder("loopers.queue.join.fallback.dlt")
+                .description("대기열 Kafka 폴백 소비 실패로 DLT에 전달된 횟수")
+                .register(meterRegistry);
+        this.schedulerLockSkipped = Counter.builder("loopers.queue.scheduler.lock.skipped")
+                .description("입장 스케줄러 틱에서 분산 락 미획득으로 방출을 스킵한 횟수")
+                .register(meterRegistry);
+        this.schedulerInvocations = Counter.builder("loopers.queue.scheduler.invocations")
+                .description("releaseEntries 호출 횟수(스케줄된 틱 시도; 락 성공 여부와 무관)")
+                .register(meterRegistry);
+        this.sseConcurrencyRejected = Counter.builder("loopers.queue.position.sse.concurrency.rejected")
+                .description("순번 SSE 동시 연결 상한으로 연결을 거절한 횟수")
+                .register(meterRegistry);
+    }
+
+    /** 컨트롤러까지 전파된 저장소 예외를 공통 처리한 경우 1회 증가. */
+    public void recordApiBackendFailure() {
+        apiBackendFailures.increment();
+    }
+
+    /** Redis 장애 후 Kafka로 대기열 진입 의도를 성공적으로 발행한 경우 1회 증가. */
+    public void recordKafkaJoinFallbackPublished() {
+        kafkaJoinFallbackPublished.increment();
+    }
+
+    /** Kafka 발행 단계에서 예외가 난 경우 1회 증가. */
+    public void recordKafkaJoinFallbackPublishFailed() {
+        kafkaJoinFallbackPublishFailed.increment();
+    }
+
+    /** 컨슈머가 Redis에 {@code joinQueueFromRecovery}까지 반영한 경우 1회 증가. */
+    public void recordKafkaJoinFallbackRecovered() {
+        kafkaJoinFallbackRecovered.increment();
+    }
+
+    /** 재시도 소진 후 DLT 핸들러로 넘어온 경우 1회 증가. */
+    public void recordKafkaJoinFallbackDlt() {
+        kafkaJoinFallbackDlt.increment();
+    }
+
+    /** 분산 락을 잡지 못해 이번 틱에서 pop·토큰 발급을 하지 않은 경우 1회 증가. */
+    public void recordSchedulerLockSkipped() {
+        schedulerLockSkipped.increment();
+    }
+
+    /** {@link com.loopers.domain.queue.EntrySchedulerService#releaseEntries} 진입마다 1회 증가. */
+    public void recordSchedulerInvocation() {
+        schedulerInvocations.increment();
+    }
+
+    /**
+     * 락 확보 후 pop·토큰·하트비트까지 끝난 틱마다 1회 증가.
+     * {@code released_empty} 태그로 이번 틱에 방출 인원이 0인지 구분한다(대시보드·알람용).
+     */
+    public void recordSchedulerTickCompleted(int releasedCount) {
+        meterRegistry
+                .counter(
+                        "loopers.queue.scheduler.tick.completed",
+                        "released_empty",
+                        releasedCount == 0 ? "true" : "false")
+                .increment();
+    }
+
+    /** SSE 순번 스트림 동시 연결 한도 초과로 요청을 거절한 경우 1회 증가. */
+    public void recordSseConcurrencyRejected() {
+        sseConcurrencyRejected.increment();
+    }
+}

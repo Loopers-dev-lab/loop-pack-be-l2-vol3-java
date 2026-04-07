@@ -9,12 +9,21 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CdcConnectConfigSafetyTest {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    @Test
+    @DisplayName("스트리머 CDC topic 패턴은 Debezium DLQ 토픽 cdc-connect-errors 와 매치되지 않는다.")
+    void streamerCdcTopicPattern_shouldExcludeErrorsTopic() {
+        Pattern pattern = Pattern.compile("^cdc-connect-(?!errors$).+$");
+        assertThat(pattern.matcher("cdc-connect-errors").matches()).isFalse();
+        assertThat(pattern.matcher("cdc-connect-loopers-product_metrics").matches()).isTrue();
+    }
 
     @Test
     @DisplayName("CDC 커넥터는 Polling 메인 토픽과 충돌하지 않는 전용 토픽으로 라우팅한다.")

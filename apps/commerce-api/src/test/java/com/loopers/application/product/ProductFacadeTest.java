@@ -1,6 +1,6 @@
 package com.loopers.application.product;
 
-import com.loopers.application.observability.ProductViewOutboxRecorder;
+import com.loopers.application.observability.ProductViewOutboxAsyncPublisher;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeService;
@@ -53,7 +53,7 @@ class ProductFacadeTest {
     @Mock
     private ApplicationEventPublisher eventPublisher;
     @Mock
-    private ProductViewOutboxRecorder productViewOutboxRecorder;
+    private ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher;
 
     @InjectMocks
     private ProductFacade productFacade;
@@ -72,7 +72,7 @@ class ProductFacadeTest {
 
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
-            verify(productViewOutboxRecorder, never()).recordProductViewed(PRODUCT_ID);
+            verify(productViewOutboxAsyncPublisher, never()).scheduleRecordProductViewed(PRODUCT_ID);
         }
 
         @Test
@@ -89,7 +89,7 @@ class ProductFacadeTest {
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
-            verify(productViewOutboxRecorder, never()).recordProductViewed(PRODUCT_ID);
+            verify(productViewOutboxAsyncPublisher, never()).scheduleRecordProductViewed(PRODUCT_ID);
         }
 
         @Test
@@ -116,12 +116,12 @@ class ProductFacadeTest {
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
             verify(likeService).getLikeCountFromStats(PRODUCT_ID);
-            verify(productViewOutboxRecorder).recordProductViewed(PRODUCT_ID);
+            verify(productViewOutboxAsyncPublisher).scheduleRecordProductViewed(PRODUCT_ID);
         }
 
         @Test
-        @DisplayName("캐시 히트 시에도 상품 조회 Outbox를 기록한다.")
-        void getProductDetail_whenCached_shouldRecordViewOutbox() {
+        @DisplayName("캐시 히트 시에도 상품 조회 Outbox 기록을 비동기로 예약한다.")
+        void getProductDetail_whenCached_shouldScheduleViewOutbox() {
             ProductDetailInfo cached = new ProductDetailInfo(
                     PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT);
             when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.of(cached));
@@ -130,7 +130,7 @@ class ProductFacadeTest {
 
             assertThat(result).contains(cached);
             verify(productService, never()).findByIdAndNotDeleted(PRODUCT_ID);
-            verify(productViewOutboxRecorder).recordProductViewed(PRODUCT_ID);
+            verify(productViewOutboxAsyncPublisher).scheduleRecordProductViewed(PRODUCT_ID);
         }
     }
 

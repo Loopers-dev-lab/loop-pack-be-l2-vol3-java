@@ -23,18 +23,28 @@ public class OrderFacade {
     private final OrderService orderService;
     private final ProductService productService;
     private final CouponService couponService;
+    private final OrderEntryTokenGate orderEntryTokenGate;
 
-    public OrderFacade(OrderService orderService, ProductService productService, CouponService couponService) {
+    public OrderFacade(
+            OrderService orderService,
+            ProductService productService,
+            CouponService couponService,
+            OrderEntryTokenGate orderEntryTokenGate
+    ) {
         this.orderService = orderService;
         this.productService = productService;
         this.couponService = couponService;
+        this.orderEntryTokenGate = orderEntryTokenGate;
     }
 
     /**
      * 주문 접수. 단일 트랜잭션: 재고 락 선점 → 검증·스냅샷·차감 → (쿠폰 시) 검증·사용 → 주문 생성.
+     *
+     * @param entryToken {@code X-Entry-Token} 헤더 값. {@code queue.order.require-entry-token=true} 이면 필수.
      */
     @Transactional
-    public OrderInfo placeOrder(Long userId, List<CreateOrderItemParam> params, Long couponId) {
+    public OrderInfo placeOrder(Long userId, String entryToken, List<CreateOrderItemParam> params, Long couponId) {
+        orderEntryTokenGate.verifyAndConsumeIfRequired(userId, entryToken);
         List<ProductValidationRequest> requests = params.stream()
                 .map(p -> new ProductValidationRequest(p.productId(), Quantity.of(p.quantity()), p.optionId()))
                 .toList();
@@ -55,9 +65,13 @@ public class OrderFacade {
         return OrderInfo.from(order);
     }
 
+    public OrderInfo placeOrder(Long userId, List<CreateOrderItemParam> params, Long couponId) {
+        return placeOrder(userId, null, params, couponId);
+    }
+
     /** 쿠폰 미적용 주문. */
     public OrderInfo placeOrder(Long userId, List<CreateOrderItemParam> params) {
-        return placeOrder(userId, params, null);
+        return placeOrder(userId, null, params, null);
     }
 
     @Transactional(readOnly = true)

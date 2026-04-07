@@ -1,6 +1,6 @@
 package com.loopers.application.product;
 
-import com.loopers.application.observability.ProductViewOutboxRecorder;
+import com.loopers.application.observability.ProductViewOutboxAsyncPublisher;
 import com.loopers.application.product.event.ProductDeletedEvent;
 import com.loopers.application.product.event.ProductUpdatedEvent;
 import com.loopers.domain.brand.BrandModel;
@@ -38,18 +38,18 @@ public class ProductFacade {
     private final LikeService likeService;
     private final ProductCacheService productCacheService;
     private final ApplicationEventPublisher eventPublisher;
-    private final ProductViewOutboxRecorder productViewOutboxRecorder;
+    private final ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher;
 
     public ProductFacade(ProductService productService, BrandService brandService, LikeService likeService,
             ProductCacheService productCacheService,
             ApplicationEventPublisher eventPublisher,
-            ProductViewOutboxRecorder productViewOutboxRecorder) {
+            ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher) {
         this.productService = productService;
         this.brandService = brandService;
         this.likeService = likeService;
         this.productCacheService = productCacheService;
         this.eventPublisher = eventPublisher;
-        this.productViewOutboxRecorder = productViewOutboxRecorder;
+        this.productViewOutboxAsyncPublisher = productViewOutboxAsyncPublisher;
     }
 
     @Transactional
@@ -72,7 +72,7 @@ public class ProductFacade {
     public Optional<ProductDetailInfo> getProductDetail(Long productId) {
         Optional<ProductDetailInfo> cached = productCacheService.getDetail(productId);
         if (cached.isPresent()) {
-            productViewOutboxRecorder.recordProductViewed(productId);
+            productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
             return cached;
         }
         Optional<ProductModel> productOpt = productService.findByIdAndNotDeleted(productId);
@@ -94,7 +94,7 @@ public class ProductFacade {
                 product.getStockQuantity(),
                 likeCount);
         productCacheService.putDetail(productId, info);
-        productViewOutboxRecorder.recordProductViewed(productId);
+        productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
         return Optional.of(info);
     }
 

@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order;
 import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -15,11 +16,18 @@ public interface OrderV1ApiSpec {
 
     @Operation(
         summary = "주문 생성",
-        description = "상품·수량 목록으로 주문합니다. 로그인 필요. 주문 시점 상품 정보가 스냅샷으로 보존됩니다."
+        description = "상품·수량 목록으로 주문합니다. 로그인 필요. 주문 시점 상품 정보가 스냅샷으로 보존됩니다. "
+                + "운영에서 queue.order.require-entry-token=true 이면 대기열에서 발급받은 X-Entry-Token이 필요합니다."
     )
     ApiResponse<OrderV1Dto.OrderResponse> createOrder(
         @Parameter(description = "로그인 사용자 ID (X-Loopers-LoginId)", required = true)
         String loginId,
+        @Parameter(
+                name = "X-Entry-Token",
+                in = ParameterIn.HEADER,
+                description = "대기열 입장 토큰 (require-entry-token=true 인 환경에서 필수)"
+        )
+        String entryToken,
         @Schema(description = "주문 생성 요청 (항목 목록)")
         @Valid OrderV1Dto.CreateOrderRequest request
     );

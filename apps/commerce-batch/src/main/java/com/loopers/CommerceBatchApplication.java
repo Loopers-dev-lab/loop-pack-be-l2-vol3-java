@@ -20,7 +20,7 @@ public class CommerceBatchApplication {
     }
 
     public static void main(String[] args) {
-        int exitCode = SpringApplication.exit(SpringApplication.run(CommerceBatchApplication.class, args));
-        System.exit(exitCode);
+        // 스케줄(Outbox 릴레이·정리·DLQ redrive)이 지속 실행되려면 컨텍스트를 유지해야 한다.
+        SpringApplication.run(CommerceBatchApplication.class, args);
     }
 }

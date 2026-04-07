@@ -47,6 +47,10 @@ apps/commerce-api/src/test/java/com/loopers/domain/product/ReadOnlyApplicability
 apps/commerce-api/src/test/java/com/loopers/testcontainers/
 
 ### Project ###
-mentor-*
+mentor/
 performance-*
 wil-*
+.docs/
+docs/
+
+.gitignore

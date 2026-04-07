@@ -47,6 +47,8 @@ class OrderFacadeTest {
     private ProductService productService;
     @Mock
     private CouponService couponService;
+    @Mock
+    private OrderEntryTokenGate orderEntryTokenGate;
     @InjectMocks
     private OrderFacade orderFacade;
 
@@ -84,6 +86,7 @@ class OrderFacadeTest {
             OrderInfo result = orderFacade.placeOrder(USER_ID, PARAMS, COUPON_ID);
 
             assertThat(result).usingRecursiveComparison().isEqualTo(expected);
+            verify(orderEntryTokenGate).verifyAndConsumeIfRequired(USER_ID, null);
             verify(productService, times(1)).validateDecreaseStockAndGetSnapshots(any());
             verify(couponService, times(1)).validateAndUse(eq(COUPON_ID), eq(USER_ID), any());
             verify(orderService, times(1)).create(eq(USER_ID), any(), any(), any(), eq(COUPON_ID));
@@ -106,6 +109,7 @@ class OrderFacadeTest {
             OrderInfo result = orderFacade.placeOrder(USER_ID, PARAMS, null);
 
             assertThat(result).isEqualTo(expected);
+            verify(orderEntryTokenGate).verifyAndConsumeIfRequired(USER_ID, null);
             verify(couponService, times(0)).validateAndUse(any(), any(), any());
         }
     }

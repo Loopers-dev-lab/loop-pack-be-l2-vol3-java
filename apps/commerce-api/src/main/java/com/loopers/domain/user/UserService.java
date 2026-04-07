@@ -1,7 +1,6 @@
 package com.loopers.domain.user;
 
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -44,9 +43,9 @@ public class UserService {
             payload.put("userId", saved.getId());
             payload.put("loginId", saved.getUserId());
             transactionalOutboxWriter.record(
-                    DomainKafkaTopics.USER_EVENTS,
+                    DomainEvents.Topic.USER_EVENTS,
                     String.valueOf(saved.getId()),
-                    DomainEventTypes.USER_REGISTERED,
+                    DomainEvents.Type.USER_REGISTERED,
                     payload);
             return saved;
         } catch (DataIntegrityViolationException e) {

@@ -88,11 +88,52 @@ coupon:
   issue:
     topic-name: coupon-issue-requests
 
+queue:
+  join:
+    max-waiting: 100000 # 최대 대기 인원
+  scheduler:
+    tick-ms: 100
+    event-id: default
+    max-batch-size: 18
+    token-ttl-seconds: 300
+    lock-ttl-seconds: 5
+    lock-key: queue:scheduler:lock
+    heartbeat-key: queue:scheduler:heartbeat
+    heartbeat-ttl-seconds: 35
+  order:
+    require-entry-token: true
+  position:
+    throughput-tps: 175
+    sse-stream:
+      max-concurrent-connections: 10000 # 동시 SSE(/queue/position/stream) 연결 상한; 0이면 무제한
+    rate-limit:
+      enabled: true
+      max-requests-per-second: 5
+      window-seconds: 1
+  fallback:
+    enabled: true
+    topic-name: queue-join-fallback
+    consumer-group: loopers-queue-join-fallback-consumer
+    send-ack-timeout-ms: 5000
+
 ---
 spring:
   config:
     activate:
       on-profile: local, test
+
+queue:
+  join:
+    max-waiting: 100000
+  order:
+    require-entry-token: false
+  fallback:
+    enabled: false
+  position:
+    sse-stream:
+      max-concurrent-connections: 10000
+    rate-limit:
+      enabled: false
 ---
 spring:
   config:

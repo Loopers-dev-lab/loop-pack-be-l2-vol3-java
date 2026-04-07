@@ -2,39 +2,36 @@ package com.loopers.collector.cdc;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.infrastructure.collector.EventHandledJpaRepository;
 import com.loopers.infrastructure.collector.EventHandledModel;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 
 @Service
 public class CdcConnectCollectorService {
 
-    private final EventHandledJpaRepository eventHandledJpaRepository;
+    private final CdcEventHandledPersistence eventHandledPersistence;
     private final ObjectMapper objectMapper;
     private final Counter processedCounter;
     private final Counter duplicateCounter;
     private final Counter failedCounter;
 
     public CdcConnectCollectorService(
-            EventHandledJpaRepository eventHandledJpaRepository,
+            CdcEventHandledPersistence eventHandledPersistence,
             ObjectMapper objectMapper,
             MeterRegistry meterRegistry
     ) {
-        this.eventHandledJpaRepository = eventHandledJpaRepository;
+        this.eventHandledPersistence = eventHandledPersistence;
         this.objectMapper = objectMapper;
         this.processedCounter = meterRegistry.counter("kafka.collector.cdc.events.processed");
         this.duplicateCounter = meterRegistry.counter("kafka.collector.cdc.events.duplicate");
         this.failedCounter = meterRegistry.counter("kafka.collector.cdc.events.failed");
     }
 
-    @Transactional
     public void process(ConsumerRecord<Object, Object> record) {
         try {
             JsonNode payload = parsePayload(record.value()); // schema 변화 대응: JsonNode 유연 파싱
@@ -43,7 +40,7 @@ public class CdcConnectCollectorService {
             }
             // Debezium source(file+pos) 우선, 미존재 시 Kafka offset 기반 fallback.
             String eventId = cdcEventId(record, payload);
-            eventHandledJpaRepository.saveAndFlush(EventHandledModel.of(
+            eventHandledPersistence.insert(EventHandledModel.of(
                     eventId,
                     record.topic(),
                     record.partition(),

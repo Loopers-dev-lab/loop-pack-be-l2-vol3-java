@@ -3,8 +3,7 @@ package com.loopers.application.payment;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
-import com.loopers.domain.outbox.DomainEventTypes;
-import com.loopers.domain.outbox.DomainKafkaTopics;
+import com.loopers.domain.outbox.DomainEvents;
 import com.loopers.domain.outbox.TransactionalOutboxWriter;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.payment.PaymentModel;
@@ -140,8 +139,7 @@ public class PaymentFacade {
      */
     @Transactional
     public void handleCallback(PaymentCallbackParam param) {
-        var pendingOpt = paymentRepository.findTopByOrderIdOrderByCreatedAtDesc(param.orderId())
-                .filter(PaymentModel::isPending);
+        var pendingOpt = paymentRepository.findTopPendingByOrderIdForUpdate(param.orderId());
 
         if (pendingOpt.isEmpty()) {
             return;
@@ -163,12 +161,21 @@ public class PaymentFacade {
                 }
             }
             OrderModel paidOrder = orderService.completePayment(param.orderId());
-            payment.markSuccess(param.pgTransactionId());
-            paymentRepository.save(payment);
+            try {
+                payment.markSuccess(param.pgTransactionId());
+                paymentRepository.save(payment);
+            } catch (IllegalStateException ex) {
+                log.info("결제 SUCCESS 전이 스킵(멱등) orderId={} message={}", param.orderId(), ex.getMessage());
+                return;
+            }
             appendPaymentCompletedOutbox(paidOrder);
         } else {
-            payment.markFailed();
-            paymentRepository.save(payment);
+            try {
+                payment.markFailed();
+                paymentRepository.save(payment);
+            } catch (IllegalStateException ex) {
+                log.info("결제 FAILED 전이 스킵(멱등) orderId={} message={}", param.orderId(), ex.getMessage());
+            }
         }
     }
 
@@ -185,9 +192,9 @@ public class PaymentFacade {
         payload.put("occurredAt", Instant.now().toString());
         payload.put("lines", lines);
         transactionalOutboxWriter.record(
-                DomainKafkaTopics.ORDER_EVENTS,
+                DomainEvents.Topic.ORDER_EVENTS,
                 String.valueOf(order.getId()),
-                DomainEventTypes.PAYMENT_COMPLETED,
+                DomainEvents.Type.PAYMENT_COMPLETED,
                 payload);
     }
 
