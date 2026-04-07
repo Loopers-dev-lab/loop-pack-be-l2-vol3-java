@@ -2,6 +2,8 @@ package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.metrics.ProductMetricsService;
+import com.loopers.domain.ranking.RankingService;
+import com.loopers.domain.ranking.RankingWeight;
 import com.loopers.infrastructure.monitoring.ConsumerMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +11,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -24,6 +27,7 @@ import java.util.Map;
 public class CatalogEventProcessor {
 
     private final ProductMetricsService productMetricsService;
+    private final RankingService rankingService;
     private final ConsumerMetrics consumerMetrics;
     private final ObjectMapper objectMapper;
 
@@ -55,21 +59,49 @@ public class CatalogEventProcessor {
         }
 
         Long productId = productIdNum.longValue();
+        LocalDateTime occurredAt = parseOccurredAt(message);
+        Long userId = parseUserId(message);
 
         switch (eventType) {
             case "PRODUCT_VIEWED" -> {
                 productMetricsService.incrementViewCount(productId);
-                log.debug("[CatalogProcessor] PRODUCT_VIEWED productId={}", productId);
+                try {
+                    rankingService.incrementScore(productId, RankingWeight.VIEW, occurredAt);
+                } catch (Exception e) {
+                    log.warn("[CatalogProcessor] 랭킹 적재 실패 — PRODUCT_VIEWED, productId={}", productId, e);
+                }
             }
             case "PRODUCT_LIKED" -> {
                 productMetricsService.incrementLikeCount(productId);
-                log.debug("[CatalogProcessor] PRODUCT_LIKED productId={}", productId);
+                try {
+                    rankingService.incrementLikeScoreIfAbsent(productId, userId, RankingWeight.LIKE, occurredAt);
+                } catch (Exception e) {
+                    log.warn("[CatalogProcessor] 랭킹 적재 실패 — PRODUCT_LIKED, productId={}", productId, e);
+                }
             }
             case "PRODUCT_UNLIKED" -> {
                 productMetricsService.decrementLikeCount(productId);
-                log.debug("[CatalogProcessor] PRODUCT_UNLIKED productId={}", productId);
+                try {
+                    rankingService.decrementLikeScoreIfPresent(productId, userId, RankingWeight.LIKE, occurredAt);
+                } catch (Exception e) {
+                    log.warn("[CatalogProcessor] 랭킹 적재 실패 — PRODUCT_UNLIKED, productId={}", productId, e);
+                }
             }
             default -> log.warn("[CatalogProcessor] 알 수 없는 eventType: {}", eventType);
         }
+    }
+
+    private LocalDateTime parseOccurredAt(Map<String, Object> message) {
+        try {
+            String occurredAtStr = (String) message.get("occurredAt");
+            return occurredAtStr != null ? LocalDateTime.parse(occurredAtStr) : LocalDateTime.now();
+        } catch (Exception e) {
+            return LocalDateTime.now();
+        }
+    }
+
+    private Long parseUserId(Map<String, Object> message) {
+        Number userIdNum = (Number) message.get("userId");
+        return userIdNum != null ? userIdNum.longValue() : null;
     }
 }
