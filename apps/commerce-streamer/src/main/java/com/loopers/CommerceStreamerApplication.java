@@ -2,7 +2,7 @@ package com.loopers;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
-import com.loopers.collector.metrics.CollectorLagProperties;
+import com.loopers.infrastructure.metrics.CollectorLagProperties;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

@@ -1,0 +1,115 @@
+package com.loopers.application.collector;
+
+import com.loopers.domain.ranking.RankingMember;
+import com.loopers.domain.ranking.RankingRedisKeyResolver;
+import com.loopers.domain.ranking.RankingScoreCalculator;
+import com.loopers.domain.ranking.RankingTtlPolicy;
+import com.loopers.domain.ranking.RankingWriteRepository;
+import com.loopers.infrastructure.collector.EventHandledJpaRepository;
+import com.loopers.infrastructure.collector.EventHandledModel;
+import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * product_metrics 갱신이 필요한 이벤트만: event_handled INSERT + 메트릭 갱신을 한 트랜잭션으로 묶는다.
+ */
+@Service
+public class ProductEventCollectorDatabaseService {
+
+    private static final String PRODUCT_LIKE_CHANGED = "PRODUCT_LIKE_CHANGED";
+    private static final String PRODUCT_VIEWED = "PRODUCT_VIEWED";
+    private static final String PAYMENT_COMPLETED = "PAYMENT_COMPLETED";
+
+    private final EventHandledJpaRepository eventHandledJpaRepository;
+    private final ProductMetricsJpaRepository productMetricsJpaRepository;
+    private final RankingWriteRepository rankingWriteRepository;
+    private final RankingScoreCalculator rankingScoreCalculator;
+    private final Counter processedCounter;
+    private final Counter duplicateCounter;
+    private final RankingRedisKeyResolver rankingRedisKeyResolver = new RankingRedisKeyResolver();
+    private final RankingTtlPolicy rankingTtlPolicy = new RankingTtlPolicy();
+
+    public ProductEventCollectorDatabaseService(
+            EventHandledJpaRepository eventHandledJpaRepository,
+            ProductMetricsJpaRepository productMetricsJpaRepository,
+            RankingWriteRepository rankingWriteRepository,
+            RankingScoreCalculator rankingScoreCalculator,
+            MeterRegistry meterRegistry) {
+        this.eventHandledJpaRepository = eventHandledJpaRepository;
+        this.productMetricsJpaRepository = productMetricsJpaRepository;
+        this.rankingWriteRepository = rankingWriteRepository;
+        this.rankingScoreCalculator = rankingScoreCalculator;
+        this.processedCounter = meterRegistry.counter("kafka.collector.events.processed");
+        this.duplicateCounter = meterRegistry.counter("kafka.collector.events.duplicate");
+    }
+
+    /**
+     * 이벤트를 처리하고 데이터베이스에 저장한다.
+     *
+     * @param record 컨슈머 레코드
+     * @param envelope 이벤트 소싱 데이터
+     * eventId: 이벤트 식별자
+     * eventType: 이벤트 타입
+     * occurredAt: 이벤트 발생 시각
+     * partitionKey: 이벤트 파티션 키
+     * data: 이벤트 데이터
+     */
+    @Transactional
+    public void processDb(ConsumerRecord<Object, Object> record, ProductEventEnvelope envelope) {
+        try {
+            eventHandledJpaRepository.saveAndFlush(EventHandledModel.of(
+                    envelope.eventId(),
+                    record.topic(),
+                    record.partition(),
+                    record.offset()
+            ));
+        } catch (DataIntegrityViolationException duplicate) {
+            duplicateCounter.increment();
+            return;
+        }
+
+        String eventType = envelope.eventType();
+        if (PRODUCT_LIKE_CHANGED.equals(eventType)) {
+            Long productId = envelope.data().path("productId").asLong();
+            String action = envelope.data().path("action").asText();
+            long delta = "LIKED".equals(action) ? 1L : -1L;
+            productMetricsJpaRepository.applyLikeDeltaIfNewer(productId, delta, envelope.occurredAt());
+            syncRankingScore(productId, envelope.occurredAt());
+            processedCounter.increment();
+            return;
+        }
+        if (PRODUCT_VIEWED.equals(eventType)) {
+            long productId = envelope.data().path("productId").asLong();
+            productMetricsJpaRepository.applyViewDeltaIfNewer(productId, 1L, envelope.occurredAt());
+            syncRankingScore(productId, envelope.occurredAt());
+            processedCounter.increment();
+            return;
+        }
+        if (PAYMENT_COMPLETED.equals(eventType)) {
+            var lines = envelope.data().path("lines");
+            if (lines.isArray()) {
+                for (var line : lines) {
+                    long productId = line.path("productId").asLong();
+                    long qty = line.path("quantity").asLong();
+                    productMetricsJpaRepository.applySoldDeltaIfNewer(productId, qty, envelope.occurredAt());
+                    syncRankingScore(productId, envelope.occurredAt());
+                }
+            }
+            processedCounter.increment();
+        }
+    }
+
+    private void syncRankingScore(long productId, java.time.Instant occurredAt) {
+        productMetricsJpaRepository.findById(productId).ifPresent(metrics -> {
+            String key = rankingRedisKeyResolver.resolveDailyAllKey(occurredAt);
+            String member = RankingMember.fromProductId(productId);
+            double score = rankingScoreCalculator.calculate(metrics);
+            rankingWriteRepository.upsertScore(key, member, score, rankingTtlPolicy.dailyKeyTtl());
+        });
+    }
+}
