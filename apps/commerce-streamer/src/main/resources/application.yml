@@ -78,6 +78,11 @@ collector:
     batch-size: 500
     max-loops-per-run: 10
     max-rows-per-run: 100000
+  # DB product_metrics → Redis ZADD 보정 배치(로드맵 4단계). 운영에서만 enabled: true 검토.
+  ranking-reconciliation:
+    enabled: false
+    cron: "0 0 2 * * ?"
+    zone: Asia/Seoul
 
 ---
 spring:
