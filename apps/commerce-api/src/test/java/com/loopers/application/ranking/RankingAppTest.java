@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -46,9 +48,9 @@ class RankingAppTest {
             ));
             when(rankingRepository.countMembers(date)).thenReturn(2L);
             when(productCache.findById(1L)).thenReturn(new CachedProductSnapshot(
-                    1L, "P001", "상품 A", new BigDecimal("1000"), false));
+                    1L, "P001", "상품 A", new BigDecimal("1000"), false, Instant.now().getEpochSecond()));
             when(productCache.findById(2L)).thenReturn(new CachedProductSnapshot(
-                    2L, "P002", "상품 B", new BigDecimal("2000"), false));
+                    2L, "P002", "상품 B", new BigDecimal("2000"), false, Instant.now().getEpochSecond()));
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 2);
 
@@ -71,9 +73,9 @@ class RankingAppTest {
             ));
             when(rankingRepository.countMembers(date)).thenReturn(2L);
             when(productCache.findById(10L)).thenReturn(new CachedProductSnapshot(
-                    10L, "P010", "판매종료 상품", new BigDecimal("500"), true));
+                    10L, "P010", "판매종료 상품", new BigDecimal("500"), true, Instant.now().getEpochSecond()));
             when(productCache.findById(11L)).thenReturn(new CachedProductSnapshot(
-                    11L, "P011", "정상 상품", new BigDecimal("300"), false));
+                    11L, "P011", "정상 상품", new BigDecimal("300"), false, Instant.now().getEpochSecond()));
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
@@ -119,7 +121,7 @@ class RankingAppTest {
             ));
             when(rankingRepository.countMembers(date)).thenReturn(20L);
             when(productCache.findById(11L)).thenReturn(new CachedProductSnapshot(
-                    11L, "P011", "상품 11", new BigDecimal("100"), false));
+                    11L, "P011", "상품 11", new BigDecimal("100"), false, Instant.now().getEpochSecond()));
 
             RankingPageResult result = rankingApp.getTopN(date, 1, 10);
 
