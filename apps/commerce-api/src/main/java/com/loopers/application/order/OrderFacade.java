@@ -20,6 +20,7 @@ import com.loopers.domain.point.PointAccount;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.common.event.OrderCompletedEvent;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.CouponErrorType;
 import com.loopers.support.error.OrderErrorType;
@@ -27,6 +28,7 @@ import com.loopers.support.error.PointErrorType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.loopers.infrastructure.outbox.OutboxEventService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,6 +70,7 @@ public class OrderFacade {
     private final TransactionTemplate txTemplate;
     private final OrderCacheManager orderCacheManager;
     private final OutboxEventService outboxEventService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public OrderFacade(OrderService orderService, UserAddressService userAddressService,
                        ProductService productService, BrandService brandService,
@@ -76,7 +79,8 @@ public class OrderFacade {
                        PaymentFacade paymentFacade,
                        PlatformTransactionManager txManager,
                        OrderCacheManager orderCacheManager,
-                       OutboxEventService outboxEventService) {
+                       OutboxEventService outboxEventService,
+                       ApplicationEventPublisher eventPublisher) {
         this.orderService = orderService;
         this.userAddressService = userAddressService;
         this.productService = productService;
@@ -90,6 +94,7 @@ public class OrderFacade {
         this.txTemplate = new TransactionTemplate(txManager);
         this.txTemplate.setTimeout(30);
         this.orderCacheManager = orderCacheManager;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -105,6 +110,7 @@ public class OrderFacade {
 
         OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
 
+        eventPublisher.publishEvent(new OrderCompletedEvent(userId));
         orderCacheManager.evictOrderList(userId);
         return result;
     }
@@ -130,6 +136,8 @@ public class OrderFacade {
                 issuedCouponId, pointAmount, paymentMethod);
 
         OrderCreateResult result = processPaymentAndConfirm(context, cardNo);
+
+        eventPublisher.publishEvent(new OrderCompletedEvent(userId));
 
         // 장바구니 삭제는 best-effort — 실패해도 주문 성공 응답을 유지한다
         try {
@@ -361,4 +369,5 @@ public class OrderFacade {
     public record OrderItemDetailResult(
             String productName, String brandName,
             int unitPrice, int quantity, int lineTotal) {}
+
 }

@@ -55,7 +55,6 @@ public class UserService {
     /**
      * 로그인 인증: 필수값 검증 → 사용자 조회 → 비밀번호 일치 확인
      */
-    @Transactional(readOnly = true)
     public User authenticateUser(String rawLoginId, String rawPassword) {
         if (rawLoginId == null || rawLoginId.isBlank()) {
             throw new CoreException(UserErrorType.UNAUTHORIZED, "로그인 ID는 필수입니다.");

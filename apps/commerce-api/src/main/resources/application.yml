@@ -55,6 +55,19 @@ resilience4j:
           - com.loopers.support.error.CoreException
           - io.github.resilience4j.bulkhead.BulkheadFullException
 
+      queueRedis:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 5
+        minimum-number-of-calls: 3
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 2
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - org.springframework.data.redis.RedisConnectionFailureException
+        ignore-exceptions:
+          - com.loopers.support.error.CoreException
+
   bulkhead:
     instances:
       pgPayment:
@@ -73,6 +86,16 @@ resilience4j:
           - com.loopers.domain.payment.PgServerException
         ignore-exceptions:
           - com.loopers.domain.payment.PgClientException
+
+# ── Queue (대기열) ─────────────────────────────────────────────
+# 배치 크기 산정 근거: DB 커넥션 풀 10 / 주문 평균 200ms = TPS 50 × 안전마진 0.6 = 30
+# 토큰 TTL 근거: 사용자 평균 체류 35초, Access 180초(3분), Hard Limit 미적용(단순화)
+queue:
+  enabled: true
+  batch-size: 30
+  scheduler-interval-ms: 1000
+  token-ttl-seconds: 180
+  max-waiting-size: 100000
 
 springdoc:
   use-fqn: true
