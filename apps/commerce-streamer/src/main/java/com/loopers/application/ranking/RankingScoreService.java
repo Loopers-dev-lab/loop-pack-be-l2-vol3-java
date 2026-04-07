@@ -90,6 +90,11 @@ public class RankingScoreService {
     }
 
     private void applyToBothBuckets(Long productId, double delta) {
+        // 0점 delta는 basePoints 변화 없이 lastScoredAt만 갱신하여 Tie-Break 순서를 오염시킨다.
+        // (price=0 주문 → log10(1)=0 경로 등) 불필요한 DB write 방지 + Tie-Break 무결성 보호.
+        if (delta == 0.0d) {
+            return;
+        }
         LocalDateTime now = LocalDateTime.now(KST);
         String dayBucket = RankingKeyConstants.dayBucket(now.toLocalDate());
         String hourBucket = RankingKeyConstants.hourBucket(now);
@@ -107,12 +112,14 @@ public class RankingScoreService {
             try {
                 ledgerWriter.upsertSingle(bucketType, bucketKey, productId, delta);
             } catch (Exception e) {
-                log.warn("[RankingScore] 점수 반영 실패(재시도 후). productId={} bucket={}/{}",
-                    productId, bucketType, bucketKey, e);
+                // 재시도 후에도 실패 — ledger 누락. 근사치 시스템 전제 하에 삼키되 운영 알람용으로 error 승격.
+                // qna.md #16 의식적 수용 trade-off 참조.
+                log.error("[RankingScore] ledger 적재 영구 실패(재시도 후). productId={} bucketType={} bucketKey={} delta={}",
+                    productId, bucketType, bucketKey, delta, e);
             }
         } catch (Exception e) {
-            log.warn("[RankingScore] 점수 반영 실패. productId={} bucket={}/{}",
-                productId, bucketType, bucketKey, e);
+            log.error("[RankingScore] ledger 적재 영구 실패. productId={} bucketType={} bucketKey={} delta={}",
+                productId, bucketType, bucketKey, delta, e);
         }
     }
 

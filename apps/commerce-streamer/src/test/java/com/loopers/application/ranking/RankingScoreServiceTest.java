@@ -142,15 +142,42 @@ class RankingScoreServiceTest {
             assertThat(dayPoints(101L)).isCloseTo(expected, within(0.001));
         }
 
-        @DisplayName("price가 0이면 log10(1) = 0으로 처리된다.")
+        @DisplayName("price=0인 주문은 0점 delta로 조기 반환되어 ledger row 자체가 생성되지 않는다.")
         @Test
-        void handlesZeroPrice() {
+        void zeroPriceOrderDoesNotCreateLedgerRow() {
             List<OrderItemPayload> items = List.of(new OrderItemPayload(101L, 1, 0));
 
             rankingScoreService.addOrderScores(items);
 
-            double expected = ORDER_WEIGHT * Math.log10(1);
-            assertThat(dayPoints(101L)).isCloseTo(expected, within(0.001));
+            // 0점 delta는 applyToBothBuckets 초입에서 조기 반환 → ledger에 row 없음
+            assertThat(
+                ledgerRepository.findByBucket(RankingScoreLedger.BucketType.DAY, todayBucket(), 101L)
+            ).isEmpty();
+            assertThat(
+                ledgerRepository.findByBucket(RankingScoreLedger.BucketType.HOUR, currentHourBucket(), 101L)
+            ).isEmpty();
+            assertThat(dayPoints(101L)).isCloseTo(0.0, within(0.001));
+        }
+
+        @DisplayName("0점 주문이 들어와도 기존 ledger의 lastScoredAt은 갱신되지 않는다 (Tie-Break 보호).")
+        @Test
+        void zeroPriceOrderPreservesLastScoredAt() {
+            // 정상 주문 1건으로 ledger 생성
+            rankingScoreService.addOrderScores(List.of(new OrderItemPayload(101L, 1, 10000)));
+            RankingScoreLedger before = ledgerRepository
+                .findByBucket(RankingScoreLedger.BucketType.DAY, todayBucket(), 101L)
+                .orElseThrow();
+            java.time.Instant lastScoredBefore = before.getLastScoredAt();
+            double basePointsBefore = before.getBasePoints();
+
+            // 0점 주문 — lastScoredAt 을 갱신해선 안 된다
+            rankingScoreService.addOrderScores(List.of(new OrderItemPayload(101L, 1, 0)));
+
+            RankingScoreLedger after = ledgerRepository
+                .findByBucket(RankingScoreLedger.BucketType.DAY, todayBucket(), 101L)
+                .orElseThrow();
+            assertThat(after.getBasePoints()).isCloseTo(basePointsBefore, within(0.0001));
+            assertThat(after.getLastScoredAt()).isEqualTo(lastScoredBefore);
         }
 
         @DisplayName("day와 hour 버킷 모두에 반영된다.")
