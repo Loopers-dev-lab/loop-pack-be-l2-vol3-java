@@ -1,6 +1,8 @@
 package com.loopers.domain.product;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -15,6 +17,11 @@ public interface ProductRepository {
     Optional<ProductModel> findById(Long id);
 
     Optional<ProductModel> findByIdAndNotDeleted(Long id);
+
+    /**
+     * ID 목록에 해당하는 미삭제 상품을 조회한다. 응답 맵의 키는 상품 ID다.
+     */
+    Map<Long, ProductModel> findByIdInAndNotDeletedAsMap(Collection<Long> ids);
 
     /**
      * 미삭제 상품 목록을 정렬·페이징하여 조회한다.
