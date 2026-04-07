@@ -1,11 +1,6 @@
 package com.loopers.application.collector;
 
-import com.loopers.domain.ranking.RankingMember;
-import com.loopers.domain.ranking.RankingMetricCounts;
-import com.loopers.domain.ranking.RankingRedisKeyResolver;
-import com.loopers.domain.ranking.RankingScoreCalculator;
-import com.loopers.domain.ranking.RankingTtlPolicy;
-import com.loopers.domain.ranking.RankingWriteRepository;
+import com.loopers.application.ranking.RankingMetricsRedisSyncService;
 import com.loopers.infrastructure.collector.EventHandledJpaRepository;
 import com.loopers.infrastructure.collector.EventHandledModel;
 import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
@@ -39,23 +34,18 @@ public class ProductEventCollectorDatabaseService {
 
     private final EventHandledJpaRepository eventHandledJpaRepository;
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
-    private final RankingScoreCalculator rankingScoreCalculator;
-    private final RankingWriteRepository rankingWriteRepository;
-    private final RankingRedisKeyResolver rankingRedisKeyResolver = new RankingRedisKeyResolver();
-    private final RankingTtlPolicy rankingTtlPolicy = new RankingTtlPolicy();
+    private final RankingMetricsRedisSyncService rankingMetricsRedisSyncService;
     private final Counter processedCounter;
     private final Counter duplicateCounter;
 
     public ProductEventCollectorDatabaseService(
             EventHandledJpaRepository eventHandledJpaRepository,
             ProductMetricsJpaRepository productMetricsJpaRepository,
-            RankingScoreCalculator rankingScoreCalculator,
-            RankingWriteRepository rankingWriteRepository,
+            RankingMetricsRedisSyncService rankingMetricsRedisSyncService,
             MeterRegistry meterRegistry) {
         this.eventHandledJpaRepository = eventHandledJpaRepository;
         this.productMetricsJpaRepository = productMetricsJpaRepository;
-        this.rankingScoreCalculator = rankingScoreCalculator;
-        this.rankingWriteRepository = rankingWriteRepository;
+        this.rankingMetricsRedisSyncService = rankingMetricsRedisSyncService;
         this.processedCounter = meterRegistry.counter("kafka.collector.events.processed");
         this.duplicateCounter = meterRegistry.counter("kafka.collector.events.duplicate");
     }
@@ -161,16 +151,8 @@ public class ProductEventCollectorDatabaseService {
      */
     private void syncRankingToRedisOrLog(long productId, Instant occurredAt) {
         try {
-            productMetricsJpaRepository.findById(productId).ifPresent(metrics -> {
-                RankingMetricCounts counts = new RankingMetricCounts(
-                        metrics.getViewCount(),
-                        metrics.getLikeCount(),
-                        metrics.getSoldQuantity());
-                double score = rankingScoreCalculator.calculate(counts);
-                String key = rankingRedisKeyResolver.resolveDailyAllKey(occurredAt);
-                String member = RankingMember.fromProductId(productId);
-                rankingWriteRepository.upsertScore(key, member, score, rankingTtlPolicy.dailyKeyTtl());
-            });
+            productMetricsJpaRepository.findById(productId).ifPresent(metrics ->
+                    rankingMetricsRedisSyncService.upsertFromMetrics(metrics, occurredAt));
         } catch (RuntimeException ex) {
             log.error("ranking redis sync failed productId={}", productId, ex);
         }
