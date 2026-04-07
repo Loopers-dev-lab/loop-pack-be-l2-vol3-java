@@ -1,10 +1,7 @@
 package com.loopers.application.collector;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.domain.ranking.RankingScoreCalculator;
-import com.loopers.domain.ranking.RankingWriteRepository;
 import com.loopers.infrastructure.collector.EventHandledJpaRepository;
-import com.loopers.infrastructure.collector.ProductMetricsModel;
 import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -23,7 +20,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ProductEventCollectorDatabaseServiceTest {
@@ -34,9 +30,6 @@ class ProductEventCollectorDatabaseServiceTest {
     @Mock
     private ProductMetricsJpaRepository productMetricsJpaRepository;
 
-    @Mock
-    private RankingWriteRepository rankingWriteRepository;
-
     private SimpleMeterRegistry meterRegistry;
     private ProductEventCollectorDatabaseService databaseService;
 
@@ -46,8 +39,6 @@ class ProductEventCollectorDatabaseServiceTest {
         databaseService = new ProductEventCollectorDatabaseService(
                 eventHandledJpaRepository,
                 productMetricsJpaRepository,
-                rankingWriteRepository,
-                new RankingScoreCalculator(),
                 meterRegistry
         );
     }
@@ -55,12 +46,6 @@ class ProductEventCollectorDatabaseServiceTest {
     @Test
     @DisplayName("신규 PRODUCT_LIKE_CHANGED 이벤트는 event_handled 저장 후 like delta를 반영한다.")
     void processDb_whenNewLikeEvent_shouldRecordHandledAndUpdateMetrics() {
-        ProductMetricsModel metrics = org.mockito.Mockito.mock(ProductMetricsModel.class);
-        when(metrics.getViewCount()).thenReturn(3L);
-        when(metrics.getLikeCount()).thenReturn(2L);
-        when(metrics.getSoldQuantity()).thenReturn(5L);
-        when(productMetricsJpaRepository.findById(101L)).thenReturn(java.util.Optional.of(metrics));
-
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
                 "product-events",
                 0,
@@ -76,12 +61,6 @@ class ProductEventCollectorDatabaseServiceTest {
                 eq(101L),
                 eq(1L),
                 eq(Instant.parse("2026-03-26T00:00:00Z"))
-        );
-        verify(rankingWriteRepository).upsertScore(
-                eq("ranking:all:20260326"),
-                eq("101"),
-                eq(10.0d),
-                eq(java.time.Duration.ofDays(2))
         );
     }
 
@@ -101,7 +80,6 @@ class ProductEventCollectorDatabaseServiceTest {
 
         verify(eventHandledJpaRepository).saveAndFlush(any());
         verify(productMetricsJpaRepository, never()).applyLikeDeltaIfNewer(any(), any(Long.class), any());
-        verify(rankingWriteRepository, never()).upsertScore(any(), any(), any(Double.class), any());
     }
 
     @Test

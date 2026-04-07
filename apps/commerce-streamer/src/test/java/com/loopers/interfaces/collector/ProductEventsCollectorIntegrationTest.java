@@ -3,9 +3,7 @@ package com.loopers.interfaces.collector;
 import com.loopers.infrastructure.collector.EventHandledJpaRepository;
 import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
-import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
-import com.loopers.utils.RedisCleanUp;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -18,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
@@ -48,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "collector.event-handled-cleanup.batch-size=500",
         "spring.batch.job.enabled=false"
 })
-@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
+@Import(MySqlTestContainersConfig.class)
 @EmbeddedKafka(partitions = 1, topics = {
         "product-events", "product-events.DLQ",
         "order-events", "order-events.DLQ",
@@ -69,12 +66,6 @@ class ProductEventsCollectorIntegrationTest {
     private DatabaseCleanUp databaseCleanUp;
 
     @Autowired
-    private RedisCleanUp redisCleanUp;
-
-    @Autowired
-    private RedisTemplate<String, String> redisTemplate;
-
-    @Autowired
     private EmbeddedKafkaBroker embeddedKafkaBroker;
 
     @Value("${spring.embedded.kafka.brokers}")
@@ -83,7 +74,6 @@ class ProductEventsCollectorIntegrationTest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
-        redisCleanUp.truncateAll();
     }
 
     @Test
@@ -96,13 +86,6 @@ class ProductEventsCollectorIntegrationTest {
         assertThat(eventHandledJpaRepository.existsById("evt-1")).isTrue();
         assertThat(productMetricsJpaRepository.findById(101L)).isPresent();
         assertThat(productMetricsJpaRepository.findById(101L).orElseThrow().getLikeCount()).isEqualTo(1L);
-        String key = "ranking:all:20260326";
-        waitUntil(() -> redisTemplate.opsForZSet().score(key, "101") != null, 10000);
-        assertThat(redisTemplate.opsForZSet().score(key, "101")).isEqualTo(1.0d);
-        Long ttl = redisTemplate.getExpire(key);
-        assertThat(ttl).isNotNull();
-        assertThat(ttl).isPositive();
-        assertThat(ttl).isLessThanOrEqualTo(Duration.ofDays(2).getSeconds());
     }
 
     @Test

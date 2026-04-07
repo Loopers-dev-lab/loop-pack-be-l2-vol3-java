@@ -1,10 +1,5 @@
 package com.loopers.application.collector;
 
-import com.loopers.domain.ranking.RankingMember;
-import com.loopers.domain.ranking.RankingRedisKeyResolver;
-import com.loopers.domain.ranking.RankingScoreCalculator;
-import com.loopers.domain.ranking.RankingTtlPolicy;
-import com.loopers.domain.ranking.RankingWriteRepository;
 import com.loopers.infrastructure.collector.EventHandledJpaRepository;
 import com.loopers.infrastructure.collector.EventHandledModel;
 import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
@@ -27,23 +22,15 @@ public class ProductEventCollectorDatabaseService {
 
     private final EventHandledJpaRepository eventHandledJpaRepository;
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
-    private final RankingWriteRepository rankingWriteRepository;
-    private final RankingScoreCalculator rankingScoreCalculator;
     private final Counter processedCounter;
     private final Counter duplicateCounter;
-    private final RankingRedisKeyResolver rankingRedisKeyResolver = new RankingRedisKeyResolver();
-    private final RankingTtlPolicy rankingTtlPolicy = new RankingTtlPolicy();
 
     public ProductEventCollectorDatabaseService(
             EventHandledJpaRepository eventHandledJpaRepository,
             ProductMetricsJpaRepository productMetricsJpaRepository,
-            RankingWriteRepository rankingWriteRepository,
-            RankingScoreCalculator rankingScoreCalculator,
             MeterRegistry meterRegistry) {
         this.eventHandledJpaRepository = eventHandledJpaRepository;
         this.productMetricsJpaRepository = productMetricsJpaRepository;
-        this.rankingWriteRepository = rankingWriteRepository;
-        this.rankingScoreCalculator = rankingScoreCalculator;
         this.processedCounter = meterRegistry.counter("kafka.collector.events.processed");
         this.duplicateCounter = meterRegistry.counter("kafka.collector.events.duplicate");
     }
@@ -79,14 +66,12 @@ public class ProductEventCollectorDatabaseService {
             String action = envelope.data().path("action").asText();
             long delta = "LIKED".equals(action) ? 1L : -1L;
             productMetricsJpaRepository.applyLikeDeltaIfNewer(productId, delta, envelope.occurredAt());
-            syncRankingScore(productId, envelope.occurredAt());
             processedCounter.increment();
             return;
         }
         if (PRODUCT_VIEWED.equals(eventType)) {
             long productId = envelope.data().path("productId").asLong();
             productMetricsJpaRepository.applyViewDeltaIfNewer(productId, 1L, envelope.occurredAt());
-            syncRankingScore(productId, envelope.occurredAt());
             processedCounter.increment();
             return;
         }
@@ -97,19 +82,9 @@ public class ProductEventCollectorDatabaseService {
                     long productId = line.path("productId").asLong();
                     long qty = line.path("quantity").asLong();
                     productMetricsJpaRepository.applySoldDeltaIfNewer(productId, qty, envelope.occurredAt());
-                    syncRankingScore(productId, envelope.occurredAt());
                 }
             }
             processedCounter.increment();
         }
-    }
-
-    private void syncRankingScore(long productId, java.time.Instant occurredAt) {
-        productMetricsJpaRepository.findById(productId).ifPresent(metrics -> {
-            String key = rankingRedisKeyResolver.resolveDailyAllKey(occurredAt);
-            String member = RankingMember.fromProductId(productId);
-            double score = rankingScoreCalculator.calculate(metrics);
-            rankingWriteRepository.upsertScore(key, member, score, rankingTtlPolicy.dailyKeyTtl());
-        });
     }
 }
