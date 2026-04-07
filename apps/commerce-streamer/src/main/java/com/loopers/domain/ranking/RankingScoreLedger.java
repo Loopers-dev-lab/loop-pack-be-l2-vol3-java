@@ -63,8 +63,13 @@ public class RankingScoreLedger extends BaseEntity {
     }
 
     public void addScore(double delta) {
+        addScore(delta, Instant.now());
+    }
+
+    public void addScore(double delta, Instant scoredAt) {
+        Assert.notNull(scoredAt, "scoredAt must not be null");
         this.basePoints += delta;
-        this.lastScoredAt = Instant.now();
+        this.lastScoredAt = scoredAt;
         this.dirty = true;
     }
 

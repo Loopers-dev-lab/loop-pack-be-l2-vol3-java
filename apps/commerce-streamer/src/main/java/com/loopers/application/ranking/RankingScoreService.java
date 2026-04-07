@@ -2,39 +2,38 @@ package com.loopers.application.ranking;
 
 import com.loopers.domain.event.OrderItemPayload;
 import com.loopers.domain.ranking.RankingScoreLedger;
-import com.loopers.domain.ranking.RankingScoreLedgerRepository;
+import com.loopers.support.redis.RankingKeyConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * 이벤트 → ledger 누적. Redis ZSET 갱신은 RankingLedgerSyncScheduler가 별도 사이클로 수행.
+ *
+ * <p>productId 단위 REQUIRES_NEW 트랜잭션으로 격리되어, 한 건 실패가 배치 전체 손실로 번지지 않는다.
  */
 @Slf4j
 @Service
 public class RankingScoreService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
-    private final RankingScoreLedgerRepository ledgerRepository;
+    private final RankingLedgerWriter ledgerWriter;
     private final double viewWeight;
     private final double likeWeight;
     private final double orderWeight;
 
     public RankingScoreService(
-        RankingScoreLedgerRepository ledgerRepository,
+        RankingLedgerWriter ledgerWriter,
         @Value("${ranking.weights.view}") double viewWeight,
         @Value("${ranking.weights.like}") double likeWeight,
         @Value("${ranking.weights.order}") double orderWeight
@@ -43,70 +42,81 @@ public class RankingScoreService {
         Assert.state(Math.abs(weightSum - 1.0) < 0.001,
             "가중치 합이 1.0이어야 합니다. 현재: " + weightSum);
 
-        this.ledgerRepository = ledgerRepository;
+        this.ledgerWriter = ledgerWriter;
         this.viewWeight = viewWeight;
         this.likeWeight = likeWeight;
         this.orderWeight = orderWeight;
     }
 
-    @Transactional
     public void addViewScore(Long productId) {
-        upsertBothBuckets(productId, viewWeight);
+        applyToBothBuckets(productId, viewWeight);
     }
 
-    @Transactional
     public void addViewScores(Map<Long, Integer> productCounts) {
         productCounts.forEach((productId, count) ->
-            upsertBothBuckets(productId, viewWeight * count));
+            applyToBothBuckets(productId, viewWeight * count));
     }
 
-    @Transactional
     public void addLikeScore(Long productId) {
-        upsertBothBuckets(productId, likeWeight);
+        applyToBothBuckets(productId, likeWeight);
     }
 
-    @Transactional
     public void addLikeScores(Map<Long, Integer> productCounts) {
         productCounts.forEach((productId, count) ->
-            upsertBothBuckets(productId, likeWeight * count));
+            applyToBothBuckets(productId, likeWeight * count));
     }
 
-    @Transactional
     public void subtractLikeScores(Map<Long, Integer> productCounts) {
         productCounts.forEach((productId, count) ->
-            upsertBothBuckets(productId, -likeWeight * count));
+            applyToBothBuckets(productId, -likeWeight * count));
     }
 
-    @Transactional
+    /**
+     * 동일 productId의 raw value를 먼저 합산한 뒤 log10을 한 번만 적용한다.
+     * (이벤트 단위 log10 후 합산은 큰 주문이 지수적으로 유리해지므로 의도와 다르다)
+     */
     public void addOrderScores(List<OrderItemPayload> items) {
-        Map<Long, Double> aggregated = new HashMap<>();
+        Map<Long, Long> rawByProduct = new HashMap<>();
         for (OrderItemPayload item : items) {
-            double rawValue = Math.max((long) item.price() * (long) item.quantity(), 1);
-            double score = orderWeight * Math.log10(rawValue);
-            aggregated.merge(item.productId(), score, Double::sum);
+            long raw = (long) item.price() * (long) item.quantity();
+            rawByProduct.merge(item.productId(), raw, Long::sum);
         }
-        aggregated.forEach(this::upsertBothBuckets);
+        rawByProduct.forEach((productId, totalRaw) -> {
+            double safeRaw = Math.max(totalRaw, 1L);
+            double score = orderWeight * Math.log10(safeRaw);
+            applyToBothBuckets(productId, score);
+        });
     }
 
-    private void upsertBothBuckets(Long productId, double delta) {
+    private void applyToBothBuckets(Long productId, double delta) {
         LocalDateTime now = LocalDateTime.now(KST);
-        String dayBucket = now.toLocalDate().format(DAY_FORMAT);
-        String hourBucket = now.format(HOUR_FORMAT);
-        upsert(RankingScoreLedger.BucketType.DAY, dayBucket, productId, delta);
-        upsert(RankingScoreLedger.BucketType.HOUR, hourBucket, productId, delta);
+        String dayBucket = RankingKeyConstants.dayBucket(now.toLocalDate());
+        String hourBucket = RankingKeyConstants.hourBucket(now);
+        applyWithRetry(productId, RankingScoreLedger.BucketType.DAY, dayBucket, delta);
+        applyWithRetry(productId, RankingScoreLedger.BucketType.HOUR, hourBucket, delta);
     }
 
-    private void upsert(
-        RankingScoreLedger.BucketType bucketType, String bucketKey, Long productId, double delta
+    private void applyWithRetry(
+        Long productId, RankingScoreLedger.BucketType bucketType, String bucketKey, double delta
     ) {
-        RankingScoreLedger ledger = ledgerRepository.findByBucket(bucketType, bucketKey, productId)
-            .orElseGet(() -> new RankingScoreLedger(bucketType, bucketKey, productId));
-        ledger.addScore(delta);
-        ledgerRepository.save(ledger);
+        try {
+            ledgerWriter.upsertSingle(bucketType, bucketKey, productId, delta);
+        } catch (DataIntegrityViolationException race) {
+            // 동시 INSERT race — 두 번째 시도에선 select 경로로 흐름
+            try {
+                ledgerWriter.upsertSingle(bucketType, bucketKey, productId, delta);
+            } catch (Exception e) {
+                log.warn("[RankingScore] 점수 반영 실패(재시도 후). productId={} bucket={}/{}",
+                    productId, bucketType, bucketKey, e);
+            }
+        } catch (Exception e) {
+            log.warn("[RankingScore] 점수 반영 실패. productId={} bucket={}/{}",
+                productId, bucketType, bucketKey, e);
+        }
     }
 
-    // 테스트/연동에서 사용 — 오늘 날짜 day bucket key를 yyyymmdd 포맷으로 반환
+    // 테스트/연동에서 사용 — 오늘 날짜 day bucket key를 반환
     public static String todayDayBucket() {
-        return LocalDate.now(KST).format(DAY_FORMAT);
+        return RankingKeyConstants.dayBucket(LocalDate.now(KST));
     }
 }

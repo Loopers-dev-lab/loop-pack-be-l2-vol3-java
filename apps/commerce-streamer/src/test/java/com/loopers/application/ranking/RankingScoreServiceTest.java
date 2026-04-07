@@ -22,8 +22,8 @@ import static org.assertj.core.api.Assertions.within;
 class RankingScoreServiceTest {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
+    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd");
+    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("uuuuMMddHH");
 
     private static final double VIEW_WEIGHT = 0.1;
     private static final double LIKE_WEIGHT = 0.2;
@@ -35,8 +35,9 @@ class RankingScoreServiceTest {
     @BeforeEach
     void setUp() {
         ledgerRepository = new FakeRankingScoreLedgerRepository();
+        RankingLedgerWriter writer = new RankingLedgerWriter(ledgerRepository);
         rankingScoreService = new RankingScoreService(
-            ledgerRepository, VIEW_WEIGHT, LIKE_WEIGHT, ORDER_WEIGHT
+            writer, VIEW_WEIGHT, LIKE_WEIGHT, ORDER_WEIGHT
         );
     }
 
@@ -107,6 +108,7 @@ class RankingScoreServiceTest {
             rankingScoreService.addLikeScore(101L);
 
             assertThat(dayPoints(101L)).isCloseTo(LIKE_WEIGHT, within(0.001));
+            assertThat(hourPoints(101L)).isCloseTo(LIKE_WEIGHT, within(0.001));
         }
     }
 
@@ -125,7 +127,7 @@ class RankingScoreServiceTest {
             assertThat(dayPoints(101L)).isCloseTo(expected, within(0.001));
         }
 
-        @DisplayName("같은 상품 여러 건이면 합산 후 반영된다.")
+        @DisplayName("같은 상품 여러 건이면 raw 합산 후 log10이 한 번만 적용된다.")
         @Test
         void aggregatesSameProductId() {
             List<OrderItemPayload> items = List.of(
@@ -135,7 +137,8 @@ class RankingScoreServiceTest {
 
             rankingScoreService.addOrderScores(items);
 
-            double expected = ORDER_WEIGHT * Math.log10(5000.0) + ORDER_WEIGHT * Math.log10(8000.0 * 3);
+            // raw = 5000*1 + 8000*3 = 29000, score = orderWeight * log10(29000)
+            double expected = ORDER_WEIGHT * Math.log10(29000.0);
             assertThat(dayPoints(101L)).isCloseTo(expected, within(0.001));
         }
 
@@ -194,6 +197,7 @@ class RankingScoreServiceTest {
             rankingScoreService.addLikeScores(Map.of(101L, 5));
 
             assertThat(dayPoints(101L)).isCloseTo(LIKE_WEIGHT * 5, within(0.001));
+            assertThat(hourPoints(101L)).isCloseTo(LIKE_WEIGHT * 5, within(0.001));
         }
     }
 
@@ -209,6 +213,7 @@ class RankingScoreServiceTest {
             rankingScoreService.subtractLikeScores(Map.of(101L, 3));
 
             assertThat(dayPoints(101L)).isCloseTo(LIKE_WEIGHT * 2, within(0.001));
+            assertThat(hourPoints(101L)).isCloseTo(LIKE_WEIGHT * 2, within(0.001));
         }
 
         @DisplayName("좋아요 후 같은 수만큼 취소하면 점수가 0이 된다.")
@@ -219,6 +224,7 @@ class RankingScoreServiceTest {
             rankingScoreService.subtractLikeScores(Map.of(101L, 3));
 
             assertThat(dayPoints(101L)).isCloseTo(0.0, within(0.001));
+            assertThat(hourPoints(101L)).isCloseTo(0.0, within(0.001));
         }
     }
 }

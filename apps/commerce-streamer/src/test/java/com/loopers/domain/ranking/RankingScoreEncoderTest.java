@@ -1,5 +1,6 @@
 package com.loopers.domain.ranking;
 
+import com.loopers.support.redis.RankingKeyConstants;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -80,6 +81,43 @@ class RankingScoreEncoderTest {
             assertThat(sec).isEqualTo(
                 LocalDateTime.parse("2026-04-06T13:00:00").atZone(KST).toEpochSecond()
             );
+        }
+    }
+
+    @DisplayName("Encoder의 자체 포맷이 RankingKeyConstants와 동일한 bucket key 패턴을 사용한다.")
+    @Nested
+    class FormatParityWithKeyConstants {
+
+        @DisplayName("DAY 버킷 키 포맷이 KeyConstants.dayBucket과 일치한다.")
+        @Test
+        void dayBucketParity() {
+            // 도메인 순수성을 위해 Encoder는 KeyConstants에 의존하지 않지만,
+            // 두 곳의 패턴이 어긋나면 sync 시 ZADD 키와 ledger bucket_key가 불일치한다.
+            // ISO week 경계 포함 회귀 보호.
+            for (LocalDate d : new LocalDate[]{
+                LocalDate.of(2026, 4, 6),
+                LocalDate.of(2026, 12, 28),
+                LocalDate.of(2026, 12, 31),
+                LocalDate.of(2027, 1, 4),
+            }) {
+                String fromConstants = RankingKeyConstants.dayBucket(d);
+                // Encoder가 같은 bucketKey로 파싱 가능해야 함
+                long startSec = RankingScoreEncoder.bucketStartEpochSec(
+                    RankingScoreLedger.BucketType.DAY, fromConstants
+                );
+                assertThat(startSec).isEqualTo(d.atStartOfDay(KST).toEpochSecond());
+            }
+        }
+
+        @DisplayName("HOUR 버킷 키 포맷이 KeyConstants.hourBucket과 일치한다.")
+        @Test
+        void hourBucketParity() {
+            LocalDateTime t = LocalDateTime.of(2026, 12, 31, 23, 0);
+            String fromConstants = RankingKeyConstants.hourBucket(t);
+            long startSec = RankingScoreEncoder.bucketStartEpochSec(
+                RankingScoreLedger.BucketType.HOUR, fromConstants
+            );
+            assertThat(startSec).isEqualTo(t.atZone(KST).toEpochSecond());
         }
     }
 }

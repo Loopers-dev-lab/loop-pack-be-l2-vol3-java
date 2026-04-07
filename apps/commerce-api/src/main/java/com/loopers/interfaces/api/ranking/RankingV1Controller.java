@@ -8,10 +8,8 @@ import com.loopers.domain.ranking.ProductRanking;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
-import org.springframework.validation.annotation.Validated;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -24,13 +22,19 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/rankings")
-@Validated
 public class RankingV1Controller implements RankingV1ApiSpec {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter STRICT_DAY_FORMAT =
+        DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT);
+    private static final Pattern DATE_PATTERN = Pattern.compile("\\d{8}");
 
     private final RankingQueryService rankingQueryService;
     private final ProductApplicationService productApplicationService;
@@ -38,11 +42,21 @@ public class RankingV1Controller implements RankingV1ApiSpec {
     @GetMapping
     @Override
     public ApiResponse<RankingV1Dto.RankingPageResponse> getDailyRanking(
-        @RequestParam(required = false) @Pattern(regexp = "\\d{8}", message = "날짜 형식은 yyyyMMdd여야 합니다.") String date,
-        @RequestParam(defaultValue = "0") @Min(value = 0, message = "page는 0 이상이어야 합니다.") int page,
-        @RequestParam(defaultValue = "20") @Min(value = 1, message = "size는 1 이상이어야 합니다.") int size
+        @RequestParam(required = false) String date,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
     ) {
-        String resolvedDate = (date != null) ? date : LocalDate.now(KST).format(DateTimeFormatter.ofPattern("uuuuMMdd"));
+        if (page < 0) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "page는 0 이상이어야 합니다.");
+        }
+        if (size < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "size는 1 이상이어야 합니다.");
+        }
+        if (date != null && !DATE_PATTERN.matcher(date).matches()) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 날짜 형식입니다.");
+        }
+
+        String resolvedDate = (date != null) ? date : LocalDate.now(KST).format(STRICT_DAY_FORMAT);
         validateDate(resolvedDate);
         PageResult<ProductRanking> rankings = rankingQueryService.getDailyRanking(resolvedDate, page, size);
 
@@ -57,15 +71,12 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         return ApiResponse.success(RankingV1Dto.RankingPageResponse.from(rankings, productMap));
     }
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter STRICT_DAY_FORMAT =
-        DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT);
-
     private void validateDate(String date) {
         try {
             LocalDate.parse(date, STRICT_DAY_FORMAT);
         } catch (DateTimeParseException e) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 날짜입니다: " + date);
+            log.warn("ranking date parse failed. raw={}", date, e);
+            throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않은 날짜입니다.", e);
         }
     }
 }

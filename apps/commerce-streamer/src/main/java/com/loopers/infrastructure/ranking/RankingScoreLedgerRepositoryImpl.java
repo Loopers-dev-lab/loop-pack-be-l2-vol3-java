@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,5 +47,11 @@ public class RankingScoreLedgerRepositoryImpl implements RankingScoreLedgerRepos
         RankingScoreLedger.BucketType bucketType, String bucketKey
     ) {
         return jpaRepository.findByBucketTypeAndBucketKey(bucketType, bucketKey);
+    }
+
+    @Override
+    public void markSyncedByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) return;
+        jpaRepository.markSyncedByIds(ids);
     }
 }

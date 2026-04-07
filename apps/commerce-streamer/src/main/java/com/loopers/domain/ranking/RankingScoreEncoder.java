@@ -25,8 +25,8 @@ import java.time.format.DateTimeFormatter;
 public final class RankingScoreEncoder {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
+    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd");
+    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("uuuuMMddHH");
     private static final double TIE_BREAK_SCALE = 1e-9;
 
     private RankingScoreEncoder() {

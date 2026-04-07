@@ -17,10 +17,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +29,8 @@ import java.util.concurrent.TimeUnit;
 /**
  * dirty 상태의 ledger 행을 짧은 주기로 읽어 합성 score 로 ZADD.
  *
- * <p>현재 time bucket(오늘/현재 시간)만 처리. 과거 bucket은 carry-over에서 다룬다.
+ * <p>at-least-once 시맨틱: Redis 쓰기는 트랜잭션 밖에서 수행하고,
+ * 성공한 id만 별도 짧은 트랜잭션으로 markSynced 처리한다. 개별 Redis 실패는 dirty 로 남아 다음 사이클에 자기치유된다.
  */
 @Slf4j
 @Component
@@ -37,8 +39,6 @@ import java.util.concurrent.TimeUnit;
 public class RankingLedgerSyncScheduler {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
     private static final String LOCK_KEY = "ranking:lock:sync";
     private static final long LOCK_TTL_MS = 10_000L;
     private static final String RELEASE_LOCK_SCRIPT =
@@ -77,10 +77,11 @@ public class RankingLedgerSyncScheduler {
             log.debug("[RankingSync] 다른 인스턴스 실행 중. skip.");
             return;
         }
+        long startMs = System.currentTimeMillis();
         try {
             LocalDateTime now = LocalDateTime.now(KST);
-            String dayBucket = now.toLocalDate().format(DAY_FORMAT);
-            String hourBucket = now.format(HOUR_FORMAT);
+            String dayBucket = RankingKeyConstants.dayBucket(now.toLocalDate());
+            String hourBucket = RankingKeyConstants.hourBucket(now);
 
             int dayCount = flushBucket(
                 RankingScoreLedger.BucketType.DAY, dayBucket,
@@ -97,6 +98,11 @@ public class RankingLedgerSyncScheduler {
         } catch (Exception e) {
             log.error("[RankingSync] 실패: {}", e.getMessage(), e);
         } finally {
+            long elapsedMs = System.currentTimeMillis() - startMs;
+            if (elapsedMs > LOCK_TTL_MS * 0.8) {
+                log.warn("[RankingSync] elapsed={}ms (ttl={}ms) — TTL 근접. batchSize 또는 TTL 재조정 필요.",
+                    elapsedMs, LOCK_TTL_MS);
+            }
             releaseLock(lockValue);
         }
     }
@@ -104,40 +110,70 @@ public class RankingLedgerSyncScheduler {
     private int flushBucket(
         RankingScoreLedger.BucketType bucketType, String bucketKey, String redisKey, long ttlSeconds
     ) {
-        Integer flushed = transactionTemplate.execute(status -> {
+        List<LedgerSnapshot> snapshots = transactionTemplate.execute(status -> {
             List<RankingScoreLedger> dirty = ledgerRepository.findDirty(bucketType, bucketKey, batchSize);
-            if (dirty.isEmpty()) {
-                return 0;
-            }
-            for (RankingScoreLedger ledger : dirty) {
-                double composite = RankingScoreEncoder.encode(ledger);
-                rankingRepository.putScore(redisKey, ledger.getProductId(), composite, ttlSeconds);
-                ledger.markSynced();
-            }
-            ledgerRepository.saveAll(dirty);
-            return dirty.size();
+            return dirty.stream().map(LedgerSnapshot::from).toList();
         });
-        return flushed == null ? 0 : flushed;
+        if (snapshots == null || snapshots.isEmpty()) {
+            return 0;
+        }
+
+        List<Long> syncedIds = new ArrayList<>(snapshots.size());
+        for (LedgerSnapshot s : snapshots) {
+            try {
+                double composite = RankingScoreEncoder.encode(
+                    s.bucketType(), s.bucketKey(), s.basePoints(), s.lastScoredAt()
+                );
+                rankingRepository.putScore(redisKey, s.productId(), composite, ttlSeconds);
+                syncedIds.add(s.id());
+            } catch (Exception e) {
+                log.warn("[RankingSync] redis write failed. id={} productId={}", s.id(), s.productId(), e);
+            }
+        }
+        if (syncedIds.isEmpty()) {
+            return 0;
+        }
+        transactionTemplate.executeWithoutResult(
+            status -> ledgerRepository.markSyncedByIds(syncedIds)
+        );
+        return syncedIds.size();
     }
 
     /**
      * 특정 날짜 ledger 전체를 강제 재동기화 (carry-over 직후 등에 사용).
      */
     public int forceSyncDay(LocalDate date) {
-        String bucketKey = date.format(DAY_FORMAT);
+        String bucketKey = RankingKeyConstants.dayBucket(date);
         String redisKey = RankingKeyConstants.dayKey(date);
-        Integer count = transactionTemplate.execute(status -> {
+
+        List<LedgerSnapshot> snapshots = transactionTemplate.execute(status -> {
             List<RankingScoreLedger> rows =
                 ledgerRepository.findAllByBucket(RankingScoreLedger.BucketType.DAY, bucketKey);
-            for (RankingScoreLedger ledger : rows) {
-                double composite = RankingScoreEncoder.encode(ledger);
-                rankingRepository.putScore(redisKey, ledger.getProductId(), composite, dayTtlSeconds);
-                ledger.markSynced();
-            }
-            ledgerRepository.saveAll(rows);
-            return rows.size();
+            return rows.stream().map(LedgerSnapshot::from).toList();
         });
-        return count == null ? 0 : count;
+        if (snapshots == null || snapshots.isEmpty()) {
+            return 0;
+        }
+
+        List<Long> syncedIds = new ArrayList<>(snapshots.size());
+        for (LedgerSnapshot s : snapshots) {
+            try {
+                double composite = RankingScoreEncoder.encode(
+                    s.bucketType(), s.bucketKey(), s.basePoints(), s.lastScoredAt()
+                );
+                rankingRepository.putScore(redisKey, s.productId(), composite, dayTtlSeconds);
+                syncedIds.add(s.id());
+            } catch (Exception e) {
+                log.warn("[RankingSync] forceSyncDay redis write failed. id={} productId={}", s.id(), s.productId(), e);
+            }
+        }
+        if (syncedIds.isEmpty()) {
+            return 0;
+        }
+        transactionTemplate.executeWithoutResult(
+            status -> ledgerRepository.markSyncedByIds(syncedIds)
+        );
+        return syncedIds.size();
     }
 
     private String acquireLock() {
@@ -151,5 +187,21 @@ public class RankingLedgerSyncScheduler {
         if (lockValue == null) return;
         DefaultRedisScript<Long> script = new DefaultRedisScript<>(RELEASE_LOCK_SCRIPT, Long.class);
         redisTemplate.execute(script, List.of(LOCK_KEY), lockValue);
+    }
+
+    private record LedgerSnapshot(
+        Long id,
+        Long productId,
+        double basePoints,
+        Instant lastScoredAt,
+        RankingScoreLedger.BucketType bucketType,
+        String bucketKey
+    ) {
+        static LedgerSnapshot from(RankingScoreLedger l) {
+            return new LedgerSnapshot(
+                l.getId(), l.getProductId(), l.getBasePoints(),
+                l.getLastScoredAt(), l.getBucketType(), l.getBucketKey()
+            );
+        }
     }
 }

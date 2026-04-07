@@ -15,6 +15,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
@@ -22,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RankingLedgerSyncSchedulerTest {
 
-    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+    private static final DateTimeFormatter DAY_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd");
 
     private FakeRankingScoreLedgerRepository ledgerRepository;
     private FakeRankingRepository rankingRepository;
@@ -55,23 +56,23 @@ class RankingLedgerSyncSchedulerTest {
 
         @DisplayName("동일 base points 두 행이 있으면 더 늦게 갱신된 쪽이 ZSET 상위로 올라가도록 composite score가 더 크다.")
         @Test
-        void laterUpdatedRanksHigher() throws InterruptedException {
+        void laterUpdatedRanksHigher() {
             LocalDate today = LocalDate.now();
             String bucketKey = today.format(DAY_FORMAT);
 
-            // 둘 다 base points 1.0, 갱신 시각만 다르게
+            Instant base = Instant.now();
+
+            // 둘 다 base points 1.0, 갱신 시각만 다르게 (명시적 주입)
             RankingScoreLedger first = new RankingScoreLedger(
                 RankingScoreLedger.BucketType.DAY, bucketKey, 101L
             );
-            first.addScore(1.0);
+            first.addScore(1.0, base);
             ledgerRepository.save(first);
-
-            Thread.sleep(1100); // 최소 1초 차이 (epochSecond 단위)
 
             RankingScoreLedger second = new RankingScoreLedger(
                 RankingScoreLedger.BucketType.DAY, bucketKey, 102L
             );
-            second.addScore(1.0);
+            second.addScore(1.0, base.plusSeconds(2));
             ledgerRepository.save(second);
 
             scheduler.forceSyncDay(today);
