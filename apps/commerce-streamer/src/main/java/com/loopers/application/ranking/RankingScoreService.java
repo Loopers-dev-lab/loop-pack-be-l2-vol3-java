@@ -6,6 +6,7 @@ import com.loopers.support.redis.RankingKeyConstants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -101,8 +102,8 @@ public class RankingScoreService {
     ) {
         try {
             ledgerWriter.upsertSingle(bucketType, bucketKey, productId, delta);
-        } catch (DataIntegrityViolationException race) {
-            // 동시 INSERT race — 두 번째 시도에선 select 경로로 흐름
+        } catch (DataIntegrityViolationException | ObjectOptimisticLockingFailureException race) {
+            // INSERT race 또는 낙관적 락 충돌 — 원자 addDelta 경로로 한 번 더 시도하면 대부분 해소
             try {
                 ledgerWriter.upsertSingle(bucketType, bucketKey, productId, delta);
             } catch (Exception e) {

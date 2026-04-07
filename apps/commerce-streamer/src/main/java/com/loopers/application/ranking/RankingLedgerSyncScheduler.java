@@ -80,20 +80,36 @@ public class RankingLedgerSyncScheduler {
         long startMs = System.currentTimeMillis();
         try {
             LocalDateTime now = LocalDateTime.now(KST);
-            String dayBucket = RankingKeyConstants.dayBucket(now.toLocalDate());
-            String hourBucket = RankingKeyConstants.hourBucket(now);
 
+            // 현재 bucket
             int dayCount = flushBucket(
-                RankingScoreLedger.BucketType.DAY, dayBucket,
+                RankingScoreLedger.BucketType.DAY,
+                RankingKeyConstants.dayBucket(now.toLocalDate()),
                 RankingKeyConstants.dayKey(now.toLocalDate()), dayTtlSeconds
             );
             int hourCount = flushBucket(
-                RankingScoreLedger.BucketType.HOUR, hourBucket,
+                RankingScoreLedger.BucketType.HOUR,
+                RankingKeyConstants.hourBucket(now),
                 RankingKeyConstants.hourKey(now), hourTtlSeconds
             );
 
-            if (dayCount > 0 || hourCount > 0) {
-                log.info("[RankingSync] flushed day={} hour={}", dayCount, hourCount);
+            // 직전 bucket drain — 경계 시점 장애로 남은 dirty row 복구 경로
+            LocalDate prevDay = now.toLocalDate().minusDays(1);
+            LocalDateTime prevHour = now.minusHours(1);
+            int prevDayCount = flushBucket(
+                RankingScoreLedger.BucketType.DAY,
+                RankingKeyConstants.dayBucket(prevDay),
+                RankingKeyConstants.dayKey(prevDay), dayTtlSeconds
+            );
+            int prevHourCount = flushBucket(
+                RankingScoreLedger.BucketType.HOUR,
+                RankingKeyConstants.hourBucket(prevHour),
+                RankingKeyConstants.hourKey(prevHour), hourTtlSeconds
+            );
+
+            if (dayCount + hourCount + prevDayCount + prevHourCount > 0) {
+                log.info("[RankingSync] flushed day={} hour={} prevDay={} prevHour={}",
+                    dayCount, hourCount, prevDayCount, prevHourCount);
             }
         } catch (Exception e) {
             log.error("[RankingSync] 실패: {}", e.getMessage(), e);
@@ -118,25 +134,42 @@ public class RankingLedgerSyncScheduler {
             return 0;
         }
 
-        List<Long> syncedIds = new ArrayList<>(snapshots.size());
+        List<LedgerSnapshot> synced = new ArrayList<>(snapshots.size());
         for (LedgerSnapshot s : snapshots) {
             try {
                 double composite = RankingScoreEncoder.encode(
                     s.bucketType(), s.bucketKey(), s.basePoints(), s.lastScoredAt()
                 );
                 rankingRepository.putScore(redisKey, s.productId(), composite, ttlSeconds);
-                syncedIds.add(s.id());
+                synced.add(s);
             } catch (Exception e) {
                 log.warn("[RankingSync] redis write failed. id={} productId={}", s.id(), s.productId(), e);
             }
         }
-        if (syncedIds.isEmpty()) {
+        if (synced.isEmpty()) {
             return 0;
         }
-        transactionTemplate.executeWithoutResult(
-            status -> ledgerRepository.markSyncedByIds(syncedIds)
-        );
-        return syncedIds.size();
+        return markSyncedConditionally(synced);
+    }
+
+    /**
+     * 스냅샷 시점 version과 일치할 때만 dirty=false 로 전환. 중간에 갱신된 row는 dirty 유지 → 다음 사이클이 최신 값을 처리.
+     */
+    private int markSyncedConditionally(List<LedgerSnapshot> synced) {
+        Integer actuallyMarked = transactionTemplate.execute(status -> {
+            int count = 0;
+            for (LedgerSnapshot s : synced) {
+                int affected = ledgerRepository.markSyncedIfUnchanged(s.id(), s.version());
+                if (affected > 0) {
+                    count++;
+                } else {
+                    log.debug("[RankingSync] 스냅샷 이후 갱신됨, dirty 유지. id={} productId={}",
+                        s.id(), s.productId());
+                }
+            }
+            return count;
+        });
+        return actuallyMarked == null ? 0 : actuallyMarked;
     }
 
     /**
@@ -155,25 +188,22 @@ public class RankingLedgerSyncScheduler {
             return 0;
         }
 
-        List<Long> syncedIds = new ArrayList<>(snapshots.size());
+        List<LedgerSnapshot> synced = new ArrayList<>(snapshots.size());
         for (LedgerSnapshot s : snapshots) {
             try {
                 double composite = RankingScoreEncoder.encode(
                     s.bucketType(), s.bucketKey(), s.basePoints(), s.lastScoredAt()
                 );
                 rankingRepository.putScore(redisKey, s.productId(), composite, dayTtlSeconds);
-                syncedIds.add(s.id());
+                synced.add(s);
             } catch (Exception e) {
                 log.warn("[RankingSync] forceSyncDay redis write failed. id={} productId={}", s.id(), s.productId(), e);
             }
         }
-        if (syncedIds.isEmpty()) {
+        if (synced.isEmpty()) {
             return 0;
         }
-        transactionTemplate.executeWithoutResult(
-            status -> ledgerRepository.markSyncedByIds(syncedIds)
-        );
-        return syncedIds.size();
+        return markSyncedConditionally(synced);
     }
 
     private String acquireLock() {
@@ -191,6 +221,7 @@ public class RankingLedgerSyncScheduler {
 
     private record LedgerSnapshot(
         Long id,
+        Long version,
         Long productId,
         double basePoints,
         Instant lastScoredAt,
@@ -199,7 +230,7 @@ public class RankingLedgerSyncScheduler {
     ) {
         static LedgerSnapshot from(RankingScoreLedger l) {
             return new LedgerSnapshot(
-                l.getId(), l.getProductId(), l.getBasePoints(),
+                l.getId(), l.getVersion(), l.getProductId(), l.getBasePoints(),
                 l.getLastScoredAt(), l.getBucketType(), l.getBucketKey()
             );
         }

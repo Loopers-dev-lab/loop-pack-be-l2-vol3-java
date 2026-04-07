@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -53,5 +54,18 @@ public class RankingScoreLedgerRepositoryImpl implements RankingScoreLedgerRepos
     public void markSyncedByIds(Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) return;
         jpaRepository.markSyncedByIds(ids);
+    }
+
+    @Override
+    public int addDelta(
+        RankingScoreLedger.BucketType bucketType, String bucketKey, Long productId,
+        double delta, Instant now
+    ) {
+        return jpaRepository.addDelta(bucketType, bucketKey, productId, delta, now);
+    }
+
+    @Override
+    public int markSyncedIfUnchanged(Long id, Long version) {
+        return jpaRepository.markSyncedIfUnchanged(id, version);
     }
 }

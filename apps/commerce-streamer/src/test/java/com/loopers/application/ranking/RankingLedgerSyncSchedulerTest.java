@@ -105,6 +105,35 @@ class RankingLedgerSyncSchedulerTest {
             ).isFalse();
         }
 
+        @DisplayName("스냅샷 이후 같은 row가 갱신되면 markSyncedIfUnchanged가 실패하여 dirty가 유지된다.")
+        @Test
+        void snapshotAfterUpdateKeepsDirty() {
+            LocalDate today = LocalDate.now();
+            String bucketKey = today.format(DAY_FORMAT);
+
+            RankingScoreLedger row = new RankingScoreLedger(
+                RankingScoreLedger.BucketType.DAY, bucketKey, 101L
+            );
+            row.addScore(5.0);
+            ledgerRepository.save(row);
+
+            // 스냅샷 시점의 version을 미리 캡처
+            Long snapshotVersion = row.getVersion();
+
+            // 동일 version 으로 markSyncedIfUnchanged → 성공 (1 반환)
+            int matched = ledgerRepository.markSyncedIfUnchanged(row.getId(), snapshotVersion);
+            assertThat(matched).isEqualTo(1);
+
+            // 이제 addDelta 로 중간 갱신을 흉내 → version 증가
+            ledgerRepository.addDelta(
+                RankingScoreLedger.BucketType.DAY, bucketKey, 101L, 1.0, java.time.Instant.now()
+            );
+
+            // 오래된 snapshotVersion 으로는 markSyncedIfUnchanged 가 0 반환 → dirty 유지 효과
+            int stale = ledgerRepository.markSyncedIfUnchanged(row.getId(), snapshotVersion);
+            assertThat(stale).isEqualTo(0);
+        }
+
         @DisplayName("composite score를 디코딩하면 base points와 근사하다.")
         @Test
         void compositeScoreDecodesToBase() {

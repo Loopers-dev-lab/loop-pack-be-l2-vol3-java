@@ -1,5 +1,6 @@
 package com.loopers.domain.ranking;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -74,6 +75,45 @@ public class FakeRankingScoreLedgerRepository implements RankingScoreLedgerRepos
             }
         }
         return result;
+    }
+
+    @Override
+    public int addDelta(
+        RankingScoreLedger.BucketType bucketType, String bucketKey, Long productId,
+        double delta, Instant now
+    ) {
+        RankingScoreLedger existing = store.get(key(bucketType, bucketKey, productId));
+        if (existing == null) {
+            return 0;
+        }
+        existing.addScore(delta, now);
+        bumpVersion(existing);
+        return 1;
+    }
+
+    @Override
+    public int markSyncedIfUnchanged(Long id, Long version) {
+        for (RankingScoreLedger l : store.values()) {
+            if (Objects.equals(l.getId(), id)) {
+                if (Objects.equals(l.getVersion(), version)) {
+                    l.markSynced();
+                    return 1;
+                }
+                return 0;
+            }
+        }
+        return 0;
+    }
+
+    private void bumpVersion(RankingScoreLedger ledger) {
+        try {
+            java.lang.reflect.Field f = RankingScoreLedger.class.getDeclaredField("version");
+            f.setAccessible(true);
+            Long cur = (Long) f.get(ledger);
+            f.set(ledger, (cur == null ? 0L : cur) + 1L);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("failed to bump version in fake", e);
+        }
     }
 
     @Override
