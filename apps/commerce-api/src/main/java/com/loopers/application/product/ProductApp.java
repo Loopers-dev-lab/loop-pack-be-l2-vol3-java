@@ -1,6 +1,7 @@
 package com.loopers.application.product;
 
-import com.loopers.application.outbox.OutboxAppender;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.common.cursor.CursorPageResult;
 import com.loopers.domain.product.ProductMetricsModel;
 import com.loopers.domain.product.ProductMetricsRepository;
@@ -12,11 +13,13 @@ import com.loopers.domain.product.vo.ProductId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,17 +28,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class ProductApp {
 
-    private static final String CATALOG_EVENTS_TOPIC = "catalog-events";
+    private static final String VIEW_EVENTS_TOPIC = "view-events";
 
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final ProductCacheStore productCacheStore;
     private final ProductMetricsRepository productMetricsRepository;
-    private final OutboxAppender outboxAppender;
+    private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
     private final ViewDedupRepository viewDedupRepository;
 
     @Transactional
@@ -67,11 +72,18 @@ public class ProductApp {
     }
 
     private void publishViewEvent(Long productDbId, Long memberId) {
-        String eventId = UUID.randomUUID().toString();
-        LocalDateTime now = LocalDateTime.now();
-        ViewOutboxPayload payload = new ViewOutboxPayload(
-                eventId, "ViewedEvent", 1, productDbId, memberId, 1, now);
-        outboxAppender.append("product", String.valueOf(productDbId), "ViewedEvent", CATALOG_EVENTS_TOPIC, payload);
+        try {
+            String eventId = UUID.randomUUID().toString();
+            LocalDateTime now = LocalDateTime.now();
+            ViewOutboxPayload payload = new ViewOutboxPayload(
+                    eventId, "ViewedEvent", 1, productDbId, memberId, 1, now);
+            String json = objectMapper.writeValueAsString(payload);
+            kafkaTemplate.send(VIEW_EVENTS_TOPIC, String.valueOf(productDbId), json);
+        } catch (JsonProcessingException e) {
+            log.warn("[VIEW_EVENT] 직렬화 실패 — productDbId={}, memberId={}", productDbId, memberId, e);
+        } catch (Exception e) {
+            log.warn("[VIEW_EVENT] 발행 실패 — productDbId={}, memberId={}", productDbId, memberId, e);
+        }
     }
 
     @Caching(evict = {

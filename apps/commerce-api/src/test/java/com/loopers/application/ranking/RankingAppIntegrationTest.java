@@ -89,24 +89,26 @@ class RankingAppIntegrationTest {
     }
 
     @Test
-    @DisplayName("삭제된 상품은 DISCONTINUED 마커로 반환된다 (A++ 정책)")
-    void deletedProductMarkedAsDiscontinued() {
-        // given: 상품 저장 후 soft delete
-        ProductModel p = productRepository.save(ProductModel.create("P001", 1L, "삭제된 상품", new BigDecimal("1000"), 10));
-        p.delete();
-        productRepository.save(p);
+    @DisplayName("삭제된 상품은 랭킹에서 숨긴다 (멘토링 피드백: 부정적 피드백 미노출)")
+    void deletedProductIsHidden() {
+        // given: 상품 2개 중 1개 soft delete
+        ProductModel p1 = productRepository.save(ProductModel.create("P001", 1L, "정상 상품", new BigDecimal("1000"), 10));
+        ProductModel p2 = productRepository.save(ProductModel.create("P002", 1L, "삭제된 상품", new BigDecimal("1000"), 10));
+        p2.delete();
+        productRepository.save(p2);
 
         LocalDate date = LocalDate.of(2026, 4, 5);
         String key = RankingKeyGenerator.dailyKey(date);
-        redisTemplate.opsForZSet().add(key, String.valueOf(p.getId()), 500.0);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p1.getId()), 500.0);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p2.getId()), 1000.0);
 
         // when
         RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
-        // then
+        // then: 삭제 상품 필터링 → 정상 상품 1개만 반환
         assertThat(result.items()).hasSize(1);
-        assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
-        assertThat(result.items().get(0).productName()).isEqualTo("삭제된 상품");
+        assertThat(result.items().get(0).productName()).isEqualTo("정상 상품");
+        assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
     }
 
     @Test

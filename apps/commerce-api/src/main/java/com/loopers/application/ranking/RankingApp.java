@@ -3,7 +3,6 @@ package com.loopers.application.ranking;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -18,7 +17,6 @@ public class RankingApp {
     private final RankingRepository rankingRepository;
     private final RankingProductCache productCache;
 
-    @Cacheable(value = "rankingPage", key = "#date.toString() + ':' + #page + ':' + #size")
     public RankingPageResult getTopN(LocalDate date, long page, long size) {
         long offset = page * size;
         List<RankingEntry> entries = rankingRepository.findTopN(date, offset, size);
@@ -27,7 +25,6 @@ public class RankingApp {
         return new RankingPageResult(items, page, size, totalElements);
     }
 
-    @Cacheable(value = "rankingPage", key = "#date.toString() + ':cursor:' + (#cursorScore != null ? #cursorScore : 'top') + ':' + #size")
     public RankingCursorResult getByCursor(LocalDate date, Double cursorScore, long size) {
         List<RankingEntry> entries = rankingRepository.findByCursor(date, cursorScore, size);
         List<RankingInfo> items = enrichByCursor(date, entries);
@@ -49,10 +46,13 @@ public class RankingApp {
             return List.of();
         }
         List<RankingInfo> items = new ArrayList<>(entries.size());
-        for (int i = 0; i < entries.size(); i++) {
-            RankingEntry entry = entries.get(i);
-            long rank = baseOffset + i + 1;
+        long rank = baseOffset;
+        for (RankingEntry entry : entries) {
             CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
+            if (snapshot == null || snapshot.deleted()) {
+                continue;
+            }
+            rank++;
             items.add(toInfo(entry, rank, snapshot));
         }
         return items;
@@ -64,20 +64,18 @@ public class RankingApp {
         }
         List<RankingInfo> items = new ArrayList<>(entries.size());
         for (RankingEntry entry : entries) {
+            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
+            if (snapshot == null || snapshot.deleted()) {
+                continue;
+            }
             Long globalRank = rankingRepository.findRank(date, entry.productDbId()).orElse(null);
             long rank = globalRank != null ? globalRank : 0L;
-            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
             items.add(toInfo(entry, rank, snapshot));
         }
         return items;
     }
 
     private RankingInfo toInfo(RankingEntry entry, long rank, CachedProductSnapshot snapshot) {
-        if (snapshot == null) {
-            return new RankingInfo(rank, entry.score(), entry.productDbId(),
-                    null, "(삭제된 상품)", null, RankingInfo.STATUS_DISCONTINUED);
-        }
-        String status = snapshot.deleted() ? RankingInfo.STATUS_DISCONTINUED : RankingInfo.STATUS_ACTIVE;
         return new RankingInfo(
                 rank,
                 entry.score(),
@@ -85,7 +83,7 @@ public class RankingApp {
                 snapshot.productId(),
                 snapshot.productName(),
                 snapshot.price(),
-                status
+                RankingInfo.STATUS_ACTIVE
         );
     }
 }

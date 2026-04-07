@@ -88,7 +88,8 @@ class RankingCarryOverIntegrationTest {
         // 내일(자정 이후)에 새 이벤트: 주문 1건 (7000점 추가) → ZINCRBY 누적
         rankingApp.applyOrderScore(1L, new java.math.BigDecimal("10000"), 1, tomorrow);
 
-        // 결과: 1000(carry-over) + 7000(주문) = 8000
-        assertThat(redisTemplate.opsForZSet().score(tomorrowKey, "1")).isEqualTo(8000.0);
+        // 결과: 1000(carry-over) + 7000(주문) + tie-break ≈ 8000
+        assertThat(redisTemplate.opsForZSet().score(tomorrowKey, "1"))
+                .isCloseTo(8000.0, org.assertj.core.data.Offset.offset(0.01));
     }
 }

@@ -13,6 +13,7 @@ import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @DisplayName("RankingApp 단위 테스트")
@@ -46,24 +47,22 @@ class RankingAppTest {
                     org.mockito.ArgumentMatchers.eq(productDbId),
                     scoreCaptor.capture()
             );
-            assertThat(scoreCaptor.getValue()).isEqualTo(0.2);
+            assertThat(scoreCaptor.getValue()).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.001));
         }
 
         @Test
-        @DisplayName("LikeRemovedEvent(delta=-1)는 -0.2 점수로 차감시킨다")
-        void likeRemovedEventDecreasesScoreByWeight() {
+        @DisplayName("LikeRemovedEvent(delta=-1)는 차감하지 않는다 (멘토링 피드백)")
+        void likeRemovedEventDoesNotDeduceScore() {
             Long productDbId = 42L;
             LocalDate date = LocalDate.of(2026, 4, 5);
 
             rankingApp.applyLikeDelta(productDbId, -1, date);
 
-            ArgumentCaptor<Double> scoreCaptor = ArgumentCaptor.forClass(Double.class);
-            verify(rankingRepository).incrementScore(
-                    org.mockito.ArgumentMatchers.eq(date),
-                    org.mockito.ArgumentMatchers.eq(productDbId),
-                    scoreCaptor.capture()
+            verify(rankingRepository, never()).incrementScore(
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.anyDouble()
             );
-            assertThat(scoreCaptor.getValue()).isEqualTo(-0.2);
         }
     }
 
@@ -85,7 +84,7 @@ class RankingAppTest {
                     org.mockito.ArgumentMatchers.eq(productDbId),
                     scoreCaptor.capture()
             );
-            assertThat(scoreCaptor.getValue()).isEqualTo(0.1);
+            assertThat(scoreCaptor.getValue()).isCloseTo(0.1, org.assertj.core.data.Offset.offset(0.001));
         }
     }
 
@@ -109,8 +108,8 @@ class RankingAppTest {
                     org.mockito.ArgumentMatchers.eq(productDbId),
                     scoreCaptor.capture()
             );
-            // 0.7 * 10000 * 2 = 14000.0
-            assertThat(scoreCaptor.getValue()).isEqualTo(14000.0);
+            // 0.7 * 10000 * 2 = 14000.0 + tie-break fraction
+            assertThat(scoreCaptor.getValue()).isCloseTo(14000.0, org.assertj.core.data.Offset.offset(0.001));
         }
     }
 }

@@ -70,8 +70,8 @@ class RankingScenarioVerificationTest {
             System.out.println("[DOMINATION TEST] expensive(100000원*3건) score=" + expensiveScore);
             System.out.println("[DOMINATION TEST] ratio expensive/cheap=" + (expensiveScore / cheapScore));
 
-            assertThat(cheapScore).isEqualTo(35000.0);
-            assertThat(expensiveScore).isEqualTo(210000.0);
+            assertThat(cheapScore).isCloseTo(35000.0, org.assertj.core.data.Offset.offset(1.0));
+            assertThat(expensiveScore).isCloseTo(210000.0, org.assertj.core.data.Offset.offset(1.0));
             // 결론: 6배 차이 - 고가 상품이 판매량 10배 적어도 랭킹을 차지 (독식 확인)
         }
 
@@ -97,8 +97,8 @@ class RankingScenarioVerificationTest {
             System.out.println("[EXTREME] cheap(1000원*100건) score=" + cheapScore);
             System.out.println("[EXTREME] expensive(100000원*1건) score=" + expensiveScore);
 
-            assertThat(cheapScore).isEqualTo(70000.0);
-            assertThat(expensiveScore).isEqualTo(70000.0);
+            assertThat(cheapScore).isCloseTo(70000.0, org.assertj.core.data.Offset.offset(1.0));
+            assertThat(expensiveScore).isCloseTo(70000.0, org.assertj.core.data.Offset.offset(1.0));
             // 결론: 가격 차이만큼 판매량 차이가 있어야 동등 → 인기도 왜곡 가능성 확인
         }
 

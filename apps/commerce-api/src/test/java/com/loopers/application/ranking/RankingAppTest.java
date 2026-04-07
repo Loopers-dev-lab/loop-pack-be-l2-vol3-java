@@ -62,25 +62,29 @@ class RankingAppTest {
         }
 
         @Test
-        @DisplayName("삭제된 상품은 DISCONTINUED 마커로 표시한다")
-        void marksDeletedProductsAsDiscontinued() {
+        @DisplayName("삭제된 상품은 랭킹에서 숨긴다 (멘토링 피드백: 부정적 피드백 미노출)")
+        void deletedProductIsHidden() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             when(rankingRepository.findTopN(eq(date), any(Long.class), any(Long.class))).thenReturn(List.of(
-                    new RankingEntry(10L, 50.0)
+                    new RankingEntry(10L, 50.0),
+                    new RankingEntry(11L, 40.0)
             ));
-            when(rankingRepository.countMembers(date)).thenReturn(1L);
+            when(rankingRepository.countMembers(date)).thenReturn(2L);
             when(productCache.findById(10L)).thenReturn(new CachedProductSnapshot(
                     10L, "P010", "판매종료 상품", new BigDecimal("500"), true));
+            when(productCache.findById(11L)).thenReturn(new CachedProductSnapshot(
+                    11L, "P011", "정상 상품", new BigDecimal("300"), false));
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
             assertThat(result.items()).hasSize(1);
-            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
+            assertThat(result.items().get(0).productName()).isEqualTo("정상 상품");
+            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
         }
 
         @Test
-        @DisplayName("캐시에 없는 상품은 '(삭제된 상품)' + DISCONTINUED로 폴백한다")
-        void fallbackForMissingProduct() {
+        @DisplayName("캐시에 없는 상품(DB에서도 삭제)도 랭킹에서 숨긴다")
+        void missingProductIsHidden() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             when(rankingRepository.findTopN(eq(date), any(Long.class), any(Long.class))).thenReturn(List.of(
                     new RankingEntry(999L, 30.0)
@@ -90,9 +94,7 @@ class RankingAppTest {
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
-            assertThat(result.items()).hasSize(1);
-            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
-            assertThat(result.items().get(0).productName()).isEqualTo("(삭제된 상품)");
+            assertThat(result.items()).isEmpty();
         }
 
         @Test

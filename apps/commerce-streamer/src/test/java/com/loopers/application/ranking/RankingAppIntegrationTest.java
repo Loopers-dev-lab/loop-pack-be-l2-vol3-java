@@ -53,21 +53,23 @@ class RankingAppIntegrationTest {
             rankingApp.applyLikeDelta(42L, 1, date);
 
             Double score = redisTemplate.opsForZSet().score(key, "42");
-            assertThat(score).isCloseTo(0.6, org.assertj.core.data.Offset.offset(0.0001));
+            assertThat(score).isCloseTo(0.6, org.assertj.core.data.Offset.offset(0.01));
         }
 
         @Test
-        @DisplayName("LikeRemovedEvent(delta=-1) → 점수 차감")
-        void likeRemovedEventDecreasesZsetScore() {
+        @DisplayName("LikeRemovedEvent(delta=-1) → 차감 없음 (멘토링 피드백)")
+        void likeRemovedEventDoesNotDeduceScore() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
             rankingApp.applyLikeDelta(42L, 1, date);
             rankingApp.applyLikeDelta(42L, 1, date);
+            Double scoreBeforeUnlike = redisTemplate.opsForZSet().score(key, "42");
+
             rankingApp.applyLikeDelta(42L, -1, date);
 
-            Double score = redisTemplate.opsForZSet().score(key, "42");
-            assertThat(score).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.0001));
+            Double scoreAfterUnlike = redisTemplate.opsForZSet().score(key, "42");
+            assertThat(scoreAfterUnlike).isEqualTo(scoreBeforeUnlike);
         }
     }
 
@@ -84,7 +86,7 @@ class RankingAppIntegrationTest {
             rankingApp.applyOrderScore(42L, new BigDecimal("10000"), 2, date);
 
             Double score = redisTemplate.opsForZSet().score(key, "42");
-            assertThat(score).isEqualTo(14000.0);
+            assertThat(score).isCloseTo(14000.0, org.assertj.core.data.Offset.offset(0.01));
         }
     }
 
@@ -102,7 +104,7 @@ class RankingAppIntegrationTest {
             rankingApp.applyViewScore(42L, date);
 
             Double score = redisTemplate.opsForZSet().score(key, "42");
-            assertThat(score).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.0001));
+            assertThat(score).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.01));
         }
     }
 
@@ -116,9 +118,7 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
-            // 상품 A: 주문 1건 (10000원 * 1개)
             rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, date);
-            // 상품 B: 좋아요 3건
             rankingApp.applyLikeDelta(2L, 1, date);
             rankingApp.applyLikeDelta(2L, 1, date);
             rankingApp.applyLikeDelta(2L, 1, date);
@@ -127,13 +127,13 @@ class RankingAppIntegrationTest {
             Double scoreB = redisTemplate.opsForZSet().score(key, "2");
 
             assertThat(scoreA).isGreaterThan(scoreB);
-            assertThat(scoreA).isEqualTo(7000.0);       // 0.7 * 10000 * 1
-            assertThat(scoreB).isCloseTo(0.6, org.assertj.core.data.Offset.offset(0.0001)); // 0.2 * 3
+            assertThat(scoreA).isCloseTo(7000.0, org.assertj.core.data.Offset.offset(0.01));
+            assertThat(scoreB).isCloseTo(0.6, org.assertj.core.data.Offset.offset(0.01));
         }
 
         @Test
-        @DisplayName("조회 100건(score=10) == 좋아요 50건(score=10) — 가중치 교차 검증")
-        void viewHundredEqualsLikeFifty() {
+        @DisplayName("조회 100건(score≈10) vs 좋아요 50건(score≈10) — 가중치 교차 검증")
+        void viewHundredApproxEqualsLikeFifty() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
@@ -143,8 +143,8 @@ class RankingAppIntegrationTest {
             Double scoreA = redisTemplate.opsForZSet().score(key, "1");
             Double scoreB = redisTemplate.opsForZSet().score(key, "2");
 
-            assertThat(scoreA).isCloseTo(10.0, org.assertj.core.data.Offset.offset(0.0001));
-            assertThat(scoreB).isCloseTo(10.0, org.assertj.core.data.Offset.offset(0.0001));
+            assertThat(scoreA).isCloseTo(10.0, org.assertj.core.data.Offset.offset(0.1));
+            assertThat(scoreB).isCloseTo(10.0, org.assertj.core.data.Offset.offset(0.1));
         }
 
         @Test
