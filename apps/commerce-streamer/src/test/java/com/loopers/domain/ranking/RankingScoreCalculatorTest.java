@@ -112,4 +112,22 @@ class RankingScoreCalculatorTest {
             assertThat(scores.get(1L)).isCloseTo(expected, offset(0.001));
         }
     }
+
+    @DisplayName("가중치 비교 시,")
+    @Nested
+    class WeightComparison {
+
+        @DisplayName("주문 1건(50,000원) 점수가 좋아요 3건 점수보다 크다.")
+        @Test
+        void singleOrderScoreExceedsThreeLikes() {
+            // arrange
+            double orderScore = calculator.calculateOrderScores(List.of(
+                    new RankingEvent.Order.OrderItem(1L, 50000L, 1L)
+            )).get(1L);
+            double threeLikesScore = calculator.calculateLikeScore(true) * 3;
+
+            // assert
+            assertThat(orderScore).isGreaterThan(threeLikesScore);
+        }
+    }
 }

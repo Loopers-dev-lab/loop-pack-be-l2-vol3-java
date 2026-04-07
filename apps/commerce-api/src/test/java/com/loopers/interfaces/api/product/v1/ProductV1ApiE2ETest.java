@@ -428,5 +428,18 @@ class ProductV1ApiE2ETest extends BaseE2ETest {
             // assert
             assertErrorResponse(response, HttpStatus.NOT_FOUND, ErrorType.PRODUCT_NOT_FOUND);
         }
+
+        @DisplayName("랭킹 데이터가 없는 상품을 조회하면, rank가 null이다.")
+        @Test
+        void returnsNullRank_whenProductHasNoRankingData() {
+            // act
+            var response = getActiveProduct(testRestTemplate, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().rank()).isNull()
+            );
+        }
     }
 }
