@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.ranking;
 
-import com.loopers.application.ranking.RankingListItemInfo;
-import com.loopers.application.ranking.RankingListResultInfo;
+import com.loopers.application.ranking.RankingItemInfo;
+import com.loopers.application.ranking.RankingListInfo;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -32,7 +32,7 @@ public class RankingV1Dto {
          * @likeCount 좋아요 수
          * @return 랭킹 아이템 응답 DTO
          */
-        public static ItemResponse from(RankingListItemInfo item) {
+        public static ItemResponse from(RankingItemInfo item) {
             return new ItemResponse(
                     item.rank(),
                     item.productId(),
@@ -67,7 +67,7 @@ public class RankingV1Dto {
          * @totalElements 총 아이템 수
          * @totalPages 총 페이지 수
          */
-        public static ListResponse from(RankingListResultInfo result) {
+        public static ListResponse from(RankingListInfo result) {
             List<ItemResponse> content = result.items().stream()
                     .map(ItemResponse::from)
                     .toList();

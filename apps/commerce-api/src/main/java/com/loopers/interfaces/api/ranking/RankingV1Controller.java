@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.ranking;
 
 import com.loopers.application.ranking.RankingFacade;
-import com.loopers.application.ranking.RankingListResultInfo;
+import com.loopers.application.ranking.RankingListInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -38,7 +38,7 @@ public class RankingV1Controller implements RankingV1ApiSpec {
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
-        RankingListResultInfo listResult = rankingFacade.getRankings(date, page, size);
+        RankingListInfo listResult = rankingFacade.getRankings(date, page, size);
         return ResponseEntity.ok(ApiResponse.success(RankingV1Dto.ListResponse.from(listResult)));
     }
 }
