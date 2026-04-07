@@ -2,15 +2,18 @@ package com.loopers.application.ranking;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Offset.offset;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +37,8 @@ class RankingServiceTest {
 
     private static final String TODAY_KEY = "ranking:v1:all:"
             + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+    private static final String TOMORROW_KEY = "ranking:v1:all:"
+            + LocalDate.now().plusDays(1).format(DateTimeFormatter.BASIC_ISO_DATE);
 
     @InjectMocks
     private RankingService rankingService;
@@ -97,24 +102,26 @@ class RankingServiceTest {
             assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(0.2, offset(0.001));
         }
 
-        @DisplayName("주문 이벤트의 score를 합산한다.")
+        @DisplayName("주문 이벤트의 항목별 score를 productId별로 합산한다.")
         @Test
         void aggregatesOrderScores() {
             // arrange
             given(eventHandledRepository.markIfAbsent(anyString())).willReturn(true);
-            given(scoreCalculator.calculateOrderScore(50000L, 1L)).willReturn(2.82);
-            given(scoreCalculator.calculateOrderScore(50000L, 2L)).willReturn(3.0);
-            List<RankingEvent> events = List.of(
-                    new RankingEvent.Order("e1", 1L, 50000L, 1L),
-                    new RankingEvent.Order("e2", 1L, 50000L, 2L)
+            List<RankingEvent.Order.OrderItem> items = List.of(
+                    new RankingEvent.Order.OrderItem(1L, 50000L, 1L),
+                    new RankingEvent.Order.OrderItem(2L, 30000L, 2L)
             );
+            given(scoreCalculator.calculateOrderScores(items)).willReturn(Map.of(1L, 2.82, 2L, 3.0));
+            List<RankingEvent> events = List.of(new RankingEvent.Order("e1", items));
 
             // act
             rankingService.processBatch(events);
 
             // assert
             then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
-            assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(5.82, offset(0.001));
+            Map<Long, Double> scores = scoresCaptor.getValue();
+            assertThat(scores.get(1L)).isCloseTo(2.82, offset(0.001));
+            assertThat(scores.get(2L)).isCloseTo(3.0, offset(0.001));
         }
 
         @DisplayName("혼합 이벤트를 단일 Pipeline으로 처리한다.")
@@ -124,11 +131,14 @@ class RankingServiceTest {
             given(eventHandledRepository.markIfAbsent(anyString())).willReturn(true);
             given(scoreCalculator.calculateViewScore()).willReturn(0.1);
             given(scoreCalculator.calculateLikeScore(true)).willReturn(0.2);
-            given(scoreCalculator.calculateOrderScore(50000L, 1L)).willReturn(2.82);
+            List<RankingEvent.Order.OrderItem> orderItems = List.of(
+                    new RankingEvent.Order.OrderItem(1L, 50000L, 1L)
+            );
+            given(scoreCalculator.calculateOrderScores(orderItems)).willReturn(Map.of(1L, 2.82));
             List<RankingEvent> events = List.of(
                     new RankingEvent.View("e1", 1L),
                     new RankingEvent.Like("e2", 1L, true),
-                    new RankingEvent.Order("e3", 1L, 50000L, 1L)
+                    new RankingEvent.Order("e3", orderItems)
             );
 
             // act
@@ -143,7 +153,7 @@ class RankingServiceTest {
         @Test
         void skips_whenEmpty() {
             // act
-            rankingService.processBatch(List.of());
+            rankingService.processBatch(Collections.emptyList());
 
             // assert
             then(rankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
@@ -208,6 +218,50 @@ class RankingServiceTest {
 
             // assert
             then(rankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
+        }
+
+    }
+
+    @DisplayName("상품을 랭킹에서 제거할 때,")
+    @Nested
+    class RemoveProducts {
+
+        @DisplayName("멱등성 체크 후 오늘과 내일 키에서 해당 상품을 제거한다.")
+        @Test
+        void removesProductFromTodayAndTomorrowKey() {
+            // arrange
+            given(eventHandledRepository.markIfAbsent("e1")).willReturn(true);
+
+            // act
+            rankingService.removeProducts(List.of(new RankingEvent.Delete("e1", 5L)));
+
+            // assert
+            then(rankingRepository).should().removeMembers(eq(TODAY_KEY), eq(List.of(5L)));
+            then(rankingRepository).should().removeMembers(eq(TOMORROW_KEY), eq(List.of(5L)));
+        }
+
+        @DisplayName("중복 이벤트는 skip하고, 빈 리스트로 ZREM을 호출한다.")
+        @Test
+        void removesNothing_whenAllDuplicate() {
+            // arrange
+            given(eventHandledRepository.markIfAbsent("e1")).willReturn(false);
+
+            // act
+            rankingService.removeProducts(List.of(new RankingEvent.Delete("e1", 5L)));
+
+            // assert
+            then(rankingRepository).should().removeMembers(eq(TODAY_KEY), eq(Collections.emptyList()));
+            then(rankingRepository).should().removeMembers(eq(TOMORROW_KEY), eq(Collections.emptyList()));
+        }
+
+        @DisplayName("빈 목록이면, Repository를 호출하지 않는다.")
+        @Test
+        void skips_whenEmpty() {
+            // act
+            rankingService.removeProducts(Collections.emptyList());
+
+            // assert
+            then(rankingRepository).should(never()).removeMembers(anyString(), anyList());
         }
     }
 }

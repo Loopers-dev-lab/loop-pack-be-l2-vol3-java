@@ -123,6 +123,25 @@ public class OutboxEventListener {
     }
 
     /**
+     * 상품 삭제 이벤트를 Outbox 테이블에 저장한다.
+     *
+     * @param event 상품 삭제 이벤트
+     */
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
+    public void saveOutbox(ProductEvent.ProductDeleted event) {
+        log.info("[OUTBOX:ProductDeleted] productId={}, eventId={}", event.productId(), event.eventId());
+        outboxEventWriter.write(
+                event.eventId(),
+                event.productId(),
+                "PRODUCT",
+                "PRODUCT_DELETED",
+                event,
+                "product-deleted-v1",
+                String.valueOf(event.productId())
+        );
+    }
+
+    /**
      * 상품 조회 이벤트를 Outbox 테이블에 저장한다.
      *
      * <p>조회 API는 쓰기 트랜잭션이 없으므로 {@code @TransactionalEventListener}가 아닌

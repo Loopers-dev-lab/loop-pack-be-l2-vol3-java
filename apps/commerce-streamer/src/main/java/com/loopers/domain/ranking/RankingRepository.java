@@ -1,5 +1,6 @@
 package com.loopers.domain.ranking;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -42,4 +43,12 @@ public interface RankingRepository {
      * @param ttlSeconds TTL (초)
      */
     void addScores(String key, Map<String, Double> scores, long ttlSeconds);
+
+    /**
+     * ZSET에서 상품을 제거한다.
+     *
+     * @param key        ZSET 키
+     * @param productIds 제거할 상품 ID 목록
+     */
+    void removeMembers(String key, List<Long> productIds);
 }

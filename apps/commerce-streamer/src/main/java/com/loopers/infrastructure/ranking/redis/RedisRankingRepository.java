@@ -2,6 +2,7 @@ package com.loopers.infrastructure.ranking.redis;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -98,6 +99,25 @@ public class RedisRankingRepository implements RankingRepository {
                 connection.zSetCommands().zIncrBy(rawKey, entry.getValue(), member);
             }
             connection.keyCommands().expire(rawKey, ttlSeconds);
+            return null;
+        });
+    }
+
+    @Override
+    public void removeMembers(String key, List<Long> productIds) {
+        if (productIds.isEmpty()) {
+            return;
+        }
+
+        byte[][] members = productIds.stream()
+                .map(id -> Objects.requireNonNull(
+                        redisTemplate.getStringSerializer().serialize(String.valueOf(id))
+                ))
+                .toArray(byte[][]::new);
+
+        byte[] rawKey = Objects.requireNonNull(redisTemplate.getStringSerializer().serialize(key));
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            connection.zSetCommands().zRem(rawKey, members);
             return null;
         });
     }

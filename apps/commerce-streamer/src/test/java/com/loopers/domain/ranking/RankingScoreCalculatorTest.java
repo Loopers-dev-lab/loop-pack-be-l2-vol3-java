@@ -1,6 +1,10 @@
 package com.loopers.domain.ranking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.Offset.offset;
+
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -40,34 +44,72 @@ class RankingScoreCalculatorTest {
 
     @DisplayName("주문 score를 계산할 때,")
     @Nested
-    class CalculateOrderScore {
+    class CalculateOrderScores {
 
         @DisplayName("0.7 × log10(price × quantity)를 반환한다.")
         @Test
         void returnsWeightTimesLog10() {
-            double score = calculator.calculateOrderScore(50000L, 1L);
+            Map<Long, Double> scores = calculator.calculateOrderScores(List.of(
+                    new RankingEvent.Order.OrderItem(1L, 50000L, 1L)
+            ));
 
-            assertThat(score).isCloseTo(3.29, org.assertj.core.data.Offset.offset(0.01));
+            assertThat(scores.get(1L)).isCloseTo(3.29, offset(0.01));
         }
 
         @DisplayName("수량이 반영된다.")
         @Test
         void reflectsQuantity() {
-            double score = calculator.calculateOrderScore(50000L, 5L);
+            Map<Long, Double> scores = calculator.calculateOrderScores(List.of(
+                    new RankingEvent.Order.OrderItem(1L, 50000L, 5L)
+            ));
 
-            assertThat(score).isCloseTo(3.78, org.assertj.core.data.Offset.offset(0.01));
+            assertThat(scores.get(1L)).isCloseTo(3.78, offset(0.01));
         }
 
         @DisplayName("가격이 0이면, 0.0을 반환한다.")
         @Test
         void returnsZero_whenPriceIsZero() {
-            assertThat(calculator.calculateOrderScore(0L, 1L)).isEqualTo(0.0);
+            Map<Long, Double> scores = calculator.calculateOrderScores(List.of(
+                    new RankingEvent.Order.OrderItem(1L, 0L, 1L)
+            ));
+
+            assertThat(scores.get(1L)).isEqualTo(0.0);
         }
 
         @DisplayName("수량이 0이면, 0.0을 반환한다.")
         @Test
         void returnsZero_whenQuantityIsZero() {
-            assertThat(calculator.calculateOrderScore(50000L, 0L)).isEqualTo(0.0);
+            Map<Long, Double> scores = calculator.calculateOrderScores(List.of(
+                    new RankingEvent.Order.OrderItem(1L, 50000L, 0L)
+            ));
+
+            assertThat(scores.get(1L)).isEqualTo(0.0);
+        }
+
+        @DisplayName("항목별로 productId 기준으로 합산한다.")
+        @Test
+        void aggregatesScoresByProductId() {
+            Map<Long, Double> scores = calculator.calculateOrderScores(List.of(
+                    new RankingEvent.Order.OrderItem(1L, 50000L, 1L),
+                    new RankingEvent.Order.OrderItem(2L, 30000L, 2L)
+            ));
+
+            assertThat(scores).hasSize(2);
+            assertThat(scores.get(1L)).isCloseTo(0.7 * Math.log10(50000), offset(0.001));
+            assertThat(scores.get(2L)).isCloseTo(0.7 * Math.log10(60000), offset(0.001));
+        }
+
+        @DisplayName("같은 productId의 점수를 합산한다.")
+        @Test
+        void mergesScoresForSameProductId() {
+            Map<Long, Double> scores = calculator.calculateOrderScores(List.of(
+                    new RankingEvent.Order.OrderItem(1L, 10000L, 1L),
+                    new RankingEvent.Order.OrderItem(1L, 20000L, 2L)
+            ));
+
+            assertThat(scores).hasSize(1);
+            double expected = 0.7 * Math.log10(10000) + 0.7 * Math.log10(40000);
+            assertThat(scores.get(1L)).isCloseTo(expected, offset(0.001));
         }
     }
 }

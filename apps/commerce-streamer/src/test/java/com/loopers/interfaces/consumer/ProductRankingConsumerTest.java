@@ -82,24 +82,31 @@ class ProductRankingConsumerTest {
             assertThat(((RankingEvent.Like) event).liked()).isFalse();
         }
 
-        @DisplayName("주문 완료 토픽이면, 주문 항목별 Order 이벤트를 생성한다.")
+        @DisplayName("주문 완료 토픽이면, 이벤트 단위로 Order를 생성하고 항목을 포함한다.")
         @Test
-        void createsOrderEvents() {
+        void createsOrderEvent_withAllItems() {
             // arrange
             ConsumerRecord<String, Object> record = new ConsumerRecord<>(
                     "order-completed-v1", 0, 0, "1",
-                    "{\"eventId\":\"uuid\",\"orderId\":1,\"orderItems\":[{\"productId\":10,\"quantity\":2,\"price\":50000}]}");
+                    "{\"eventId\":\"uuid\",\"orderId\":1,\"orderItems\":["
+                            + "{\"productId\":10,\"quantity\":2,\"price\":50000},"
+                            + "{\"productId\":20,\"quantity\":1,\"price\":30000}]}");
 
             // act
             productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
 
             // assert
             then(rankingService).should().processBatch(eventsCaptor.capture());
-            RankingEvent.Order order = (RankingEvent.Order) eventsCaptor.getValue().get(0);
+            List<RankingEvent> events = eventsCaptor.getValue();
+            assertThat(events).hasSize(1);
+
+            RankingEvent.Order order = (RankingEvent.Order) events.get(0);
             assertThat(order.eventId()).isEqualTo("uuid");
-            assertThat(order.productId()).isEqualTo(10L);
-            assertThat(order.price()).isEqualTo(50000L);
-            assertThat(order.quantity()).isEqualTo(2L);
+            assertThat(order.orderItems()).hasSize(2);
+            assertThat(order.orderItems().get(0).productId()).isEqualTo(10L);
+            assertThat(order.orderItems().get(0).price()).isEqualTo(50000L);
+            assertThat(order.orderItems().get(0).quantity()).isEqualTo(2L);
+            assertThat(order.orderItems().get(1).productId()).isEqualTo(20L);
         }
 
         @DisplayName("상품 조회 토픽이면, View 이벤트를 생성한다.")
@@ -114,8 +121,8 @@ class ProductRankingConsumerTest {
 
             // assert
             then(rankingService).should().processBatch(eventsCaptor.capture());
-            assertThat(eventsCaptor.getValue().get(0)).isInstanceOf(RankingEvent.View.class);
-            assertThat(eventsCaptor.getValue().get(0).productId()).isEqualTo(1L);
+            RankingEvent.View view = (RankingEvent.View) eventsCaptor.getValue().get(0);
+            assertThat(view.productId()).isEqualTo(1L);
         }
 
         @DisplayName("혼합 토픽 배치를 단일 processBatch로 처리한다.")
@@ -208,6 +215,43 @@ class ProductRankingConsumerTest {
 
             // act
             productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+
+            // assert
+            then(acknowledgment).should().acknowledge();
+        }
+    }
+
+    @DisplayName("상품 삭제 이벤트를 소비할 때,")
+    @Nested
+    class ConsumeProductDeletedEvents {
+
+        @DisplayName("파싱 후 removeProducts에 Delete 이벤트 목록을 전달한다.")
+        @Test
+        void callsRemoveProducts_withDeleteEvents() {
+            // arrange
+            ConsumerRecord<String, Object> record = new ConsumerRecord<>(
+                    "product-deleted-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":5}");
+
+            // act
+            productRankingConsumer.consumeProductDeletedEvents(List.of(record), acknowledgment);
+
+            // assert
+            then(rankingService).should().removeProducts(
+                    List.of(new RankingEvent.Delete("uuid", 5L)));
+            then(acknowledgment).should().acknowledge();
+        }
+
+        @DisplayName("랭킹 제거 실패해도 ACK은 정상 수행된다.")
+        @Test
+        void acknowledgesEvenWhenRemoveFails() {
+            // arrange
+            ConsumerRecord<String, Object> record = new ConsumerRecord<>(
+                    "product-deleted-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":5}");
+            doThrow(new RuntimeException("Redis connection refused"))
+                    .when(rankingService).removeProducts(anyList());
+
+            // act
+            productRankingConsumer.consumeProductDeletedEvents(List.of(record), acknowledgment);
 
             // assert
             then(acknowledgment).should().acknowledge();

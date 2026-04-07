@@ -13,7 +13,7 @@ import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.ranking.RankingEvent;
 import com.loopers.interfaces.consumer.dto.MetricsMessageDto.LikeMessage;
 import com.loopers.interfaces.consumer.dto.MetricsMessageDto.OrderCompletedMessage;
-import com.loopers.interfaces.consumer.dto.MetricsMessageDto.OrderCompletedMessage.OrderItem;
+import com.loopers.interfaces.consumer.dto.MetricsMessageDto.ProductDeletedMessage;
 import com.loopers.interfaces.consumer.dto.MetricsMessageDto.ProductViewedMessage;
 import com.loopers.interfaces.consumer.support.KafkaMessageParser;
 
@@ -36,16 +36,12 @@ import lombok.extern.slf4j.Slf4j;
 public class ProductRankingConsumer {
 
     private static final String GROUP_ID = "commerce-streamer-ranking";
-    private static final String TOPIC_LIKED = "like-liked-v1";
-    private static final String TOPIC_UNLIKED = "like-unliked-v1";
-    private static final String TOPIC_ORDER_COMPLETED = "order-completed-v1";
-    private static final String TOPIC_PRODUCT_VIEWED = "product-viewed-v1";
 
     private final RankingService rankingService;
     private final KafkaMessageParser kafkaMessageParser;
 
     @KafkaListener(
-            topics = {TOPIC_LIKED, TOPIC_UNLIKED, TOPIC_ORDER_COMPLETED, TOPIC_PRODUCT_VIEWED},
+            topics = {Topics.LIKED, Topics.UNLIKED, Topics.ORDER_COMPLETED, Topics.PRODUCT_VIEWED},
             groupId = GROUP_ID,
             containerFactory = KafkaConfig.BATCH_LISTENER
     )
@@ -69,20 +65,49 @@ public class ProductRankingConsumer {
         ack.acknowledge();
     }
 
+    @KafkaListener(
+            topics = Topics.PRODUCT_DELETED,
+            groupId = GROUP_ID,
+            containerFactory = KafkaConfig.BATCH_LISTENER
+    )
+    public void consumeProductDeletedEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
+        log.debug("[Ranking:Delete] 배치 수신: size={}", messages.size());
+        List<RankingEvent.Delete> deleteEvents = new ArrayList<>();
+
+        for (ConsumerRecord<String, Object> record : messages) {
+            try {
+                ProductDeletedMessage msg = kafkaMessageParser.parse(record.value(), ProductDeletedMessage.class);
+                deleteEvents.add(new RankingEvent.Delete(msg.eventId(), msg.productId()));
+            } catch (Exception e) {
+                log.error("[Ranking:Delete] 파싱 실패: offset={}", record.offset(), e);
+            }
+        }
+
+        try {
+            rankingService.removeProducts(deleteEvents);
+        } catch (Exception e) {
+            log.error("[Ranking:Delete] 랭킹 제거 실패", e);
+        }
+        ack.acknowledge();
+    }
+
     private void parseRankingEvent(ConsumerRecord<String, Object> record, List<RankingEvent> events) throws Exception {
         switch (record.topic()) {
-            case TOPIC_LIKED, TOPIC_UNLIKED -> {
+            case Topics.LIKED, Topics.UNLIKED -> {
                 LikeMessage message = kafkaMessageParser.parse(record.value(), LikeMessage.class);
-                boolean liked = TOPIC_LIKED.equals(record.topic());
+                boolean liked = Topics.LIKED.equals(record.topic());
                 events.add(new RankingEvent.Like(message.eventId(), message.productId(), liked));
             }
-            case TOPIC_ORDER_COMPLETED -> {
+            case Topics.ORDER_COMPLETED -> {
                 OrderCompletedMessage message = kafkaMessageParser.parse(record.value(), OrderCompletedMessage.class);
-                for (OrderItem item : message.orderItems()) {
-                    events.add(new RankingEvent.Order(message.eventId(), item.productId(), item.price(), item.quantity()));
+                List<RankingEvent.Order.OrderItem> items = message.orderItems().stream()
+                        .map(item -> new RankingEvent.Order.OrderItem(item.productId(), item.price(), item.quantity()))
+                        .toList();
+                if (!items.isEmpty()) {
+                    events.add(new RankingEvent.Order(message.eventId(), items));
                 }
             }
-            case TOPIC_PRODUCT_VIEWED -> {
+            case Topics.PRODUCT_VIEWED -> {
                 ProductViewedMessage message = kafkaMessageParser.parse(record.value(), ProductViewedMessage.class);
                 events.add(new RankingEvent.View(message.eventId(), message.productId()));
             }

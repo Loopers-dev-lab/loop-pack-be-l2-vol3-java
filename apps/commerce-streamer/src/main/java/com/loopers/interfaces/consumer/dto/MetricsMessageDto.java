@@ -11,4 +11,6 @@ public class MetricsMessageDto {
     }
 
     public record ProductViewedMessage(String eventId, Long productId) {}
+
+    public record ProductDeletedMessage(String eventId, Long productId) {}
 }
