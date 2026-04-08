@@ -75,7 +75,7 @@ public class ProductApp {
         try {
             String eventId = UUID.randomUUID().toString();
             LocalDateTime now = LocalDateTime.now();
-            ViewOutboxPayload payload = new ViewOutboxPayload(
+            ViewEventPayload payload = new ViewEventPayload(
                     eventId, "ViewedEvent", 1, productDbId, memberId, 1, now);
             String json = objectMapper.writeValueAsString(payload);
             kafkaTemplate.send(VIEW_EVENTS_TOPIC, String.valueOf(productDbId), json);
