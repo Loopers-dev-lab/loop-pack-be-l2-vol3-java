@@ -7,6 +7,7 @@ public record OrderCanceledEvent(
         Long orderId,
         Long userId,
         List<Long> productIds,
+        long totalAmount,
         ZonedDateTime occurredAt
 ) {
 }

@@ -50,7 +50,7 @@ public class OrderEventConsumer {
                             productMetricsAppService.handleOrderCreated(eventId, productIds, totalAmount, occurredAt);
                             rankingAppService.updateOrderRanking(productIds, totalAmount);
                         }
-                        case "OrderCanceled" -> productMetricsAppService.handleOrderCanceled(eventId, productIds, occurredAt);
+                        case "OrderCanceled" -> productMetricsAppService.handleOrderCanceled(eventId, productIds, totalAmount, occurredAt);
                         default -> log.warn("알 수 없는 order 이벤트: eventType={}", eventType);
                     }
                 }

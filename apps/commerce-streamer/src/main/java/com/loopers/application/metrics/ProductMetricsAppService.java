@@ -76,15 +76,18 @@ public class ProductMetricsAppService {
     }
 
     @Transactional
-    public void handleOrderCanceled(String eventId, List<Long> productIds, ZonedDateTime occurredAt) {
+    public void handleOrderCanceled(String eventId, List<Long> productIds, long totalAmount, ZonedDateTime occurredAt) {
         if (eventHandledRepository.insertIgnore(eventId, occurredAt) == 0) {
             log.info("이미 처리된 이벤트: eventId={}", eventId);
             return;
         }
 
+        long amountPerProduct = productIds.isEmpty() ? 0 : totalAmount / productIds.size();
         for (Long productId : productIds) {
             ensureExists(productId);
             productMetricsRepository.decrementSalesCount(productId, occurredAt);
+            productDailyMetricsRepository.upsertOrderAmount(
+                    productId, occurredAt.toLocalDate(), -Math.max(amountPerProduct, 1), occurredAt);
         }
         log.info("판매 메트릭 차감: productIds={}", productIds);
     }
