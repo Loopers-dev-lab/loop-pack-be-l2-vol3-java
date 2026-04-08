@@ -14,10 +14,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -46,7 +48,11 @@ class OutboxRelaySchedulerIntegrationTest {
 
     private OutboxEvent savePendingEvent() {
         OutboxEvent event = OutboxEvent.create("evt-1", "payment.completed", "Order", "1", "{}", "order-events");
-        return outboxEventRepository.save(event);
+        OutboxEvent saved = outboxEventRepository.save(event);
+        // findPending은 createdAt < now-10s 조건이라 stale 윈도우를 기다려야 compensatePendingEvents가 row를 본다
+        await().atMost(Duration.ofSeconds(15)).pollInterval(Duration.ofSeconds(1))
+                .untilAsserted(() -> assertThat(outboxEventRepository.findPending(10)).isNotEmpty());
+        return saved;
     }
 
     @Nested

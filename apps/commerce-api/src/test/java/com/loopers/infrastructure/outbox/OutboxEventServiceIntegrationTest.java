@@ -14,13 +14,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.transaction.IllegalTransactionStateException;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -41,32 +45,45 @@ class OutboxEventServiceIntegrationTest {
     @MockBean
     private KafkaTemplate<Object, Object> kafkaTemplate;
 
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    private TransactionTemplate transactionTemplate;
+
     @BeforeEach
     void setUp() {
         databaseCleanUp.truncateAllTables();
         when(kafkaTemplate.send(any(), any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+        transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
     @Nested
     class Outbox_저장 {
 
         @Test
-        @Transactional
         void saveAndPublish하면_Outbox_레코드가_PENDING으로_저장된다() {
-            outboxEventService.saveAndPublish("payment.completed", "Order", "1", "order-events", "{}");
+            transactionTemplate.executeWithoutResult(status ->
+                    outboxEventService.saveAndPublish("payment.completed", "Order", "1", "order-events", "{}")
+            );
+
+            // findPending은 createdAt < now-10s 조건이라 stale 윈도우를 기다려야 한다
+            await().atMost(Duration.ofSeconds(15)).pollInterval(Duration.ofSeconds(1))
+                    .untilAsserted(() -> assertThat(outboxEventRepository.findPending(10)).hasSize(1));
 
             List<OutboxEvent> events = outboxEventRepository.findPending(10);
-            assertThat(events).hasSize(1);
             assertThat(events.get(0).getStatus()).isEqualTo(OutboxEventStatus.PENDING);
         }
 
         @Test
-        @Transactional
         void 저장된_레코드의_eventType_aggregateType_topic이_일치한다() {
-            outboxEventService.saveAndPublish("payment.completed", "Order", "42", "order-events", "{}");
+            transactionTemplate.executeWithoutResult(status ->
+                    outboxEventService.saveAndPublish("payment.completed", "Order", "42", "order-events", "{}")
+            );
 
-            List<OutboxEvent> events = outboxEventRepository.findPending(10);
-            OutboxEvent event = events.get(0);
+            await().atMost(Duration.ofSeconds(15)).pollInterval(Duration.ofSeconds(1))
+                    .untilAsserted(() -> assertThat(outboxEventRepository.findPending(10)).hasSize(1));
+
+            OutboxEvent event = outboxEventRepository.findPending(10).get(0);
             assertAll(
                     () -> assertThat(event.getEventType()).isEqualTo("payment.completed"),
                     () -> assertThat(event.getAggregateType()).isEqualTo("Order"),

@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -48,7 +49,12 @@ public class OutboxRelayScheduler {
 
         for (OutboxEvent event : pendingEvents) {
             try {
-                kafkaTemplate.send(event.getTopic(), event.getAggregateId(), event.getPayload())
+                Map<String, Object> envelope = Map.of(
+                        "eventId", event.getEventId(),
+                        "eventType", event.getEventType(),
+                        "payload", event.getPayload()
+                );
+                kafkaTemplate.send(event.getTopic(), event.getAggregateId(), envelope)
                         .get(5, TimeUnit.SECONDS);
 
                 event.markSent();
