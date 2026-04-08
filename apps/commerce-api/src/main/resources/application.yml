@@ -97,6 +97,12 @@ queue:
   token-ttl-seconds: 180
   max-waiting-size: 100000
 
+# ── Ranking (랭킹) ─────────────────────────────────────────────
+# commerce-streamer와 동일한 키 prefix/TTL 설정
+ranking:
+  key-prefix: "ranking:all"
+  ttl-days: 2
+
 springdoc:
   use-fqn: true
   swagger-ui:
