@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.config;
 
 import com.loopers.interfaces.api.auth.AdminAuthInterceptor;
 import com.loopers.interfaces.api.auth.AuthUserResolver;
+import com.loopers.interfaces.api.common.AnonymousCookieInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -16,6 +17,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final AuthUserResolver authUserResolver;
     private final AdminAuthInterceptor adminAuthInterceptor;
+    private final AnonymousCookieInterceptor anonymousCookieInterceptor;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
@@ -26,5 +28,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(adminAuthInterceptor)
                 .addPathPatterns("/api-admin/**");
+        registry.addInterceptor(anonymousCookieInterceptor);
     }
 }
