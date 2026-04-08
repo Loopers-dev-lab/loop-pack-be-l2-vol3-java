@@ -60,17 +60,17 @@ class RankingRepositoryImplIntegrationTest {
     @Test
     @DisplayName("incrementScore — ZINCRBY로 점수가 누적된다")
     void incrementScore_AccumulatesScore() {
-        rankingRepository.incrementScore(101L, 0.01, TODAY);
-        rankingRepository.incrementScore(101L, 0.3, TODAY);
+        rankingRepository.incrementScore(101L, 0.1, TODAY);
+        rankingRepository.incrementScore(101L, 0.2, TODAY);
 
         Double score = redisTemplateMaster.opsForZSet().score(RANKING_KEY, "101");
-        assertThat(score).isCloseTo(0.31, within(0.001));
+        assertThat(score).isCloseTo(0.3, within(0.001));
     }
 
     @Test
     @DisplayName("incrementScore — TTL 2일이 설정된다")
     void incrementScore_SetsTTL() {
-        rankingRepository.incrementScore(101L, 0.01, TODAY);
+        rankingRepository.incrementScore(101L, 0.1, TODAY);
 
         Long ttl = redisTemplateMaster.getExpire(RANKING_KEY);
         assertThat(ttl).isGreaterThan(0);

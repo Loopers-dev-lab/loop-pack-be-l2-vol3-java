@@ -29,19 +29,19 @@ class RankingServiceTest {
     @Test
     @DisplayName("incrementScore — occurredAt의 날짜로 ZINCRBY 호출")
     void incrementScore_UsesOccurredAtDate() {
-        rankingService.incrementScore(101L, 0.01, OCCURRED_AT);
+        rankingService.incrementScore(101L, 0.1, OCCURRED_AT);
 
-        verify(rankingRepository).incrementScore(101L, 0.01, DATE);
-        verify(rankingRepository).incrementHourlyScore(101L, 0.01, OCCURRED_AT);
+        verify(rankingRepository).incrementScore(101L, 0.1, DATE);
+        verify(rankingRepository).incrementHourlyScore(101L, 0.1, OCCURRED_AT);
     }
 
     @Test
     @DisplayName("incrementScore — occurredAt이 null이면 오늘 날짜 사용")
     void incrementScore_FallbackToToday_WhenOccurredAtNull() {
-        rankingService.incrementScore(101L, 0.01, null);
+        rankingService.incrementScore(101L, 0.1, null);
 
-        verify(rankingRepository).incrementScore(eq(101L), eq(0.01), eq(LocalDate.now()));
-        verify(rankingRepository).incrementHourlyScore(eq(101L), eq(0.01), isNull());
+        verify(rankingRepository).incrementScore(eq(101L), eq(0.1), eq(LocalDate.now()));
+        verify(rankingRepository).incrementHourlyScore(eq(101L), eq(0.1), isNull());
     }
 
     @Test
@@ -49,10 +49,10 @@ class RankingServiceTest {
     void incrementLikeScoreIfAbsent_NewLike_IncrementsScore() {
         when(rankingRepository.addLikeIfAbsent(101L, 456L, DATE)).thenReturn(true);
 
-        rankingService.incrementLikeScoreIfAbsent(101L, 456L, 0.3, OCCURRED_AT);
+        rankingService.incrementLikeScoreIfAbsent(101L, 456L, 0.2, OCCURRED_AT);
 
-        verify(rankingRepository).incrementScore(101L, 0.3, DATE);
-        verify(rankingRepository).incrementHourlyScore(101L, 0.3, OCCURRED_AT);
+        verify(rankingRepository).incrementScore(101L, 0.2, DATE);
+        verify(rankingRepository).incrementHourlyScore(101L, 0.2, OCCURRED_AT);
     }
 
     @Test
@@ -60,7 +60,7 @@ class RankingServiceTest {
     void incrementLikeScoreIfAbsent_DuplicateLike_SkipsIncrement() {
         when(rankingRepository.addLikeIfAbsent(101L, 456L, DATE)).thenReturn(false);
 
-        rankingService.incrementLikeScoreIfAbsent(101L, 456L, 0.3, OCCURRED_AT);
+        rankingService.incrementLikeScoreIfAbsent(101L, 456L, 0.2, OCCURRED_AT);
 
         verify(rankingRepository, never()).incrementScore(anyLong(), anyDouble(), any());
         verify(rankingRepository, never()).incrementHourlyScore(anyLong(), anyDouble(), any());
@@ -71,10 +71,10 @@ class RankingServiceTest {
     void decrementLikeScoreIfPresent_WasPresent_DecrementsScore() {
         when(rankingRepository.removeLikeIfPresent(101L, 456L, DATE)).thenReturn(true);
 
-        rankingService.decrementLikeScoreIfPresent(101L, 456L, 0.3, OCCURRED_AT);
+        rankingService.decrementLikeScoreIfPresent(101L, 456L, 0.2, OCCURRED_AT);
 
-        verify(rankingRepository).incrementScore(101L, -0.3, DATE);
-        verify(rankingRepository).incrementHourlyScore(101L, -0.3, OCCURRED_AT);
+        verify(rankingRepository).incrementScore(101L, -0.2, DATE);
+        verify(rankingRepository).incrementHourlyScore(101L, -0.2, OCCURRED_AT);
     }
 
     @Test
@@ -82,7 +82,7 @@ class RankingServiceTest {
     void decrementLikeScoreIfPresent_WasNotPresent_SkipsDecrement() {
         when(rankingRepository.removeLikeIfPresent(101L, 456L, DATE)).thenReturn(false);
 
-        rankingService.decrementLikeScoreIfPresent(101L, 456L, 0.3, OCCURRED_AT);
+        rankingService.decrementLikeScoreIfPresent(101L, 456L, 0.2, OCCURRED_AT);
 
         verify(rankingRepository, never()).incrementScore(anyLong(), anyDouble(), any());
         verify(rankingRepository, never()).incrementHourlyScore(anyLong(), anyDouble(), any());

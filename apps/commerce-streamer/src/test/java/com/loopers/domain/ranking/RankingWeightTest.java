@@ -9,10 +9,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RankingWeightTest {
 
     @Test
-    @DisplayName("주문 점수 — 건수 기본값이 1.0이다")
-    void orderScore_BaseIsOne() {
+    @DisplayName("주문 점수 — 건수 기본값이 0.7이다")
+    void orderScore_BaseIs07() {
         // amount=0일 때 log₁₀(1) = 0 → ORDER_BASE만 반환
-        assertThat(RankingWeight.orderScore(0)).isEqualTo(1.0);
+        assertThat(RankingWeight.orderScore(0)).isEqualTo(0.7);
     }
 
     @Test
@@ -24,7 +24,7 @@ class RankingWeightTest {
     }
 
     @Test
-    @DisplayName("주문 점수 — 금액 보너스가 건수 1건 차이(1.0)를 넘지 않는다")
+    @DisplayName("주문 점수 — 금액 보너스가 건수 1건 차이(0.7)를 넘지 않는다")
     void orderScore_BonusNeverExceedsBase() {
         // 1억원 상품 — 실용적 최대값
         double maxBonus = RankingWeight.orderScore(100_000_000) - RankingWeight.ORDER_BASE;

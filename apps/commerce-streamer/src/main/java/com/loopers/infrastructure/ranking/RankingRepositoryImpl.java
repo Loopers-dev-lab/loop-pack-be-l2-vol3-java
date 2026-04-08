@@ -8,11 +8,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 @Repository
@@ -87,5 +89,34 @@ public class RankingRepositoryImpl implements RankingRepository {
 
         redisTemplateMaster.opsForZSet().incrementScore(key, member, score);
         redisTemplateMaster.expire(key, HOURLY_TTL);
+    }
+
+    private static final DefaultRedisScript<Long> CARRY_OVER_SCRIPT;
+    static {
+        CARRY_OVER_SCRIPT = new DefaultRedisScript<>();
+        CARRY_OVER_SCRIPT.setScriptText("""
+            local exists = redis.call('EXISTS', KEYS[2])
+            if exists == 0 then
+                return 0
+            end
+            redis.call('ZUNIONSTORE', KEYS[1], 1, KEYS[2], 'WEIGHTS', ARGV[1])
+            redis.call('EXPIRE', KEYS[1], ARGV[2])
+            return 1
+            """);
+        CARRY_OVER_SCRIPT.setResultType(Long.class);
+    }
+
+    @Override
+    public boolean carryOver(LocalDate from, LocalDate to, double weight) {
+        String fromKey = RANKING_KEY_PREFIX + from.format(DATE_FORMAT);
+        String toKey = RANKING_KEY_PREFIX + to.format(DATE_FORMAT);
+
+        Long result = redisTemplateMaster.execute(
+                CARRY_OVER_SCRIPT,
+                List.of(toKey, fromKey),
+                String.valueOf(weight),
+                String.valueOf(TTL.getSeconds())
+        );
+        return result != null && result == 1;
     }
 }

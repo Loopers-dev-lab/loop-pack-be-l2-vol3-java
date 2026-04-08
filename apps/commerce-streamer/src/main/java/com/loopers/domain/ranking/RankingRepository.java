@@ -57,4 +57,17 @@ public interface RankingRepository {
      * @param occurredAt 이벤트 발생 시각 (시간 키 생성용)
      */
     void incrementHourlyScore(Long productId, double score, LocalDateTime occurredAt);
+
+    /**
+     * 일간 랭킹 점수를 다음 날로 이월한다. (콜드 스타트 완화)
+     *
+     * <p>오늘 ZSET 점수의 일정 비율을 내일 키에 복사한다.
+     * 오늘 키가 존재하지 않으면 아무 작업도 하지 않는다.</p>
+     *
+     * @param from   이월 원본 날짜 (오늘)
+     * @param to     이월 대상 날짜 (내일)
+     * @param weight 이월 비율 (0.0 ~ 1.0, 예: 0.1 = 10%)
+     * @return true: 이월 성공, false: 원본 키 없음으로 스킵
+     */
+    boolean carryOver(LocalDate from, LocalDate to, double weight);
 }
