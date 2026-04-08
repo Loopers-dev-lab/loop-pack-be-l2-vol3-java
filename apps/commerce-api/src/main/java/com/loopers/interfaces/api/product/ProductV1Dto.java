@@ -16,9 +16,10 @@ public class ProductV1Dto {
         List<String> imageUrls,
         List<OptionResponse> options,
         long likeCount,
-        ZonedDateTime createdAt
+        ZonedDateTime createdAt,
+        Integer ranking
     ) {
-        public static ProductDetailResponse from(ProductDetailInfo info) {
+        public static ProductDetailResponse from(ProductDetailInfo info, Integer ranking) {
             return new ProductDetailResponse(
                 info.productId(),
                 info.name(),
@@ -29,7 +30,8 @@ public class ProductV1Dto {
                     .map(o -> new OptionResponse(o.optionId(), o.name(), o.price(), o.stockQuantity(), o.isAvailable()))
                     .toList(),
                 info.likeCount(),
-                info.createdAt()
+                info.createdAt(),
+                ranking
             );
         }
     }

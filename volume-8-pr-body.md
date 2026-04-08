@@ -20,10 +20,6 @@
 - **근거**: Redis 싱글스레드 특성상 확인+추가가 원자적으로 처리된다. ZSCORE 후 분기는 두 명령 사이에 다른 요청이 끼어드는 TOCTOU 문제가 발생한다.
 - **트레이드오프**: 동일 밀리초에 진입한 사용자 간 순서가 undefined이다. 같은 밀리초 내 순서는 비즈니스상 무의미하므로 허용한다.
 
-![mermaid-diagram.png](docs/image/mermaid-diagram.png)
-**전체 흐름**:
-
-
 
 ### 2. 토큰을 어떻게 설계할 것인가?
 
@@ -252,7 +248,296 @@ sequenceDiagram
 
 ---
 
+---
+
+---
+
+## 📌 Summary — 실시간 랭킹 집계 (Kafka Consumer → Redis ZSET → Ranking API)
+
+- **배경**: `product_metrics` 테이블로 지표를 누적하고 있었지만, 이를 "오늘의 인기상품" API로 제공하려면 매 요청마다 전체 테이블 `ORDER BY + LIMIT` 이 필요하다. 상품이 수십만 건이 되면 인덱스를 써도 정렬 비용은 피할 수 없다.
+- **목표**: Kafka 이벤트(조회·좋아요·주문)를 컨슘해 Redis ZSET에 일간 점수를 누적하고, `ZREVRANGE` O(log N + M)으로 랭킹을 상시 제공한다.
+- **결과**: 이벤트 가중치 + log1p 정규화 점수 설계, 뷰 오염 문제 발견 및 dedup 설계, 캐시와 랭킹 분리 전략 적용. 랭킹 Consumer 7개, Ranking API E2E 8개 테스트 통과.
+
+---
+
+## 🧭 Context & Decision
+
+### 1. 랭킹 집계를 DB가 아닌 Redis ZSET에 하는 이유
+
+| 항목 | DB ORDER BY + LIMIT | Redis ZSET (채택) |
+|------|--------------------|--------------------|
+| 조회 복잡도 | O(N log N) — 매 요청마다 전체 정렬 | O(log N + M) — 항상 정렬된 상태 유지 |
+| 랭킹 변경 비용 | 없음 (읽기 시 정렬) | O(log N) `ZINCRBY` |
+| 동시 요청 부하 | 요청마다 DB 정렬 쿼리 발생 | Redis 메모리 읽기 |
+| TTL 관리 | 별도 배치 삭제 필요 | 키 단위 TTL 자동 만료 |
+
+- **결정**: `ZINCRBY ranking:all:{yyyyMMdd}` — 이벤트마다 점수 누적, TTL 2일
+- **근거**: 랭킹은 "미리 계산된 정렬 상태를 빠르게 읽는" 용도다. 쓰기는 이벤트 발생 시 O(log N)으로 분산되고, 읽기는 항상 O(log N + M)이 보장된다.
+- **트레이드오프**: Redis 장애 시 랭킹 데이터 소실 가능. 단, 랭킹은 `product_metrics` DB와 별개로 운용되며 재집계 가능한 파생 데이터이므로 허용한다.
+
+### 2. 이벤트 가중치를 어떻게 설계할 것인가
+
+단순 횟수 합산은 "조회 500번 = 주문 1건"을 동등하게 취급한다. 비즈니스 임팩트를 반영하기 위해 행동 가치에 비례한 가중치를 적용했다.
+
+| 이벤트 | 가중치 공식 | 근거 |
+|--------|-----------|------|
+| `PRODUCT_VIEWED` | `+0.1` | 관심 신호, 가장 가벼움 |
+| `LIKE_CREATED` | `+0.2` | 명시적 관심 표현 |
+| `LIKE_DELETED` | `-0.2` | 관심 철회 |
+| `PRODUCT_SOLD` | `+0.6 × log1p(amount)` | 실제 구매 전환, 금액 정규화 |
+
+**주문 금액에 log1p를 적용한 이유**:
+
+처음엔 `0.6 × amount`를 그대로 쓰려 했다. 직접 계산해보니:
+
+```
+명품 1건 × 500,000원  →  ZINCRBY +300,000  (조회·좋아요 전부 무의미)
+티셔츠 100건 × 10,000원 →  ZINCRBY +600,000  (accumulated)
+```
+
+고가 단건 주문이 수백 번의 조회·좋아요를 한 번에 뒤집는다. 반대로 raw amount에서는 100건 주문이 1건보다 항상 유리해 단가 높은 상품이 소외된다.
+
+`log1p`는 절대적 금액 차이를 상대적 차이로 압축한다:
+
+```
+log1p(500,000) ≈ 13.1  →  0.6 × 13.1 ≈  7.9  (1건)
+log1p( 10,000) ≈  9.2  →  0.6 ×  9.2 ≈  5.5  (1건 기준)
+
+100건 주문: 100 × 5.5 = 550  >>  1건 고가: 7.9
+```
+
+다수의 구매 활동이 의미 있게 반영되면서, 고가 단건도 완전히 묻히지 않는다.
+
+- **트레이드오프**: log1p 스케일에서는 쿠폰 0원 주문(`log1p(0) = 0`)은 점수 기여가 없다. 설계 의도상 허용.
+
+### 3. 뷰 이벤트의 idempotency 구멍을 발견하다
+
+`PRODUCT_VIEWED` 이벤트는 Controller에서 매 요청마다 `UUID.randomUUID()`로 새 eventId를 생성한다. Commerce-Streamer의 `EventHandled`는 eventId로 중복을 판단하므로, **같은 사용자가 새로고침 1,000번 = ZSET +100점**이 쌓인다.
+
+```
+GET /products/1 (userId=42) → eventId=uuid-A → 처리 ✓ → ZINCRBY +0.1
+GET /products/1 (userId=42) → eventId=uuid-B → 처리 ✓ → ZINCRBY +0.1  ← 오염
+GET /products/1 (userId=42) → eventId=uuid-C → 처리 ✓ → ZINCRBY +0.1  ← 오염
+```
+
+이 구조는 이전 주차의 **대기열 유령유저 문제와 동일한 패턴**이다.
+
+> 대기열: `presence:{userId}` TTL이 없으면 끊어진 유저가 대기열을 차지 → 실제 대기 인원 부풀림
+> 랭킹: 동일 유저의 반복 조회가 매번 새 이벤트 → 조회 기반 랭킹 오염
+
+대기열에서 `presence:{userId}` TTL 90초로 유령유저를 감지했듯이, 랭킹에서는 `view:dedup:{userId}:{productId}` TTL 1시간으로 단시간 중복 조회를 제거하는 방식을 설계했다:
+
+```java
+// RankingRepositoryImpl — PRODUCT_VIEWED 한정 적용 가능
+String dedupKey = "view:dedup:" + userId + ":" + productId;
+Boolean isNew = redisTemplate.opsForValue()
+    .setIfAbsent(dedupKey, "1", Duration.ofHours(1)); // SET NX EX 3600 (원자적)
+if (Boolean.TRUE.equals(isNew)) {
+    redisTemplate.opsForZSet().incrementScore(rankingKey, productId.toString(), 0.1);
+}
+```
+
+`setIfAbsent`는 Redis의 원자적 `SET NX` 연산이므로 멀티 인스턴스 환경에서도 안전하다.
+
+> **리뷰 포인트**: 현재 구현에서는 dedup을 적용하지 않았다. `userId = "unknown"` (비로그인 사용자)이 대부분인 상황에서 dedup key가 `view:dedup:unknown:{productId}`로 합쳐지면 오히려 모든 비로그인 조회를 1시간에 1번으로 제한하게 된다. 로그인 유저만 dedup을 적용하고 비로그인은 허용하는 방식이 적절한지 의견을 구하고 싶다. → [`ProductMetricsService.handle()`][ranking-metrics-service]
+
+### 4. 캐시와 랭킹을 분리해야 한다
+
+`ProductFacade.getProductDetail()`은 5분 TTL의 Redis 캐시를 사용한다. 랭킹 정보를 이 캐시에 포함하면 **5분간 순위 변경이 반영되지 않는다.**
+
+```java
+// ❌ 잘못된 방법 — ranking이 5분 캐시에 고정됨
+@Cacheable(cacheNames = "productDetail", key = "#productId")
+public ProductDetailInfo getProductDetail(Long productId) { ... }
+
+// ✅ 채택한 방법 — 상품정보는 캐시, ranking은 매번 live 조회
+// ProductsV1Controller.java
+Integer ranking = rankingRepository.getRank(productId, LocalDate.now()).orElse(null); // 캐시 없음
+return ApiResponse.success(
+    ProductV1Dto.ProductDetailResponse.from(productFacade.getProductDetail(productId), ranking)
+);
+```
+
+캐시 대상(`ProductDetailInfo`)에는 ranking 필드를 포함하지 않고, Controller에서 항상 최신값을 조회해 DTO에서 합산했다.
+
+- **트레이드오프**: 상품 상세 조회마다 Redis를 2번 호출한다(캐시 조회 + ranking 조회). `ZREVRANK`는 O(log N)이라 부담은 낮다.
+
+### 5. 멀티 앱 환경에서 E2E 테스트를 어떻게 나눌 것인가
+
+랭킹 집계(commerce-streamer)와 랭킹 API(commerce-api)는 물리적으로 분리된 앱이다. 단일 테스트로 Kafka 발행 → 컨슘 → ZSET → API 조회 전체를 검증하려면 두 앱을 동시에 띄워야 한다.
+
+대신 체인을 두 구간으로 나눠 각 경계에서 검증했다:
+
+```
+[이벤트] → [ZSET 적재] : ProductMetricsServiceRankingTest (commerce-streamer)
+[ZSET]   → [API 반환] : RankingV1ApiE2ETest (commerce-api, ZSET 직접 seed)
+```
+
+두 테스트가 이어지는 지점(ZSET의 key 형식, score 값)이 동일하므로 체인 전체가 검증된다.
+
+---
+
+## 🏗️ Design Overview
+
+### 변경 범위
+
+| 앱 | 파일 | 분류 | 변경 요약 |
+|----|------|------|----------|
+| commerce-api | [`ProductSoldPayload`][ranking-payload] | feat | `amount` 필드 추가 |
+| commerce-api | [`PaymentFacade`][ranking-payment-facade] | feat | 콜백 시 `price × quantity` 전달 |
+| commerce-api | [`RankingRepository`][ranking-repo-api] | feat | ZSET 조회 인터페이스 (getRank, getTopN) |
+| commerce-api | [`RankingRepositoryImpl`][ranking-repo-api-impl] | feat | ZREVRANK / ZREVRANGE with scores |
+| commerce-api | [`RankingFacade`][ranking-facade] | feat | ZSET 조회 → product 정보 aggregation |
+| commerce-api | [`RankingV1Controller`][ranking-controller] | feat | `GET /api/v1/rankings` |
+| commerce-api | [`ProductsV1Controller`][ranking-products-ctrl] | feat | 상품 상세에 ranking live 조회 추가 |
+| commerce-api | [`ProductV1Dto`][ranking-product-dto] | feat | `ProductDetailResponse`에 `ranking` 필드 추가 |
+| commerce-streamer | [`RankingRepository`][ranking-repo-streamer] | feat | ZSET 쓰기 인터페이스 (incrementScore) |
+| commerce-streamer | [`RankingRepositoryImpl`][ranking-repo-streamer-impl] | feat | ZINCRBY + EXPIRE |
+| commerce-streamer | [`ProductMetricsService`][ranking-metrics-service] | feat | 각 이벤트 분기에 ZSET 점수 누적 통합 |
+
+### 점수 적재 흐름
+
+```java
+// ProductMetricsService.java
+case "PRODUCT_SOLD" -> {
+    ProductSoldPayload payload = parsePayload(message.payload(), ProductSoldPayload.class);
+    productMetricsRepository.incrementSalesCount(payload.productId(), occurredAt);
+    double score = WEIGHT_SOLD * Math.log1p(payload.amount()); // 0.6 × log1p(amount)
+    rankingRepository.incrementScore(payload.productId(), score, rankingDate);
+}
+```
+
+```java
+// RankingRepositoryImpl.java (commerce-streamer)
+public void incrementScore(Long productId, double score, LocalDate date) {
+    String key = "ranking:all:" + date.format(DATE_FORMAT); // e.g. ranking:all:20260408
+    redisTemplate.opsForZSet().incrementScore(key, productId.toString(), score);
+    redisTemplate.expire(key, 2, TimeUnit.DAYS);             // TTL 2일 (매 이벤트마다 갱신)
+}
+```
+
+### API 응답 예시
+
+```
+GET /api/v1/rankings?date=20260408&size=20&page=1
+```
+```json
+{
+  "items": [
+    { "rank": 1, "productId": 42, "productName": "나이키 에어맥스", "brandName": "나이키", "price": 150000, "score": 61.3 },
+    { "rank": 2, "productId": 17, "productName": "아디다스 삼바", "brandName": "아디다스", "price": 120000, "score": 48.7 }
+  ]
+}
+```
+
+```
+GET /api/v1/products/42
+```
+```json
+{
+  "productId": 42,
+  "name": "나이키 에어맥스",
+  ...,
+  "ranking": 1    // 오늘 날짜 기준, 랭킹 없으면 null
+}
+```
+
+---
+
+## 🧪 테스트
+
+| # | 테스트 클래스 | 앱 | 전략 | 검증 항목 |
+|---|-------------|-----|------|----------|
+| 1 | [`ProductMetricsServiceRankingTest`][test-ranking-streamer] | streamer | 통합 | VIEW +0.1, LIKE_CREATED +0.2, LIKE_DELETED -0.2, SOLD +0.6×log1p |
+| 2 | [`ProductMetricsServiceRankingTest`][test-ranking-streamer] | streamer | 통합 | 중복 이벤트 → ZSET 점수 불변 (idempotency) |
+| 3 | [`ProductMetricsServiceRankingTest`][test-ranking-streamer] | streamer | 통합 | TTL 2일로 설정됨 |
+| 4 | [`ProductMetricsServiceRankingTest`][test-ranking-streamer] | streamer | 통합 | 주문 1건 score > 좋아요 3건 score |
+| 5 | [`RankingV1ApiE2ETest`][test-ranking-api] | api | E2E | 랭킹 목록 반환 + 상품정보 aggregation |
+| 6 | [`RankingV1ApiE2ETest`][test-ranking-api] | api | E2E | 데이터 없을 때 빈 목록 반환 |
+| 7 | [`RankingV1ApiE2ETest`][test-ranking-api] | api | E2E | 이전 날짜 파라미터 조회 정상 동작 |
+| 8 | [`RankingV1ApiE2ETest`][test-ranking-api] | api | E2E | 주문 상품 > 좋아요 상품 순위 확인 |
+| 9 | [`RankingV1ApiE2ETest`][test-ranking-api] | api | E2E | page·size 파라미터 반영 (3위~4위 반환) |
+| 10 | [`ProductRankingE2ETest`][test-product-ranking] | api | E2E | 상품 상세 조회 시 ranking 필드 반환 |
+| 11 | [`ProductRankingE2ETest`][test-product-ranking] | api | E2E | 랭킹 없는 상품은 ranking = null |
+| 12 | [`PaymentFacadeOutboxIntegrationTest`][test-payment-outbox] | api | 통합 | PRODUCT_SOLD payload에 amount 포함 |
+
+---
+
+## 🔁 Flow Diagram
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant API as commerce-api
+    participant Kafka
+    participant Streamer as commerce-streamer
+    participant Redis
+
+    User->>API: GET /api/v1/products/{id}
+    API->>Kafka: publish PRODUCT_VIEWED(productId, userId)
+    API->>Redis: ZREVRANK ranking:all:20260408 {productId}
+    Redis-->>API: rank (e.g. 3)
+    API-->>User: ProductDetailResponse { ..., ranking: 3 }
+
+    Kafka-->>Streamer: consume PRODUCT_VIEWED
+    Streamer->>Redis: ZINCRBY ranking:all:20260408 {productId} 0.1
+    Streamer->>Redis: EXPIRE ranking:all:20260408 172800
+
+    Note over API,Redis: 주문 완료 콜백 (PG → commerce-api)
+
+    API->>Kafka: publish PRODUCT_SOLD(productId, orderId, amount)
+    Kafka-->>Streamer: consume PRODUCT_SOLD
+    Streamer->>Redis: ZINCRBY ranking:all:20260408 {productId} (0.6 × log1p(amount))
+
+    User->>API: GET /api/v1/rankings?date=20260408&size=20&page=1
+    API->>Redis: ZREVRANGE ranking:all:20260408 0 19 WITHSCORES
+    Redis-->>API: [(productId, score), ...]
+    API->>DB: findAllByIds(productIds) + findAllByIds(brandIds)
+    API-->>User: RankingPageResponse { items: [...] }
+```
+
+---
+
+## ✅ Checklist — 실시간 랭킹 집계
+
+### 📈 Ranking Consumer
+- [x] 랭킹 ZSET의 TTL(2일)·키 전략(`ranking:all:{yyyyMMdd}`) 구성 → [`RankingRepositoryImpl (streamer)`][ranking-repo-streamer-impl]
+- [x] 날짜별 키 계산 — `occurredAt.toLocalDate()` 기반 → [`ProductMetricsService`][ranking-metrics-service]
+- [x] 이벤트 후 ZSET 점수 반영 — VIEW/LIKE/SOLD 각 가중치 적용 → [`ProductMetricsService`][ranking-metrics-service]
+
+### ⚾ Ranking API
+- [x] 랭킹 Page 조회 정상 반환 → [`RankingV1Controller`][ranking-controller]
+- [x] 상품정보 Aggregation (productName, brandName, price 포함) → [`RankingFacade`][ranking-facade]
+- [x] 상품 상세 조회 시 ranking 포함, 없으면 null → [`ProductsV1Controller`][ranking-products-ctrl]
+
+### 🧪 검증
+- [x] 이벤트 → ZSET 점수 반영: `ProductMetricsServiceRankingTest`
+- [x] ZSET → API 조회: `RankingV1ApiE2ETest` (ZSET seed → API 검증)
+- [x] 이전 날짜 랭킹 조회 정상 동작: `returnsPreviousDayRanking`
+- [x] 가중치 순서 반영 (주문 1건 > 좋아요 3건): streamer 테스트 + API E2E 테스트
+
+---
+
 <!-- Reference Links -->
+[ranking-payload]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/outbox/ProductSoldPayload.java
+[ranking-payment-facade]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/application/payment/PaymentFacade.java
+[ranking-repo-api]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/domain/ranking/RankingRepository.java
+[ranking-repo-api-impl]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/infrastructure/ranking/RankingRepositoryImpl.java
+[ranking-facade]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/application/ranking/RankingFacade.java
+[ranking-controller]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/interfaces/api/ranking/RankingV1Controller.java
+[ranking-products-ctrl]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/interfaces/api/product/ProductsV1Controller.java
+[ranking-product-dto]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/main/java/com/loopers/interfaces/api/product/ProductV1Dto.java
+[ranking-repo-streamer]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-streamer/src/main/java/com/loopers/domain/ranking/RankingRepository.java
+[ranking-repo-streamer-impl]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-streamer/src/main/java/com/loopers/infrastructure/ranking/RankingRepositoryImpl.java
+[ranking-metrics-service]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-streamer/src/main/java/com/loopers/domain/metrics/ProductMetricsService.java
+
+[test-ranking-streamer]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-streamer/src/test/java/com/loopers/domain/metrics/ProductMetricsServiceRankingTest.java
+[test-ranking-api]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/interfaces/api/RankingV1ApiE2ETest.java
+[test-product-ranking]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/interfaces/api/ProductRankingE2ETest.java
+[test-payment-outbox]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/blob/volume-8/apps/commerce-api/src/test/java/com/loopers/application/payment/PaymentFacadeOutboxIntegrationTest.java
+
+<!-- Reference Links -->
+
 
 <!-- Commits -->
 [commit-step1]: https://github.com/katiekim17/loop-pack-be-l2-vol3-java/commit/8a8b4a7

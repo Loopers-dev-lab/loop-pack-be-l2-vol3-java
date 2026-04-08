@@ -6,6 +6,7 @@ import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.outbox.KafkaOutboxMessage;
 import com.loopers.domain.outbox.OutboxEventTopics;
 import com.loopers.domain.product.ProductViewedEvent;
+import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import java.util.UUID;
 
@@ -29,6 +31,7 @@ import java.util.UUID;
 public class ProductsV1Controller implements ProductsV1ApiSpec {
 
     private final ProductFacade productFacade;
+    private final RankingRepository rankingRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
@@ -71,8 +74,9 @@ public class ProductsV1Controller implements ProductsV1ApiSpec {
         } catch (Exception e) {
             log.warn("상품 조회 Kafka 이벤트 발행 실패. productId={}, 이유={}", productId, e.getMessage());
         }
+        Integer ranking = rankingRepository.getRank(productId, LocalDate.now()).orElse(null);
         return ApiResponse.success(
-            ProductV1Dto.ProductDetailResponse.from(productFacade.getProductDetail(productId))
+            ProductV1Dto.ProductDetailResponse.from(productFacade.getProductDetail(productId), ranking)
         );
     }
 

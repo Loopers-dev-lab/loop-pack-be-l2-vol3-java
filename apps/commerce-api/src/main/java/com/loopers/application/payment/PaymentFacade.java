@@ -64,10 +64,11 @@ public class PaymentFacade {
             orderService.confirmOrder(orderId);
             List<OrderItem> orderItems = orderItemRepository.findAllByOrderId(orderId);
             for (OrderItem item : orderItems) {
+                long itemAmount = item.getSnapshot().getProductPrice() * item.getQuantity();
                 outboxEventRepository.save(OutboxEvent.create(
                     "PRODUCT_SOLD",
                     OutboxEventTopics.PRODUCT_PAYMENT,
-                    serializePayload(new ProductSoldPayload(item.getProductId(), orderId)),
+                    serializePayload(new ProductSoldPayload(item.getProductId(), orderId, itemAmount)),
                     item.getProductId().toString()
                 ));
             }

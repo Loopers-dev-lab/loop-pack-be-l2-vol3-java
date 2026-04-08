@@ -1,0 +1,20 @@
+spring:
+  profiles:
+    active: test
+  config:
+    import:
+      - jpa.yml
+      - redis.yml
+      - kafka.yml
+      - logging.yml
+      - monitoring.yml
+
+demo-kafka:
+  test:
+    topic-name: demo.internal.topic-v1
+
+product-metrics:
+  topics:
+    like: product.like.events
+    payment: product.payment.events
+    view: product.view.events
