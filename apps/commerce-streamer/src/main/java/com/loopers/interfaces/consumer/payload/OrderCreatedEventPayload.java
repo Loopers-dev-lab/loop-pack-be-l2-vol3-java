@@ -12,5 +12,5 @@ public record OrderCreatedEventPayload(
         List<Item> items,
         ZonedDateTime occurredAt
 ) {
-    public record Item(Long productId, Integer quantity) {}
+    public record Item(Long productId, Integer quantity, Integer unitPrice) {}
 }

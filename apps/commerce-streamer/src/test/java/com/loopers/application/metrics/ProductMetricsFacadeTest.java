@@ -76,8 +76,8 @@ class ProductMetricsFacadeTest {
         void appliesOrder_whenEventNotHandled() {
             // arrange
             List<OrderCreatedEventPayload.Item> items = List.of(
-                    new OrderCreatedEventPayload.Item(42L, 2),
-                    new OrderCreatedEventPayload.Item(99L, 1)
+                    new OrderCreatedEventPayload.Item(42L, 2, 5000),
+                    new OrderCreatedEventPayload.Item(99L, 1, 3000)
             );
             ZonedDateTime occurredAt = ZonedDateTime.of(2026, 4, 8, 10, 0, 0, 0, ZoneOffset.UTC);
             OrderCreatedEventPayload payload = new OrderCreatedEventPayload("uuid-2", "ORDER_CREATED", 1L, "ORDER-001", 90000L, items, occurredAt);
@@ -88,8 +88,8 @@ class ProductMetricsFacadeTest {
 
             // assert
             LocalDateTime expectedMetricHour = LocalDateTime.of(2026, 4, 8, 10, 0, 0);
-            verify(productMetricsRepository).upsertOrder(42L, 2, expectedMetricHour);
-            verify(productMetricsRepository).upsertOrder(99L, 1, expectedMetricHour);
+            verify(productMetricsRepository).upsertOrder(42L, 2, 10000L, expectedMetricHour);
+            verify(productMetricsRepository).upsertOrder(99L, 1, 3000L, expectedMetricHour);
             verify(eventHandledJpaRepository).save(any());
         }
 
@@ -105,7 +105,7 @@ class ProductMetricsFacadeTest {
             facade.applyOrder(payload);
 
             // assert
-            verify(productMetricsRepository, never()).upsertOrder(anyLong(), anyLong(), any(LocalDateTime.class));
+            verify(productMetricsRepository, never()).upsertOrder(anyLong(), anyLong(), anyLong(), any(LocalDateTime.class));
         }
     }
 
