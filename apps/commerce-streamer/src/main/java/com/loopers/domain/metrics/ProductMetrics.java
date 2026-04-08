@@ -38,6 +38,9 @@ public class ProductMetrics {
     @Column(name = "view_count", nullable = false)
     private Long viewCount = 0L;
 
+    @Column(name = "sales_amount", nullable = false)
+    private Long salesAmount = 0L;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private ZonedDateTime createdAt;
 
@@ -64,12 +67,17 @@ public class ProductMetrics {
         return orderCount;
     }
 
+    public Long salesAmount() {
+        return salesAmount;
+    }
+
     public void applyLike(int delta) {
         this.likeCount += delta;
     }
 
-    public void applyOrder(long quantity) {
+    public void applyOrder(long quantity, long salesAmount) {
         this.orderCount += quantity;
+        this.salesAmount += salesAmount;
     }
 
     public void applyView() {

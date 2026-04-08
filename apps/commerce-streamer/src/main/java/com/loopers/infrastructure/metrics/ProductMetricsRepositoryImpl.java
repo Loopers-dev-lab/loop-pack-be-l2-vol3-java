@@ -18,8 +18,8 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     }
 
     @Override
-    public void upsertOrder(Long productId, long quantity, LocalDateTime metricHour) {
-        jpaRepository.upsertOrder(productId, quantity, metricHour);
+    public void upsertOrder(Long productId, long quantity, long salesAmount, LocalDateTime metricHour) {
+        jpaRepository.upsertOrder(productId, quantity, salesAmount, metricHour);
     }
 
     @Override

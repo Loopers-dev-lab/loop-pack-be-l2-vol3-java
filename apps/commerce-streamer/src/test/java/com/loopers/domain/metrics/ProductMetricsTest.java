@@ -46,17 +46,18 @@ class ProductMetricsTest {
     @Nested
     class ApplyOrder {
 
-        @DisplayName("quantity 만큼 orderCount 가 증가한다.")
+        @DisplayName("quantity 만큼 orderCount 가 증가하고, salesAmount 가 반영된다.")
         @Test
-        void increasesOrderCount_byQuantity() {
+        void increasesOrderCountAndSalesAmount() {
             // arrange
             ProductMetrics metrics = ProductMetrics.of(1L, LocalDateTime.of(2026, 4, 8, 10, 0, 0));
 
             // act
-            metrics.applyOrder(3L);
+            metrics.applyOrder(3L, 15000L);
 
             // assert
             assertThat(metrics.orderCount()).isEqualTo(3L);
+            assertThat(metrics.salesAmount()).isEqualTo(15000L);
         }
     }
 }

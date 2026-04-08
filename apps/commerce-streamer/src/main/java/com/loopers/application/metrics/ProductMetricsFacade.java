@@ -38,8 +38,10 @@ public class ProductMetricsFacade {
             return;
         }
         LocalDateTime metricHour = toMetricHour(payload.occurredAt());
-        payload.items().forEach(item ->
-                productMetricsRepository.upsertOrder(item.productId(), item.quantity(), metricHour));
+        payload.items().forEach(item -> {
+            long salesAmount = (long) item.quantity() * item.unitPrice();
+            productMetricsRepository.upsertOrder(item.productId(), item.quantity(), salesAmount, metricHour);
+        });
         eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
     }
 

@@ -20,11 +20,13 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
 
     @Modifying
     @Query(value = """
-            INSERT INTO product_metrics (product_id, metric_hour, like_count, order_count, view_count)
-            VALUES (:productId, :metricHour, 0, :quantity, 0)
-            ON DUPLICATE KEY UPDATE order_count = order_count + :quantity
+            INSERT INTO product_metrics (product_id, metric_hour, like_count, order_count, view_count, sales_amount)
+            VALUES (:productId, :metricHour, 0, :quantity, 0, :salesAmount)
+            ON DUPLICATE KEY UPDATE
+                order_count  = order_count  + :quantity,
+                sales_amount = sales_amount + :salesAmount
             """, nativeQuery = true)
-    void upsertOrder(@Param("productId") Long productId, @Param("quantity") long quantity, @Param("metricHour") LocalDateTime metricHour);
+    void upsertOrder(@Param("productId") Long productId, @Param("quantity") long quantity, @Param("salesAmount") long salesAmount, @Param("metricHour") LocalDateTime metricHour);
 
     @Modifying
     @Query(value = """
