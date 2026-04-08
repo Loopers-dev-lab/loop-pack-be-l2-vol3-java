@@ -1,16 +1,20 @@
 package com.loopers.infrastructure.ranking;
 
 import com.loopers.config.redis.RedisConfig;
+import com.loopers.domain.metrics.ProductDailyMetrics;
+import com.loopers.domain.metrics.ProductDailyMetricsRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -19,7 +23,6 @@ import java.util.*;
 public class RankingScoreRecalculationScheduler {
 
     private static final String ALL_KEY_PREFIX = "ranking:all:";
-    private static final String RAW_KEY_PREFIX = "ranking:raw:";
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final long TTL_DAYS = 2;
 
@@ -29,59 +32,59 @@ public class RankingScoreRecalculationScheduler {
     private static final double CARRY_OVER_WEIGHT = 0.1;
 
     private final StringRedisTemplate redisTemplate;
+    private final ProductDailyMetricsRepository productDailyMetricsRepository;
 
     public RankingScoreRecalculationScheduler(
-            @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) StringRedisTemplate redisTemplate
+            @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) StringRedisTemplate redisTemplate,
+            ProductDailyMetricsRepository productDailyMetricsRepository
     ) {
         this.redisTemplate = redisTemplate;
+        this.productDailyMetricsRepository = productDailyMetricsRepository;
     }
 
     @Scheduled(fixedRate = 300_000)
+    @Transactional(readOnly = true)
     public void recalculate() {
         LocalDate today = LocalDate.now();
         String date = today.format(DATE_FORMAT);
-        String rawKey = RAW_KEY_PREFIX + date;
         String allKey = ALL_KEY_PREFIX + date;
 
-        // 1. raw 카운트 읽기
-        Map<Object, Object> rawData = redisTemplate.opsForHash().entries(rawKey);
-        if (rawData.isEmpty()) {
+        // 1. DB에서 일간 메트릭 읽기 (SSOT)
+        List<ProductDailyMetrics> dailyMetrics = productDailyMetricsRepository.findByMetricDate(today);
+        if (dailyMetrics.isEmpty()) {
             return;
         }
 
-        // 2. 상품별 raw 메트릭 파싱
-        Map<String, ProductRawMetrics> metricsMap = parseRawMetrics(rawData);
-        if (metricsMap.isEmpty()) {
-            return;
-        }
-
-        // 3. 전일 carry-over 점수 읽기
+        // 2. 전일 carry-over 점수 읽기
         String yesterdayAllKey = ALL_KEY_PREFIX + today.minusDays(1).format(DATE_FORMAT);
         Map<String, Double> yesterdayScores = loadYesterdayScores(yesterdayAllKey);
 
-        // 4. 메인 점수 계산 (raw 기반 + carry-over)
-        List<ProductMetrics> metricsList = new ArrayList<>();
-        for (Map.Entry<String, ProductRawMetrics> entry : metricsMap.entrySet()) {
-            String pid = entry.getKey();
-            ProductRawMetrics raw = entry.getValue();
-            double mainScore = raw.views * VIEW_WEIGHT + raw.likes * LIKE_WEIGHT
-                    + Math.log1p(raw.orders) * ORDER_WEIGHT;
+        // 3. 메인 점수 계산 (DB 기반 + carry-over)
+        List<ProductScoreEntry> entries = new ArrayList<>();
+        for (ProductDailyMetrics dm : dailyMetrics) {
+            String pid = String.valueOf(dm.getProductId());
+            double mainScore = dm.getViewCount() * VIEW_WEIGHT
+                    + dm.getLikeCount() * LIKE_WEIGHT
+                    + Math.log1p(dm.getOrderAmount()) * ORDER_WEIGHT;
 
-            // carry-over: 전일 최종 점수의 정수부 * 0.1
             Double yesterdayScore = yesterdayScores.get(pid);
             if (yesterdayScore != null) {
                 mainScore += Math.floor(yesterdayScore) * CARRY_OVER_WEIGHT;
             }
 
-            metricsList.add(new ProductMetrics(pid, mainScore, raw.views, raw.likes, raw.lastEvent));
+            long lastEvent = dm.getUpdatedAt() != null
+                    ? dm.getUpdatedAt().toInstant().getEpochSecond()
+                    : 0;
+
+            entries.add(new ProductScoreEntry(pid, mainScore, dm.getViewCount(), dm.getLikeCount(), lastEvent));
         }
 
-        // 5. 타이브레이커 정규화
+        // 4. 타이브레이커 정규화
         long now = Instant.now().getEpochSecond();
-        double[] viewArr = metricsList.stream().mapToDouble(m -> m.views).toArray();
-        double[] likeArr = metricsList.stream().mapToDouble(m -> m.likes).toArray();
-        double[] recencyArr = metricsList.stream().mapToDouble(m ->
-                m.lastEvent > 0 ? now - m.lastEvent : Double.MAX_VALUE
+        double[] viewArr = entries.stream().mapToDouble(e -> e.views).toArray();
+        double[] likeArr = entries.stream().mapToDouble(e -> e.likes).toArray();
+        double[] recencyArr = entries.stream().mapToDouble(e ->
+                e.lastEvent > 0 ? now - e.lastEvent : Double.MAX_VALUE
         ).toArray();
 
         double viewMean = mean(viewArr);
@@ -91,51 +94,27 @@ public class RankingScoreRecalculationScheduler {
         double recencyMean = mean(recencyArr);
         double recencyStd = stddev(recencyArr, recencyMean);
 
-        // 6. 최종 스코어 인코딩: 정수부(메인) + 소수부(타이브레이커)
+        // 5. 최종 스코어 인코딩: 정수부(메인) + 소수부(타이브레이커)
         Set<ZSetOperations.TypedTuple<String>> finalScores = new HashSet<>();
-        for (int i = 0; i < metricsList.size(); i++) {
-            ProductMetrics m = metricsList.get(i);
+        for (int i = 0; i < entries.size(); i++) {
+            ProductScoreEntry e = entries.get(i);
 
-            int viewNorm = normalize(m.views, viewMean, viewStd);
-            int likeNorm = normalize(m.likes, likeMean, likeStd);
+            int viewNorm = normalize(e.views, viewMean, viewStd);
+            int likeNorm = normalize(e.likes, likeMean, likeStd);
             int recencyNorm = 999 - normalize(recencyArr[i], recencyMean, recencyStd);
 
             double tieBreaker = viewNorm / 1_000.0
                     + likeNorm / 1_000_000.0
                     + recencyNorm / 1_000_000_000.0;
 
-            double finalScore = Math.floor(m.mainScore) + tieBreaker;
-            finalScores.add(ZSetOperations.TypedTuple.of(m.productId, finalScore));
+            double finalScore = Math.floor(e.mainScore) + tieBreaker;
+            finalScores.add(ZSetOperations.TypedTuple.of(e.productId, finalScore));
         }
 
         redisTemplate.opsForZSet().add(allKey, finalScores);
         redisTemplate.expire(allKey, Duration.ofDays(TTL_DAYS));
 
-        log.info("랭킹 스코어 재계산 완료: {}개 상품 (carry-over 포함)", metricsList.size());
-    }
-
-    private Map<String, ProductRawMetrics> parseRawMetrics(Map<Object, Object> rawData) {
-        Map<String, ProductRawMetrics> metricsMap = new HashMap<>();
-
-        for (Map.Entry<Object, Object> entry : rawData.entrySet()) {
-            String field = entry.getKey().toString();
-            String value = entry.getValue().toString();
-            int colonIdx = field.lastIndexOf(':');
-            if (colonIdx < 0) continue;
-
-            String pid = field.substring(0, colonIdx);
-            String type = field.substring(colonIdx + 1);
-
-            ProductRawMetrics metrics = metricsMap.computeIfAbsent(pid, k -> new ProductRawMetrics());
-            switch (type) {
-                case "v" -> metrics.views = Long.parseLong(value);
-                case "l" -> metrics.likes = Long.parseLong(value);
-                case "o" -> metrics.orders = Long.parseLong(value);
-                case "t" -> metrics.lastEvent = Long.parseLong(value);
-            }
-        }
-
-        return metricsMap;
+        log.info("랭킹 스코어 재계산 완료: {}개 상품 (DB SSOT + carry-over)", entries.size());
     }
 
     private Map<String, Double> loadYesterdayScores(String yesterdayKey) {
@@ -182,14 +161,7 @@ public class RankingScoreRecalculationScheduler {
         return (int) Math.round(sigmoid * 999);
     }
 
-    private static class ProductRawMetrics {
-        long views;
-        long likes;
-        long orders;
-        long lastEvent;
-    }
-
-    private record ProductMetrics(
+    private record ProductScoreEntry(
             String productId,
             double mainScore,
             long views,
