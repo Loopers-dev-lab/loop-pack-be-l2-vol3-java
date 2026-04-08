@@ -14,7 +14,10 @@ public interface RankingReadRepository {
 
     long count(String key);
 
-    /** 점수 내림차순, 인덱스 [start, end] (0부터, 양 끝 포함). */
+    /**
+     * 점수 내림차순, 인덱스 [start, end] (0부터, 양 끝 포함).
+     * 동일 score 구간의 상대 순서는 Redis {@code ZREVRANGE} 규칙(동점 시 member 내림차순)을 따른다.
+     */
     List<RankingZsetEntry> findReverseRangeWithScores(String key, long start, long end);
 
     /**

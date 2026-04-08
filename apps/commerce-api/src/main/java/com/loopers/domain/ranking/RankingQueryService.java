@@ -46,6 +46,11 @@ public class RankingQueryService {
 
     /**
      * 일간 랭킹 페이지 조회
+     * <p>
+     * Redis {@code ZREVRANGE} 인덱스 구간에 대응하며, 동일 페이지를 재조회해도 실시간 점수 변동으로 항목 집합이 달라질 수 있다.
+     * {@code pageOneBased}가 마지막 슬라이스를 넘기면 빈 행 목록을 반환하고 {@code totalElements}/{@code totalPages}는 유지한다.
+     * 동일 {@code score}인 member 간 순서는 {@link RankingReadRepository#findReverseRangeWithScores}가 반환하는 순서(저장소 규칙)를 따른다.
+     *
      * @param rankingDate 일간 랭킹 일자
      * @param pageOneBased 페이지 (1부터)
      * @param size 페이지 크기
