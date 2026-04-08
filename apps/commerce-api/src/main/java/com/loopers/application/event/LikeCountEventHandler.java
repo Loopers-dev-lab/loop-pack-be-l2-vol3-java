@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.util.Map;
+import java.util.UUID;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -52,8 +55,13 @@ public class LikeCountEventHandler {
      */
     private void publishToKafka(String eventType, Long productId, Object event) {
         try {
-            String payload = objectMapper.writeValueAsString(event);
-            kafkaTemplate.send(KafkaTopics.CATALOG_EVENTS, String.valueOf(productId), payload);
+            String payloadJson = objectMapper.writeValueAsString(event);
+            Map<String, Object> envelope = Map.of(
+                    "eventId", UUID.randomUUID().toString(),
+                    "eventType", eventType,
+                    "payload", payloadJson
+            );
+            kafkaTemplate.send(KafkaTopics.CATALOG_EVENTS, String.valueOf(productId), envelope);
         } catch (Exception e) {
             log.warn("Kafka 직접 발행 실패 (fire-and-forget): eventType={}, productId={}", eventType, productId, e);
         }
