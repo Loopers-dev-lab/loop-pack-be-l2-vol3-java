@@ -2,6 +2,7 @@ package com.loopers.application.metrics;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.ranking.RankingScoreUpdater;
 import com.loopers.infrastructure.event.EventHandledEntity;
 import com.loopers.infrastructure.event.EventHandledJpaRepository;
 import com.loopers.infrastructure.product.ProductMetricsEntity;
@@ -39,15 +40,18 @@ public class CatalogMetricsProcessor {
     private final ProductMetricsJpaRepository productMetricsRepository;
     private final ProductLikeCountJpaRepository productLikeCountRepository;
     private final EventHandledJpaRepository eventHandledRepository;
+    private final RankingScoreUpdater rankingScoreUpdater;
 
     public CatalogMetricsProcessor(ObjectMapper objectMapper,
                                     ProductMetricsJpaRepository productMetricsRepository,
                                     ProductLikeCountJpaRepository productLikeCountRepository,
-                                    EventHandledJpaRepository eventHandledRepository) {
+                                    EventHandledJpaRepository eventHandledRepository,
+                                    RankingScoreUpdater rankingScoreUpdater) {
         this.objectMapper = objectMapper;
         this.productMetricsRepository = productMetricsRepository;
         this.productLikeCountRepository = productLikeCountRepository;
         this.eventHandledRepository = eventHandledRepository;
+        this.rankingScoreUpdater = rankingScoreUpdater;
     }
 
     /**
@@ -82,12 +86,42 @@ public class CatalogMetricsProcessor {
             }
         }
 
+        // 랭킹 점수 반영 — TX 커밋 후 실행 (afterCommit 콜백 등록)
+        registerRankingUpdates(eventType, node);
+
         // 멱등성 기록 — increment와 같은 TX (핵심!)
         if (outboxId != null) {
             eventHandledRepository.save(EventHandledEntity.of(outboxId, "catalog-events-v1"));
         }
 
         return true;
+    }
+
+    /**
+     * 이벤트 타입에 따라 랭킹 점수 afterCommit 콜백을 등록한다.
+     *
+     * 기존 handler 메서드를 변경하지 않고, 랭킹 관심사를 별도로 처리한다.
+     * OrderItemSoldEvent는 productQtyMap에 여러 상품이 있을 수 있으므로 각각 등록한다.
+     */
+    private void registerRankingUpdates(String eventType, JsonNode node) {
+        switch (eventType) {
+            case "ProductViewedEvent", "ProductLikedEvent", "ProductUnlikedEvent" -> {
+                long productId = node.path("productId").asLong(0);
+                if (productId > 0) {
+                    rankingScoreUpdater.registerAfterCommit(eventType, productId);
+                }
+            }
+            case "OrderItemSoldEvent" -> {
+                JsonNode productQtyMap = node.path("productQtyMap");
+                if (!productQtyMap.isMissingNode() && productQtyMap.isObject()) {
+                    productQtyMap.fieldNames().forEachRemaining(key -> {
+                        long productId = Long.parseLong(key);
+                        rankingScoreUpdater.registerAfterCommit(eventType, productId);
+                    });
+                }
+            }
+            default -> { /* 알 수 없는 이벤트 — 랭킹 반영 없음 */ }
+        }
     }
 
     private void handleProductViewed(JsonNode node) {
