@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.ProductMetricsAppService;
+import com.loopers.application.ranking.RankingAppService;
 import com.loopers.confg.kafka.KafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderEventConsumer {
     private final ProductMetricsAppService productMetricsAppService;
+    private final RankingAppService rankingAppService;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
@@ -41,8 +43,13 @@ public class OrderEventConsumer {
                     List<Long> productIds = new ArrayList<>();
                     node.get("productIds").forEach(n -> productIds.add(n.asLong()));
 
+                    long totalAmount = node.has("totalAmount") ? node.get("totalAmount").asLong() : 0;
+
                     switch (eventType) {
-                        case "OrderCreated" -> productMetricsAppService.handleOrderCreated(eventId, productIds, occurredAt);
+                        case "OrderCreated" -> {
+                            productMetricsAppService.handleOrderCreated(eventId, productIds, occurredAt);
+                            rankingAppService.updateOrderRanking(productIds, totalAmount);
+                        }
                         case "OrderCanceled" -> productMetricsAppService.handleOrderCanceled(eventId, productIds, occurredAt);
                         default -> log.warn("알 수 없는 order 이벤트: eventType={}", eventType);
                     }
