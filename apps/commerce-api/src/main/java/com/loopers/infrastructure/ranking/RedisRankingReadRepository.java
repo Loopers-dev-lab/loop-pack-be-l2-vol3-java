@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 
 /**
@@ -59,5 +60,23 @@ public class RedisRankingReadRepository implements RankingReadRepository {
             out.add(new RankingZsetEntry(t.getValue(), t.getScore()));
         }
         return out;
+    }
+
+    /**
+     * 점수 내림차순 기준 전역 순위(1-based). 최고점이 1위.
+     * ZSET에 member가 없으면 empty를 반환한다.
+     *
+     * @param key 랭킹 ZSET 키
+     * @param member 랭킹 멤버
+     * @return 점수 내림차순 기준 전역 순위(1-based)
+     *          ZSET에 member가 없으면 empty
+     */
+    @Override
+    public OptionalLong findOneBasedReverseRank(String key, String member) {
+        Long zeroBased = redisTemplate.opsForZSet().reverseRank(key, member);
+        if (zeroBased == null) {
+            return OptionalLong.empty();
+        }
+        return OptionalLong.of(zeroBased + 1L);
     }
 }
