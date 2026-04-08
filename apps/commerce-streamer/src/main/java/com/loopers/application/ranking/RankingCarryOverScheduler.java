@@ -4,13 +4,13 @@ import static com.loopers.domain.ranking.RankingKeyConstants.DATE_FORMAT;
 import static com.loopers.domain.ranking.RankingKeyConstants.KEY_PREFIX;
 
 import java.time.LocalDate;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.RankingScore;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,14 +50,15 @@ public class RankingCarryOverScheduler {
             return;
         }
 
-        Map<String, Double> topScores = rankingRepository.readTopScores(todayKey, TOP_N);
+        List<RankingScore> topScores = rankingRepository.readTopScores(todayKey, TOP_N);
         if (topScores.isEmpty()) {
             log.debug("[CarryOver] 오늘 랭킹 데이터가 없습니다. key={}", todayKey);
             return;
         }
 
-        Map<String, Double> decayedScores = topScores.entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() * DECAY_FACTOR));
+        List<RankingScore> decayedScores = topScores.stream()
+                .map(s -> s.decay(DECAY_FACTOR))
+                .toList();
 
         rankingRepository.addScores(tomorrowKey, decayedScores, TTL_SECONDS);
 

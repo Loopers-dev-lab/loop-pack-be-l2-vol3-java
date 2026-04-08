@@ -5,8 +5,10 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.times;
 
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+
+import com.loopers.domain.ranking.RankingScore;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -37,12 +39,12 @@ class RedisRankingRepositoryTest {
         void executesPipelineWithZincrbyAndExpire() {
             // arrange
             String key = "ranking:v1:all:20260406";
-            Map<Long, Double> productScores = Map.of(1L, 0.1, 2L, 0.2);
+            List<RankingScore> scores = List.of(new RankingScore(1L, 0.1), new RankingScore(2L, 0.2));
             given(redisTemplate.getStringSerializer()).willReturn(new StringRedisSerializer());
             given(redisTemplate.executePipelined(any(RedisCallback.class))).willReturn(List.of());
 
             // act
-            repository.incrementScores(key, productScores);
+            repository.incrementScores(key, scores);
 
             // assert
             then(redisTemplate).should().executePipelined(any(RedisCallback.class));
@@ -52,7 +54,7 @@ class RedisRankingRepositoryTest {
         @Test
         void skips_whenEmptyScores() {
             // act
-            repository.incrementScores("ranking:v1:all:20260406", Map.of());
+            repository.incrementScores("ranking:v1:all:20260406", Collections.emptyList());
 
             // assert
             then(redisTemplate).should(times(0)).executePipelined(any(RedisCallback.class));

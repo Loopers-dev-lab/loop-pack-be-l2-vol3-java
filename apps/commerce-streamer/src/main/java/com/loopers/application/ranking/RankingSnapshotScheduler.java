@@ -4,13 +4,13 @@ import static com.loopers.domain.ranking.RankingKeyConstants.DATE_FORMAT;
 import static com.loopers.domain.ranking.RankingKeyConstants.KEY_PREFIX;
 
 import java.time.LocalDate;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.List;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.RankingScore;
 import com.loopers.domain.ranking.RankingSnapshotRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -47,20 +47,14 @@ public class RankingSnapshotScheduler {
         LocalDate today = LocalDate.now();
         String todayKey = KEY_PREFIX + today.format(DATE_FORMAT);
 
-        Map<String, Double> topScores = rankingRepository.readTopScores(todayKey, TOP_N);
+        List<RankingScore> topScores = rankingRepository.readTopScores(todayKey, TOP_N);
         if (topScores.isEmpty()) {
             log.debug("[Snapshot] 랭킹 데이터가 없습니다. key={}", todayKey);
             return;
         }
 
-        Map<Long, Double> productScores = topScores.entrySet().stream()
-                .collect(Collectors.toMap(
-                        e -> Long.parseLong(e.getKey()),
-                        Map.Entry::getValue
-                ));
+        rankingSnapshotRepository.saveAll(today, topScores);
 
-        rankingSnapshotRepository.saveAll(today, productScores);
-
-        log.debug("[Snapshot] 스냅샷 완료: key={}, {}건", todayKey, productScores.size());
+        log.debug("[Snapshot] 스냅샷 완료: key={}, {}건", todayKey, topScores.size());
     }
 }

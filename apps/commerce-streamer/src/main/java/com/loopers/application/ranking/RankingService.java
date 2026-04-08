@@ -5,15 +5,14 @@ import static com.loopers.domain.ranking.RankingKeyConstants.KEY_PREFIX;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.stereotype.Service;
 
 import com.loopers.domain.eventhandled.EventHandledRepository;
 import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.domain.ranking.RankingEvent;
+import com.loopers.domain.ranking.RankingScore;
 import com.loopers.domain.ranking.RankingScoreCalculator;
 
 import lombok.RequiredArgsConstructor;
@@ -47,22 +46,19 @@ public class RankingService {
             return;
         }
 
-        Map<Long, Double> scores = new HashMap<>();
+        List<RankingScore> scores = new ArrayList<>();
         for (RankingEvent event : filterDuplicates(events)) {
             switch (event) {
-                case RankingEvent.View view ->
-                    scores.merge(view.productId(), scoreCalculator.calculateViewScore(), Double::sum);
-                case RankingEvent.Like like ->
-                    scores.merge(like.productId(), scoreCalculator.calculateLikeScore(like.liked()), Double::sum);
-                case RankingEvent.Order order ->
-                    scoreCalculator.calculateOrderScores(order.orderItems())
-                            .forEach((productId, score) -> scores.merge(productId, score, Double::sum));
+                case RankingEvent.View view -> scores.add(scoreCalculator.calculate(view));
+                case RankingEvent.Like like -> scores.add(scoreCalculator.calculate(like));
+                case RankingEvent.Order order -> scores.addAll(scoreCalculator.calculate(order));
                 case RankingEvent.Delete ignored -> { }
             }
         }
-        scores.values().removeIf(score -> score == 0.0);
-        if (!scores.isEmpty()) {
-            rankingRepository.incrementScores(todayKey(), scores);
+
+        List<RankingScore> merged = RankingScore.mergeAll(scores);
+        if (!merged.isEmpty()) {
+            rankingRepository.incrementScores(todayKey(), merged);
         }
     }
 

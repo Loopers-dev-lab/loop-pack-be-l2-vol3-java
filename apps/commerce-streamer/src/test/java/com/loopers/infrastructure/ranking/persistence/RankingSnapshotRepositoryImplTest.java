@@ -4,9 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.loopers.domain.ranking.RankingScore;
 import com.loopers.domain.ranking.RankingSnapshot;
 import com.loopers.utils.DatabaseCleanUp;
 
@@ -41,9 +41,9 @@ class RankingSnapshotRepositoryImplTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    private void saveAll(LocalDate scoreDate, Map<Long, Double> productScores) {
+    private void saveAll(LocalDate scoreDate, List<RankingScore> scores) {
         transactionTemplate.executeWithoutResult(status ->
-                rankingSnapshotRepository.saveAll(scoreDate, productScores)
+                rankingSnapshotRepository.saveAll(scoreDate, scores)
         );
     }
 
@@ -55,9 +55,10 @@ class RankingSnapshotRepositoryImplTest {
         @Test
         void savesSnapshotsToDB() {
             // arrange
-            Map<Long, Double> scores = new LinkedHashMap<>();
-            scores.put(1L, 45.3);
-            scores.put(2L, 30.1);
+            List<RankingScore> scores = List.of(
+                    new RankingScore(1L, 45.3),
+                    new RankingScore(2L, 30.1)
+            );
 
             // act
             saveAll(TODAY, scores);
@@ -75,10 +76,10 @@ class RankingSnapshotRepositoryImplTest {
         @Test
         void updatesScore_whenSameProductAndDate() {
             // arrange
-            saveAll(TODAY, Map.of(1L, 10.0));
+            saveAll(TODAY, List.of(new RankingScore(1L, 10.0)));
 
             // act
-            saveAll(TODAY, Map.of(1L, 50.0));
+            saveAll(TODAY, List.of(new RankingScore(1L, 50.0)));
 
             // assert
             List<RankingSnapshot> results = rankingSnapshotJpaRepository.findAll();
@@ -88,11 +89,11 @@ class RankingSnapshotRepositoryImplTest {
             );
         }
 
-@DisplayName("빈 Map이 전달되면, 예외 없이 정상 처리된다.")
+        @DisplayName("빈 리스트가 전달되면, 예외 없이 정상 처리된다.")
         @Test
-        void handlesEmptyMap() {
+        void handlesEmptyList() {
             // act & assert
-            saveAll(TODAY, Map.of());
+            saveAll(TODAY, Collections.emptyList());
 
             List<RankingSnapshot> results = rankingSnapshotJpaRepository.findAll();
             assertThat(results).isEmpty();

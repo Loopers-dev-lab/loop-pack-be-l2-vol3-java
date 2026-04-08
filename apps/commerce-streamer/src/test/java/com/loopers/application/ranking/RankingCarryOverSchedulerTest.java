@@ -3,8 +3,8 @@ package com.loopers.application.ranking;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Offset.offset;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -14,7 +14,7 @@ import static org.mockito.Mockito.times;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
-import java.util.Map;
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -27,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.RankingScore;
 
 @ExtendWith(MockitoExtension.class)
 class RankingCarryOverSchedulerTest {
@@ -42,7 +43,7 @@ class RankingCarryOverSchedulerTest {
     private RankingRepository rankingRepository;
 
     @Captor
-    private ArgumentCaptor<Map<String, Double>> scoresCaptor;
+    private ArgumentCaptor<List<RankingScore>> scoresCaptor;
 
     @DisplayName("스코어 이월을 수행할 때,")
     @Nested
@@ -54,16 +55,17 @@ class RankingCarryOverSchedulerTest {
             // arrange
             given(rankingRepository.exists(TOMORROW_KEY)).willReturn(false);
             given(rankingRepository.readTopScores(TODAY_KEY, 200))
-                    .willReturn(Map.of("1", 100.0, "2", 50.0));
+                    .willReturn(List.of(new RankingScore(1L, 100.0), new RankingScore(2L, 50.0)));
 
             // act
             rankingCarryOverScheduler.carryOver();
 
             // assert
             then(rankingRepository).should().addScores(eq(TOMORROW_KEY), scoresCaptor.capture(), eq(172800L));
-            Map<String, Double> decayed = scoresCaptor.getValue();
-            assertThat(decayed.get("1")).isCloseTo(1.0, offset(0.001));
-            assertThat(decayed.get("2")).isCloseTo(0.5, offset(0.001));
+            List<RankingScore> decayed = scoresCaptor.getValue();
+            assertThat(decayed).hasSize(2);
+            assertThat(findByProductId(decayed, 1L).score()).isCloseTo(1.0, offset(0.001));
+            assertThat(findByProductId(decayed, 2L).score()).isCloseTo(0.5, offset(0.001));
         }
 
         @DisplayName("내일 키가 이미 존재하면, 중복 실행으로 판단하여 스킵한다.")
@@ -77,7 +79,7 @@ class RankingCarryOverSchedulerTest {
 
             // assert
             then(rankingRepository).should(times(0)).readTopScores(anyString(), anyInt());
-            then(rankingRepository).should(times(0)).addScores(anyString(), anyMap(), anyLong());
+            then(rankingRepository).should(times(0)).addScores(anyString(), anyList(), anyLong());
         }
 
         @DisplayName("오늘 랭킹 데이터가 없으면, 이월하지 않는다.")
@@ -86,13 +88,20 @@ class RankingCarryOverSchedulerTest {
             // arrange
             given(rankingRepository.exists(TOMORROW_KEY)).willReturn(false);
             given(rankingRepository.readTopScores(TODAY_KEY, 200))
-                    .willReturn(Collections.emptyMap());
+                    .willReturn(Collections.emptyList());
 
             // act
             rankingCarryOverScheduler.carryOver();
 
             // assert
-            then(rankingRepository).should(times(0)).addScores(anyString(), anyMap(), anyLong());
+            then(rankingRepository).should(times(0)).addScores(anyString(), anyList(), anyLong());
         }
+    }
+
+    private RankingScore findByProductId(List<RankingScore> scores, Long productId) {
+        return scores.stream()
+                .filter(s -> s.productId().equals(productId))
+                .findFirst()
+                .orElseThrow();
     }
 }

@@ -1,9 +1,10 @@
 package com.loopers.application.ranking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.assertj.core.data.Offset.offset;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -15,7 +16,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.loopers.domain.eventhandled.EventHandledRepository;
 import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.domain.ranking.RankingEvent;
+import com.loopers.domain.ranking.RankingScore;
 import com.loopers.domain.ranking.RankingScoreCalculator;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,7 +54,7 @@ class RankingServiceTest {
     private RankingRepository rankingRepository;
 
     @Captor
-    private ArgumentCaptor<Map<Long, Double>> scoresCaptor;
+    private ArgumentCaptor<List<RankingScore>> scoresCaptor;
 
     @DisplayName("배치를 처리할 때,")
     @Nested
@@ -64,7 +65,8 @@ class RankingServiceTest {
         void aggregatesViewScores() {
             // arrange
             given(eventHandledRepository.markIfAbsent(anyString())).willReturn(true);
-            given(scoreCalculator.calculateViewScore()).willReturn(0.1);
+            given(scoreCalculator.calculate(any(RankingEvent.View.class)))
+                    .willReturn(new RankingScore(1L, 0.1), new RankingScore(1L, 0.1), new RankingScore(2L, 0.1));
             List<RankingEvent> events = List.of(
                     new RankingEvent.View("e1", 1L),
                     new RankingEvent.View("e2", 1L),
@@ -76,9 +78,12 @@ class RankingServiceTest {
 
             // assert
             then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
-            Map<Long, Double> scores = scoresCaptor.getValue();
-            assertThat(scores.get(1L)).isCloseTo(0.2, offset(0.001));
-            assertThat(scores.get(2L)).isCloseTo(0.1, offset(0.001));
+            List<RankingScore> scores = scoresCaptor.getValue();
+            assertThat(scores).extracting(RankingScore::productId, RankingScore::score)
+                    .containsExactlyInAnyOrder(
+                            tuple(1L, 0.2),
+                            tuple(2L, 0.1)
+                    );
         }
 
         @DisplayName("좋아요/취소 이벤트의 score를 합산한다.")
@@ -86,20 +91,22 @@ class RankingServiceTest {
         void aggregatesLikeScores() {
             // arrange
             given(eventHandledRepository.markIfAbsent(anyString())).willReturn(true);
-            given(scoreCalculator.calculateLikeScore(true)).willReturn(0.2);
-            given(scoreCalculator.calculateLikeScore(false)).willReturn(-0.2);
-            List<RankingEvent> events = List.of(
-                    new RankingEvent.Like("e1", 1L, true),
-                    new RankingEvent.Like("e2", 1L, true),
-                    new RankingEvent.Like("e3", 1L, false)
-            );
+            RankingEvent.Like like1 = new RankingEvent.Like("e1", 1L, true);
+            RankingEvent.Like like2 = new RankingEvent.Like("e2", 1L, true);
+            RankingEvent.Like unlike = new RankingEvent.Like("e3", 1L, false);
+            given(scoreCalculator.calculate(like1)).willReturn(new RankingScore(1L, 0.2));
+            given(scoreCalculator.calculate(like2)).willReturn(new RankingScore(1L, 0.2));
+            given(scoreCalculator.calculate(unlike)).willReturn(new RankingScore(1L, -0.2));
+            List<RankingEvent> events = List.of(like1, like2, unlike);
 
             // act
             rankingService.processBatch(events);
 
             // assert
             then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
-            assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(0.2, offset(0.001));
+            assertThat(scoresCaptor.getValue())
+                    .singleElement()
+                    .satisfies(s -> assertThat(s.score()).isCloseTo(0.2, offset(0.001)));
         }
 
         @DisplayName("주문 이벤트의 항목별 score를 productId별로 합산한다.")
@@ -107,21 +114,26 @@ class RankingServiceTest {
         void aggregatesOrderScores() {
             // arrange
             given(eventHandledRepository.markIfAbsent(anyString())).willReturn(true);
-            List<RankingEvent.Order.OrderItem> items = List.of(
+            RankingEvent.Order order = new RankingEvent.Order("e1", List.of(
                     new RankingEvent.Order.OrderItem(1L, 50000L, 1L),
                     new RankingEvent.Order.OrderItem(2L, 30000L, 2L)
-            );
-            given(scoreCalculator.calculateOrderScores(items)).willReturn(Map.of(1L, 2.82, 2L, 3.0));
-            List<RankingEvent> events = List.of(new RankingEvent.Order("e1", items));
+            ));
+            given(scoreCalculator.calculate(order)).willReturn(List.of(
+                    new RankingScore(1L, 2.82),
+                    new RankingScore(2L, 3.0)
+            ));
+            List<RankingEvent> events = List.of(order);
 
             // act
             rankingService.processBatch(events);
 
             // assert
             then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
-            Map<Long, Double> scores = scoresCaptor.getValue();
-            assertThat(scores.get(1L)).isCloseTo(2.82, offset(0.001));
-            assertThat(scores.get(2L)).isCloseTo(3.0, offset(0.001));
+            assertThat(scoresCaptor.getValue()).extracting(RankingScore::productId, RankingScore::score)
+                    .containsExactlyInAnyOrder(
+                            tuple(1L, 2.82),
+                            tuple(2L, 3.0)
+                    );
         }
 
         @DisplayName("혼합 이벤트를 단일 Pipeline으로 처리한다.")
@@ -129,24 +141,24 @@ class RankingServiceTest {
         void aggregatesMixedEvents() {
             // arrange
             given(eventHandledRepository.markIfAbsent(anyString())).willReturn(true);
-            given(scoreCalculator.calculateViewScore()).willReturn(0.1);
-            given(scoreCalculator.calculateLikeScore(true)).willReturn(0.2);
-            List<RankingEvent.Order.OrderItem> orderItems = List.of(
+            RankingEvent.View view = new RankingEvent.View("e1", 1L);
+            RankingEvent.Like like = new RankingEvent.Like("e2", 1L, true);
+            RankingEvent.Order order = new RankingEvent.Order("e3", List.of(
                     new RankingEvent.Order.OrderItem(1L, 50000L, 1L)
-            );
-            given(scoreCalculator.calculateOrderScores(orderItems)).willReturn(Map.of(1L, 2.82));
-            List<RankingEvent> events = List.of(
-                    new RankingEvent.View("e1", 1L),
-                    new RankingEvent.Like("e2", 1L, true),
-                    new RankingEvent.Order("e3", orderItems)
-            );
+            ));
+            given(scoreCalculator.calculate(view)).willReturn(new RankingScore(1L, 0.1));
+            given(scoreCalculator.calculate(like)).willReturn(new RankingScore(1L, 0.2));
+            given(scoreCalculator.calculate(order)).willReturn(List.of(new RankingScore(1L, 2.82)));
+            List<RankingEvent> events = List.of(view, like, order);
 
             // act
             rankingService.processBatch(events);
 
             // assert
             then(rankingRepository).should(times(1)).incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
-            assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(3.12, offset(0.001));
+            assertThat(scoresCaptor.getValue())
+                    .singleElement()
+                    .satisfies(s -> assertThat(s.score()).isCloseTo(3.12, offset(0.001)));
         }
 
         @DisplayName("빈 리스트이면, Repository를 호출하지 않는다.")
@@ -156,7 +168,7 @@ class RankingServiceTest {
             rankingService.processBatch(Collections.emptyList());
 
             // assert
-            then(rankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
+            then(rankingRepository).should(times(0)).incrementScores(anyString(), anyList());
         }
 
         @DisplayName("중복 이벤트는 skip한다.")
@@ -165,9 +177,10 @@ class RankingServiceTest {
             // arrange
             given(eventHandledRepository.markIfAbsent("e1")).willReturn(true);
             given(eventHandledRepository.markIfAbsent("e2")).willReturn(false);
-            given(scoreCalculator.calculateViewScore()).willReturn(0.1);
+            RankingEvent.View view1 = new RankingEvent.View("e1", 1L);
+            given(scoreCalculator.calculate(view1)).willReturn(new RankingScore(1L, 0.1));
             List<RankingEvent> events = List.of(
-                    new RankingEvent.View("e1", 1L),
+                    view1,
                     new RankingEvent.View("e2", 1L)
             );
 
@@ -176,7 +189,12 @@ class RankingServiceTest {
 
             // assert — e2는 skip되어 score가 0.1만 반영
             then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
-            assertThat(scoresCaptor.getValue().get(1L)).isCloseTo(0.1, offset(0.001));
+            assertThat(scoresCaptor.getValue())
+                    .singleElement()
+                    .satisfies(s -> {
+                        assertThat(s.productId()).isEqualTo(1L);
+                        assertThat(s.score()).isCloseTo(0.1, offset(0.001));
+                    });
         }
 
         @DisplayName("좋아요와 취소가 상쇄되면, 해당 productId를 scores에서 제외한다.")
@@ -184,23 +202,26 @@ class RankingServiceTest {
         void excludesZeroScoreProducts() {
             // arrange
             given(eventHandledRepository.markIfAbsent(anyString())).willReturn(true);
-            given(scoreCalculator.calculateLikeScore(true)).willReturn(0.2);
-            given(scoreCalculator.calculateLikeScore(false)).willReturn(-0.2);
-            given(scoreCalculator.calculateViewScore()).willReturn(0.1);
-            List<RankingEvent> events = List.of(
-                    new RankingEvent.Like("e1", 1L, true),
-                    new RankingEvent.Like("e2", 1L, false),
-                    new RankingEvent.View("e3", 2L)
-            );
+            RankingEvent.Like like = new RankingEvent.Like("e1", 1L, true);
+            RankingEvent.Like unlike = new RankingEvent.Like("e2", 1L, false);
+            RankingEvent.View view = new RankingEvent.View("e3", 2L);
+            given(scoreCalculator.calculate(like)).willReturn(new RankingScore(1L, 0.2));
+            given(scoreCalculator.calculate(unlike)).willReturn(new RankingScore(1L, -0.2));
+            given(scoreCalculator.calculate(view)).willReturn(new RankingScore(2L, 0.1));
+            List<RankingEvent> events = List.of(like, unlike, view);
 
             // act
             rankingService.processBatch(events);
 
             // assert — productId=1은 0.0이므로 제외, productId=2만 포함
             then(rankingRepository).should().incrementScores(eq(TODAY_KEY), scoresCaptor.capture());
-            Map<Long, Double> scores = scoresCaptor.getValue();
-            assertThat(scores).doesNotContainKey(1L);
-            assertThat(scores.get(2L)).isCloseTo(0.1, offset(0.001));
+            List<RankingScore> scores = scoresCaptor.getValue();
+            assertThat(scores).extracting(RankingScore::productId).doesNotContain(1L);
+            assertThat(scores).singleElement()
+                    .satisfies(s -> {
+                        assertThat(s.productId()).isEqualTo(2L);
+                        assertThat(s.score()).isCloseTo(0.1, offset(0.001));
+                    });
         }
 
         @DisplayName("모든 이벤트가 중복이면, Repository를 호출하지 않는다.")
@@ -217,7 +238,7 @@ class RankingServiceTest {
             rankingService.processBatch(events);
 
             // assert
-            then(rankingRepository).should(times(0)).incrementScores(anyString(), anyMap());
+            then(rankingRepository).should(times(0)).incrementScores(anyString(), anyList());
         }
 
     }

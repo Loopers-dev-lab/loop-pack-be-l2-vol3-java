@@ -1,8 +1,7 @@
 package com.loopers.domain.ranking;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
@@ -21,31 +20,27 @@ public class RankingScoreCalculator {
     private static final double ORDER_WEIGHT = 0.7;
 
     /**
-     * 조회 점수를 반환한다.
+     * 조회 이벤트의 점수를 계산한다.
      */
-    public double calculateViewScore() {
-        return VIEW_WEIGHT;
+    public RankingScore calculate(RankingEvent.View view) {
+        return new RankingScore(view.productId(), VIEW_WEIGHT);
     }
 
     /**
-     * 좋아요 점수를 반환한다.
-     *
-     * @param liked true이면 양수, false(취소)이면 음수
+     * 좋아요 이벤트의 점수를 계산한다.
      */
-    public double calculateLikeScore(boolean liked) {
-        return liked ? LIKE_WEIGHT : -LIKE_WEIGHT;
+    public RankingScore calculate(RankingEvent.Like like) {
+        double score = like.liked() ? LIKE_WEIGHT : -LIKE_WEIGHT;
+        return new RankingScore(like.productId(), score);
     }
 
     /**
-     * 주문 항목별 점수를 계산하여 상품 ID별로 합산한다.
-     *
-     * @param orderItems 주문 항목 목록
-     * @return 상품 ID → 합산 점수
+     * 주문 이벤트의 항목별 점수를 계산한다.
      */
-    public Map<Long, Double> calculateOrderScores(List<RankingEvent.Order.OrderItem> orderItems) {
-        Map<Long, Double> scores = new HashMap<>();
-        for (RankingEvent.Order.OrderItem item : orderItems) {
-            scores.merge(item.productId(), calculateOrderScore(item.price(), item.quantity()), Double::sum);
+    public List<RankingScore> calculate(RankingEvent.Order order) {
+        List<RankingScore> scores = new ArrayList<>();
+        for (RankingEvent.Order.OrderItem item : order.orderItems()) {
+            scores.add(new RankingScore(item.productId(), calculateOrderScore(item.price(), item.quantity())));
         }
         return scores;
     }

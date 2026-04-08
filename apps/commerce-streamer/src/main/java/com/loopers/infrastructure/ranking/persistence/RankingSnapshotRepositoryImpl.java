@@ -1,11 +1,12 @@
 package com.loopers.infrastructure.ranking.persistence;
 
 import java.time.LocalDate;
-import java.util.Map;
+import java.util.List;
 
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.loopers.domain.ranking.RankingScore;
 import com.loopers.domain.ranking.RankingSnapshotRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -31,9 +32,9 @@ public class RankingSnapshotRepositoryImpl implements RankingSnapshotRepository 
      */
     @Override
     @Transactional
-    public void saveAll(LocalDate scoreDate, Map<Long, Double> productScores) {
-        productScores.forEach((productId, score) ->
-                rankingSnapshotJpaRepository.upsert(productId, scoreDate, score)
+    public void saveAll(LocalDate scoreDate, List<RankingScore> scores) {
+        scores.forEach(s ->
+                rankingSnapshotJpaRepository.upsert(s.productId(), scoreDate, s.score())
         );
     }
 }

@@ -1,7 +1,7 @@
 package com.loopers.domain.ranking;
 
 import java.time.LocalDate;
-import java.util.Map;
+import java.util.List;
 
 /**
  * 랭킹 스냅샷 저장소.
@@ -13,12 +13,6 @@ public interface RankingSnapshotRepository {
 
     /**
      * 상품별 score를 일괄 upsert한다.
-     *
-     * <p>동일한 (productId, scoreDate) 조합이 존재하면 score를 갱신하고,
-     * 존재하지 않으면 새로 생성한다.</p>
-     *
-     * @param scoreDate     스냅샷 대상 날짜
-     * @param productScores 상품 ID → score 매핑
      */
-    void saveAll(LocalDate scoreDate, Map<Long, Double> productScores);
+    void saveAll(LocalDate scoreDate, List<RankingScore> scores);
 }

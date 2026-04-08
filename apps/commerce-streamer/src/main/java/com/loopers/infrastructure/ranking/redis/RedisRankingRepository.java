@@ -1,9 +1,8 @@
 package com.loopers.infrastructure.ranking.redis;
 
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -15,6 +14,7 @@ import org.springframework.stereotype.Repository;
 
 import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.RankingScore;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,19 +40,19 @@ public class RedisRankingRepository implements RankingRepository {
     }
 
     @Override
-    public void incrementScores(String key, Map<Long, Double> productScores) {
-        if (productScores.isEmpty()) {
+    public void incrementScores(String key, List<RankingScore> scores) {
+        if (scores.isEmpty()) {
             return;
         }
 
         byte[] rawKey = Objects.requireNonNull(redisTemplate.getStringSerializer().serialize(key));
 
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            for (Map.Entry<Long, Double> entry : productScores.entrySet()) {
+            for (RankingScore score : scores) {
                 byte[] member = Objects.requireNonNull(
-                        redisTemplate.getStringSerializer().serialize(String.valueOf(entry.getKey()))
+                        redisTemplate.getStringSerializer().serialize(String.valueOf(score.productId()))
                 );
-                connection.zSetCommands().zIncrBy(rawKey, entry.getValue(), member);
+                connection.zSetCommands().zIncrBy(rawKey, score.score(), member);
             }
             connection.keyCommands().expire(rawKey, TTL_SECONDS);
             return null;
@@ -65,26 +65,26 @@ public class RedisRankingRepository implements RankingRepository {
     }
 
     @Override
-    public Map<String, Double> readTopScores(String key, int count) {
+    public List<RankingScore> readTopScores(String key, int count) {
         Set<ZSetOperations.TypedTuple<String>> tuples =
                 redisTemplate.opsForZSet().reverseRangeWithScores(key, 0, (long) count - 1);
 
         if (tuples == null || tuples.isEmpty()) {
-            return Collections.emptyMap();
+            return Collections.emptyList();
         }
 
-        Map<String, Double> result = new LinkedHashMap<>(tuples.size());
+        List<RankingScore> result = new ArrayList<>(tuples.size());
         for (ZSetOperations.TypedTuple<String> tuple : tuples) {
-            result.put(
-                    Objects.requireNonNull(tuple.getValue()),
+            result.add(new RankingScore(
+                    Long.parseLong(Objects.requireNonNull(tuple.getValue())),
                     Objects.requireNonNull(tuple.getScore())
-            );
+            ));
         }
         return result;
     }
 
     @Override
-    public void addScores(String key, Map<String, Double> scores, long ttlSeconds) {
+    public void addScores(String key, List<RankingScore> scores, long ttlSeconds) {
         if (scores.isEmpty()) {
             return;
         }
@@ -92,11 +92,11 @@ public class RedisRankingRepository implements RankingRepository {
         byte[] rawKey = Objects.requireNonNull(redisTemplate.getStringSerializer().serialize(key));
 
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            for (Map.Entry<String, Double> entry : scores.entrySet()) {
+            for (RankingScore score : scores) {
                 byte[] member = Objects.requireNonNull(
-                        redisTemplate.getStringSerializer().serialize(entry.getKey())
+                        redisTemplate.getStringSerializer().serialize(String.valueOf(score.productId()))
                 );
-                connection.zSetCommands().zIncrBy(rawKey, entry.getValue(), member);
+                connection.zSetCommands().zIncrBy(rawKey, score.score(), member);
             }
             connection.keyCommands().expire(rawKey, ttlSeconds);
             return null;
