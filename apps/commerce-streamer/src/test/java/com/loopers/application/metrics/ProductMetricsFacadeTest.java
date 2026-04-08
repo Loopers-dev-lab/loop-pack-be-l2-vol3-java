@@ -9,11 +9,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -34,14 +38,16 @@ class ProductMetricsFacadeTest {
         @Test
         void appliesLike_whenEventNotHandled() {
             // arrange
-            CatalogEventPayload payload = new CatalogEventPayload("uuid-1", "LIKE_CREATED", 1L, 42L, 1);
+            ZonedDateTime occurredAt = ZonedDateTime.of(2026, 4, 8, 10, 0, 0, 0, ZoneOffset.UTC);
+            CatalogEventPayload payload = new CatalogEventPayload("uuid-1", "LIKE_CREATED", 1L, 42L, 1, occurredAt);
             when(eventHandledJpaRepository.existsById("uuid-1")).thenReturn(false);
 
             // act
             facade.applyLike(payload);
 
             // assert
-            verify(productMetricsRepository).upsertLike(42L, 1);
+            LocalDateTime expectedMetricHour = LocalDateTime.of(2026, 4, 8, 10, 0, 0);
+            verify(productMetricsRepository).upsertLike(42L, 1, expectedMetricHour);
             verify(eventHandledJpaRepository).save(any());
         }
 
@@ -49,14 +55,15 @@ class ProductMetricsFacadeTest {
         @Test
         void doesNotApplyLike_whenEventAlreadyHandled() {
             // arrange
-            CatalogEventPayload payload = new CatalogEventPayload("uuid-1", "LIKE_CREATED", 1L, 42L, 1);
+            ZonedDateTime occurredAt = ZonedDateTime.of(2026, 4, 8, 10, 0, 0, 0, ZoneOffset.UTC);
+            CatalogEventPayload payload = new CatalogEventPayload("uuid-1", "LIKE_CREATED", 1L, 42L, 1, occurredAt);
             when(eventHandledJpaRepository.existsById("uuid-1")).thenReturn(true);
 
             // act
             facade.applyLike(payload);
 
             // assert
-            verify(productMetricsRepository, never()).upsertLike(anyLong(), anyInt());
+            verify(productMetricsRepository, never()).upsertLike(anyLong(), anyInt(), any(LocalDateTime.class));
         }
     }
 
@@ -72,15 +79,17 @@ class ProductMetricsFacadeTest {
                     new OrderCreatedEventPayload.Item(42L, 2),
                     new OrderCreatedEventPayload.Item(99L, 1)
             );
-            OrderCreatedEventPayload payload = new OrderCreatedEventPayload("uuid-2", "ORDER_CREATED", 1L, "ORDER-001", 90000L, items);
+            ZonedDateTime occurredAt = ZonedDateTime.of(2026, 4, 8, 10, 0, 0, 0, ZoneOffset.UTC);
+            OrderCreatedEventPayload payload = new OrderCreatedEventPayload("uuid-2", "ORDER_CREATED", 1L, "ORDER-001", 90000L, items, occurredAt);
             when(eventHandledJpaRepository.existsById("uuid-2")).thenReturn(false);
 
             // act
             facade.applyOrder(payload);
 
             // assert
-            verify(productMetricsRepository).upsertOrder(42L, 2);
-            verify(productMetricsRepository).upsertOrder(99L, 1);
+            LocalDateTime expectedMetricHour = LocalDateTime.of(2026, 4, 8, 10, 0, 0);
+            verify(productMetricsRepository).upsertOrder(42L, 2, expectedMetricHour);
+            verify(productMetricsRepository).upsertOrder(99L, 1, expectedMetricHour);
             verify(eventHandledJpaRepository).save(any());
         }
 
@@ -88,14 +97,15 @@ class ProductMetricsFacadeTest {
         @Test
         void doesNotApplyOrder_whenEventAlreadyHandled() {
             // arrange
-            OrderCreatedEventPayload payload = new OrderCreatedEventPayload("uuid-2", "ORDER_CREATED", 1L, "ORDER-001", 90000L, List.of());
+            ZonedDateTime occurredAt = ZonedDateTime.of(2026, 4, 8, 10, 0, 0, 0, ZoneOffset.UTC);
+            OrderCreatedEventPayload payload = new OrderCreatedEventPayload("uuid-2", "ORDER_CREATED", 1L, "ORDER-001", 90000L, List.of(), occurredAt);
             when(eventHandledJpaRepository.existsById("uuid-2")).thenReturn(true);
 
             // act
             facade.applyOrder(payload);
 
             // assert
-            verify(productMetricsRepository, never()).upsertOrder(anyLong(), anyLong());
+            verify(productMetricsRepository, never()).upsertOrder(anyLong(), anyLong(), any(LocalDateTime.class));
         }
     }
 
@@ -107,13 +117,15 @@ class ProductMetricsFacadeTest {
         @Test
         void appliesView() {
             // arrange
-            ProductViewEventPayload payload = new ProductViewEventPayload(42L);
+            ZonedDateTime occurredAt = ZonedDateTime.of(2026, 4, 8, 10, 0, 0, 0, ZoneOffset.UTC);
+            ProductViewEventPayload payload = new ProductViewEventPayload(42L, occurredAt);
 
             // act
             facade.applyView(payload);
 
             // assert
-            verify(productMetricsRepository).upsertView(42L);
+            LocalDateTime expectedMetricHour = LocalDateTime.of(2026, 4, 8, 10, 0, 0);
+            verify(productMetricsRepository).upsertView(42L, expectedMetricHour);
         }
     }
 }

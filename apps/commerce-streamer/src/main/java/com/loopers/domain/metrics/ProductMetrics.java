@@ -1,20 +1,33 @@
 package com.loopers.domain.metrics;
 
-import com.loopers.domain.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 
 @Entity
-@Table(name = "product_metrics")
+@Table(
+        name = "product_metrics",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uq_product_metrics_product_hour",
+                columnNames = {"product_id", "metric_hour"}
+        )
+)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProductMetrics {
 
     @Id
-    @Column(name = "product_id")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "product_id", nullable = false)
     private Long productId;
+
+    @Column(name = "metric_hour", nullable = false)
+    private LocalDateTime metricHour;
 
     @Column(name = "like_count", nullable = false)
     private Long likeCount = 0L;
@@ -34,12 +47,13 @@ public class ProductMetrics {
     @Column(name = "deleted_at")
     private ZonedDateTime deletedAt;
 
-    private ProductMetrics(Long productId) {
+    private ProductMetrics(Long productId, LocalDateTime metricHour) {
         this.productId = productId;
+        this.metricHour = metricHour;
     }
 
-    public static ProductMetrics of(Long productId) {
-        return new ProductMetrics(productId);
+    public static ProductMetrics of(Long productId, LocalDateTime metricHour) {
+        return new ProductMetrics(productId, metricHour);
     }
 
     public Long likeCount() {

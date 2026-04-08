@@ -10,6 +10,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
+
 @RequiredArgsConstructor
 @Component
 public class ProductMetricsFacade {
@@ -22,7 +27,8 @@ public class ProductMetricsFacade {
         if (eventHandledJpaRepository.existsById(payload.eventId())) {
             return;
         }
-        productMetricsRepository.upsertLike(payload.productId(), payload.delta());
+        LocalDateTime metricHour = toMetricHour(payload.occurredAt());
+        productMetricsRepository.upsertLike(payload.productId(), payload.delta(), metricHour);
         eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
     }
 
@@ -31,13 +37,21 @@ public class ProductMetricsFacade {
         if (eventHandledJpaRepository.existsById(payload.eventId())) {
             return;
         }
+        LocalDateTime metricHour = toMetricHour(payload.occurredAt());
         payload.items().forEach(item ->
-                productMetricsRepository.upsertOrder(item.productId(), item.quantity()));
+                productMetricsRepository.upsertOrder(item.productId(), item.quantity(), metricHour));
         eventHandledJpaRepository.save(EventHandled.of(payload.eventId()));
     }
 
     @Transactional
     public void applyView(ProductViewEventPayload payload) {
-        productMetricsRepository.upsertView(payload.productId());
+        LocalDateTime metricHour = toMetricHour(payload.occurredAt());
+        productMetricsRepository.upsertView(payload.productId(), metricHour);
+    }
+
+    private LocalDateTime toMetricHour(ZonedDateTime occurredAt) {
+        return occurredAt.withZoneSameInstant(ZoneOffset.UTC)
+                .truncatedTo(ChronoUnit.HOURS)
+                .toLocalDateTime();
     }
 }

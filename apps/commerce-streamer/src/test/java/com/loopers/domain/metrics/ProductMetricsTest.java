@@ -4,6 +4,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ProductMetricsTest {
@@ -16,7 +18,7 @@ class ProductMetricsTest {
         @Test
         void increasesLikeCount_whenDeltaIsPositive() {
             // arrange
-            ProductMetrics metrics = ProductMetrics.of(1L);
+            ProductMetrics metrics = ProductMetrics.of(1L, LocalDateTime.of(2026, 4, 8, 10, 0, 0));
 
             // act
             metrics.applyLike(1);
@@ -29,7 +31,7 @@ class ProductMetricsTest {
         @Test
         void decreasesLikeCount_whenDeltaIsNegative() {
             // arrange
-            ProductMetrics metrics = ProductMetrics.of(1L);
+            ProductMetrics metrics = ProductMetrics.of(1L, LocalDateTime.of(2026, 4, 8, 10, 0, 0));
             metrics.applyLike(1);
 
             // act
@@ -48,7 +50,7 @@ class ProductMetricsTest {
         @Test
         void increasesOrderCount_byQuantity() {
             // arrange
-            ProductMetrics metrics = ProductMetrics.of(1L);
+            ProductMetrics metrics = ProductMetrics.of(1L, LocalDateTime.of(2026, 4, 8, 10, 0, 0));
 
             // act
             metrics.applyOrder(3L);
