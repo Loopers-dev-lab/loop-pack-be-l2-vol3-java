@@ -9,6 +9,8 @@ import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortOrder;
+import com.loopers.domain.ranking.RankingQueryService;
+import com.loopers.domain.ranking.RankingRequestDate;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -16,14 +18,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 /**
  * 상품 유스케이스 조율.
- * 트랜잭션 경계, 도메인 결과 → ProductInfo 변환.
+ * 트랜잭션 경계, 도메인 결과 → Application Info({@link ProductInfo}, {@link ProductDetailInfo},
+ * {@link ProductListItemInfo}) 변환.
  * Controller는 Facade만 호출하며, request는 도메인 파라미터로 변환 후 Service에 전달한다.
  *
  * <p>
@@ -39,41 +44,72 @@ public class ProductFacade {
     private final ProductCacheService productCacheService;
     private final ApplicationEventPublisher eventPublisher;
     private final ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher;
+    private final RankingQueryService rankingQueryService;
 
     public ProductFacade(ProductService productService, BrandService brandService, LikeService likeService,
             ProductCacheService productCacheService,
             ApplicationEventPublisher eventPublisher,
-            ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher) {
+            ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher,
+            RankingQueryService rankingQueryService) {
         this.productService = productService;
         this.brandService = brandService;
         this.likeService = likeService;
         this.productCacheService = productCacheService;
         this.eventPublisher = eventPublisher;
         this.productViewOutboxAsyncPublisher = productViewOutboxAsyncPublisher;
+        this.rankingQueryService = rankingQueryService;
     }
 
+    /**
+     * 상품 등록
+     * @param brandId 브랜드 ID
+     * @param name 상품 이름
+     * @param price 상품 가격
+     * @param stockQuantity 상품 재고 수
+     * @return 상품 정보
+     */
     @Transactional
     public ProductInfo registerProduct(Long brandId, String name, BigDecimal price, int stockQuantity) {
         ProductModel product = productService.registerProduct(brandId, name, price, stockQuantity);
         return ProductInfo.from(product);
     }
 
+    /**
+     * 상품 조회
+     * @param id 상품 ID
+     * @return 상품 정보
+     */
     @Transactional(readOnly = true)
     public Optional<ProductInfo> findById(Long id) {
         return productService.findById(id).map(ProductInfo::from);
     }
 
+    /**
+     * 미삭제 상품 조회
+     * @param id 상품 ID
+     * @return 상품 정보
+     */
     @Transactional(readOnly = true)
     public Optional<ProductInfo> findByIdAndNotDeleted(Long id) {
         return productService.findByIdAndNotDeleted(id).map(ProductInfo::from);
     }
 
+    /**
+     * 상품 상세 조회
+     * @param productId 상품 ID
+     * @param dateYyyyMmDdOptional 랭킹 기준 일자 yyyyMMdd (생략 시 오늘, Asia/Seoul)
+     * @return 상품 상세 정보
+     */
     @Transactional(readOnly = true)
-    public Optional<ProductDetailInfo> getProductDetail(Long productId) {
+    public Optional<ProductDetailInfo> getProductDetail(Long productId, String dateYyyyMmDdOptional) {
+        // 랭킹 기준 일자를 해석한다.
+        LocalDate rankingDate = RankingRequestDate.resolveOptionalYyyyMmDd(dateYyyyMmDdOptional);
+        // 캐시에서 상품 상세 정보를 조회한다.
         Optional<ProductDetailInfo> cached = productCacheService.getDetail(productId);
         if (cached.isPresent()) {
             productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
-            return cached;
+            // 랭킹 순위를 계산한다.
+            return Optional.of(withDailyRankingRank(cached.get(), rankingDate, productId));
         }
         Optional<ProductModel> productOpt = productService.findByIdAndNotDeleted(productId);
         if (productOpt.isEmpty()) {
@@ -85,35 +121,72 @@ public class ProductFacade {
             return Optional.empty();
         }
         long likeCount = likeService.getLikeCountFromStats(productId);
-        ProductDetailInfo info = new ProductDetailInfo(
+        ProductDetailInfo forCache = new ProductDetailInfo(
                 product.getId(),
                 product.getBrandId(),
                 brandOpt.get().getName(),
                 product.getName(),
                 product.getPrice(),
                 product.getStockQuantity(),
-                likeCount);
-        productCacheService.putDetail(productId, info);
+                likeCount,
+                null);
+        productCacheService.putDetail(productId, forCache);
         productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
-        return Optional.of(info);
+        return Optional.of(withDailyRankingRank(forCache, rankingDate, productId));
     }
 
+    /**
+     * 랭킹 순위를 계산한다.
+     * @param base 기준 상품 상세 정보
+     * @param rankingDate 랭킹 기준 일자
+     * @param productId 상품 ID
+     * @return 랭킹 순위를 포함한 상품 상세 정보
+     */
+    private ProductDetailInfo withDailyRankingRank(ProductDetailInfo base, LocalDate rankingDate, long productId) {
+        // 랭킹 순위를 조회한다.
+        OptionalLong rank = rankingQueryService.findOneBasedDailyRank(rankingDate, productId);
+        // 랭킹 순위를 박싱한다.
+        Long rankBoxed = rank.isPresent() ? Long.valueOf(rank.getAsLong()) : null;
+        return new ProductDetailInfo(
+                base.id(),
+                base.brandId(),
+                base.brandName(),
+                base.name(),
+                base.price(),
+                base.stockQuantity(),
+                base.likeCount(),
+                rankBoxed);
+    }
+
+    /**
+     * 상품 목록 조회
+     * @param brandId 브랜드 ID
+     * @param sortParam 정렬 기준
+     * @param page 페이지 (0부터)
+     * @param size 페이지 크기
+     * @return 상품 목록 정보
+     */
     @Transactional(readOnly = true)
     public Page<ProductListItemInfo> getProductList(Long brandId, String sortParam, int page, int size) {
         if (page == 0) {
+            // 캐시에서 상품 목록 정보를 조회한다.
             Optional<Page<ProductListItemInfo>> cached = productCacheService.getList(brandId, sortParam, size);
             if (cached.isPresent()) {
                 return cached.get();
             }
         }
         ProductSortOrder sortOrder = ProductSortOrder.fromParam(sortParam);
+        // 미삭제 상품 목록을 조회한다.
         Page<ProductModel> productPage = productService.findNotDeletedForList(sortOrder, brandId, page, size);
+        // 상품 목록을 조회한다.
         List<ProductModel> products = productPage.getContent();
         if (products.isEmpty()) {
             return new PageImpl<>(List.of(), productPage.getPageable(), productPage.getTotalElements());
         }
         List<Long> productIds = products.stream().map(ProductModel::getId).toList();
+        // 좋아요 수를 조회한다.
         var likeCountMap = likeService.getLikeCountByProductIdsFromStats(productIds);
+        // 브랜드 ID 목록을 조회한다.
         List<Long> brandIds = products.stream().map(ProductModel::getBrandId).distinct().toList();
         Map<Long, BrandModel> brandMap = brandService.findByIdAndNotDeletedIn(brandIds);
         List<ProductListItemInfo> items = products.stream()
@@ -139,6 +212,14 @@ public class ProductFacade {
         return result;
     }
 
+    /**
+     * 상품 업데이트
+     * @param id 상품 ID
+     * @param name 상품 이름
+     * @param price 상품 가격
+     * @param stockQuantity 상품 재고 수
+     * @return 상품 정보
+     */
     @Transactional
     public ProductInfo updateProduct(Long id, String name, BigDecimal price, int stockQuantity) {
         ProductModel product = productService.updateProduct(id, name, price, stockQuantity);
@@ -146,6 +227,10 @@ public class ProductFacade {
         return ProductInfo.from(product);
     }
 
+    /**
+     * 상품 삭제
+     * @param id 상품 ID
+     */
     @Transactional
     public void deleteProduct(Long id) {
         productService.deleteProduct(id);
