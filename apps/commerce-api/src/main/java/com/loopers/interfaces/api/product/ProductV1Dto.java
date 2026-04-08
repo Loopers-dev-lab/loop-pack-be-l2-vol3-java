@@ -57,6 +57,7 @@ public class ProductV1Dto {
         }
     }
 
+    /** 상품 상세 응답 */
     public record DetailResponse(
         Long id,
         Long brandId,
@@ -64,7 +65,8 @@ public class ProductV1Dto {
         String name,
         BigDecimal price,
         int stockQuantity,
-        long likeCount
+        long likeCount,
+        Long rankingRank
     ) {
         public static DetailResponse from(ProductDetailInfo info) {
             if (info == null) {
@@ -77,7 +79,8 @@ public class ProductV1Dto {
                 info.name(),
                 info.price(),
                 info.stockQuantity(),
-                info.likeCount()
+                info.likeCount(),
+                info.rankingRank()
             );
         }
     }

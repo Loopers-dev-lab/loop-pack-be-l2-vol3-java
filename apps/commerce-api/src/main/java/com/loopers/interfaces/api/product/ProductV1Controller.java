@@ -36,9 +36,10 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     @GetMapping("/{productId}")
     @Override
     public ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> getProductDetail(
-        @PathVariable Long productId
+        @PathVariable Long productId,
+        @RequestParam(required = false) String date
     ) {
-        return productFacade.getProductDetail(productId)
+        return productFacade.getProductDetail(productId, date)
             .map(info -> ResponseEntity.ok(ApiResponse.success(ProductV1Dto.DetailResponse.from(info))))
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
     }
