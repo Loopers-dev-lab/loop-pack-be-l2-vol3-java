@@ -36,7 +36,8 @@ class RankingReconciliationServiceTest {
     void setUp() {
         reconciliationService = new RankingReconciliationService(
                 productMetricsJpaRepository,
-                rankingMetricsRedisSyncService
+                rankingMetricsRedisSyncService,
+                new RankingReconciliationProperties(false, "0 0 2 * * ?", "Asia/Seoul", 500)
         );
     }
 

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.RedisConnectionFailureException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -239,5 +240,29 @@ class RankingQueryServiceTest {
         assertThat(result.rows().get(0).productId()).isEqualTo(102L);
         assertThat(result.rows().get(1).rank()).isEqualTo(2);
         assertThat(result.rows().get(1).productId()).isEqualTo(101L);
+    }
+
+    @Test
+    @DisplayName("Redis 장애 시 랭킹 목록은 빈 결과로 성능저하 모드 응답한다.")
+    void loadPage_whenRedisUnavailable_shouldReturnEmptyDegradedPage() {
+        when(rankingReadRepository.count("ranking:all:20260326"))
+                .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        RankingPage result = rankingQueryService.loadPage(LocalDate.of(2026, 3, 26), 1, 20);
+
+        assertThat(result.totalElements()).isZero();
+        assertThat(result.totalPages()).isZero();
+        assertThat(result.rows()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Redis 장애 시 상품 상세 순위는 null 매핑 가능한 empty를 반환한다.")
+    void findOneBasedDailyRank_whenRedisUnavailable_shouldReturnEmpty() {
+        when(rankingReadRepository.findOneBasedReverseRank("ranking:all:20260326", "101"))
+                .thenThrow(new RedisConnectionFailureException("redis down"));
+
+        OptionalLong result = rankingQueryService.findOneBasedDailyRank(LocalDate.of(2026, 3, 26), 101L);
+
+        assertThat(result).isEmpty();
     }
 }

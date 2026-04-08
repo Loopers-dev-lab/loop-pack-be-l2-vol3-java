@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -41,6 +42,9 @@ class ProductEventCollectorDatabaseServiceTest {
     @Mock
     private RankingWriteRepository rankingWriteRepository;
 
+    @Mock
+    private KafkaTemplate<Object, Object> kafkaTemplate;
+
     private SimpleMeterRegistry meterRegistry;
     private ProductEventCollectorDatabaseService databaseService;
 
@@ -60,7 +64,9 @@ class ProductEventCollectorDatabaseServiceTest {
                 eventHandledJpaRepository,
                 productMetricsJpaRepository,
                 rankingSync,
-                meterRegistry
+                kafkaTemplate,
+                meterRegistry,
+                ".DLQ"
         );
     }
 
@@ -157,6 +163,31 @@ class ProductEventCollectorDatabaseServiceTest {
                 eq(301L), eq(2L), eq(Instant.parse("2026-03-26T00:00:00Z")));
         verify(productMetricsJpaRepository).applySoldDeltaIfNewer(
                 eq(302L), eq(1L), eq(Instant.parse("2026-03-26T00:00:00Z")));
+    }
+
+    @Test
+    @DisplayName("Redis 동기화 실패 시 DLQ 토픽으로 실패 이벤트를 발행한다.")
+    void processDb_whenRankingSyncFails_shouldPublishDlqMessage() {
+        ProductMetricsModel metrics = org.mockito.Mockito.mock(ProductMetricsModel.class);
+        when(metrics.getProductId()).thenReturn(101L);
+        when(metrics.getViewCount()).thenReturn(0L);
+        when(metrics.getLikeCount()).thenReturn(1L);
+        when(metrics.getSoldQuantity()).thenReturn(0L);
+        when(productMetricsJpaRepository.findById(101L)).thenReturn(Optional.of(metrics));
+        doThrow(new RuntimeException("redis down"))
+                .when(rankingWriteRepository).upsertScore(any(), any(), any(Double.class), any());
+
+        ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
+                "product-events",
+                0,
+                5L,
+                "101",
+                envelopeJson("evt-dlq-1", "PRODUCT_LIKE_CHANGED", "2026-03-26T00:00:00Z", 101L, "LIKED").getBytes()
+        );
+
+        databaseService.processDb(record, parse(record.value()));
+
+        verify(kafkaTemplate).send(eq("product-events.DLQ"), any());
     }
 
     private ProductEventEnvelope parse(Object value) {
