@@ -1,8 +1,21 @@
 ### 일간 랭킹 목록 (date 생략 시 오늘 Asia/Seoul)
+### 오프셋 페이징만 지원. 실시간 반영으로 동일 page 재요청 시 항목이 달라질 수 있음(design §4.2.6)
 GET http://localhost:8080/api/v1/rankings?page=1&size=20
 
 ### 일간 랭킹 목록 (특정 일자)
 GET http://localhost:8080/api/v1/rankings?date=20260408&page=1&size=20
 
+### 다음 페이지 (오프셋 연속 구간)
+GET http://localhost:8080/api/v1/rankings?date=20260408&page=2&size=20
+
+### 마지막 페이지를 넘긴 요청 (빈 content, totalElements/totalPages 유지)
+GET http://localhost:8080/api/v1/rankings?date=20260408&page=999&size=20
+
 ### 잘못된 date (400 기대)
 GET http://localhost:8080/api/v1/rankings?date=invalid&page=1&size=20
+
+### size > 100 (400 기대, 상한 design §4.2.6)
+GET http://localhost:8080/api/v1/rankings?date=20260408&page=1&size=101
+
+### page < 1 (400 기대)
+GET http://localhost:8080/api/v1/rankings?date=20260408&page=0&size=20
