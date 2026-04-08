@@ -2,6 +2,7 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandAppService;
 import com.loopers.application.like.LikeAppService;
+import com.loopers.application.ranking.RankingAppService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.common.Money;
 import com.loopers.domain.product.Option;
@@ -19,6 +20,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -31,6 +33,7 @@ class ProductFacadeTest {
     private ProductAppService productAppService;
     private BrandAppService brandAppService;
     private LikeAppService likeAppService;
+    private RankingAppService rankingAppService;
     private ApplicationEventPublisher eventPublisher;
 
     @BeforeEach
@@ -38,8 +41,9 @@ class ProductFacadeTest {
         productAppService = mock(ProductAppService.class);
         brandAppService = mock(BrandAppService.class);
         likeAppService = mock(LikeAppService.class);
+        rankingAppService = mock(RankingAppService.class);
         eventPublisher = mock(ApplicationEventPublisher.class);
-        productFacade = new ProductFacade(productAppService, brandAppService, likeAppService, eventPublisher);
+        productFacade = new ProductFacade(productAppService, brandAppService, likeAppService, rankingAppService, eventPublisher);
     }
 
     @Nested
@@ -77,6 +81,7 @@ class ProductFacadeTest {
             given(productAppService.getProductDetailCached(productId)).willReturn(cachedDetail);
             given(brandAppService.getById(brandId)).willReturn(brand);
             given(likeAppService.isLikedByUser(userId, productId)).willReturn(true);
+            given(rankingAppService.getProductRank(any(), eq(productId))).willReturn(3L);
 
             // when
             ProductInfo result = productFacade.getProductDetail(productId, userId);
@@ -86,6 +91,7 @@ class ProductFacadeTest {
             assertThat(result.getBrandName()).isEqualTo("테스트 브랜드");
             assertThat(result.getLikeCount()).isEqualTo(42L);
             assertThat(result.isLikedByUser()).isTrue();
+            assertThat(result.getRank()).isEqualTo(3L);
             assertThat(result.getOptions()).hasSize(1);
         }
 
@@ -112,12 +118,14 @@ class ProductFacadeTest {
 
             given(productAppService.getProductDetailCached(productId)).willReturn(cachedDetail);
             given(brandAppService.getById(brandId)).willReturn(brand);
+            given(rankingAppService.getProductRank(any(), eq(productId))).willReturn(null);
 
             // when
             ProductInfo result = productFacade.getProductDetail(productId, null);
 
             // then
             assertThat(result.isLikedByUser()).isFalse();
+            assertThat(result.getRank()).isNull();
             verify(likeAppService, never()).isLikedByUser(any(), any());
         }
     }
