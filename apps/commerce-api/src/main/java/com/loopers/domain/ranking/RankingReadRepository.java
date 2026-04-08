@@ -1,6 +1,7 @@
 package com.loopers.domain.ranking;
 
 import java.util.List;
+import java.util.OptionalLong;
 
 /**
  * 일간 랭킹 ZSET 읽기 포트. 구현체는 infrastructure.
@@ -15,4 +16,10 @@ public interface RankingReadRepository {
 
     /** 점수 내림차순, 인덱스 [start, end] (0부터, 양 끝 포함). */
     List<RankingZsetEntry> findReverseRangeWithScores(String key, long start, long end);
+
+    /**
+     * 점수 내림차순 기준 전역 순위(1-based). 최고점이 1위.
+     * ZSET에 member가 없으면 empty를 반환한다.
+     */
+    OptionalLong findOneBasedReverseRank(String key, String member);
 }

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
 
 /**
  * 일간 랭킹 조회: Redis ZSET에서 <strong>상품 ID·score</strong>만 가져온 뒤, 상품·브랜드·좋아요 집계를 조합한다(Hydration).
@@ -127,6 +128,25 @@ public class RankingQueryService {
         }
         // 랭킹 목록 아이템 목록을 페이지 결과로 변환한다.
         return new RankingPage(rows, pageOneBased, size, total, totalPages);
+    }
+
+    /**
+     * 일간 랭킹 ZSET에서 상품의 전역 순위(1-based, 점수 내림차순)를 조회한다.
+     * <p>
+     * member 규칙은 쓰기 경로와 동일하게 {@code String.valueOf(productId)}이다.
+     *
+     * @param rankingDate 랭킹 일자
+     * @param productId   상품 ID (양수)
+     * @return 순위가 있으면 값, ZSET 미등록 시 empty
+     * @throws CoreException {@code productId <= 0}
+     */
+    public OptionalLong findOneBasedDailyRank(LocalDate rankingDate, long productId) {
+        if (productId <= 0L) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "productId must be positive");
+        }
+        String key = RankingKey.dailyAll(rankingDate);
+        String member = String.valueOf(productId);
+        return rankingReadRepository.findOneBasedReverseRank(key, member);
     }
 
     /**
