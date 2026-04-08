@@ -96,6 +96,10 @@ public class ProductFacade {
 
     /**
      * 상품 상세 조회
+     * <p>
+     * 응답의 {@code rankingRank}는 이 요청 시점에 Redis ZSET에서 조회한 값이다. 랭킹 목록 API와 날짜가 같아도
+     * 호출 시점이 다르면 ZSET이 갱신되어 목록에 표시된 순위와 숫자가 어긋날 수 있다(오류가 아님).
+     *
      * @param productId 상품 ID
      * @param dateYyyyMmDdOptional 랭킹 기준 일자 yyyyMMdd (생략 시 오늘, Asia/Seoul)
      * @return 상품 상세 정보
@@ -108,7 +112,6 @@ public class ProductFacade {
         Optional<ProductDetailInfo> cached = productCacheService.getDetail(productId);
         if (cached.isPresent()) {
             productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
-            // 랭킹 순위를 계산한다.
             return Optional.of(withDailyRankingRank(cached.get(), rankingDate, productId));
         }
         Optional<ProductModel> productOpt = productService.findByIdAndNotDeleted(productId);
@@ -136,7 +139,11 @@ public class ProductFacade {
     }
 
     /**
-     * 랭킹 순위를 계산한다.
+     * 상세 응답에 일간 랭킹 순위를 붙인다({@code ZREVRANK} 기준).
+     * <p>
+     * 목록 API와 같은 일자·전역 순위를 쓰지만, 각 API가 서로 다른 HTTP 요청에서 ZSET을 읽으므로
+     * 동일 스냅샷을 보장하지 않는다.
+     *
      * @param base 기준 상품 상세 정보
      * @param rankingDate 랭킹 기준 일자
      * @param productId 상품 ID
