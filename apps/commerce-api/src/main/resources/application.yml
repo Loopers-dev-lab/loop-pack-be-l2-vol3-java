@@ -102,6 +102,8 @@ queue:
 ranking:
   key-prefix: "ranking:all"
   ttl-days: 2
+  hourly-key-prefix: "ranking:hourly"
+  hourly-ttl-hours: 4
 
 springdoc:
   use-fqn: true

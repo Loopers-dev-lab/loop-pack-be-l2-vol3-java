@@ -29,17 +29,19 @@ public class RankingController {
     /**
      * 랭킹 페이지 조회
      *
-     * @param date 조회 날짜 (yyyyMMdd). 미지정 시 오늘(KST)
-     * @param size 페이지 크기 (default: 20)
-     * @param page 페이지 번호, 1-based (default: 1)
+     * @param period 조회 기간 ("daily" 또는 "hourly"). 미지정 시 daily
+     * @param date   조회 날짜. daily=yyyyMMdd, hourly=yyyyMMddHH. 미지정 시 현재
+     * @param size   페이지 크기 (default: 20)
+     * @param page   페이지 번호, 1-based (default: 1)
      */
     @GetMapping
     public ApiResponse<RankingResponse.RankingPageResponse> getRankings(
+            @RequestParam(defaultValue = "daily") String period,
             @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "1") int page
     ) {
-        RankingPageResult result = rankingFacade.getRankings(date, page, size);
+        RankingPageResult result = rankingFacade.getRankings(period, date, page, size);
 
         List<RankingResponse.RankingItem> items = result.items().stream()
                 .map(RankingResponse.RankingItem::from)

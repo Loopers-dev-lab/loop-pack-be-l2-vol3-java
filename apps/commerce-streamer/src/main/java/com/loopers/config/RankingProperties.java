@@ -23,6 +23,8 @@ public class RankingProperties {
     private Weights weights = new Weights();
     private String keyPrefix = "ranking:all";
     private int ttlDays = 2;
+    private String hourlyKeyPrefix = "ranking:hourly";
+    private int hourlyTtlHours = 4;
 
     public Weights getWeights() {
         return weights;
@@ -46,6 +48,22 @@ public class RankingProperties {
 
     public void setTtlDays(int ttlDays) {
         this.ttlDays = ttlDays;
+    }
+
+    public String getHourlyKeyPrefix() {
+        return hourlyKeyPrefix;
+    }
+
+    public void setHourlyKeyPrefix(String hourlyKeyPrefix) {
+        this.hourlyKeyPrefix = hourlyKeyPrefix;
+    }
+
+    public int getHourlyTtlHours() {
+        return hourlyTtlHours;
+    }
+
+    public void setHourlyTtlHours(int hourlyTtlHours) {
+        this.hourlyTtlHours = hourlyTtlHours;
     }
 
     public static class Weights {

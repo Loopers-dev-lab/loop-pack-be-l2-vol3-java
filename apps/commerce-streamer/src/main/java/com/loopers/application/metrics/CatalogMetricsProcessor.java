@@ -13,6 +13,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
  * 카탈로그 메트릭 처리 — @Transactional 보장
  *
@@ -30,6 +34,10 @@ import org.springframework.transaction.annotation.Transactional;
  *   product_metrics.like_count + products.like_count를 같은 TX에서 업데이트.
  *   LikeFacade에서 products.like_count 직접 증분을 제거하고,
  *   이 Processor가 단일 파이프라인으로 두 테이블을 동기화한다.
+ *
+ * 랭킹 점수 (R9 배치 정제):
+ *   기존 afterCommit 건별 Redis 호출 → ProcessResult에 delta를 담아 Consumer에 반환.
+ *   Consumer가 배치 내 동일 상품 delta를 합산 후 Pipeline으로 일괄 flush.
  */
 @Service
 public class CatalogMetricsProcessor {
@@ -57,14 +65,14 @@ public class CatalogMetricsProcessor {
     /**
      * 메트릭 이벤트 처리 — 같은 TX에서 increment + 멱등성 기록
      *
-     * @return true = 처리됨, false = 중복 스킵
+     * @return ProcessResult: 처리 여부 + 랭킹 delta 목록 (Consumer가 배치 합산에 사용)
      */
     @Transactional
-    public boolean process(String eventType, String outboxId, String payload) {
+    public ProcessResult process(String eventType, String outboxId, String payload) {
         // 멱등성 체크 — increment는 멱등하지 않으므로 반드시 중복 방지
         if (outboxId != null && eventHandledRepository.existsByEventId(outboxId)) {
             log.warn("[MetricsProcessor] 중복 스킵 — outboxId={}", outboxId);
-            return false;
+            return ProcessResult.skipped();
         }
 
         JsonNode node;
@@ -72,7 +80,7 @@ public class CatalogMetricsProcessor {
             node = objectMapper.readTree(payload);
         } catch (Exception e) {
             log.error("[MetricsProcessor] JSON 파싱 실패 — payload={}", payload, e);
-            return false;
+            return ProcessResult.skipped();
         }
 
         switch (eventType) {
@@ -82,46 +90,55 @@ public class CatalogMetricsProcessor {
             case "OrderItemSoldEvent" -> handleOrderItemSold(node);
             default -> {
                 log.warn("[MetricsProcessor] 알 수 없는 eventType={}", eventType);
-                return false;
+                return ProcessResult.skipped();
             }
         }
 
-        // 랭킹 점수 반영 — TX 커밋 후 실행 (afterCommit 콜백 등록)
-        registerRankingUpdates(eventType, node);
+        // 랭킹 delta 추출 — Consumer가 배치 합산에 사용
+        List<RankingDelta> deltas = extractRankingDeltas(eventType, node);
 
         // 멱등성 기록 — increment와 같은 TX (핵심!)
         if (outboxId != null) {
             eventHandledRepository.save(EventHandledEntity.of(outboxId, "catalog-events-v1"));
         }
 
-        return true;
+        return ProcessResult.processed(deltas);
     }
 
     /**
-     * 이벤트 타입에 따라 랭킹 점수 afterCommit 콜백을 등록한다.
+     * 이벤트에서 랭킹 delta를 추출한다.
      *
-     * 기존 handler 메서드를 변경하지 않고, 랭킹 관심사를 별도로 처리한다.
-     * OrderItemSoldEvent는 productQtyMap에 여러 상품이 있을 수 있으므로 각각 등록한다.
+     * OrderItemSoldEvent는 productQtyMap에 여러 상품이 있을 수 있으므로 각각 추출한다.
+     * delta 계산은 RankingScoreUpdater.calculateDelta() — 순수 함수.
      */
-    private void registerRankingUpdates(String eventType, JsonNode node) {
-        switch (eventType) {
+    private List<RankingDelta> extractRankingDeltas(String eventType, JsonNode node) {
+        double delta = rankingScoreUpdater.calculateDelta(eventType);
+        if (delta == 0.0) {
+            return Collections.emptyList();
+        }
+
+        return switch (eventType) {
             case "ProductViewedEvent", "ProductLikedEvent", "ProductUnlikedEvent" -> {
                 long productId = node.path("productId").asLong(0);
                 if (productId > 0) {
-                    rankingScoreUpdater.registerAfterCommit(eventType, productId);
+                    yield List.of(new RankingDelta(productId, delta));
                 }
+                yield Collections.emptyList();
             }
             case "OrderItemSoldEvent" -> {
                 JsonNode productQtyMap = node.path("productQtyMap");
-                if (!productQtyMap.isMissingNode() && productQtyMap.isObject()) {
-                    productQtyMap.fieldNames().forEachRemaining(key -> {
-                        long productId = Long.parseLong(key);
-                        rankingScoreUpdater.registerAfterCommit(eventType, productId);
-                    });
+                if (productQtyMap.isMissingNode() || !productQtyMap.isObject()) {
+                    yield Collections.emptyList();
                 }
+                List<RankingDelta> deltas = new ArrayList<>();
+                productQtyMap.fieldNames().forEachRemaining(key -> {
+                    long productId = Long.parseLong(key);
+                    deltas.add(new RankingDelta(productId, delta));
+                });
+                yield deltas;
             }
-            default -> { /* 알 수 없는 이벤트 — 랭킹 반영 없음 */ }
-        }
+            default -> Collections.emptyList();
+        };
     }
 
     private void handleProductViewed(JsonNode node) {
@@ -181,4 +198,23 @@ public class CatalogMetricsProcessor {
         return productMetricsRepository.findById(productId)
                 .orElseGet(() -> productMetricsRepository.save(ProductMetricsEntity.create(productId)));
     }
+
+    /**
+     * 메트릭 처리 결과 — 처리 여부 + 랭킹 delta 목록
+     */
+    public record ProcessResult(boolean processed, List<RankingDelta> deltas) {
+
+        public static ProcessResult processed(List<RankingDelta> deltas) {
+            return new ProcessResult(true, deltas);
+        }
+
+        public static ProcessResult skipped() {
+            return new ProcessResult(false, Collections.emptyList());
+        }
+    }
+
+    /**
+     * 랭킹 점수 변화량 — Consumer가 배치 합산에 사용
+     */
+    public record RankingDelta(long productId, double delta) {}
 }

@@ -5,32 +5,37 @@ import com.loopers.infrastructure.ranking.RankingRedisRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 랭킹 점수 업데이트 — TX 커밋 후 실행
+ * 랭킹 점수 계산 + 배치 flush
  *
- * ProductCacheManager의 registerEvictAfterCommit() 패턴을 따른다:
- * - DB TX 안에서 콜백을 등록하고, 커밋 확정 후에 Redis 작업을 실행
- * - TX 롤백 시 Redis 작업 미실행 → phantom/double increment 방지
- * - Redis 실패 시 best-effort 누락 (at-most-once, 랭킹 도메인에 적합)
+ * 역할 전환 (R9 배치 정제):
+ * - [Before] 건별 afterCommit 콜백 등록자 — TX 커밋마다 ZINCRBY 1회
+ * - [After]  순수 delta 계산 + 배치 flush — Consumer가 합산한 Map을 받아 Pipeline 적재
  *
- * dual-write 문제에서 at-most-once를 선택한 근거:
- * - 랭킹은 일일 리셋 + 가중합 + 근사치 허용 도메인
- * - over-count(가짜 인기)가 under-count(소폭 누락)보다 나쁨
+ * afterCommit을 제거한 근거:
+ * - afterCommit은 건별 TX 커밋마다 Redis 호출 → 배치 합산 불가
+ * - Consumer에서 process() 성공 = DB TX 커밋 완료 → delta 수집 시점이 안전
+ * - at-most-once 보장 유지: process() 실패 시 delta 미수집
+ *
+ * 시간 단위 랭킹:
+ * - flushBatch()에서 일간 키 + 시간 키 둘 다에 적재
+ * - 시간 키 포맷: ranking:hourly:yyyyMMddHH (KST)
  */
 @Component
 public class RankingScoreUpdater {
 
     private static final Logger log = LoggerFactory.getLogger(RankingScoreUpdater.class);
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter DAILY_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter HOURLY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
     private final RankingRedisRepository rankingRedisRepository;
     private final RankingProperties rankingProperties;
@@ -42,36 +47,11 @@ public class RankingScoreUpdater {
     }
 
     /**
-     * TX 커밋 후 랭킹 점수 반영을 등록한다.
+     * 이벤트 타입에 대한 랭킹 delta를 계산한다 (순수 함수).
      *
-     * @param eventType 이벤트 타입 (e.g., "ProductViewedEvent")
-     * @param productId 대상 상품 ID
+     * @return delta 값. 알 수 없는 이벤트면 0.0
      */
-    public void registerAfterCommit(String eventType, Long productId) {
-        double delta = calculateDelta(eventType);
-        if (delta == 0.0) {
-            return;
-        }
-
-        String key = generateTodayKey();
-        long ttlSeconds = TimeUnit.DAYS.toSeconds(rankingProperties.getTtlDays());
-
-        TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        try {
-                            rankingRedisRepository.incrementScore(key, productId, delta, ttlSeconds);
-                        } catch (Exception e) {
-                            log.warn("[Ranking] 점수 반영 실패 — key={}, productId={}, delta={}, best-effort 누락",
-                                    key, productId, delta, e);
-                        }
-                    }
-                }
-        );
-    }
-
-    private double calculateDelta(String eventType) {
+    public double calculateDelta(String eventType) {
         RankingProperties.Weights weights = rankingProperties.getWeights();
         return switch (eventType) {
             case "ProductViewedEvent" -> weights.getView();
@@ -82,8 +62,40 @@ public class RankingScoreUpdater {
         };
     }
 
-    private String generateTodayKey() {
-        String today = LocalDate.now(KST).format(DATE_FORMAT);
+    /**
+     * 배치 합산된 점수를 일간 + 시간 키에 일괄 적재한다.
+     *
+     * Consumer가 배치 루프에서 합산한 Map<productId, totalDelta>를 받아
+     * Redis Pipeline으로 ZINCRBY를 실행한다.
+     *
+     * @param scores 상품별 합산 점수 (productId → totalDelta)
+     */
+    public void flushBatch(Map<Long, Double> scores) {
+        if (scores.isEmpty()) {
+            return;
+        }
+
+        try {
+            String dailyKey = generateDailyKey();
+            long dailyTtl = TimeUnit.DAYS.toSeconds(rankingProperties.getTtlDays());
+            rankingRedisRepository.incrementScoreBatch(dailyKey, scores, dailyTtl);
+
+            String hourlyKey = generateHourlyKey();
+            long hourlyTtl = TimeUnit.HOURS.toSeconds(rankingProperties.getHourlyTtlHours());
+            rankingRedisRepository.incrementScoreBatch(hourlyKey, scores, hourlyTtl);
+        } catch (Exception e) {
+            log.warn("[Ranking] 배치 flush 실패 — products={}건, best-effort 누락",
+                    scores.size(), e);
+        }
+    }
+
+    private String generateDailyKey() {
+        String today = LocalDate.now(KST).format(DAILY_FORMAT);
         return rankingProperties.getKeyPrefix() + ":" + today;
+    }
+
+    private String generateHourlyKey() {
+        String hour = LocalDateTime.now(KST).format(HOURLY_FORMAT);
+        return rankingProperties.getHourlyKeyPrefix() + ":" + hour;
     }
 }

@@ -12,6 +12,7 @@ import com.loopers.infrastructure.ranking.RankingRedisRepository.RankingEntry;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -26,6 +27,10 @@ import java.util.stream.Collectors;
  *
  * Redis ZSET 랭킹 데이터 + Product + Brand를 조합하여 랭킹 API 응답을 구성한다.
  *
+ * 일간(daily) + 시간(hourly) 두 가지 period를 지원한다:
+ * - daily: ranking:all:yyyyMMdd (일간 인기 상품)
+ * - hourly: ranking:hourly:yyyyMMddHH (지금 뜨는 상품)
+ *
  * @Transactional 미사용:
  * - Redis 조회는 TX 불필요
  * - ProductService, BrandService가 자체 @Transactional 관리
@@ -35,7 +40,8 @@ import java.util.stream.Collectors;
 public class RankingFacade {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter DAILY_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter HOURLY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
     private static final Set<ProductStatus> DISPLAYABLE_STATUSES = Set.of(
             ProductStatus.ACTIVE, ProductStatus.SOLDOUT
     );
@@ -64,23 +70,28 @@ public class RankingFacade {
      * 비활성 상품(HIDDEN, DISCONTINUED)은 응답에서 제외된다.
      * 이로 인해 페이지 내 항목 수가 요청 size보다 적을 수 있다.
      *
-     * @param date 조회 날짜 (yyyyMMdd). null이면 오늘(KST)
-     * @param page 페이지 번호 (1-based)
-     * @param size 페이지 크기
+     * 콜드 스타트 fallback:
+     * - daily: 오늘 키 비어있고 date 미지정 → 어제 키
+     * - hourly: 현재 시간 키 비어있고 date 미지정 → 직전 시간 키
+     *
+     * @param period 조회 기간 ("daily" 또는 "hourly"). null이면 daily
+     * @param date   조회 날짜. daily=yyyyMMdd, hourly=yyyyMMddHH. null이면 현재
+     * @param page   페이지 번호 (1-based)
+     * @param size   페이지 크기
      */
-    public RankingPageResult getRankings(String date, int page, int size) {
-        String key = buildKey(date);
+    public RankingPageResult getRankings(String period, String date, int page, int size) {
+        boolean isHourly = "hourly".equalsIgnoreCase(period);
+        String key = buildKey(isHourly, date);
 
         long totalCount = rankingRedisRepository.getSize(key);
 
-        // 콜드 스타트 fallback: 오늘 키가 비어있고 날짜 미지정(오늘)이면 어제로 시도
+        // 콜드 스타트 fallback: 키가 비어있고 날짜 미지정이면 이전 윈도우로 시도
         if (totalCount == 0 && (date == null || date.isBlank())) {
-            String yesterdayKey = buildKey(
-                    LocalDate.now(KST).minusDays(1).format(DATE_FORMAT));
-            long yesterdayCount = rankingRedisRepository.getSize(yesterdayKey);
-            if (yesterdayCount > 0) {
-                key = yesterdayKey;
-                totalCount = yesterdayCount;
+            String fallbackKey = buildFallbackKey(isHourly);
+            long fallbackCount = rankingRedisRepository.getSize(fallbackKey);
+            if (fallbackCount > 0) {
+                key = fallbackKey;
+                totalCount = fallbackCount;
             }
         }
 
@@ -124,7 +135,7 @@ public class RankingFacade {
      * @return (1-based 순위, 점수). ZSET에 없으면 null.
      */
     public ProductRankInfo getProductRank(Long productId) {
-        String key = buildKey(null);
+        String key = buildKey(false, null);
 
         Long zeroBasedRank = rankingRedisRepository.getRank(key, productId);
         if (zeroBasedRank == null) {
@@ -156,11 +167,34 @@ public class RankingFacade {
                 .collect(Collectors.toMap(Brand::getId, Brand::getName));
     }
 
-    private String buildKey(String date) {
-        if (date == null || date.isBlank()) {
-            date = LocalDate.now(KST).format(DATE_FORMAT);
+    /**
+     * period와 date에 따라 ZSET 키를 생성한다.
+     */
+    private String buildKey(boolean isHourly, String date) {
+        if (isHourly) {
+            if (date == null || date.isBlank()) {
+                date = LocalDateTime.now(KST).format(HOURLY_FORMAT);
+            }
+            return rankingProperties.getHourlyKeyPrefix() + ":" + date;
+        } else {
+            if (date == null || date.isBlank()) {
+                date = LocalDate.now(KST).format(DAILY_FORMAT);
+            }
+            return rankingProperties.getKeyPrefix() + ":" + date;
         }
-        return rankingProperties.getKeyPrefix() + ":" + date;
+    }
+
+    /**
+     * 콜드 스타트 fallback 키: daily → 어제, hourly → 직전 시간
+     */
+    private String buildFallbackKey(boolean isHourly) {
+        if (isHourly) {
+            String prevHour = LocalDateTime.now(KST).minusHours(1).format(HOURLY_FORMAT);
+            return rankingProperties.getHourlyKeyPrefix() + ":" + prevHour;
+        } else {
+            String yesterday = LocalDate.now(KST).minusDays(1).format(DAILY_FORMAT);
+            return rankingProperties.getKeyPrefix() + ":" + yesterday;
+        }
     }
 
     public record RankingPageResult(
