@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
 
@@ -56,6 +58,30 @@ public class RankingRedisRepository implements RankingRepository {
         if (Boolean.FALSE.equals(hasKey)) {
             redisTemplate.expire(key, TTL);
         }
+    }
+
+    @Override
+    public void addAllToShadow(LocalDate date, Map<Long, Double> productScores) {
+        String shadowKey = RankingKeyGenerator.shadowKey(date);
+        redisTemplate.delete(shadowKey);
+        Set<org.springframework.data.redis.core.ZSetOperations.TypedTuple<String>> tuples =
+                new java.util.HashSet<>();
+        for (Map.Entry<Long, Double> entry : productScores.entrySet()) {
+            tuples.add(new org.springframework.data.redis.core.DefaultTypedTuple<>(
+                    String.valueOf(entry.getKey()), entry.getValue()));
+        }
+        if (!tuples.isEmpty()) {
+            redisTemplate.opsForZSet().add(shadowKey, tuples);
+            redisTemplate.expire(shadowKey, TTL);
+        }
+    }
+
+    @Override
+    public void renameShadowToMain(LocalDate date) {
+        String shadowKey = RankingKeyGenerator.shadowKey(date);
+        String mainKey = RankingKeyGenerator.dailyKey(date);
+        redisTemplate.rename(shadowKey, mainKey);
+        redisTemplate.expire(mainKey, TTL);
     }
 
     @Override

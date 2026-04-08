@@ -1,6 +1,7 @@
 package com.loopers.domain.ranking;
 
 import java.time.LocalDate;
+import java.util.Map;
 
 public interface RankingRepository {
     void incrementScore(LocalDate date, Long productDbId, double score);
@@ -12,4 +13,8 @@ public interface RankingRepository {
      * @return carry-over된 멤버 수
      */
     long carryOver(LocalDate sourceDate, LocalDate destDate, double weight);
+
+    void addAllToShadow(LocalDate date, Map<Long, Double> productScores);
+
+    void renameShadowToMain(LocalDate date);
 }
