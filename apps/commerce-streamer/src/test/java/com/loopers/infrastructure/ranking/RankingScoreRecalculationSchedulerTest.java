@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.ranking;
 
-import com.loopers.application.ranking.RankingAppService;
+import com.loopers.domain.metrics.ProductDailyMetricsRepository;
+import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -11,8 +12,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,7 +25,7 @@ class RankingScoreRecalculationSchedulerTest {
     private RankingScoreRecalculationScheduler scheduler;
 
     @Autowired
-    private RankingAppService rankingAppService;
+    private ProductDailyMetricsRepository dailyMetricsRepository;
 
     @Autowired
     @Qualifier("redisTemplateMaster")
@@ -33,25 +34,29 @@ class RankingScoreRecalculationSchedulerTest {
     @Autowired
     private RedisCleanUp redisCleanUp;
 
-    private final String date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+    @Autowired
+    private DatabaseCleanUp databaseCleanUp;
+
+    private final LocalDate today = LocalDate.now();
+    private final String date = today.format(DateTimeFormatter.BASIC_ISO_DATE);
     private final String allKey = "ranking:all:" + date;
+    private final ZonedDateTime now = ZonedDateTime.now();
 
     @AfterEach
     void tearDown() {
         redisCleanUp.truncateAll();
+        databaseCleanUp.truncateAllTables();
     }
 
     @Test
     @DisplayName("재계산 후 ranking:all 키에 타이브레이커가 포함된 점수가 기록된다")
     void recalculate_writesToAllKey() {
-        // given: 상품 2개, 같은 주문 1건씩
-        rankingAppService.updateOrderRanking(List.of(101L), 10000);
-        rankingAppService.updateOrderRanking(List.of(202L), 10000);
-
-        // 상품101: 조회 3번 추가 → 조회수 높음
-        rankingAppService.updateViewRanking(101L);
-        rankingAppService.updateViewRanking(101L);
-        rankingAppService.updateViewRanking(101L);
+        // given: 상품 2개, 같은 주문금액 + 상품101은 조회수 높음
+        dailyMetricsRepository.upsertOrderAmount(101L, today, 10000, now);
+        dailyMetricsRepository.upsertOrderAmount(202L, today, 10000, now);
+        dailyMetricsRepository.upsertViewCount(101L, today, now);
+        dailyMetricsRepository.upsertViewCount(101L, today, now);
+        dailyMetricsRepository.upsertViewCount(101L, today, now);
 
         // when
         scheduler.recalculate();
@@ -70,11 +75,11 @@ class RankingScoreRecalculationSchedulerTest {
     @Test
     @DisplayName("메인 점수가 다르면 정수부 차이로 순위가 결정된다")
     void recalculate_mainScoreDominates() {
-        // given: 상품101=주문3건, 상품202=조회1건
-        rankingAppService.updateOrderRanking(List.of(101L), 10000);
-        rankingAppService.updateOrderRanking(List.of(101L), 10000);
-        rankingAppService.updateOrderRanking(List.of(101L), 10000);
-        rankingAppService.updateViewRanking(202L);
+        // given: 상품101=주문 3건(10000원씩), 상품202=조회 1건
+        dailyMetricsRepository.upsertOrderAmount(101L, today, 10000, now);
+        dailyMetricsRepository.upsertOrderAmount(101L, today, 10000, now);
+        dailyMetricsRepository.upsertOrderAmount(101L, today, 10000, now);
+        dailyMetricsRepository.upsertViewCount(202L, today, now);
 
         // when
         scheduler.recalculate();
@@ -85,12 +90,11 @@ class RankingScoreRecalculationSchedulerTest {
 
         assertThat(score101).isNotNull();
         assertThat(score202).isNotNull();
-        // 메인 점수: 101=floor(3*0.6)=1, 202=floor(1*0.1)=0
         assertThat(Math.floor(score101)).isGreaterThan(Math.floor(score202));
     }
 
     @Test
-    @DisplayName("raw 데이터가 없으면 재계산을 건너뛴다")
+    @DisplayName("DB에 데이터가 없으면 재계산을 건너뛴다")
     void recalculate_emptyData() {
         scheduler.recalculate();
 
@@ -101,7 +105,7 @@ class RankingScoreRecalculationSchedulerTest {
     @Test
     @DisplayName("재계산 후 ranking:all 키에 TTL이 설정된다")
     void recalculate_ttlSet() {
-        rankingAppService.updateViewRanking(101L);
+        dailyMetricsRepository.upsertViewCount(101L, today, now);
 
         scheduler.recalculate();
 
@@ -114,10 +118,10 @@ class RankingScoreRecalculationSchedulerTest {
     @DisplayName("주문 1건(10000원)이 좋아요 3건보다 높은 순위를 가진다")
     void recalculate_orderBeatsLikes() {
         // given: 상품101=주문 1건(10000원), 상품202=좋아요 3건
-        rankingAppService.updateOrderRanking(List.of(101L), 10000);
-        rankingAppService.updateLikeRanking(202L);
-        rankingAppService.updateLikeRanking(202L);
-        rankingAppService.updateLikeRanking(202L);
+        dailyMetricsRepository.upsertOrderAmount(101L, today, 10000, now);
+        dailyMetricsRepository.upsertLikeCount(202L, today, 1, now);
+        dailyMetricsRepository.upsertLikeCount(202L, today, 1, now);
+        dailyMetricsRepository.upsertLikeCount(202L, today, 1, now);
 
         // when
         scheduler.recalculate();
@@ -135,11 +139,11 @@ class RankingScoreRecalculationSchedulerTest {
     @DisplayName("전일 ranking:all 점수가 carry-over로 반영된다")
     void recalculate_withCarryOver() {
         // given: 전일 점수 세팅
-        String yesterdayAllKey = "ranking:all:" + LocalDate.now().minusDays(1).format(DateTimeFormatter.BASIC_ISO_DATE);
+        String yesterdayAllKey = "ranking:all:" + today.minusDays(1).format(DateTimeFormatter.BASIC_ISO_DATE);
         redisTemplate.opsForZSet().add(yesterdayAllKey, "101", 10.0);
 
         // 오늘 조회 1건
-        rankingAppService.updateViewRanking(101L);
+        dailyMetricsRepository.upsertViewCount(101L, today, now);
 
         // when
         scheduler.recalculate();
