@@ -43,7 +43,7 @@ public class RankingAppService {
     }
 
     private List<RankingEntry> fetchFromZSet(String key, int page, int size) {
-        long start = (long) page * size;
+        long start = (long) Math.max(page, 0) * size;
         long end = start + size - 1;
 
         Set<ZSetOperations.TypedTuple<String>> tuples =
