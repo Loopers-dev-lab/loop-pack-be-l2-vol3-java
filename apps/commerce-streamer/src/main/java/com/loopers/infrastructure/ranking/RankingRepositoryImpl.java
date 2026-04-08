@@ -7,18 +7,25 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.redis.core.RedisCallback;
+
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 @Repository
 @Slf4j
 public class RankingRepositoryImpl implements RankingRepository {
 
     private static final String RANKING_KEY_PREFIX = "ranking:all:";
+    private static final String HOURLY_KEY_PREFIX = "ranking:hourly:";
     private static final String LIKED_KEY_PREFIX = "ranking:liked:";
     private static final Duration TTL = Duration.ofDays(2);
+    private static final Duration HOURLY_TTL = Duration.ofSeconds(10800);
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter HOUR_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
     private final RedisTemplate<String, String> redisTemplateMaster;
 
@@ -53,5 +60,32 @@ public class RankingRepositoryImpl implements RankingRepository {
 
         Long result = redisTemplateMaster.opsForSet().remove(key, member);
         return result != null && result > 0;
+    }
+
+    @Override
+    public void incrementScoreBatch(Map<Long, Double> productScores, LocalDate date) {
+        if (productScores.isEmpty()) return;
+
+        String key = RANKING_KEY_PREFIX + date.format(DATE_FORMAT);
+
+        redisTemplateMaster.executePipelined((RedisCallback<Object>) connection -> {
+            byte[] keyBytes = key.getBytes();
+            productScores.forEach((productId, score) ->
+                connection.zSetCommands().zIncrBy(keyBytes, score,
+                    String.valueOf(productId).getBytes()));
+            return null;
+        });
+
+        redisTemplateMaster.expire(key, TTL);
+    }
+
+    @Override
+    public void incrementHourlyScore(Long productId, double score, LocalDateTime occurredAt) {
+        LocalDateTime time = occurredAt != null ? occurredAt : LocalDateTime.now();
+        String key = HOURLY_KEY_PREFIX + time.format(HOUR_FORMAT);
+        String member = String.valueOf(productId);
+
+        redisTemplateMaster.opsForZSet().incrementScore(key, member, score);
+        redisTemplateMaster.expire(key, HOURLY_TTL);
     }
 }

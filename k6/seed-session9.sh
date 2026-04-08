@@ -23,15 +23,17 @@ echo ""
 echo "--- 유저 ${USER_COUNT}명 생성 ---"
 for i in $(seq 1 $USER_COUNT); do
     LOGIN_ID="k6rank${i}"
-    LOGIN_PW="password1!"
-    NICKNAME="랭킹테스터${i}"
+    PASSWORD="password1!"
+    USER_NAME="랭킹테스터${i}"
+    BIRTHDAY="19900101"
 
     RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "${BASE_URL}/api/v1/users" \
         -H "Content-Type: application/json" \
         -d "{
             \"loginId\": \"${LOGIN_ID}\",
-            \"loginPw\": \"${LOGIN_PW}\",
-            \"nickname\": \"${NICKNAME}\"
+            \"password\": \"${PASSWORD}\",
+            \"userName\": \"${USER_NAME}\",
+            \"birthday\": \"${BIRTHDAY}\"
         }")
 
     HTTP_CODE=$(echo "$RESPONSE" | tail -1)

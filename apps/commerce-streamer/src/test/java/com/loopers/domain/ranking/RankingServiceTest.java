@@ -10,6 +10,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +32,7 @@ class RankingServiceTest {
         rankingService.incrementScore(101L, 0.01, OCCURRED_AT);
 
         verify(rankingRepository).incrementScore(101L, 0.01, DATE);
+        verify(rankingRepository).incrementHourlyScore(101L, 0.01, OCCURRED_AT);
     }
 
     @Test
@@ -39,6 +41,7 @@ class RankingServiceTest {
         rankingService.incrementScore(101L, 0.01, null);
 
         verify(rankingRepository).incrementScore(eq(101L), eq(0.01), eq(LocalDate.now()));
+        verify(rankingRepository).incrementHourlyScore(eq(101L), eq(0.01), isNull());
     }
 
     @Test
@@ -49,6 +52,7 @@ class RankingServiceTest {
         rankingService.incrementLikeScoreIfAbsent(101L, 456L, 0.3, OCCURRED_AT);
 
         verify(rankingRepository).incrementScore(101L, 0.3, DATE);
+        verify(rankingRepository).incrementHourlyScore(101L, 0.3, OCCURRED_AT);
     }
 
     @Test
@@ -59,6 +63,7 @@ class RankingServiceTest {
         rankingService.incrementLikeScoreIfAbsent(101L, 456L, 0.3, OCCURRED_AT);
 
         verify(rankingRepository, never()).incrementScore(anyLong(), anyDouble(), any());
+        verify(rankingRepository, never()).incrementHourlyScore(anyLong(), anyDouble(), any());
     }
 
     @Test
@@ -69,6 +74,7 @@ class RankingServiceTest {
         rankingService.decrementLikeScoreIfPresent(101L, 456L, 0.3, OCCURRED_AT);
 
         verify(rankingRepository).incrementScore(101L, -0.3, DATE);
+        verify(rankingRepository).incrementHourlyScore(101L, -0.3, OCCURRED_AT);
     }
 
     @Test
@@ -79,5 +85,6 @@ class RankingServiceTest {
         rankingService.decrementLikeScoreIfPresent(101L, 456L, 0.3, OCCURRED_AT);
 
         verify(rankingRepository, never()).incrementScore(anyLong(), anyDouble(), any());
+        verify(rankingRepository, never()).incrementHourlyScore(anyLong(), anyDouble(), any());
     }
 }

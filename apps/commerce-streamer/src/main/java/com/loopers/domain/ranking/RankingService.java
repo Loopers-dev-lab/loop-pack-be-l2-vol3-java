@@ -20,6 +20,7 @@ public class RankingService {
     public void incrementScore(Long productId, double score, LocalDateTime occurredAt) {
         LocalDate date = resolveDate(occurredAt);
         rankingRepository.incrementScore(productId, score, date);
+        rankingRepository.incrementHourlyScore(productId, score, occurredAt);
         log.debug("[Ranking] ZINCRBY productId={}, score={}, date={}", productId, score, date);
     }
 
@@ -32,6 +33,7 @@ public class RankingService {
         boolean isNew = rankingRepository.addLikeIfAbsent(productId, userId, date);
         if (isNew) {
             rankingRepository.incrementScore(productId, score, date);
+            rankingRepository.incrementHourlyScore(productId, score, occurredAt);
             log.debug("[Ranking] LIKED (new) productId={}, userId={}, score={}", productId, userId, score);
         } else {
             log.debug("[Ranking] LIKED (duplicate, skip) productId={}, userId={}", productId, userId);
@@ -47,6 +49,7 @@ public class RankingService {
         boolean wasPresent = rankingRepository.removeLikeIfPresent(productId, userId, date);
         if (wasPresent) {
             rankingRepository.incrementScore(productId, -score, date);
+            rankingRepository.incrementHourlyScore(productId, -score, occurredAt);
             log.debug("[Ranking] UNLIKED (removed) productId={}, userId={}, score=-{}", productId, userId, score);
         } else {
             log.debug("[Ranking] UNLIKED (not found, skip) productId={}, userId={}", productId, userId);

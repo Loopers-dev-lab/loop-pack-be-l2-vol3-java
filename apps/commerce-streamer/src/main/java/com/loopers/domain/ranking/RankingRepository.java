@@ -1,6 +1,8 @@
 package com.loopers.domain.ranking;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Map;
 
 /**
  * 랭킹 ZSET 쓰기 연산 인터페이스 (commerce-streamer 전용).
@@ -38,4 +40,21 @@ public interface RankingRepository {
      * @return true: 제거됨 (ZINCRBY -score 진행), false: 없었음 (스킵)
      */
     boolean removeLikeIfPresent(Long productId, Long userId, LocalDate date);
+
+    /**
+     * 여러 상품의 점수를 Pipeline으로 한 번에 증가시킨다.
+     *
+     * @param productScores productId → 합산 점수 맵
+     * @param date          집계 대상 날짜
+     */
+    void incrementScoreBatch(Map<Long, Double> productScores, LocalDate date);
+
+    /**
+     * 시간 단위 랭킹 점수를 증가시킨다. (ranking:hourly:{yyyyMMddHH})
+     *
+     * @param productId  상품 ID
+     * @param score      증가시킬 점수
+     * @param occurredAt 이벤트 발생 시각 (시간 키 생성용)
+     */
+    void incrementHourlyScore(Long productId, double score, LocalDateTime occurredAt);
 }

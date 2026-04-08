@@ -29,6 +29,13 @@ spring:
 
 spring.jpa.hibernate.ddl-auto: validate
 
+ranking:
+  weights:
+    view: 0.01
+    like: 0.3
+    order-base: 1.0
+    price-epsilon: 0.01
+
 demo-kafka:
   test:
     topic-name: demo.internal.topic-v1
