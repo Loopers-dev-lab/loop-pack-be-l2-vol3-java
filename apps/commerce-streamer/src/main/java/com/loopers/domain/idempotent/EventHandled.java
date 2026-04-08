@@ -14,7 +14,7 @@ import java.time.ZonedDateTime;
 public class EventHandled {
 
     @Id
-    @Column(name = "event_id", length = 36)
+    @Column(name = "event_id", length = 100)
     private String eventId;
 
     @Column(name = "event_type", nullable = false, length = 100)

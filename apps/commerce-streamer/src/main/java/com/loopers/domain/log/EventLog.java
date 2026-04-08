@@ -25,7 +25,7 @@ public class EventLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "event_id", nullable = false, length = 36)
+    @Column(name = "event_id", nullable = false, length = 100)
     private String eventId;
 
     @Column(name = "event_type", nullable = false, length = 100)
