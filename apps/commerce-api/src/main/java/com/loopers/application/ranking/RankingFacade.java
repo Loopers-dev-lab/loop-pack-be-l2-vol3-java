@@ -72,6 +72,18 @@ public class RankingFacade {
         String key = buildKey(date);
 
         long totalCount = rankingRedisRepository.getSize(key);
+
+        // 콜드 스타트 fallback: 오늘 키가 비어있고 날짜 미지정(오늘)이면 어제로 시도
+        if (totalCount == 0 && (date == null || date.isBlank())) {
+            String yesterdayKey = buildKey(
+                    LocalDate.now(KST).minusDays(1).format(DATE_FORMAT));
+            long yesterdayCount = rankingRedisRepository.getSize(yesterdayKey);
+            if (yesterdayCount > 0) {
+                key = yesterdayKey;
+                totalCount = yesterdayCount;
+            }
+        }
+
         if (totalCount == 0) {
             return RankingPageResult.empty(page, size);
         }
