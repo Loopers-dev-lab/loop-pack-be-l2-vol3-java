@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.domain.product.ProductCursor;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.interfaces.api.ApiResponse;
@@ -22,9 +23,11 @@ import java.util.Map;
 public class ProductController implements ProductApiSpec {
 
     private final ProductFacade productFacade;
+    private final RankingFacade rankingFacade;
 
-    public ProductController(ProductFacade productFacade) {
+    public ProductController(ProductFacade productFacade, RankingFacade rankingFacade) {
         this.productFacade = productFacade;
+        this.rankingFacade = rankingFacade;
     }
 
     @GetMapping
@@ -63,7 +66,11 @@ public class ProductController implements ProductApiSpec {
         ProductInfo product = result.product();
         String brandName = result.brand().name();
 
-        return ApiResponse.success(ProductResponse.ProductDetail.from(product, brandName));
+        // 랭킹 순위 조회 — ZSET에 없으면 null (Jackson NON_NULL 설정으로 응답에서 제외)
+        RankingFacade.ProductRankInfo rankInfo = rankingFacade.getProductRank(productId);
+        Integer rank = rankInfo != null ? rankInfo.rank() : null;
+
+        return ApiResponse.success(ProductResponse.ProductDetail.from(product, brandName, rank));
     }
 
     private ProductCursor decodeCursor(String cursor, ProductSortType sort) {
