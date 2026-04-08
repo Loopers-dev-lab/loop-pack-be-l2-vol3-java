@@ -16,23 +16,24 @@ import org.springframework.stereotype.Service;
 @Service
 public class RankingReconciliationService {
 
-    private static final int PAGE_SIZE = 500;
-
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
     private final RankingMetricsRedisSyncService rankingMetricsRedisSyncService;
+    private final int pageSize;
 
     public RankingReconciliationService(
             ProductMetricsJpaRepository productMetricsJpaRepository,
-            RankingMetricsRedisSyncService rankingMetricsRedisSyncService) {
+            RankingMetricsRedisSyncService rankingMetricsRedisSyncService,
+            RankingReconciliationProperties properties) {
         this.productMetricsJpaRepository = productMetricsJpaRepository;
         this.rankingMetricsRedisSyncService = rankingMetricsRedisSyncService;
+        this.pageSize = Math.max(1, properties.batchSize());
     }
 
     /**
      * 전체 매트릭 행을 페이지로 읽어, 각 행의 {@code last_event_occurred_at} 일자 키에 점수를 ZADD한다.
      */
     public void reconcileAll() {
-        Pageable pageable = PageRequest.of(0, PAGE_SIZE, Sort.by("productId"));
+        Pageable pageable = PageRequest.of(0, pageSize, Sort.by("productId"));
         Page<ProductMetricsModel> page;
         do {
             page = productMetricsJpaRepository.findAll(pageable);

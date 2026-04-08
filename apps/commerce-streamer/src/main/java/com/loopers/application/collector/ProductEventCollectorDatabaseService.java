@@ -7,16 +7,20 @@ import com.loopers.infrastructure.collector.ProductMetricsJpaRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -35,6 +39,8 @@ public class ProductEventCollectorDatabaseService {
     private final EventHandledJpaRepository eventHandledJpaRepository;
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
     private final RankingMetricsRedisSyncService rankingMetricsRedisSyncService;
+    private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final String dlqSuffix;
     private final Counter processedCounter;
     private final Counter duplicateCounter;
 
@@ -42,10 +48,14 @@ public class ProductEventCollectorDatabaseService {
             EventHandledJpaRepository eventHandledJpaRepository,
             ProductMetricsJpaRepository productMetricsJpaRepository,
             RankingMetricsRedisSyncService rankingMetricsRedisSyncService,
-            MeterRegistry meterRegistry) {
+            KafkaTemplate<Object, Object> kafkaTemplate,
+            MeterRegistry meterRegistry,
+            @Value("${collector.product.dlq-suffix:.DLQ}") String dlqSuffix) {
         this.eventHandledJpaRepository = eventHandledJpaRepository;
         this.productMetricsJpaRepository = productMetricsJpaRepository;
         this.rankingMetricsRedisSyncService = rankingMetricsRedisSyncService;
+        this.kafkaTemplate = kafkaTemplate;
+        this.dlqSuffix = dlqSuffix;
         this.processedCounter = meterRegistry.counter("kafka.collector.events.processed");
         this.duplicateCounter = meterRegistry.counter("kafka.collector.events.duplicate");
     }
@@ -88,7 +98,7 @@ public class ProductEventCollectorDatabaseService {
             rankingProductIds.add(productId);
             processedCounter.increment();
             /** 랭킹 동기화 */
-            scheduleRankingSyncAfterCommit(rankingProductIds, occurredAt);
+            scheduleRankingSyncAfterCommit(record, envelope, rankingProductIds, occurredAt);
             return;
         }
         if (PRODUCT_VIEWED.equals(eventType)) {
@@ -96,7 +106,7 @@ public class ProductEventCollectorDatabaseService {
             productMetricsJpaRepository.applyViewDeltaIfNewer(productId, 1L, occurredAt);
             rankingProductIds.add(productId);
             processedCounter.increment();
-            scheduleRankingSyncAfterCommit(rankingProductIds, occurredAt);
+            scheduleRankingSyncAfterCommit(record, envelope, rankingProductIds, occurredAt);
             return;
         }
         if (PAYMENT_COMPLETED.equals(eventType)) {
@@ -110,24 +120,29 @@ public class ProductEventCollectorDatabaseService {
                 }
             }
             processedCounter.increment();
-            scheduleRankingSyncAfterCommit(rankingProductIds, occurredAt);
+            scheduleRankingSyncAfterCommit(record, envelope, rankingProductIds, occurredAt);
         }
     }
 
     /**
-     * 랭킹 동기화 작업을 예약한다.
-     *
+     * 랭킹 동기화 작업을 예약한다. afterCommit 후 실행된다.
+     * @param record 컨슈머 레코드
+     * @param envelope 이벤트 소싱 데이터
      * @param productIds 상품 ID 목록
      * @param occurredAt 이벤트 발생 시각
      */
-    private void scheduleRankingSyncAfterCommit(Set<Long> productIds, Instant occurredAt) {
+    private void scheduleRankingSyncAfterCommit(
+            ConsumerRecord<Object, Object> record,
+            ProductEventEnvelope envelope,
+            Set<Long> productIds,
+            Instant occurredAt) {
         if (productIds.isEmpty()) {
             return;
         }
         /** 랭킹 동기화 */
         Runnable sync = () -> {
             for (Long productId : productIds) {
-                syncRankingToRedisOrLog(productId, occurredAt);
+                syncRankingToRedisOrDlq(record, envelope, productId, occurredAt);
             }
         };
         /** 트랜잭션 동기화 */
@@ -149,12 +164,51 @@ public class ProductEventCollectorDatabaseService {
      * @param productId 상품 ID
      * @param occurredAt 이벤트 발생 시각
      */
-    private void syncRankingToRedisOrLog(long productId, Instant occurredAt) {
+    private void syncRankingToRedisOrDlq(
+            ConsumerRecord<Object, Object> record,
+            ProductEventEnvelope envelope,
+            long productId,
+            Instant occurredAt) {
         try {
             productMetricsJpaRepository.findById(productId).ifPresent(metrics ->
                     rankingMetricsRedisSyncService.upsertFromMetrics(metrics, occurredAt));
         } catch (RuntimeException ex) {
-            log.error("ranking redis sync failed productId={}", productId, ex);
+            publishRankingSyncFailedToDlq(record, envelope, productId, occurredAt, ex);
+            log.error("ranking redis sync failed and sent to DLQ. productId={}", productId, ex);
+        }
+    }
+
+    /**
+     * 랭킹 동기화 실패 이벤트를 DLQ로 발행한다.
+     * @param record 컨슈머 레코드
+     * @param envelope 이벤트 소싱 데이터
+     * @param productId 상품 ID
+     * @param occurredAt 이벤트 발생 시각
+     * @param ex 예외
+     */
+    private void publishRankingSyncFailedToDlq(
+            ConsumerRecord<Object, Object> record,
+            ProductEventEnvelope envelope,
+            long productId,
+            Instant occurredAt,
+            RuntimeException ex) {
+        try {
+            String sourceTopic = record.topic();
+            String dlqTopic = sourceTopic + dlqSuffix;
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("type", "RANKING_REDIS_SYNC_FAILED");
+            payload.put("eventId", envelope.eventId());
+            payload.put("eventType", envelope.eventType());
+            payload.put("occurredAt", occurredAt);
+            payload.put("sourceTopic", sourceTopic);
+            payload.put("sourcePartition", record.partition());
+            payload.put("sourceOffset", record.offset());
+            payload.put("productId", productId);
+            payload.put("error", ex.getClass().getSimpleName());
+            payload.put("message", ex.getMessage());
+            kafkaTemplate.send(dlqTopic, payload);
+        } catch (RuntimeException dlqEx) {
+            log.error("failed to publish ranking redis sync failure to DLQ", dlqEx);
         }
     }
 }

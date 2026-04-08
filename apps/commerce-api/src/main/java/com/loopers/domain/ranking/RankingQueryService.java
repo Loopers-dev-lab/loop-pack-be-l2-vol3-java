@@ -7,6 +7,10 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -27,6 +31,8 @@ import java.util.OptionalLong;
  */
 @Service
 public class RankingQueryService {
+
+    private static final Logger log = LoggerFactory.getLogger(RankingQueryService.class);
 
     private final RankingReadRepository rankingReadRepository;
     private final ProductRepository productRepository;
@@ -64,7 +70,13 @@ public class RankingQueryService {
             throw new CoreException(ErrorType.BAD_REQUEST, "size는 1 이상이어야 합니다.");
         }
         String key = RankingKey.dailyAll(rankingDate);
-        long total = rankingReadRepository.count(key);
+        long total;
+        try {
+            total = rankingReadRepository.count(key);
+        } catch (RedisConnectionFailureException | RedisSystemException ex) {
+            log.warn("ranking degraded mode: redis unavailable in loadPage key={}", key, ex);
+            return new RankingPage(List.of(), pageOneBased, size, 0L, 0);
+        }
         int totalPages = computeTotalPages(total, size);
         if (total == 0L) {
             return new RankingPage(List.of(), pageOneBased, size, 0L, 0);
@@ -151,7 +163,12 @@ public class RankingQueryService {
         }
         String key = RankingKey.dailyAll(rankingDate);
         String member = String.valueOf(productId);
-        return rankingReadRepository.findOneBasedReverseRank(key, member);
+        try {
+            return rankingReadRepository.findOneBasedReverseRank(key, member);
+        } catch (RedisConnectionFailureException | RedisSystemException ex) {
+            log.warn("ranking degraded mode: redis unavailable in findOneBasedDailyRank key={} member={}", key, member, ex);
+            return OptionalLong.empty();
+        }
     }
 
     /**
