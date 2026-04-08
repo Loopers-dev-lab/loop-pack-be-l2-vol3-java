@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.time.ZonedDateTime;
 import java.util.Map;
 
 @Slf4j
@@ -23,7 +24,10 @@ public class ProductViewEventPublisherImpl implements ProductViewEventPublisher 
     @Override
     public void publish(ProductViewEvent.Viewed event) {
         try {
-            String payload = objectMapper.writeValueAsString(Map.of("productId", event.productId()));
+            String payload = objectMapper.writeValueAsString(Map.of(
+                    "productId", event.productId(),
+                    "occurredAt", ZonedDateTime.now().toString()
+            ));
             kafkaTemplate.send(TOPIC, String.valueOf(event.productId()), payload);
         } catch (Exception e) {
             log.error("product-view-events 발행 실패, skip. productId={}", event.productId(), e);
