@@ -2,17 +2,22 @@ package com.loopers.application.payment;
 
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.confg.kafka.KafkaTopics;
+import com.loopers.application.event.OrderItemSnapshot;
 import com.loopers.application.event.PaymentCanceledEvent;
 import com.loopers.application.event.PaymentCompletedEvent;
 import com.loopers.application.event.PaymentFailedEvent;
 import com.loopers.application.order.OrderService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.payment.Payment;
 import com.loopers.infrastructure.outbox.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+
+import java.time.Instant;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -37,11 +42,13 @@ public class PaymentProcessor {
         orderService.payOrder(orderId);
 
         Payment payment = paymentService.getPayment(paymentId);
+        List<OrderItemSnapshot> items = toSnapshots(order);
+        Instant occurredAt = Instant.now();
         eventPublisher.publishEvent(new PaymentCompletedEvent(
-                paymentId, orderId, payment.getUserId(), payment.getAmount()));
+                paymentId, orderId, payment.getUserId(), payment.getAmount(), items, occurredAt));
         outboxEventService.saveAndPublish("payment.completed", "Order",
                 String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
-                new PaymentCompletedEvent(paymentId, orderId, payment.getUserId(), payment.getAmount()));
+                new PaymentCompletedEvent(paymentId, orderId, payment.getUserId(), payment.getAmount(), items, occurredAt));
     }
 
     /**
@@ -81,10 +88,17 @@ public class PaymentProcessor {
         orderService.cancelOrder(orderId);
 
         Payment payment = paymentService.getPayment(paymentId);
+        List<OrderItemSnapshot> items = toSnapshots(order);
         eventPublisher.publishEvent(new PaymentCanceledEvent(
-                paymentId, orderId, payment.getUserId()));
+                paymentId, orderId, payment.getUserId(), items));
         outboxEventService.saveAndPublish("payment.canceled", "Order",
                 String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
-                new PaymentCanceledEvent(paymentId, orderId, payment.getUserId()));
+                new PaymentCanceledEvent(paymentId, orderId, payment.getUserId(), items));
+    }
+
+    private List<OrderItemSnapshot> toSnapshots(Order order) {
+        return order.getOrderItems().stream()
+                .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity(), item.getPrice()))
+                .toList();
     }
 }

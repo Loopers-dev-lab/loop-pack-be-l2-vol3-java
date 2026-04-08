@@ -50,19 +50,33 @@ public class OrderEventConsumer {
         String idempotencyKey = GROUP_ID + ":" + eventId;
 
         switch (eventType) {
-            case "payment.completed" -> {
-                Long productId = payload.path("orderId").asLong();
-                BigDecimal amount = new BigDecimal(payload.path("amount").asText());
-                idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
-                        () -> metricsService.incrementSales(productId, 1, amount));
-            }
-            case "payment.canceled" -> {
-                Long productId = payload.path("orderId").asLong();
-                idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
-                        () -> metricsService.incrementSales(productId, -1, BigDecimal.ZERO));
-            }
+            case "payment.completed" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
+                    () -> applyItems(payload, 1));
+            case "payment.canceled" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
+                    () -> applyItems(payload, -1));
             case "payment.failed" -> log.info("결제 실패 이벤트 수신: eventId={}", eventId);
             default -> log.warn("미지원 order 이벤트: eventType={}", eventType);
+        }
+    }
+
+    /**
+     * payload.items를 펼쳐 각 item에 대해 incrementSales를 호출한다.
+     * sign=+1이면 결제 완료(증가), -1이면 결제 취소(감소).
+     */
+    private void applyItems(JsonNode payload, int sign) {
+        JsonNode items = payload.path("items");
+        if (!items.isArray()) {
+            log.warn("payment 이벤트 payload에 items 배열 없음. orderId={}", payload.path("orderId").asLong());
+            return;
+        }
+        for (JsonNode item : items) {
+            Long productId = item.path("productId").asLong();
+            int quantity = item.path("quantity").asInt();
+            BigDecimal unitPrice = new BigDecimal(item.path("unitPrice").asText());
+            long countDelta = (long) sign * quantity;
+            BigDecimal amountDelta = unitPrice.multiply(BigDecimal.valueOf(quantity))
+                    .multiply(BigDecimal.valueOf(sign));
+            metricsService.incrementSales(productId, countDelta, amountDelta);
         }
     }
 }

@@ -15,6 +15,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.kafka.support.Acknowledgment;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -24,6 +25,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
@@ -72,6 +74,44 @@ class OrderEventConsumerTest {
 
             verify(idempotentProcessor, never()).process(anyString(), anyString(), anyString(), anyString(), any());
             verify(ack).acknowledge();
+        }
+    }
+
+    @Nested
+    class items_펼치기 {
+
+        private ConsumerRecord<String, byte[]> recordWithItems(String eventType) {
+            String json = "{\"eventId\":\"evt-1\",\"eventType\":\"" + eventType + "\","
+                    + "\"payload\":\"{\\\"orderId\\\":99,\\\"amount\\\":\\\"30000\\\","
+                    + "\\\"items\\\":[{\\\"productId\\\":10,\\\"quantity\\\":2,\\\"unitPrice\\\":\\\"5000\\\"},"
+                    + "{\\\"productId\\\":20,\\\"quantity\\\":1,\\\"unitPrice\\\":\\\"20000\\\"}]}\"}";
+            return new ConsumerRecord<>("order-events", 0, 0, "99", json.getBytes());
+        }
+
+        @Test
+        void payment_completed는_각_item별로_incrementSales가_호출된다() {
+            doAnswer(inv -> { ((Runnable) inv.getArgument(4)).run(); return true; })
+                    .when(idempotentProcessor).process(anyString(), eq("payment.completed"), anyString(), anyString(), any());
+            Acknowledgment ack = mock(Acknowledgment.class);
+
+            consumer.consume(List.of(recordWithItems("payment.completed")), ack);
+
+            verify(metricsService).incrementSales(eq(10L), eq(2L), eq(new BigDecimal("10000")));
+            verify(metricsService).incrementSales(eq(20L), eq(1L), eq(new BigDecimal("20000")));
+            verifyNoMoreInteractions(metricsService);
+        }
+
+        @Test
+        void payment_canceled는_각_item별로_음수_incrementSales가_호출된다() {
+            doAnswer(inv -> { ((Runnable) inv.getArgument(4)).run(); return true; })
+                    .when(idempotentProcessor).process(anyString(), eq("payment.canceled"), anyString(), anyString(), any());
+            Acknowledgment ack = mock(Acknowledgment.class);
+
+            consumer.consume(List.of(recordWithItems("payment.canceled")), ack);
+
+            verify(metricsService).incrementSales(eq(10L), eq(-2L), eq(new BigDecimal("-10000")));
+            verify(metricsService).incrementSales(eq(20L), eq(-1L), eq(new BigDecimal("-20000")));
+            verifyNoMoreInteractions(metricsService);
         }
     }
 
