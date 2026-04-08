@@ -47,7 +47,7 @@ public class OrderEventConsumer {
 
                     switch (eventType) {
                         case "OrderCreated" -> {
-                            productMetricsAppService.handleOrderCreated(eventId, productIds, occurredAt);
+                            productMetricsAppService.handleOrderCreated(eventId, productIds, totalAmount, occurredAt);
                             rankingAppService.updateOrderRanking(productIds, totalAmount);
                         }
                         case "OrderCanceled" -> productMetricsAppService.handleOrderCanceled(eventId, productIds, occurredAt);
