@@ -85,6 +85,7 @@ class RankingReconciliationIntegrationTest {
         rankingReconciliationService.reconcileAll();
 
         Double score = redisTemplate.opsForZSet().score(RANKING_KEY, String.valueOf(productId));
-        assertThat(score).isEqualTo(0.6d);
+        assertThat(score).isNotNull();
+        assertThat(score).isCloseTo(0.6d, org.assertj.core.data.Offset.offset(1e-9));
     }
 }
