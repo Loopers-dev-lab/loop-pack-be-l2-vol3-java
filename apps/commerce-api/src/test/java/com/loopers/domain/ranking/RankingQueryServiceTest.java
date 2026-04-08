@@ -5,6 +5,7 @@ import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,9 +17,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -115,5 +119,37 @@ class RankingQueryServiceTest {
 
         assertThat(result.totalElements()).isZero();
         assertThat(result.rows()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findOneBasedDailyRank: ZSET에 있으면 점수 내림차순 1-based 순위를 반환한다.")
+    void findOneBasedDailyRank_whenMemberExists_shouldReturnOneBasedRank() {
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        when(rankingReadRepository.findOneBasedReverseRank(eq("ranking:all:20260326"), eq("101")))
+                .thenReturn(OptionalLong.of(2L));
+
+        OptionalLong result = rankingQueryService.findOneBasedDailyRank(date, 101L);
+
+        assertThat(result).isPresent();
+        assertThat(result.getAsLong()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("findOneBasedDailyRank: ZSET에 없으면 empty를 반환한다.")
+    void findOneBasedDailyRank_whenMemberMissing_shouldReturnEmpty() {
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        when(rankingReadRepository.findOneBasedReverseRank("ranking:all:20260326", "999"))
+                .thenReturn(OptionalLong.empty());
+
+        OptionalLong result = rankingQueryService.findOneBasedDailyRank(date, 999L);
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findOneBasedDailyRank: productId가 0 이하면 BAD_REQUEST")
+    void findOneBasedDailyRank_whenProductIdInvalid_shouldThrow() {
+        assertThatThrownBy(() -> rankingQueryService.findOneBasedDailyRank(LocalDate.of(2026, 3, 26), 0L))
+                .isInstanceOf(CoreException.class);
     }
 }

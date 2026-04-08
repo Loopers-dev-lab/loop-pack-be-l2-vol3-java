@@ -9,7 +9,9 @@ import com.loopers.domain.user.*;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.user.UserV1Dto;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,16 +21,20 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 import static com.loopers.interfaces.api.ApiResponse.Metadata.Result;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(MySqlTestContainersConfig.class)
+@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class ProductV1ApiE2ETest {
 
     private static final String ENDPOINT_PRODUCTS = "/api/v1/products";
@@ -46,6 +52,10 @@ class ProductV1ApiE2ETest {
     private LikeFacade likeFacade;
     @Autowired
     private UserService userService;
+    @Autowired
+    private RedisCleanUp redisCleanUp;
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
 
     private Long productId;
     private Long brandId;
@@ -68,6 +78,7 @@ class ProductV1ApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     @Test
@@ -87,7 +98,8 @@ class ProductV1ApiE2ETest {
             () -> assertThat(response.getBody().data().name()).isEqualTo("E2E상품"),
             () -> assertThat(response.getBody().data().price()).isEqualByComparingTo(new BigDecimal("15000")),
             () -> assertThat(response.getBody().data().stockQuantity()).isEqualTo(10),
-            () -> assertThat(response.getBody().data().likeCount()).isEqualTo(0L)
+            () -> assertThat(response.getBody().data().likeCount()).isEqualTo(0L),
+            () -> assertThat(response.getBody().data().rankingRank()).isNull()
         );
     }
 
@@ -113,6 +125,34 @@ class ProductV1ApiE2ETest {
             () -> assertThat(response.getBody().data().brandName()).isEqualTo(brandName),
             () -> assertThat(response.getBody().data().likeCount()).isEqualTo(1L)
         );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products/{productId} - ZSET에 있으면 rankingRank가 1-based로 반환된다")
+    void getProductDetail_whenInRankingZset_shouldReturnRankingRank() {
+        String dateStr = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.BASIC_ISO_DATE);
+        String key = "ranking:all:" + dateStr;
+        redisTemplate.opsForZSet().add(key, String.valueOf(productId), 1.0);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "/" + productId + "?date=" + dateStr, HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertAll(
+            () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+            () -> assertThat(response.getBody()).isNotNull(),
+            () -> assertThat(response.getBody().data().rankingRank()).isEqualTo(1L)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products/{productId} - date 형식이 잘못되면 400")
+    void getProductDetail_whenInvalidDate_shouldReturn400() {
+        ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "/" + productId + "?date=bad", HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
