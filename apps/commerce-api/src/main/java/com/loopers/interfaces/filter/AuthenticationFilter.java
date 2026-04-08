@@ -36,7 +36,8 @@ public class AuthenticationFilter implements Filter {
             "/api/v1/examples",
             "/api/v1/brands",
             "/api/v1/payments/callback",
-            "/api/v1/payments/sync"
+            "/api/v1/payments/sync",
+            "/api/v1/rankings"
     );
 
     private static final Set<String> OPTIONAL_AUTH_PATHS = Set.of(
