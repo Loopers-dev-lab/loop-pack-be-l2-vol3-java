@@ -2,6 +2,7 @@ package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.ProductMetricsFacade;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.interfaces.consumer.payload.CatalogEventPayload;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 public class CatalogEventConsumer {
 
     private final ProductMetricsFacade productMetricsFacade;
+    private final RankingFacade rankingFacade;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = "catalog-events", containerFactory = KafkaConfig.SINGLE_LISTENER)
@@ -24,6 +26,7 @@ public class CatalogEventConsumer {
         try {
             CatalogEventPayload payload = objectMapper.readValue((String) record.value(), CatalogEventPayload.class);
             productMetricsFacade.applyLike(payload);
+            rankingFacade.applyLike(payload);
         } catch (Exception e) {
             log.error("catalog-events 처리 실패, skip. offset={}", record.offset(), e);
         }
