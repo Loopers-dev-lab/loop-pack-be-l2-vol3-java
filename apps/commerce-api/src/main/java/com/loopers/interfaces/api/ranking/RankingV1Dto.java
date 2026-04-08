@@ -2,15 +2,19 @@ package com.loopers.interfaces.api.ranking;
 
 import com.loopers.application.ranking.RankingItemInfo;
 import com.loopers.application.ranking.RankingListInfo;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 public class RankingV1Dto {
 
+    @Schema(description = "랭킹 한 행. `rank`는 해당 `date` 키의 ZSET에서의 전역 순위(1-based). 동점·실시간 변동은 design §4.2.6 참고.")
     public record ItemResponse(
+            @Schema(description = "전역 순위(1-based). 오프셋: (page-1)*size + 행 인덱스")
             int rank,
             long productId,
+            @Schema(description = "ZSET score(동일 score 시 Redis member 규칙으로 상대 순서 결정)")
             double score,
             String name,
             BigDecimal price,
@@ -47,13 +51,19 @@ public class RankingV1Dto {
     }
 
     /**
-     * 랭킹 목록 응답 DTO
+     * 랭킹 목록 응답 DTO (오프셋 페이징 메타 포함, design §4.2.6).
      */
+    @Schema(description = "오프셋 페이징 결과. 실시간 ZSET 갱신으로 동일 요청 파라미터라도 `content`가 달라질 수 있음.")
     public record ListResponse(
+            @Schema(description = "현재 페이지 행 목록(빈 배열 가능: 요청 page가 범위를 벗어난 경우 등)")
             List<ItemResponse> content,
+            @Schema(description = "요청한 페이지(1-based)")
             int page,
+            @Schema(description = "요청한 페이지 크기")
             int size,
+            @Schema(description = "ZSET 전체 원소 수(ZCARD)")
             long totalElements,
+            @Schema(description = "총 페이지 수(ceil(totalElements/size), totalElements=0이면 0)")
             int totalPages
     ) {
         /**

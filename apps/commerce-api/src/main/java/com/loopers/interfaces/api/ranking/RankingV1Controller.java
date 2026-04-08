@@ -25,10 +25,12 @@ public class RankingV1Controller implements RankingV1ApiSpec {
 
     /**
      * 일간 인기 상품 랭킹 조회 API 구현
+     * <p>
+     * 오프셋 페이징·실시간 재조회 시 변동 가능성은 {@link RankingV1ApiSpec} 및 design §4.2.6과 같다.
      *
      * @param date 일자 yyyyMMdd (선택, 기본: 오늘(Asia/Seoul))
-     * @param page 페이지 (1부터)
-     * @param size 페이지 크기
+     * @param page 오프셋 페이지 (1부터)
+     * @param size 페이지 크기 (1~100)
      * @return 일간 인기 상품 랭킹 조회 결과
      */
     @GetMapping
