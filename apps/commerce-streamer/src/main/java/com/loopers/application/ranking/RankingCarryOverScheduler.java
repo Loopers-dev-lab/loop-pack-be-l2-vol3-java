@@ -1,7 +1,9 @@
 package com.loopers.application.ranking;
 
+import static com.loopers.domain.ranking.RankingKeyConstants.DATE_FORMAT;
+import static com.loopers.domain.ranking.RankingKeyConstants.KEY_PREFIX;
+
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -25,8 +27,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RankingCarryOverScheduler {
 
-    private static final String KEY_PREFIX = "ranking:v1:all:";
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
     private static final int TOP_N = 200;
     private static final double DECAY_FACTOR = 0.01;
     private static final long TTL_SECONDS = 172800;
