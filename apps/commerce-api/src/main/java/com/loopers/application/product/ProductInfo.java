@@ -22,6 +22,7 @@ public class ProductInfo {
     private final String brandName;
     private final long likeCount;
     private final boolean likedByUser;
+    private final Long rank;
     private final List<OptionInfo> options;
 
     @Getter
@@ -55,6 +56,7 @@ public class ProductInfo {
                 .brandName(this.brandName)
                 .likeCount(this.likeCount)
                 .likedByUser(likedByUser)
+                .rank(this.rank)
                 .options(this.options)
                 .build();
     }

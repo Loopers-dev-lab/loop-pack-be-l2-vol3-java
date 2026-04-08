@@ -2,6 +2,7 @@ package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandAppService;
 import com.loopers.application.like.LikeAppService;
+import com.loopers.application.ranking.RankingAppService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.event.ProductViewedEvent;
 import com.loopers.domain.product.Option;
@@ -14,7 +15,9 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,9 +25,12 @@ import java.util.Set;
 @Component
 @RequiredArgsConstructor
 public class ProductFacade {
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
+
     private final ProductAppService productAppService;
     private final BrandAppService brandAppService;
     private final LikeAppService likeAppService;
+    private final RankingAppService rankingAppService;
     private final ApplicationEventPublisher eventPublisher;
 
     public ProductInfo getProductDetail(Long productId, Long userId) {
@@ -32,9 +38,12 @@ public class ProductFacade {
         Brand brand = brandAppService.getById(detail.getBrandId());
         boolean likedByUser = userId != null && likeAppService.isLikedByUser(userId, productId);
 
+        String today = LocalDate.now().format(DATE_FORMAT);
+        Long rank = rankingAppService.getProductRank(today, productId);
+
         eventPublisher.publishEvent(new ProductViewedEvent(productId, userId, ZonedDateTime.now()));
 
-        return toProductInfo(detail, brand, likedByUser);
+        return toProductInfo(detail, brand, likedByUser, rank);
     }
 
     public Page<ProductInfo> getProductsByBrand(Long brandId, int page, int size) {
@@ -74,7 +83,7 @@ public class ProductFacade {
                 .toList();
     }
 
-    private ProductInfo toProductInfo(CachedProductDetail detail, Brand brand, boolean likedByUser) {
+    private ProductInfo toProductInfo(CachedProductDetail detail, Brand brand, boolean likedByUser, Long rank) {
         return ProductInfo.builder()
                 .productId(detail.getProductId())
                 .productName(detail.getProductName())
@@ -84,6 +93,7 @@ public class ProductFacade {
                 .brandName(brand.getName())
                 .likeCount(detail.getLikeCount())
                 .likedByUser(likedByUser)
+                .rank(rank)
                 .options(detail.getOptions())
                 .build();
     }
