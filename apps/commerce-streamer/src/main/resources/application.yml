@@ -83,6 +83,15 @@ collector:
     enabled: false
     cron: "0 0 2 * * ?"
     zone: Asia/Seoul
+  # 전일 Top N을 당일 키로 감쇠 복사(carryover)해 자정 직후 순위 급변 UX를 완화한다(기본 비활성).
+  # 이후 실시간/보정 경로의 매트릭 기반 ZADD로 점수는 DB 원장 기준으로 수렴한다.
+  ranking-carryover:
+    enabled: false
+    cron: "0 0 0 * * ?"
+    zone: Asia/Seoul
+    top-n: 50
+    weight: 0.1
+    only-when-today-empty: true
 
 ---
 spring:
