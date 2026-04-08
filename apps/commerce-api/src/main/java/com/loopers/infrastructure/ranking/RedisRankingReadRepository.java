@@ -37,7 +37,8 @@ public class RedisRankingReadRepository implements RankingReadRepository {
     }
 
     /**
-     * 랭킹 ZSET의 범위를 조회한다.
+     * 랭킹 ZSET의 범위를 조회한다({@code ZREVRANGE ... WITHSCORES}).
+     * 동일 점수에서는 Redis가 member 문자열 내림차순으로 순서를 정하므로, 숫자 ID를 문자열로 넣을 때는 오름차순이 숫자 대소와 다를 수 있다
      *
      * @param key 랭킹 ZSET 키
      * @param start 시작 인덱스
