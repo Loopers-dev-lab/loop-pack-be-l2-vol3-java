@@ -9,6 +9,7 @@ import com.loopers.domain.ranking.RankingService;
 import com.loopers.support.enums.DisplayStatus;
 import com.loopers.support.page.PagedResult;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +36,8 @@ public class RankingFacade {
      * ZSET에서 Top-N(+buffer)을 가져온 후, 삭제/숨김 상품을 필터링하고
      * 상품/브랜드 정보를 배치 조회하여 조합한다.
      */
+    @Cacheable(value = "rankings", key = "#date + '_' + #page + '_' + #size",
+               cacheManager = "rankingCacheManager")
     public PagedResult<RankingInfo> getRankings(LocalDate date, int page, int size) {
         // 1. ZSET에서 size + buffer개 요청 (삭제 상품 대비)
         List<RankingRepository.RankingEntry> entries =

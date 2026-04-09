@@ -81,8 +81,8 @@ export default function () {
 
     group('Phase 2: 파이프라인 전파 대기', () => {
         // Kafka → Streamer → Redis ZSET 적재 대기
-        console.log('이벤트 파이프라인 전파 대기 (5초)...');
-        sleep(5);
+        console.log('이벤트 파이프라인 전파 대기 (15초 — WSL2 환경)...');
+        sleep(15);
     });
 
     group('Phase 3: 랭킹 API 검증', () => {

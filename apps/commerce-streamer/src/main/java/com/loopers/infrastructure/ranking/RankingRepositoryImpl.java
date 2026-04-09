@@ -68,17 +68,25 @@ public class RankingRepositoryImpl implements RankingRepository {
     public void incrementScoreBatch(Map<Long, Double> productScores, LocalDate date) {
         if (productScores.isEmpty()) return;
 
-        String key = RANKING_KEY_PREFIX + date.format(DATE_FORMAT);
+        String dailyKey = RANKING_KEY_PREFIX + date.format(DATE_FORMAT);
+        String hourlyKey = HOURLY_KEY_PREFIX + LocalDateTime.now().format(HOUR_FORMAT);
 
         redisTemplateMaster.executePipelined((RedisCallback<Object>) connection -> {
-            byte[] keyBytes = key.getBytes();
-            productScores.forEach((productId, score) ->
-                connection.zSetCommands().zIncrBy(keyBytes, score,
-                    String.valueOf(productId).getBytes()));
+            byte[] dailyKeyBytes = dailyKey.getBytes();
+            byte[] hourlyKeyBytes = hourlyKey.getBytes();
+
+            productScores.forEach((productId, score) -> {
+                byte[] memberBytes = String.valueOf(productId).getBytes();
+                connection.zSetCommands().zIncrBy(dailyKeyBytes, score, memberBytes);
+                connection.zSetCommands().zIncrBy(hourlyKeyBytes, score, memberBytes);
+            });
+
+            // EXPIRE도 파이프라인에 포함 — 별도 RTT 불필요
+            connection.keyCommands().expire(dailyKeyBytes, TTL.getSeconds());
+            connection.keyCommands().expire(hourlyKeyBytes, HOURLY_TTL.getSeconds());
+
             return null;
         });
-
-        redisTemplateMaster.expire(key, TTL);
     }
 
     @Override

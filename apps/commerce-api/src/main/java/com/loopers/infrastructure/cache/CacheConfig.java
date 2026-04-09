@@ -95,6 +95,20 @@ public class CacheConfig implements CachingConfigurer {
         return manager;
     }
 
+    /**
+     * 랭킹 전용 Caffeine 캐시 매니저 (TTL 10초, 최대 100 엔트리).
+     * 랭킹 데이터는 Redis ZSET에서 직접 읽으므로 로컬 캐시만 적용한다.
+     */
+    @Bean("rankingCacheManager")
+    public CaffeineCacheManager rankingCacheManager() {
+        CaffeineCacheManager manager = new CaffeineCacheManager("rankings");
+        manager.setCaffeine(Caffeine.newBuilder()
+                .maximumSize(100)
+                .expireAfterWrite(10, TimeUnit.SECONDS)
+                .recordStats());
+        return manager;
+    }
+
     private GenericJackson2JsonRedisSerializer redisSerializer() {
         ObjectMapper om = new ObjectMapper();
         om.registerModule(new JavaTimeModule());

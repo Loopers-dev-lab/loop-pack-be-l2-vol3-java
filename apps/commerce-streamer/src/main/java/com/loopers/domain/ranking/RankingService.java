@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +23,17 @@ public class RankingService {
         rankingRepository.incrementScore(productId, score, date);
         rankingRepository.incrementHourlyScore(productId, score, occurredAt);
         log.debug("[Ranking] ZINCRBY productId={}, score={}, date={}", productId, score, date);
+    }
+
+    /**
+     * 여러 상품의 점수를 Redis Pipeline으로 일괄 증가시킨다.
+     *
+     * @param productScores productId -> 합산 점수 맵
+     */
+    public void incrementScoreBatch(Map<Long, Double> productScores) {
+        LocalDate today = LocalDate.now();
+        rankingRepository.incrementScoreBatch(productScores, today);
+        log.debug("[Ranking] Pipeline 배치 — {}개 상품 점수 적재", productScores.size());
     }
 
     /**

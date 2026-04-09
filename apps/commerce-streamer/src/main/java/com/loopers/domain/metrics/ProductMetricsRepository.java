@@ -14,6 +14,8 @@ public interface ProductMetricsRepository {
 
     void incrementViewCount(Long productId);
 
+    void incrementViewCountBy(Long productId, int count);
+
     void incrementLikeCount(Long productId);
 
     void decrementLikeCount(Long productId);

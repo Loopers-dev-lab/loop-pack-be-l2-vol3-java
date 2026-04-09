@@ -95,8 +95,8 @@ export function viewProductB() {
 }
 
 export function verifyRanking() {
-    console.log('파이프라인 전파 대기 (5초)...');
-    sleep(5);
+    console.log('파이프라인 전파 대기 (15초 — WSL2 환경)...');
+    sleep(15);
 
     const res = http.get(
         `${BASE_URL}/api/v1/rankings?date=${TODAY}&page=0&size=20`,

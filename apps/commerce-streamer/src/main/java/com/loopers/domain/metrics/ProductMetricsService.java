@@ -24,6 +24,10 @@ public class ProductMetricsService {
         productMetricsRepository.incrementViewCount(productId);
     }
 
+    public void incrementViewCountBy(Long productId, int count) {
+        productMetricsRepository.incrementViewCountBy(productId, count);
+    }
+
     public void incrementLikeCount(Long productId) {
         productMetricsRepository.incrementLikeCount(productId);
     }
