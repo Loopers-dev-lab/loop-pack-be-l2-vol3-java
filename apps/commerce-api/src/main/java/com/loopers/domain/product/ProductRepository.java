@@ -45,4 +45,11 @@ public interface ProductRepository {
     int incrementLikeCount(Long productId);
 
     int decrementLikeCount(Long productId);
+
+    /**
+     * 랭킹 응답 조립용 — 노출 가능한 상품만 다건 조회한다.
+     * 필터: `deletedAt IS NULL AND displayYn = 'Y'`.
+     * 응답이 size 보다 작을 수 있음(ranking 응답의 size 는 상한).
+     */
+    List<Product> findVisibleByIds(List<Long> ids);
 }
