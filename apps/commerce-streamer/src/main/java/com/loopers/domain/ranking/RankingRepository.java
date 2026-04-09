@@ -17,4 +17,6 @@ public interface RankingRepository {
     void addAllToShadow(LocalDate date, Map<Long, Double> productScores);
 
     void renameShadowToMain(LocalDate date);
+
+    long carryOverHourly(LocalDate date, int sourceHour, int destHour, double weight);
 }

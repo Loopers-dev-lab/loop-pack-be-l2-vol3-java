@@ -75,6 +75,38 @@ public class RankingApp {
         return items;
     }
 
+    public RankingPageResult getHourlyTopN(LocalDate date, int hour, long page, long size) {
+        long offset = page * size;
+        List<RankingEntry> entries = rankingRepository.findHourlyTopN(date, hour, offset, size);
+        long totalElements = rankingRepository.countHourlyMembers(date, hour);
+        List<RankingInfo> items = enrich(entries, offset);
+        return new RankingPageResult(items, page, size, totalElements);
+    }
+
+    public RankingCursorResult getHourlyByCursor(LocalDate date, int hour, Double cursorScore, long size) {
+        List<RankingEntry> entries = rankingRepository.findHourlyCursor(date, hour, cursorScore, size);
+        List<RankingInfo> items = enrichHourlyCursor(date, hour, entries);
+        Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
+        return new RankingCursorResult(items, nextCursor);
+    }
+
+    private List<RankingInfo> enrichHourlyCursor(LocalDate date, int hour, List<RankingEntry> entries) {
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+        List<RankingInfo> items = new ArrayList<>(entries.size());
+        for (RankingEntry entry : entries) {
+            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
+            if (snapshot == null || snapshot.deleted()) {
+                continue;
+            }
+            Long globalRank = rankingRepository.findHourlyRank(date, hour, entry.productDbId()).orElse(null);
+            long rank = globalRank != null ? globalRank : 0L;
+            items.add(toInfo(entry, rank, snapshot));
+        }
+        return items;
+    }
+
     private RankingInfo toInfo(RankingEntry entry, long rank, CachedProductSnapshot snapshot) {
         return new RankingInfo(
                 rank,

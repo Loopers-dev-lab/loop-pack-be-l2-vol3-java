@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 @RestController
@@ -47,10 +48,45 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         return ResponseEntity.ok(ApiResponse.success(RankingV1Dto.RankingCursorResponse.from(result)));
     }
 
+    @GetMapping("/hourly")
+    @Override
+    public ResponseEntity<ApiResponse<RankingV1Dto.RankingPageResponse>> getHourlyRankingByOffset(
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false) Integer hour,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        LocalDate targetDate = parseDateOrToday(date);
+        int targetHour = parseHourOrNow(hour);
+        RankingPageResult result = rankingApp.getHourlyTopN(targetDate, targetHour, page, size);
+        return ResponseEntity.ok(ApiResponse.success(RankingV1Dto.RankingPageResponse.from(result)));
+    }
+
+    @GetMapping("/hourly/cursor")
+    @Override
+    public ResponseEntity<ApiResponse<RankingV1Dto.RankingCursorResponse>> getHourlyRankingByCursor(
+            @RequestParam(required = false) String date,
+            @RequestParam(required = false) Integer hour,
+            @RequestParam(required = false) Double cursor,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        LocalDate targetDate = parseDateOrToday(date);
+        int targetHour = parseHourOrNow(hour);
+        RankingCursorResult result = rankingApp.getHourlyByCursor(targetDate, targetHour, cursor, size);
+        return ResponseEntity.ok(ApiResponse.success(RankingV1Dto.RankingCursorResponse.from(result)));
+    }
+
     private LocalDate parseDateOrToday(String date) {
         if (date == null || date.isBlank()) {
             return LocalDate.now();
         }
         return LocalDate.parse(date, DATE_FORMATTER);
+    }
+
+    private int parseHourOrNow(Integer hour) {
+        if (hour == null) {
+            return LocalTime.now().getHour();
+        }
+        return hour;
     }
 }

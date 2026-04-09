@@ -25,6 +25,69 @@ public class RankingRedisRepository implements RankingRepository {
     @Override
     public List<RankingEntry> findTopN(LocalDate date, long offset, long size) {
         String key = RankingKeyGenerator.dailyKey(date);
+        return queryTopN(key, offset, size);
+    }
+
+    @Override
+    public List<RankingEntry> findByCursor(LocalDate date, Double cursorScore, long size) {
+        String key = RankingKeyGenerator.dailyKey(date);
+        return queryCursor(key, cursorScore, size);
+    }
+
+    @Override
+    public Optional<Long> findRank(LocalDate date, Long productDbId) {
+        String key = RankingKeyGenerator.dailyKey(date);
+        Long rank = redisTemplate.opsForZSet().reverseRank(key, String.valueOf(productDbId));
+        if (rank == null) {
+            return Optional.empty();
+        }
+        return Optional.of(rank + 1);
+    }
+
+    @Override
+    public Optional<Double> findScore(LocalDate date, Long productDbId) {
+        String key = RankingKeyGenerator.dailyKey(date);
+        Double score = redisTemplate.opsForZSet().score(key, String.valueOf(productDbId));
+        return Optional.ofNullable(score);
+    }
+
+    @Override
+    public long countMembers(LocalDate date) {
+        String key = RankingKeyGenerator.dailyKey(date);
+        Long size = redisTemplate.opsForZSet().zCard(key);
+        return size != null ? size : 0L;
+    }
+
+    @Override
+    public List<RankingEntry> findHourlyTopN(LocalDate date, int hour, long offset, long size) {
+        String key = RankingKeyGenerator.hourlyKey(date, hour);
+        return queryTopN(key, offset, size);
+    }
+
+    @Override
+    public List<RankingEntry> findHourlyCursor(LocalDate date, int hour, Double cursorScore, long size) {
+        String key = RankingKeyGenerator.hourlyKey(date, hour);
+        return queryCursor(key, cursorScore, size);
+    }
+
+    @Override
+    public Optional<Long> findHourlyRank(LocalDate date, int hour, Long productDbId) {
+        String key = RankingKeyGenerator.hourlyKey(date, hour);
+        Long rank = redisTemplate.opsForZSet().reverseRank(key, String.valueOf(productDbId));
+        if (rank == null) {
+            return Optional.empty();
+        }
+        return Optional.of(rank + 1);
+    }
+
+    @Override
+    public long countHourlyMembers(LocalDate date, int hour) {
+        String key = RankingKeyGenerator.hourlyKey(date, hour);
+        Long size = redisTemplate.opsForZSet().zCard(key);
+        return size != null ? size : 0L;
+    }
+
+    private List<RankingEntry> queryTopN(String key, long offset, long size) {
         long start = offset;
         long end = offset + size - 1;
 
@@ -47,9 +110,7 @@ public class RankingRedisRepository implements RankingRepository {
         return result;
     }
 
-    @Override
-    public List<RankingEntry> findByCursor(LocalDate date, Double cursorScore, long size) {
-        String key = RankingKeyGenerator.dailyKey(date);
+    private List<RankingEntry> queryCursor(String key, Double cursorScore, long size) {
         double max = cursorScore != null ? cursorScore : Double.POSITIVE_INFINITY;
         long fetchSize = cursorScore != null ? size + 1 : size;
 
@@ -77,29 +138,5 @@ public class RankingRedisRepository implements RankingRepository {
             }
         }
         return result;
-    }
-
-    @Override
-    public Optional<Long> findRank(LocalDate date, Long productDbId) {
-        String key = RankingKeyGenerator.dailyKey(date);
-        Long rank = redisTemplate.opsForZSet().reverseRank(key, String.valueOf(productDbId));
-        if (rank == null) {
-            return Optional.empty();
-        }
-        return Optional.of(rank + 1);
-    }
-
-    @Override
-    public Optional<Double> findScore(LocalDate date, Long productDbId) {
-        String key = RankingKeyGenerator.dailyKey(date);
-        Double score = redisTemplate.opsForZSet().score(key, String.valueOf(productDbId));
-        return Optional.ofNullable(score);
-    }
-
-    @Override
-    public long countMembers(LocalDate date) {
-        String key = RankingKeyGenerator.dailyKey(date);
-        Long size = redisTemplate.opsForZSet().zCard(key);
-        return size != null ? size : 0L;
     }
 }

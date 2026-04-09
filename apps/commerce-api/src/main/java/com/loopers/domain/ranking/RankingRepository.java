@@ -15,4 +15,12 @@ public interface RankingRepository {
     Optional<Double> findScore(LocalDate date, Long productDbId);
 
     long countMembers(LocalDate date);
+
+    List<RankingEntry> findHourlyTopN(LocalDate date, int hour, long offset, long size);
+
+    List<RankingEntry> findHourlyCursor(LocalDate date, int hour, Double cursorScore, long size);
+
+    Optional<Long> findHourlyRank(LocalDate date, int hour, Long productDbId);
+
+    long countHourlyMembers(LocalDate date, int hour);
 }

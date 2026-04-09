@@ -23,7 +23,8 @@ import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
 @Repository
 public class RankingRedisRepository implements RankingRepository {
 
-    private static final Duration TTL = Duration.ofDays(2);
+    private static final Duration DAILY_TTL = Duration.ofDays(2);
+    private static final Duration HOURLY_TTL = Duration.ofHours(2);
 
     private final RedisTemplate<String, String> redisTemplate;
     private final DefaultRedisScript<Double> zincrbyScript;
@@ -41,13 +42,16 @@ public class RankingRedisRepository implements RankingRepository {
 
     @Override
     public void incrementScore(LocalDate date, Long productDbId, double score) {
-        String key = RankingKeyGenerator.dailyKey(date);
+        String dailyKey = RankingKeyGenerator.dailyKey(date);
+        int hour = java.time.LocalTime.now().getHour();
+        String hourlyKey = RankingKeyGenerator.hourlyKey(date, hour);
         redisTemplate.execute(
                 zincrbyScript,
-                List.of(key),
+                List.of(dailyKey, hourlyKey),
                 String.valueOf(productDbId),
                 String.valueOf(score),
-                String.valueOf(TTL.toSeconds())
+                String.valueOf(DAILY_TTL.toSeconds()),
+                String.valueOf(HOURLY_TTL.toSeconds())
         );
     }
 
@@ -56,7 +60,7 @@ public class RankingRedisRepository implements RankingRepository {
         Boolean hasKey = redisTemplate.hasKey(key);
         redisTemplate.opsForZSet().incrementScore(key, String.valueOf(productDbId), score);
         if (Boolean.FALSE.equals(hasKey)) {
-            redisTemplate.expire(key, TTL);
+            redisTemplate.expire(key, DAILY_TTL);
         }
     }
 
@@ -72,7 +76,7 @@ public class RankingRedisRepository implements RankingRepository {
         }
         if (!tuples.isEmpty()) {
             redisTemplate.opsForZSet().add(shadowKey, tuples);
-            redisTemplate.expire(shadowKey, TTL);
+            redisTemplate.expire(shadowKey, DAILY_TTL);
         }
     }
 
@@ -81,7 +85,7 @@ public class RankingRedisRepository implements RankingRepository {
         String shadowKey = RankingKeyGenerator.shadowKey(date);
         String mainKey = RankingKeyGenerator.dailyKey(date);
         redisTemplate.rename(shadowKey, mainKey);
-        redisTemplate.expire(mainKey, TTL);
+        redisTemplate.expire(mainKey, DAILY_TTL);
     }
 
     @Override
@@ -101,7 +105,28 @@ public class RankingRedisRepository implements RankingRepository {
                 Aggregate.SUM,
                 Weights.of(weight)
         );
-        redisTemplate.expire(destKey, TTL);
+        redisTemplate.expire(destKey, DAILY_TTL);
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    public long carryOverHourly(LocalDate date, int sourceHour, int destHour, double weight) {
+        String sourceKey = RankingKeyGenerator.hourlyKey(date, sourceHour);
+        String destKey = RankingKeyGenerator.hourlyKey(date, destHour);
+
+        Boolean sourceExists = redisTemplate.hasKey(sourceKey);
+        if (Boolean.FALSE.equals(sourceExists)) {
+            return 0L;
+        }
+
+        Long count = redisTemplate.opsForZSet().unionAndStore(
+                sourceKey,
+                Collections.emptyList(),
+                destKey,
+                Aggregate.SUM,
+                Weights.of(weight)
+        );
+        redisTemplate.expire(destKey, HOURLY_TTL);
         return count != null ? count : 0L;
     }
 }

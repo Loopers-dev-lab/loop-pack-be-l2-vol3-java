@@ -64,4 +64,8 @@ public class RankingApp {
     public long carryOver(LocalDate sourceDate, LocalDate destDate, double weight) {
         return rankingRepository.carryOver(sourceDate, destDate, weight);
     }
+
+    public long carryOverHourly(LocalDate date, int sourceHour, int destHour, double weight) {
+        return rankingRepository.carryOverHourly(date, sourceHour, destHour, weight);
+    }
 }

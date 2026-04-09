@@ -14,4 +14,8 @@ public final class RankingKeyGenerator {
     public static String dailyKey(LocalDate date) {
         return KEY_PREFIX + date.format(FORMATTER);
     }
+
+    public static String hourlyKey(LocalDate date, int hour) {
+        return KEY_PREFIX + date.format(FORMATTER) + ":" + String.format("%02d", hour);
+    }
 }
