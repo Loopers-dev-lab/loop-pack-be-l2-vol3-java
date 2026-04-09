@@ -2,6 +2,7 @@ package com.loopers.confg.kafka;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -16,8 +17,6 @@ import org.springframework.kafka.support.converter.BatchMessagingMessageConverte
 import org.springframework.kafka.support.converter.ByteArrayJsonMessageConverter;
 import org.springframework.util.backoff.FixedBackOff;
 
-import org.springframework.beans.factory.annotation.Value;
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -31,13 +30,16 @@ public class KafkaConfig {
     @Value("${HOSTNAME:local}")
     private String hostname;
 
+    public static final int MAX_POLL_RECORDS = 1;
+    public static final int SINGLE_SESSION_TIMEOUT_MS = 60 * 1000;
+    public static final int SINGLE_MAX_POLL_INTERVAL_MS = 3 * 60 * 1000;
+
     public static final int MAX_POLLING_SIZE = 3000; // read 3000 msg
     public static final int FETCH_MIN_BYTES = (1024 * 1024); // 1mb
     public static final int FETCH_MAX_WAIT_MS = 5 * 1000; // broker waiting time = 5s
     public static final int SESSION_TIMEOUT_MS = 60 * 1000; // session timeout = 1m
     public static final int HEARTBEAT_INTERVAL_MS = 20 * 1000; // heartbeat interval = 20s ( 1/3 of session_timeout )
     public static final int MAX_POLL_INTERVAL_MS = 2 * 60 * 1000; // max poll interval = 2m
-    public static final int SINGLE_MAX_POLL_INTERVAL_MS = 3 * 60 * 1000; // max poll interval = 3m
 
     @Bean
     public ProducerFactory<Object, Object> producerFactory(KafkaProperties kafkaProperties) {
@@ -97,9 +99,9 @@ public class KafkaConfig {
             DefaultErrorHandler kafkaErrorHandler
     ) {
         Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
-        consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 1);
-        consumerConfig.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SESSION_TIMEOUT_MS);
-        consumerConfig.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, HEARTBEAT_INTERVAL_MS);
+        consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLL_RECORDS);
+        consumerConfig.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SINGLE_SESSION_TIMEOUT_MS);
+        consumerConfig.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, SINGLE_SESSION_TIMEOUT_MS / 3);
         consumerConfig.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, SINGLE_MAX_POLL_INTERVAL_MS);
         consumerConfig.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, hostname + "-single");
 

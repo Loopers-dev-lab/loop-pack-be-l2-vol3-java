@@ -1,11 +1,12 @@
 package com.loopers.application.coupon;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.coupon.*;
+import com.loopers.infrastructure.redis.CouponIssueRequestRedisRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -22,7 +24,7 @@ public class CouponFacade {
 
     private final CouponRepository couponRepository;
     private final CouponIssueRepository couponIssueRepository;
-    private final CouponIssueRequestRepository couponIssueRequestRepository;
+    private final CouponIssueRequestRedisRepository couponIssueRequestRedisRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final Clock clock;
@@ -137,38 +139,39 @@ public class CouponFacade {
         couponIssue.cancelUse(ZonedDateTime.now(clock));
     }
 
-    // ── 대고객: 선착순 쿠폰 발급 요청 ──
+    // ── 선착순 쿠폰: 비동기 발급 요청 ──
 
-    @Transactional
-    public CouponIssueRequest requestCouponIssue(Long couponId, Long memberId) {
+    public CouponIssueRequestInfo requestCouponIssue(Long couponId, Long memberId) {
         Coupon coupon = couponRepository.findById(couponId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰을 찾을 수 없습니다."));
-
         ZonedDateTime now = ZonedDateTime.now(clock);
         if (now.isAfter(coupon.getExpiredAt())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "만료된 쿠폰은 발급 요청할 수 없습니다.");
         }
 
-        CouponIssueRequest request = couponIssueRequestRepository.save(
-            CouponIssueRequest.create(couponId, memberId));
+        Long requestId = couponIssueRequestRedisRepository.nextId();
+        couponIssueRequestRedisRepository.save(requestId, couponId, memberId, "PENDING", null);
 
         try {
-            String payload = objectMapper.writeValueAsString(Map.of(
-                "requestId", request.getId(),
+            Map<String, Object> payload = Map.of(
+                "requestId", requestId,
                 "couponId", couponId,
                 "memberId", memberId
-            ));
-            kafkaTemplate.send("coupon-issue-requests", String.valueOf(couponId), payload);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException("쿠폰 발급 요청 페이로드 직렬화 실패", e);
+            );
+            String json = objectMapper.writeValueAsString(payload);
+            kafkaTemplate.send("coupon-issue-requests", String.valueOf(couponId), json);
+        } catch (Exception e) {
+            log.error("쿠폰 발급 요청 Kafka 전송 실패: requestId={}", requestId, e);
+            couponIssueRequestRedisRepository.save(requestId, couponId, memberId, "REJECTED", "Kafka 전송 실패");
+            throw new CoreException(ErrorType.INTERNAL_ERROR, "쿠폰 발급 요청에 실패했습니다.");
         }
 
-        return request;
+        return new CouponIssueRequestInfo(requestId, couponId, memberId, CouponIssueRequestStatus.PENDING, null);
     }
 
-    public CouponIssueRequest getIssueRequest(Long requestId) {
-        return couponIssueRequestRepository.findById(requestId)
-            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "쿠폰 발급 요청을 찾을 수 없습니다."));
+    public CouponIssueRequestInfo getIssueRequest(Long requestId) {
+        return couponIssueRequestRedisRepository.findById(requestId)
+            .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "발급 요청을 찾을 수 없습니다."));
     }
 
     public ZonedDateTime now() {

@@ -1,112 +1,116 @@
 package com.loopers.interfaces.consumer;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
-import jakarta.persistence.EntityManager;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+/**
+ * 선착순 쿠폰 발급 요청 Consumer.
+ *
+ * <p>coupon-issue-requests 토픽에서 요청을 소비하여 쿠폰을 발급하고,
+ * 결과를 Redis에 기록한다 (DB가 아닌 Redis TTL로 요청 추적).</p>
+ */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class CouponIssueConsumer {
 
-    private final EntityManager entityManager;
-    private final PlatformTransactionManager transactionManager;
+    private static final String KEY_PREFIX = "coupon:request:";
+    private static final long TTL_SECONDS = 600; // 10분
+
+    private final JdbcTemplate jdbcTemplate;
+    private final RedisTemplate<String, String> writeTemplate;
     private final ObjectMapper objectMapper;
+
+    public CouponIssueConsumer(
+        JdbcTemplate jdbcTemplate,
+        @Qualifier("redisTemplateMaster") RedisTemplate<String, String> writeTemplate,
+        ObjectMapper objectMapper
+    ) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.writeTemplate = writeTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     @KafkaListener(
         topics = "coupon-issue-requests",
-        groupId = "coupon-issuer",
         containerFactory = KafkaConfig.SINGLE_LISTENER
     )
-    public void consume(ConsumerRecord<String, byte[]> record, Acknowledgment ack) {
-        TransactionTemplate tx = new TransactionTemplate(transactionManager);
-        tx.executeWithoutResult(status -> processRecord(record));
-        ack.acknowledge();
-    }
-
-    private void processRecord(ConsumerRecord<String, byte[]> record) {
+    @SuppressWarnings("unchecked")
+    public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
+        Long requestId = null;
         try {
-            JsonNode payload = objectMapper.readTree(record.value());
-            long requestId = payload.get("requestId").asLong();
-            long couponId = payload.get("couponId").asLong();
-            long memberId = payload.get("memberId").asLong();
+            Map<String, Object> payload = objectMapper.readValue(record.value(), Map.class);
+            requestId = ((Number) payload.get("requestId")).longValue();
+            Long couponId = ((Number) payload.get("couponId")).longValue();
+            Long memberId = ((Number) payload.get("memberId")).longValue();
 
-            String eventId = "coupon-issue-" + requestId;
+            // 쿠폰 유효성 검증 + 발급
+            issueCoupon(couponId, memberId);
 
-            // INSERT-first 멱등 패턴
-            int inserted = entityManager.createNativeQuery(
-                "INSERT IGNORE INTO event_handled (event_id, event_type, created_at) VALUES (:eventId, 'COUPON_ISSUE', NOW(6))"
-            ).setParameter("eventId", eventId)
-             .executeUpdate();
-
-            if (inserted == 0) {
-                log.debug("이미 처리된 쿠폰 발급 요청 — requestId={}", requestId);
-                return;
-            }
-
-            // CAS UPDATE: issued_count 증가 (수량 확인)
-            int casResult = entityManager.createNativeQuery(
-                "UPDATE coupon SET issued_count = issued_count + 1 "
-                    + "WHERE id = :couponId "
-                    + "AND (max_issuance_count IS NULL OR issued_count < max_issuance_count) "
-                    + "AND deleted_at IS NULL"
-            ).setParameter("couponId", couponId)
-             .executeUpdate();
-
-            if (casResult == 0) {
-                rejectRequest(requestId, "수량 소진");
-                return;
-            }
-
-            // coupon_issue INSERT (UNIQUE 제약으로 중복 방지)
-            try {
-                entityManager.createNativeQuery(
-                    "INSERT INTO coupon_issue (coupon_id, member_id, status, expired_at, created_at) "
-                        + "SELECT :couponId, :memberId, 'AVAILABLE', c.expired_at, NOW(6) "
-                        + "FROM coupon c WHERE c.id = :couponId"
-                ).setParameter("couponId", couponId)
-                 .setParameter("memberId", memberId)
-                 .executeUpdate();
-            } catch (Exception e) {
-                // UNIQUE 제약 위반 → 중복 발급 시도
-                entityManager.createNativeQuery(
-                    "UPDATE coupon SET issued_count = issued_count - 1 WHERE id = :couponId"
-                ).setParameter("couponId", couponId)
-                 .executeUpdate();
-                rejectRequest(requestId, "이미 발급된 쿠폰");
-                return;
-            }
-
-            // 성공 상태 업데이트
-            entityManager.createNativeQuery(
-                "UPDATE coupon_issue_request SET status = 'COMPLETED', completed_at = NOW(6) "
-                    + "WHERE id = :requestId"
-            ).setParameter("requestId", requestId)
-             .executeUpdate();
-
-            log.info("쿠폰 발급 완료 — requestId={}, couponId={}, memberId={}", requestId, couponId, memberId);
+            // 성공 → Redis COMPLETED
+            updateRequestStatus(requestId, couponId, memberId, "COMPLETED", null);
+            log.info("쿠폰 발급 성공: requestId={}, couponId={}, memberId={}", requestId, couponId, memberId);
 
         } catch (Exception e) {
-            throw new RuntimeException("쿠폰 발급 처리 실패", e);
+            log.error("쿠폰 발급 실패: requestId={}, reason={}", requestId, e.getMessage(), e);
+            if (requestId != null) {
+                try {
+                    Map<String, Object> payload = objectMapper.readValue(record.value(), Map.class);
+                    Long couponId = ((Number) payload.get("couponId")).longValue();
+                    Long memberId = ((Number) payload.get("memberId")).longValue();
+                    updateRequestStatus(requestId, couponId, memberId, "REJECTED", e.getMessage());
+                } catch (Exception inner) {
+                    log.error("Redis 상태 업데이트 실패: requestId={}", requestId, inner);
+                }
+            }
+        } finally {
+            ack.acknowledge();
         }
     }
 
-    private void rejectRequest(long requestId, String reason) {
-        entityManager.createNativeQuery(
-            "UPDATE coupon_issue_request SET status = 'REJECTED', reject_reason = :reason, completed_at = NOW(6) "
-                + "WHERE id = :requestId"
-        ).setParameter("requestId", requestId)
-         .setParameter("reason", reason)
-         .executeUpdate();
-        log.info("쿠폰 발급 거절 — requestId={}, reason={}", requestId, reason);
+    private void issueCoupon(Long couponId, Long memberId) {
+        // 쿠폰 존재 및 만료 확인
+        Integer count = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM coupon WHERE id = ? AND expired_at > NOW() AND deleted_at IS NULL",
+            Integer.class, couponId
+        );
+        if (count == null || count == 0) {
+            throw new IllegalStateException("쿠폰이 존재하지 않거나 만료되었습니다. couponId=" + couponId);
+        }
+
+        // 쿠폰 발급 (coupon_issue INSERT)
+        jdbcTemplate.update(
+            "INSERT INTO coupon_issue (coupon_id, member_id, status, expired_at, created_at) " +
+            "SELECT ?, ?, 'AVAILABLE', expired_at, NOW() FROM coupon WHERE id = ?",
+            couponId, memberId, couponId
+        );
+    }
+
+    private void updateRequestStatus(Long requestId, Long couponId, Long memberId,
+                                     String status, String rejectReason) {
+        try {
+            String key = KEY_PREFIX + requestId;
+            Map<String, Object> data = Map.of(
+                "requestId", requestId,
+                "couponId", couponId,
+                "memberId", memberId,
+                "status", status,
+                "rejectReason", rejectReason != null ? rejectReason : ""
+            );
+            String json = objectMapper.writeValueAsString(data);
+            writeTemplate.opsForValue().set(key, json, TTL_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            log.error("Redis 상태 업데이트 실패: requestId={}, status={}", requestId, status, e);
+        }
     }
 }

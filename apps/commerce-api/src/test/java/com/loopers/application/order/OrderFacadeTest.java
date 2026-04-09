@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.coupon.*;
-import com.loopers.domain.event.DomainEventPublisher;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderStatus;
@@ -12,6 +11,7 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.fake.*;
+import com.loopers.infrastructure.redis.CouponIssueRequestRedisRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +23,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,7 +38,6 @@ class OrderFacadeTest {
     private FakeCouponIssueRepository couponIssueRepository;
     private CouponFacade couponFacade;
 
-    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         orderRepository = new FakeOrderRepository();
@@ -47,16 +45,12 @@ class OrderFacadeTest {
         brandRepository = new FakeBrandRepository();
         couponRepository = new FakeCouponRepository();
         couponIssueRepository = new FakeCouponIssueRepository();
-        CouponIssueRequestRepository issueRequestRepository = new CouponIssueRequestRepository() {
-            @Override public CouponIssueRequest save(CouponIssueRequest request) { return request; }
-            @Override public Optional<CouponIssueRequest> findById(Long id) { return Optional.empty(); }
-        };
-        KafkaTemplate<Object, Object> kafkaTemplate = mock(KafkaTemplate.class);
         couponFacade = new CouponFacade(couponRepository, couponIssueRepository,
-            issueRequestRepository, kafkaTemplate, new ObjectMapper(), Clock.systemDefaultZone());
-        DomainEventPublisher domainEventPublisher = (aggregateType, aggregateId, eventType, payload, event) -> {};
+            mock(CouponIssueRequestRedisRepository.class),
+            mock(KafkaTemplate.class), new ObjectMapper(),
+            Clock.systemDefaultZone());
         orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository,
-            couponFacade, domainEventPublisher);
+            couponFacade);
     }
 
     @Nested

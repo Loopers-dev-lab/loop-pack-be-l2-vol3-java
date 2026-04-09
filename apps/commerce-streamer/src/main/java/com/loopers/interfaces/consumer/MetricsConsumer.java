@@ -1,143 +1,210 @@
 package com.loopers.interfaces.consumer;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
-import jakarta.persistence.EntityManager;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+/**
+ * 카탈로그/주문 이벤트를 소비하여 product_metrics에 집계하는 Consumer.
+ *
+ * <p>Phase 1: 건별 멱등성 체크(event_handled INSERT IGNORE) + productId별 메모리 집계.
+ * Phase 2: productId별 1회 UPSERT로 DB 쓰기 횟수를 감소시킨다.</p>
+ *
+ * <p>3,000건 poll, 인기 상품 100개에 이벤트 집중 시:
+ * [기존] 건별 UPSERT: event_handled 3,000회 + product_metrics 3,000회 = ~6,000회
+ * [개선] 집계 UPSERT: event_handled 3,000회 + product_metrics ~100회 = ~3,100회 (48% 감소)</p>
+ */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class MetricsConsumer {
 
-    private final EntityManager entityManager;
-    private final PlatformTransactionManager transactionManager;
-    private final ObjectMapper objectMapper;
+    private final JdbcTemplate jdbcTemplate;
+    private final TransactionTemplate transactionTemplate;
+
+    public MetricsConsumer(JdbcTemplate jdbcTemplate, TransactionTemplate transactionTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.transactionTemplate = transactionTemplate;
+    }
 
     @KafkaListener(
         topics = {"catalog-events", "order-events"},
-        groupId = "metrics-collector",
         containerFactory = KafkaConfig.BATCH_LISTENER
     )
-    public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
-        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+    public void consume(List<ConsumerRecord<String, String>> records, Acknowledgment ack) {
+        Map<Long, MetricsDelta> deltaMap = new HashMap<>();
 
-        for (ConsumerRecord<String, byte[]> record : records) {
+        // Phase 1: 멱등성 체크 + 메모리 집계
+        for (ConsumerRecord<String, String> record : records) {
             try {
-                tx.executeWithoutResult(status -> processRecord(record));
+                processRecord(record, deltaMap);
             } catch (Exception e) {
-                log.error("MetricsConsumer 처리 실패 — topic={}, offset={}", record.topic(), record.offset(), e);
+                log.error("이벤트 처리 실패: topic={}, offset={}, value={}",
+                    record.topic(), record.offset(), record.value(), e);
             }
+        }
+
+        // Phase 2: productId별 1회 UPSERT
+        if (!deltaMap.isEmpty()) {
+            transactionTemplate.executeWithoutResult(status -> {
+                for (Map.Entry<Long, MetricsDelta> entry : deltaMap.entrySet()) {
+                    Long productId = entry.getKey();
+                    MetricsDelta delta = entry.getValue();
+                    upsertProductMetrics(productId, delta);
+                }
+            });
         }
 
         ack.acknowledge();
+        log.debug("메트릭스 배치 처리 완료: records={}, products={}", records.size(), deltaMap.size());
     }
 
-    private void processRecord(ConsumerRecord<String, byte[]> record) {
+    private void processRecord(ConsumerRecord<String, String> record, Map<Long, MetricsDelta> deltaMap) {
+        String eventId = extractField(record.value(), "eventId");
+        String eventType = extractField(record.value(), "eventType");
+        String productIdStr = extractField(record.value(), "productId");
+
+        if (eventId == null || eventType == null || productIdStr == null) {
+            log.warn("필수 필드 누락: value={}", record.value());
+            return;
+        }
+
+        Long productId = Long.parseLong(productIdStr);
+
+        transactionTemplate.executeWithoutResult(status -> {
+            // 멱등성 체크: INSERT IGNORE
+            int inserted = jdbcTemplate.update(
+                "INSERT IGNORE INTO event_handled (event_id, event_type, handled_at) VALUES (?, ?, NOW())",
+                eventId, eventType
+            );
+
+            if (inserted > 0) {
+                // 새 이벤트만 집계
+                switch (eventType) {
+                    case "LIKE_CREATED" -> deltaMap.merge(productId,
+                        MetricsDelta.ofLike(1), MetricsDelta::merge);
+                    case "LIKE_REMOVED" -> deltaMap.merge(productId,
+                        MetricsDelta.ofLike(-1), MetricsDelta::merge);
+                    case "PRODUCT_VIEWED" -> deltaMap.merge(productId,
+                        MetricsDelta.ofView(), MetricsDelta::merge);
+                    case "ORDER_CREATED" -> {
+                        int salesCount = parseIntField(record.value(), "salesCount", 1);
+                        long salesAmount = parseLongField(record.value(), "salesAmount", 0);
+                        deltaMap.merge(productId,
+                            MetricsDelta.ofSales(salesCount, salesAmount), MetricsDelta::merge);
+                    }
+                    case "ORDER_CANCELLED" -> {
+                        int salesCount = parseIntField(record.value(), "salesCount", 1);
+                        long salesAmount = parseLongField(record.value(), "salesAmount", 0);
+                        deltaMap.merge(productId,
+                            MetricsDelta.ofSales(-salesCount, -salesAmount), MetricsDelta::merge);
+                    }
+                    default -> log.warn("알 수 없는 이벤트 타입: {}", eventType);
+                }
+            }
+        });
+    }
+
+    private void upsertProductMetrics(Long productId, MetricsDelta delta) {
+        jdbcTemplate.update(
+            "INSERT INTO product_metrics (product_id, like_count, view_count, sales_count, sales_amount) " +
+            "VALUES (?, ?, ?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE " +
+            "like_count = like_count + VALUES(like_count), " +
+            "view_count = view_count + VALUES(view_count), " +
+            "sales_count = sales_count + VALUES(sales_count), " +
+            "sales_amount = sales_amount + VALUES(sales_amount)",
+            productId, delta.likeDelta, delta.viewDelta, delta.salesCountDelta, delta.salesAmountDelta
+        );
+    }
+
+    private String extractField(String json, String fieldName) {
+        // 간단한 JSON 필드 추출 (ObjectMapper 없이 경량 처리)
+        String pattern = "\"" + fieldName + "\"";
+        int idx = json.indexOf(pattern);
+        if (idx == -1) return null;
+
+        int colonIdx = json.indexOf(':', idx + pattern.length());
+        if (colonIdx == -1) return null;
+
+        int start = colonIdx + 1;
+        // skip whitespace
+        while (start < json.length() && json.charAt(start) == ' ') start++;
+
+        if (start >= json.length()) return null;
+
+        if (json.charAt(start) == '"') {
+            // string value
+            int end = json.indexOf('"', start + 1);
+            return end == -1 ? null : json.substring(start + 1, end);
+        } else {
+            // numeric or other
+            int end = start;
+            while (end < json.length() && json.charAt(end) != ',' && json.charAt(end) != '}') end++;
+            return json.substring(start, end).trim();
+        }
+    }
+
+    private int parseIntField(String json, String fieldName, int defaultValue) {
+        String value = extractField(json, fieldName);
+        if (value == null) return defaultValue;
         try {
-            JsonNode payload = objectMapper.readTree(record.value());
-            String eventId = extractEventId(record, payload);
-            String eventType = extractEventType(record, payload);
-
-            // INSERT-first 멱등 패턴: event_handled에 먼저 삽입 시도
-            int inserted = entityManager.createNativeQuery(
-                "INSERT IGNORE INTO event_handled (event_id, event_type, created_at) VALUES (:eventId, :eventType, NOW(6))"
-            ).setParameter("eventId", eventId)
-             .setParameter("eventType", eventType)
-             .executeUpdate();
-
-            if (inserted == 0) {
-                log.debug("이미 처리된 이벤트 — eventId={}", eventId);
-                return;
-            }
-
-            switch (eventType) {
-                case "LIKE_CREATED" -> upsertLikeCount(payload, 1);
-                case "LIKE_REMOVED" -> upsertLikeCount(payload, -1);
-                case "PRODUCT_VIEWED" -> upsertViewCount(payload);
-                case "ORDER_CREATED" -> upsertSalesMetrics(payload, 1);
-                case "ORDER_CANCELLED" -> upsertSalesMetrics(payload, -1);
-                default -> log.warn("알 수 없는 이벤트 타입: {}", eventType);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("이벤트 처리 실패", e);
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
         }
     }
 
-    private void upsertLikeCount(JsonNode payload, int delta) {
-        long productId = payload.get("productId").asLong();
-        entityManager.createNativeQuery(
-            "INSERT INTO product_metrics (product_id, like_count, view_count, sales_count, sales_amount, updated_at) "
-                + "VALUES (:productId, :delta, 0, 0, 0, NOW(6)) "
-                + "ON DUPLICATE KEY UPDATE like_count = like_count + :delta, updated_at = NOW(6)"
-        ).setParameter("productId", productId)
-         .setParameter("delta", delta)
-         .executeUpdate();
-    }
-
-    private void upsertViewCount(JsonNode payload) {
-        long productId = payload.get("productId").asLong();
-        entityManager.createNativeQuery(
-            "INSERT INTO product_metrics (product_id, like_count, view_count, sales_count, sales_amount, updated_at) "
-                + "VALUES (:productId, 0, 1, 0, 0, NOW(6)) "
-                + "ON DUPLICATE KEY UPDATE view_count = view_count + 1, updated_at = NOW(6)"
-        ).setParameter("productId", productId)
-         .executeUpdate();
-    }
-
-    private void upsertSalesMetrics(JsonNode payload, int direction) {
-        JsonNode items = payload.get("items");
-        if (items == null || !items.isArray()) return;
-
-        for (JsonNode item : items) {
-            long productId = item.get("productId").asLong();
-            int quantity = item.get("quantity").asInt();
-            int price = item.get("price").asInt();
-            long amount = (long) quantity * price;
-
-            entityManager.createNativeQuery(
-                "INSERT INTO product_metrics (product_id, like_count, view_count, sales_count, sales_amount, updated_at) "
-                    + "VALUES (:productId, 0, 0, :salesCount, :salesAmount, NOW(6)) "
-                    + "ON DUPLICATE KEY UPDATE "
-                    + "sales_count = sales_count + :salesCount, "
-                    + "sales_amount = sales_amount + :salesAmount, "
-                    + "updated_at = NOW(6)"
-            ).setParameter("productId", productId)
-             .setParameter("salesCount", quantity * direction)
-             .setParameter("salesAmount", amount * direction)
-             .executeUpdate();
+    private long parseLongField(String json, String fieldName, long defaultValue) {
+        String value = extractField(json, fieldName);
+        if (value == null) return defaultValue;
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
         }
     }
 
-    private String extractEventId(ConsumerRecord<String, byte[]> record, JsonNode payload) {
-        // Debezium Outbox: header에 id가 포함됨, 직접 발행: payload에 eventId
-        if (payload.has("eventId")) {
-            return payload.get("eventId").asText();
-        }
-        // fallback: topic + partition + offset 조합
-        return record.topic() + "-" + record.partition() + "-" + record.offset();
-    }
+    private static class MetricsDelta {
+        int likeDelta = 0;
+        int viewDelta = 0;
+        int salesCountDelta = 0;
+        long salesAmountDelta = 0;
 
-    private String extractEventType(ConsumerRecord<String, byte[]> record, JsonNode payload) {
-        if (payload.has("eventType")) {
-            return payload.get("eventType").asText();
+        static MetricsDelta ofLike(int delta) {
+            MetricsDelta d = new MetricsDelta();
+            d.likeDelta = delta;
+            return d;
         }
-        // Debezium header에서 eventType 추출 시도
-        var headers = record.headers();
-        var eventTypeHeader = headers.lastHeader("eventType");
-        if (eventTypeHeader != null) {
-            return new String(eventTypeHeader.value());
+
+        static MetricsDelta ofView() {
+            MetricsDelta d = new MetricsDelta();
+            d.viewDelta = 1;
+            return d;
         }
-        return "UNKNOWN";
+
+        static MetricsDelta ofSales(int count, long amount) {
+            MetricsDelta d = new MetricsDelta();
+            d.salesCountDelta = count;
+            d.salesAmountDelta = amount;
+            return d;
+        }
+
+        static MetricsDelta merge(MetricsDelta a, MetricsDelta b) {
+            MetricsDelta result = new MetricsDelta();
+            result.likeDelta = a.likeDelta + b.likeDelta;
+            result.viewDelta = a.viewDelta + b.viewDelta;
+            result.salesCountDelta = a.salesCountDelta + b.salesCountDelta;
+            result.salesAmountDelta = a.salesAmountDelta + b.salesAmountDelta;
+            return result;
+        }
     }
 }

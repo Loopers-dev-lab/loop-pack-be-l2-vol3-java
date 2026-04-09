@@ -5,6 +5,7 @@ import com.loopers.domain.member.Member;
 import com.loopers.domain.order.Order;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.auth.AuthMember;
+import com.loopers.support.auth.RequireEntryToken;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -24,6 +25,7 @@ public class OrderController {
     private final OrderFacade orderFacade;
 
     @PostMapping
+    @RequireEntryToken
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<OrderDto.OrderResponse> createOrder(
         @AuthMember Member member,
