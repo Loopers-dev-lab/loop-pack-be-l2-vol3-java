@@ -60,7 +60,8 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
     public void issueToken(Long userId, String token, Duration ttl) {
         masterRedisTemplate.opsForValue()
                 .set(TOKEN_KEY_PREFIX + userId, token, ttl);
-        masterRedisTemplate.opsForSet().add(ACTIVE_TOKENS_KEY, String.valueOf(userId));
+        double expireAt = System.currentTimeMillis() + ttl.toMillis();
+        masterRedisTemplate.opsForZSet().add(ACTIVE_TOKENS_KEY, String.valueOf(userId), expireAt);
     }
 
     @Override
@@ -79,7 +80,7 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
         );
 
         if (result != null && result > 0) {
-            masterRedisTemplate.opsForSet().remove(ACTIVE_TOKENS_KEY, String.valueOf(userId));
+            masterRedisTemplate.opsForZSet().remove(ACTIVE_TOKENS_KEY, String.valueOf(userId));
             return true;
         }
         return false;
@@ -89,12 +90,15 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
     public void restoreToken(Long userId, String token) {
         masterRedisTemplate.opsForValue()
                 .set(TOKEN_KEY_PREFIX + userId, token, RESTORE_TTL);
-        masterRedisTemplate.opsForSet().add(ACTIVE_TOKENS_KEY, String.valueOf(userId));
+        double expireAt = System.currentTimeMillis() + RESTORE_TTL.toMillis();
+        masterRedisTemplate.opsForZSet().add(ACTIVE_TOKENS_KEY, String.valueOf(userId), expireAt);
     }
 
     @Override
     public long countActiveTokens() {
-        Long size = defaultRedisTemplate.opsForSet().size(ACTIVE_TOKENS_KEY);
+        masterRedisTemplate.opsForZSet()
+                .removeRangeByScore(ACTIVE_TOKENS_KEY, 0, System.currentTimeMillis());
+        Long size = defaultRedisTemplate.opsForZSet().size(ACTIVE_TOKENS_KEY);
         return size != null ? size : 0L;
     }
 
