@@ -27,7 +27,7 @@ public class PaymentUseCase {
 
     private final PaymentStartApplicationService paymentStartApplicationService;
     private final PaymentCancelApplicationService paymentCancelApplicationService;
-    private final PaymentCompleteService paymentCompleteService;
+    private final PaymentCompletionApplicationService paymentCompleteService;
     private final PaymentRepository paymentRepository;
     private final PaymentGateway paymentGateway;
     private final OrderApplicationService orderApplicationService;

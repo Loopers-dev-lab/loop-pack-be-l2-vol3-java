@@ -6,6 +6,7 @@ import com.loopers.application.coupon.CouponAdminApplicationService;
 import com.loopers.application.coupon.command.CreateCouponCommand;
 import com.loopers.application.order.command.CreateOrderCommand;
 import com.loopers.application.order.OrderApplicationService;
+import com.loopers.application.process.checkout.OrderUseCase;
 import com.loopers.application.order.query.OrderAccessRequest;
 import com.loopers.application.product.ProductApplicationService;
 import com.loopers.application.product.command.CreateProductCommand;

@@ -12,4 +12,12 @@ public record PaymentStatusChangedEvent(
         PaymentStatus afterStatus,
         Instant changedAt
 ) {
+    public PaymentStatusChangedEvent(
+            String memberId,
+            UUID orderId,
+            PaymentStatus beforeStatus,
+            PaymentStatus afterStatus
+    ) {
+        this(memberId, orderId, beforeStatus, afterStatus, Instant.now());
+    }
 }

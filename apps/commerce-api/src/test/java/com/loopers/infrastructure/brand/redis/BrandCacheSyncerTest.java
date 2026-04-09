@@ -37,6 +37,6 @@ class BrandCacheSyncerTest {
 
         brandCacheSyncer.syncUpsert(brand);
 
-        verify(cacheSyncFailurePersistence).recordBrandUpsertFailure(brand, failure);
+        verify(cacheSyncFailurePersistence).recordBrandUpsertFailure(brand.id(), brand, failure);
     }
 }
