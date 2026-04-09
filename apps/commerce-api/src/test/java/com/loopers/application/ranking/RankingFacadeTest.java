@@ -163,4 +163,76 @@ class RankingFacadeTest {
             assertThat(facade.getDailyRank(null)).isNull();
         }
     }
+
+    @Nested
+    @DisplayName("KST 자정 경계값 — getDailyRank")
+    class KstMidnightBoundary {
+
+        @Test
+        @DisplayName("KST 23:59:59 에는 그 날짜 키로 조회한다")
+        void justBeforeMidnight_usesTodayKey() {
+            // given — 2026-04-08 23:59:59 KST
+            LocalDate kstDate = LocalDate.of(2026, 4, 8);
+            Clock justBefore = Clock.fixed(
+                    kstDate.atStartOfDay(KST).plusDays(1).minusSeconds(1).toInstant(), KST);
+            RankingFacade facadeBefore = new RankingFacade(rankingRepository, productFacade, justBefore);
+            when(rankingRepository.getRank("ranking:all:20260408", 1L)).thenReturn(2L);
+
+            // when
+            Long rank = facadeBefore.getDailyRank(1L);
+
+            // then
+            assertThat(rank).isEqualTo(2L);
+            verify(rankingRepository).getRank("ranking:all:20260408", 1L);
+        }
+
+        @Test
+        @DisplayName("KST 00:00:00 에는 다음 날짜 키로 조회한다")
+        void atMidnight_usesNextDayKey() {
+            // given — 2026-04-09 00:00:00 KST
+            Clock atMidnight = Clock.fixed(
+                    TODAY.atStartOfDay(KST).toInstant(), KST);
+            RankingFacade facadeAtMidnight = new RankingFacade(rankingRepository, productFacade, atMidnight);
+            when(rankingRepository.getRank("ranking:all:20260409", 1L)).thenReturn(1L);
+
+            // when
+            Long rank = facadeAtMidnight.getDailyRank(1L);
+
+            // then
+            assertThat(rank).isEqualTo(1L);
+            verify(rankingRepository).getRank("ranking:all:20260409", 1L);
+        }
+
+        @Test
+        @DisplayName("날짜 생략 케이스 — KST 23:59:59 에는 그 날 키로 getDailyRanking 을 호출한다")
+        void getDailyRanking_justBeforeMidnight_usesTodayKey() {
+            // given — 2026-04-08 23:59:59 KST
+            LocalDate kstDate = LocalDate.of(2026, 4, 8);
+            Clock justBefore = Clock.fixed(
+                    kstDate.atStartOfDay(KST).plusDays(1).minusSeconds(1).toInstant(), KST);
+            RankingFacade f = new RankingFacade(rankingRepository, productFacade, justBefore);
+            when(rankingRepository.getTopN(any(), anyInt(), anyInt())).thenReturn(List.of());
+
+            // when
+            f.getDailyRanking(null, 1, 20);
+
+            // then
+            verify(rankingRepository).getTopN(eq("ranking:all:20260408"), eq(1), eq(20));
+        }
+
+        @Test
+        @DisplayName("날짜 생략 케이스 — KST 00:00:00 에는 새 날짜 키로 getDailyRanking 을 호출한다")
+        void getDailyRanking_atMidnight_usesNextDayKey() {
+            // given — 2026-04-09 00:00:00 KST
+            Clock atMidnight = Clock.fixed(TODAY.atStartOfDay(KST).toInstant(), KST);
+            RankingFacade f = new RankingFacade(rankingRepository, productFacade, atMidnight);
+            when(rankingRepository.getTopN(any(), anyInt(), anyInt())).thenReturn(List.of());
+
+            // when
+            f.getDailyRanking(null, 1, 20);
+
+            // then
+            verify(rankingRepository).getTopN(eq("ranking:all:20260409"), eq(1), eq(20));
+        }
+    }
 }

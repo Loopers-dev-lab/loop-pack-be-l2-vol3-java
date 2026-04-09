@@ -8,6 +8,7 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
+import com.loopers.domain.ranking.RankingKey;
 import com.loopers.interfaces.api.product.dto.ProductV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
@@ -23,6 +24,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -37,6 +39,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ProductDetailDailyRankE2ETest {
 
     private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    @Autowired
+    private Clock clock;
 
     @Autowired
     private TestRestTemplate testRestTemplate;
@@ -76,8 +81,7 @@ class ProductDetailDailyRankE2ETest {
     }
 
     private void seedRankingToday(Long productId, double score) {
-        String key = "ranking:all:" + LocalDate.now().format(YYYYMMDD);
-        masterRedisTemplate.opsForZSet().add(key, productId.toString(), score);
+        masterRedisTemplate.opsForZSet().add(RankingKey.daily(LocalDate.now(clock)), productId.toString(), score);
     }
 
     @Test

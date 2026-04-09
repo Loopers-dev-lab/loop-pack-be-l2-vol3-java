@@ -8,6 +8,7 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
+import com.loopers.domain.ranking.RankingKey;
 import com.loopers.interfaces.api.ranking.dto.RankingV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
@@ -24,6 +25,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -39,6 +41,9 @@ class RankingV1ApiE2ETest {
 
     private static final String ENDPOINT = "/api/v1/rankings";
     private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    @Autowired
+    private Clock clock;
 
     @Autowired
     private TestRestTemplate testRestTemplate;
@@ -78,8 +83,7 @@ class RankingV1ApiE2ETest {
     }
 
     private void seedRanking(LocalDate date, Long productId, double score) {
-        String key = "ranking:all:" + date.format(YYYYMMDD);
-        masterRedisTemplate.opsForZSet().add(key, productId.toString(), score);
+        masterRedisTemplate.opsForZSet().add(RankingKey.daily(date), productId.toString(), score);
     }
 
     @Nested
@@ -93,7 +97,7 @@ class RankingV1ApiE2ETest {
             Brand brand = saveBrand();
             Product p1 = saveProduct(brand, "상품1", "Y");
             Product p2 = saveProduct(brand, "상품2", "Y");
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(clock);
             seedRanking(today, p1.getId(), 10.0);
             seedRanking(today, p2.getId(), 5.0);
 
@@ -126,7 +130,7 @@ class RankingV1ApiE2ETest {
             Brand brand = saveBrand();
             Product visible = saveProduct(brand, "visible", "Y");
             Product hidden = saveProduct(brand, "hidden", "N");
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(clock);
             seedRanking(today, visible.getId(), 10.0);
             seedRanking(today, hidden.getId(), 20.0);
 
@@ -151,7 +155,7 @@ class RankingV1ApiE2ETest {
             // given
             Brand brand = saveBrand();
             Product product = saveProduct(brand, "상품", "Y");
-            LocalDate yesterday = LocalDate.now().minusDays(1);
+            LocalDate yesterday = LocalDate.now(clock).minusDays(1);
             seedRanking(yesterday, product.getId(), 7.0);
 
             // when
@@ -175,7 +179,7 @@ class RankingV1ApiE2ETest {
             // given
             Brand brand = saveBrand();
             Product product = saveProduct(brand, "today", "Y");
-            LocalDate today = LocalDate.now();
+            LocalDate today = LocalDate.now(clock);
             seedRanking(today, product.getId(), 10.0);
 
             // when
@@ -211,7 +215,7 @@ class RankingV1ApiE2ETest {
         @DisplayName("빈 랭킹은 items 빈 배열 + totalElements=0")
         void emptyRanking() {
             ResponseEntity<ApiResponse<RankingV1Dto.RankingPageResponse>> response = testRestTemplate.exchange(
-                    ENDPOINT + "?date=" + LocalDate.now().format(YYYYMMDD),
+                    ENDPOINT + "?date=" + LocalDate.now(clock).format(YYYYMMDD),
                     org.springframework.http.HttpMethod.GET,
                     null,
                     new ParameterizedTypeReference<>() {
