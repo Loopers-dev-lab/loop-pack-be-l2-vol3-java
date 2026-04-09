@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
@@ -20,11 +21,25 @@ public class RankingApplicationService {
     private final RankingRepository rankingRepository;
 
     @Transactional(readOnly = true)
-    public List<RankingProductView> getTop(int limit) {
-        if (limit < 1 || limit > 100) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "limit은 1 이상 100 이하여야 합니다.");
+    public List<RankingProductView> getDailyPage(LocalDate metricDate, int page, int size) {
+        if (page < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "page는 1 이상이어야 합니다.");
         }
-        return rankingRepository.findTop(LocalDate.now(KOREA_ZONE), limit);
+        if (size < 1 || size > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "size는 1 이상 100 이하여야 합니다.");
+        }
+        return rankingRepository.findDailyPage(metricDate, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RankingProductView> getHourlyPage(LocalDateTime metricHour, int page, int size) {
+        if (page < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "page는 1 이상이어야 합니다.");
+        }
+        if (size < 1 || size > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "size는 1 이상 100 이하여야 합니다.");
+        }
+        return rankingRepository.findHourlyPage(metricHour, page, size);
     }
 
     @Transactional(readOnly = true)

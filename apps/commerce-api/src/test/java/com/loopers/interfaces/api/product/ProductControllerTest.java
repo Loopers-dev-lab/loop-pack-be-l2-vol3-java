@@ -131,7 +131,7 @@ class ProductControllerTest {
     class GetDetail {
 
         @Test
-        @DisplayName("존재하는 상품이면 200과 상품 정보를 반환한다")
+        @DisplayName("존재하는 상품이면 200과 상품 정보 및 rank를 반환한다")
         void getDetailSuccess() throws Exception {
             UUID categoryId = createCategory("푸드");
             UUID brandId = createBrand("퍼피박스");
@@ -141,7 +141,8 @@ class ProductControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
                     .andExpect(jsonPath("$.data.id").value(productId.toString()))
-                    .andExpect(jsonPath("$.data.name").value("사료A"));
+                    .andExpect(jsonPath("$.data.name").value("사료A"))
+                    .andExpect(jsonPath("$.data.rank").isEmpty());
         }
 
         @Test

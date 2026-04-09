@@ -16,6 +16,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -43,8 +44,8 @@ class RedisProductRankingRepositoryIntegrationTest {
     }
 
     @Test
-    @DisplayName("실제 Redis ZSET에서 상위 랭킹과 개별 순위를 조회한다")
-    void readRankingFromRedis() {
+    @DisplayName("실제 Redis ZSET에서 일간 상위 랭킹과 개별 순위를 조회한다")
+    void readDailyRankingFromRedis() {
         LocalDate metricDate = LocalDate.of(2025, 9, 7);
         UUID firstProductId = UUID.randomUUID();
         UUID secondProductId = UUID.randomUUID();
@@ -52,15 +53,31 @@ class RedisProductRankingRepositoryIntegrationTest {
         redisTemplate.opsForZSet().add(rankingKey, firstProductId.toString(), 3.5d);
         redisTemplate.opsForZSet().add(rankingKey, secondProductId.toString(), 1.2d);
 
-        List<RankingProductView> topRankings = redisProductRankingRepository.findTop(metricDate, 2);
+        List<RankingProductView> rankings = redisProductRankingRepository.findDailyPage(metricDate, 1, 2);
         RankingProductView productRank = redisProductRankingRepository.findProductRank(metricDate, secondProductId);
 
-        assertThat(topRankings).hasSize(2);
-        assertThat(topRankings.get(0).productId()).isEqualTo(firstProductId);
-        assertThat(topRankings.get(0).rank()).isEqualTo(1L);
-        assertThat(topRankings.get(0).score()).isEqualTo(3.5d);
+        assertThat(rankings).hasSize(2);
+        assertThat(rankings.get(0).productId()).isEqualTo(firstProductId);
+        assertThat(rankings.get(0).rank()).isEqualTo(1L);
+        assertThat(rankings.get(0).score()).isEqualTo(3.5d);
         assertThat(productRank.productId()).isEqualTo(secondProductId);
         assertThat(productRank.rank()).isEqualTo(2L);
         assertThat(productRank.score()).isEqualTo(1.2d);
+    }
+
+    @Test
+    @DisplayName("실제 Redis ZSET에서 시간별 랭킹 페이지를 조회한다")
+    void readHourlyRankingFromRedis() {
+        LocalDateTime metricHour = LocalDateTime.of(2025, 9, 7, 12, 0);
+        UUID productId = UUID.randomUUID();
+        String rankingKey = redisProductRankingRepository.buildHourlyRankingKey(metricHour);
+        redisTemplate.opsForZSet().add(rankingKey, productId.toString(), 2.7d);
+
+        List<RankingProductView> rankings = redisProductRankingRepository.findHourlyPage(metricHour, 1, 20);
+
+        assertThat(rankings).hasSize(1);
+        assertThat(rankings.get(0).productId()).isEqualTo(productId);
+        assertThat(rankings.get(0).rank()).isEqualTo(1L);
+        assertThat(rankings.get(0).score()).isEqualTo(2.7d);
     }
 }

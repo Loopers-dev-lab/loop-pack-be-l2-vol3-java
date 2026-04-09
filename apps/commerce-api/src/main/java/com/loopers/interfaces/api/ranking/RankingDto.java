@@ -9,10 +9,14 @@ import java.util.UUID;
 public class RankingDto {
 
     public record TopRankingResponse(
+            String window,
+            String date,
+            Integer page,
+            Integer size,
             List<TopRankingItemResponse> items
     ) {
-        public static TopRankingResponse from(List<TopRankingProductView> views) {
-            return new TopRankingResponse(views.stream().map(TopRankingItemResponse::from).toList());
+        public static TopRankingResponse from(String window, String date, int page, int size, List<TopRankingProductView> views) {
+            return new TopRankingResponse(window, date, page, size, views.stream().map(TopRankingItemResponse::from).toList());
         }
     }
 

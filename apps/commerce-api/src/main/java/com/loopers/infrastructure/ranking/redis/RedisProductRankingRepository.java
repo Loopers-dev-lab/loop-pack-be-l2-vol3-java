@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class RedisProductRankingRepository implements RankingRepository {
 
     private static final DateTimeFormatter KEY_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final DateTimeFormatter KEY_HOUR_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHH");
 
     private final RedisTemplate<String, String> redisTemplate;
 
@@ -27,20 +29,13 @@ public class RedisProductRankingRepository implements RankingRepository {
     }
 
     @Override
-    public List<RankingProductView> findTop(LocalDate metricDate, int limit) {
-        Set<ZSetOperations.TypedTuple<String>> tuples = redisTemplate.opsForZSet()
-                .reverseRangeWithScores(buildDailyRankingKey(metricDate), 0, limit - 1L);
-        if (tuples == null || tuples.isEmpty()) {
-            return List.of();
-        }
-        AtomicLong rank = new AtomicLong(1L);
-        return tuples.stream()
-                .map(tuple -> new RankingProductView(
-                        UUID.fromString(tuple.getValue()),
-                        rank.getAndIncrement(),
-                        tuple.getScore()
-                ))
-                .toList();
+    public List<RankingProductView> findDailyPage(LocalDate metricDate, int page, int size) {
+        return findPage(buildDailyRankingKey(metricDate), page, size);
+    }
+
+    @Override
+    public List<RankingProductView> findHourlyPage(LocalDateTime metricHour, int page, int size) {
+        return findPage(buildHourlyRankingKey(metricHour), page, size);
     }
 
     @Override
@@ -56,5 +51,27 @@ public class RedisProductRankingRepository implements RankingRepository {
 
     public String buildDailyRankingKey(LocalDate metricDate) {
         return "ranking:all:" + metricDate.format(KEY_DATE_FORMATTER);
+    }
+
+    public String buildHourlyRankingKey(LocalDateTime metricHour) {
+        return "ranking:hourly:" + metricHour.format(KEY_HOUR_FORMATTER);
+    }
+
+    private List<RankingProductView> findPage(String rankingKey, int page, int size) {
+        long start = (long) (page - 1) * size;
+        long end = start + size - 1L;
+        Set<ZSetOperations.TypedTuple<String>> tuples = redisTemplate.opsForZSet()
+                .reverseRangeWithScores(rankingKey, start, end);
+        if (tuples == null || tuples.isEmpty()) {
+            return List.of();
+        }
+        AtomicLong rank = new AtomicLong(start + 1L);
+        return tuples.stream()
+                .map(tuple -> new RankingProductView(
+                        UUID.fromString(tuple.getValue()),
+                        rank.getAndIncrement(),
+                        tuple.getScore()
+                ))
+                .toList();
     }
 }
