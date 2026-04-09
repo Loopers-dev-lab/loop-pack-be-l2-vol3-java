@@ -52,6 +52,7 @@ public class OrderService {
             }
 
             OrderItemModel orderItem = OrderItemModel.create(
+                    product.getId(),
                     product.getProductId().value(),
                     product.getProductName().value(),
                     product.getPrice().value(),

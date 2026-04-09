@@ -45,9 +45,12 @@ public class OrderApp {
 
         String eventId = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
+        List<OrderItemPayload> itemPayloads = order.getOrderItems().stream()
+                .map(item -> new OrderItemPayload(item.getRefProductId(), item.getPrice(), item.getQuantity()))
+                .toList();
         OrderOutboxPayload payload = new OrderOutboxPayload(
-                eventId, "OrderCreated", 1,
-                order.getOrderId().value(), memberId, order.getFinalAmount(), now);
+                eventId, "OrderCreated", 2,
+                order.getOrderId().value(), memberId, order.getFinalAmount(), now, itemPayloads);
         outboxAppender.append("order", order.getOrderId().value(), "OrderCreated", ORDER_EVENTS_TOPIC, payload);
         eventPublisher.publishEvent(new OrderCreatedEvent(eventId, order.getOrderId().value(), memberId, order.getFinalAmount(), now));
 

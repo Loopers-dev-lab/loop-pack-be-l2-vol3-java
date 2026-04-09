@@ -14,7 +14,9 @@ public record ProductInfo(
         BigDecimal price,
         int stockQuantity,
         BrandInfo brand,
-        long likesCount
+        long likesCount,
+        Long rank,
+        Double rankingScore
 ) {
     public static ProductInfo from(ProductModel product, BrandModel brand, long likesCount) {
         return new ProductInfo(
@@ -25,7 +27,9 @@ public record ProductInfo(
                 product.getPrice().value(),
                 product.getStockQuantity().value(),
                 BrandInfo.from(brand),
-                likesCount
+                likesCount,
+                null,
+                null
         );
     }
 
@@ -38,11 +42,17 @@ public record ProductInfo(
                 product.getPrice().value(),
                 product.getStockQuantity().value(),
                 null,
-                0L
+                0L,
+                null,
+                null
         );
     }
 
     public ProductInfo enrich(BrandInfo brand, long likesCount) {
-        return new ProductInfo(id, productId, refBrandId, productName, price, stockQuantity, brand, likesCount);
+        return new ProductInfo(id, productId, refBrandId, productName, price, stockQuantity, brand, likesCount, rank, rankingScore);
+    }
+
+    public ProductInfo withRanking(Long rank, Double rankingScore) {
+        return new ProductInfo(id, productId, refBrandId, productName, price, stockQuantity, brand, likesCount, rank, rankingScore);
     }
 }
