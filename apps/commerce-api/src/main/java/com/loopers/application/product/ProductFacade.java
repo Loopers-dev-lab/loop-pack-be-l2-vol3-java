@@ -10,6 +10,7 @@ import com.loopers.domain.product.ProductMetricsRepository;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.SellingStatus;
 import com.loopers.domain.event.UserActionEvent;
+import com.loopers.infrastructure.ranking.RankingRedisRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -22,6 +23,7 @@ import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -37,6 +39,7 @@ public class ProductFacade {
     private final BrandService brandService;
     private final LikeApplicationService likeService;
     private final ProductMetricsRepository productMetricsRepository;
+    private final RankingRedisRepository rankingRedisRepository;
     private final ObjectMapper objectMapper;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -45,6 +48,7 @@ public class ProductFacade {
         BrandService brandService,
         LikeApplicationService likeService,
         ProductMetricsRepository productMetricsRepository,
+        RankingRedisRepository rankingRedisRepository,
         RedisTemplate<String, String> redisTemplate,
         @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER) RedisTemplate<String, String> masterRedisTemplate,
         ObjectMapper objectMapper,
@@ -54,6 +58,7 @@ public class ProductFacade {
         this.brandService = brandService;
         this.likeService = likeService;
         this.productMetricsRepository = productMetricsRepository;
+        this.rankingRedisRepository = rankingRedisRepository;
         this.redisTemplate = redisTemplate;
         this.masterRedisTemplate = masterRedisTemplate;
         this.objectMapper = objectMapper;
@@ -73,13 +78,14 @@ public class ProductFacade {
     public ProductInfo findById(Long productId, Long userId) {
         String cacheKey = "product:detail:" + productId;
 
-        // 캐시 히트: isLiked를 별도 조회해 오버레이 후 반환
+        // 캐시 히트: isLiked, rank를 별도 조회해 오버레이 후 반환
         String cached = redisTemplate.opsForValue().get(cacheKey);
         if (cached != null) {
             try {
                 ProductInfo info = objectMapper.readValue(cached, ProductInfo.class);
                 Boolean isLiked = userId != null ? likeService.isLiked(userId, productId) : null;
-                return info.withIsLiked(isLiked);
+                Integer rank = rankingRedisRepository.findRank(LocalDate.now(), productId);
+                return info.withIsLiked(isLiked).withRank(rank);
             } catch (JsonProcessingException ignored) {
             }
         }
@@ -96,12 +102,13 @@ public class ProductFacade {
         } catch (JsonProcessingException ignored) {
         }
         Boolean isLiked = userId != null ? likeService.isLiked(userId, productId) : null;
+        Integer rank = rankingRedisRepository.findRank(LocalDate.now(), productId);
         if (userId != null) {
             eventPublisher.publishEvent(new UserActionEvent(
                 UserActionEvent.EventType.PRODUCT_VIEWED, userId, productId, null
             ));
         }
-        return info.withIsLiked(isLiked);
+        return info.withIsLiked(isLiked).withRank(rank);
     }
 
     /**
