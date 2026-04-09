@@ -18,6 +18,10 @@ dependencies {
     // security (password encoding)
     implementation("org.springframework.security:spring-security-crypto")
 
+    // shedlock — 분산 환경 스케줄러 중복 실행 방지
+    implementation("net.javacrumbs.shedlock:shedlock-spring:6.9.0")
+    implementation("net.javacrumbs.shedlock:shedlock-provider-redis-spring:6.9.0")
+
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")
     annotationProcessor("jakarta.persistence:jakarta.persistence-api")
