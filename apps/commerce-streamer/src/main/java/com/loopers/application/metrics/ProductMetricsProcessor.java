@@ -4,6 +4,7 @@ import com.loopers.domain.event.EventHandled;
 import com.loopers.domain.event.EventHandledRepository;
 import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.metrics.ProductMetricsRepository;
+import com.loopers.domain.ranking.RankingRepository;
 import java.time.ZonedDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ public class ProductMetricsProcessor {
 
     private final ProductMetricsRepository productMetricsRepository;
     private final EventHandledRepository eventHandledRepository;
+    private final RankingRepository rankingRepository;
 
     @Transactional
     public void process(String eventId, String eventType, Long productId, Integer quantity, ZonedDateTime occurredAt) {
@@ -36,10 +38,22 @@ public class ProductMetricsProcessor {
         ensureMetricsExists(productId);
 
         switch (eventType) {
-            case "PRODUCT_VIEWED" -> productMetricsRepository.incrementViewCount(productId);
-            case "LIKED" -> productMetricsRepository.incrementLikeCount(productId);
-            case "UNLIKED" -> productMetricsRepository.decrementLikeCount(productId);
-            case "ORDER_CONFIRMED" -> productMetricsRepository.incrementSalesCount(productId);
+            case "PRODUCT_VIEWED" -> {
+                productMetricsRepository.incrementViewCount(productId);
+                rankingRepository.incrementScore(productId, 0.1, occurredAt.toLocalDate());
+            }
+            case "LIKED" -> {
+                productMetricsRepository.incrementLikeCount(productId);
+                rankingRepository.incrementScore(productId, 0.2, occurredAt.toLocalDate());
+            }
+            case "UNLIKED" -> {
+                productMetricsRepository.decrementLikeCount(productId);
+                rankingRepository.incrementScore(productId, -0.2, occurredAt.toLocalDate());
+            }
+            case "ORDER_CONFIRMED" -> {
+                productMetricsRepository.incrementSalesCount(productId);
+                rankingRepository.incrementScore(productId, 0.7 * Math.log1p(quantity), occurredAt.toLocalDate());
+            }
             default -> log.warn("알 수 없는 이벤트 타입. eventType={}", eventType);
         }
 
