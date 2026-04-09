@@ -138,7 +138,7 @@ public class OrderService {
             .collect(Collectors.toList());
 
         // Outbox에 ORDERED 이벤트 저장 (주문 라인별 1건씩 — 랭킹은 상품 단위)
-        for (OrderLine ol : order.getOrderLines()) {
+        for (Order.OrderLineEntity ol : order.getOrderLines()) {
             String eventId = UUID.randomUUID().toString();
             CatalogEvent event = CatalogEvent.ordered(
                 eventId, ol.getProductId(), memberId, Instant.now().toEpochMilli(),
