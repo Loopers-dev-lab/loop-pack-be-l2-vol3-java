@@ -16,8 +16,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -128,6 +131,57 @@ class ProductV1ApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @DisplayName("POST /api/v1/products/{productId}/dwell - 상품 체류 시간 보고")
+    @Nested
+    class ReportDwell {
+
+        @DisplayName("5초 이상의 체류 시간을 보고하면, 200 OK 응답을 받는다.")
+        @Test
+        void returnsOk_whenDwellTimeIsValid() {
+            // arrange
+            BrandModel brand = brandJpaRepository.save(new BrandModel("나이키", "스포츠 의류 및 신발 브랜드"));
+            ProductModel product = productJpaRepository.save(new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(Map.of("dwellTimeSeconds", 30), headers);
+
+            // act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "/" + product.getId() + "/dwell",
+                HttpMethod.POST,
+                request,
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        }
+
+        @DisplayName("5초 미만의 체류 시간을 보고하면, 400 Bad Request 응답을 받는다.")
+        @Test
+        void returnsBadRequest_whenDwellTimeIsLessThanMinimum() {
+            // arrange
+            BrandModel brand = brandJpaRepository.save(new BrandModel("나이키", "스포츠 의류 및 신발 브랜드"));
+            ProductModel product = productJpaRepository.save(new ProductModel(brand, "에어맥스", 150000L, "나이키 에어맥스", 100, ProductStatus.ON_SALE));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(Map.of("dwellTimeSeconds", 3), headers);
+
+            // act
+            ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "/" + product.getId() + "/dwell",
+                HttpMethod.POST,
+                request,
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -263,6 +317,7 @@ class ProductV1ApiE2ETest {
         String status,
         long likeCount,
         String createdAt,
-        String updatedAt
+        String updatedAt,
+        Long ranking
     ) {}
 }
