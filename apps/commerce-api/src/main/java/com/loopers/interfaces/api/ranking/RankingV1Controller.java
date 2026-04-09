@@ -74,7 +74,7 @@ public class RankingV1Controller {
         try {
             return LocalDate.parse(dateStr, YYYYMMDD);
         } catch (DateTimeParseException e) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "date 는 yyyyMMdd 형식이어야 합니다: " + dateStr);
+            throw new CoreException(ErrorType.BAD_REQUEST, "date 는 yyyyMMdd 형식이어야 합니다: " + dateStr, e);
         }
     }
 }
