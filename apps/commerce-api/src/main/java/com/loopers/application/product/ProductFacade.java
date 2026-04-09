@@ -1,5 +1,6 @@
 package com.loopers.application.product;
 
+import com.loopers.domain.event.ProductViewedEvent;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
@@ -8,10 +9,12 @@ import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.infrastructure.redis.StockReservationRedisRepository;
 import com.loopers.interfaces.api.product.ProductDto;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +34,8 @@ public class ProductFacade {
     private final BrandRepository brandRepository;
     private final LikeRepository likeRepository;
     private final ProductCachePort productCachePort;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final StockReservationRedisRepository stockRedisRepository;
 
     // ── 상품 상세 (캐시 적용) ──
 
@@ -45,12 +50,14 @@ public class ProductFacade {
     public ProductDto.ProductResponse getProductDetailCached(Long productId) {
         ProductDto.ProductResponse cached = productCachePort.getProductDetail(productId);
         if (cached != null) {
+            applicationEventPublisher.publishEvent(new ProductViewedEvent(productId, 0L));
             return cached;
         }
 
         ProductWithBrand info = getProductDetail(productId);
         ProductDto.ProductResponse response = ProductDto.ProductResponse.from(info);
         productCachePort.putProductDetail(productId, response);
+        applicationEventPublisher.publishEvent(new ProductViewedEvent(productId, 0L));
         return response;
     }
 
@@ -113,6 +120,17 @@ public class ProductFacade {
                 .toList();
         }
         return results;
+    }
+
+    // ── 재고 복원 (결제 실패/취소 시 호출) ──
+
+    @Transactional
+    public void restoreStock(Long productId, int quantity) {
+        stockRedisRepository.increase(productId, quantity);
+        productRepository.findById(productId).ifPresent(product -> {
+            product.increaseStock(quantity);
+            productRepository.save(product);
+        });
     }
 
     // ── 상품 CUD (캐시 무효화 포함) ──

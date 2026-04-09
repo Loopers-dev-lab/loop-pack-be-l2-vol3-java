@@ -8,6 +8,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 @Entity
 @Table(name = "payments", indexes = {
     @Index(name = "idx_payments_order_id", columnList = "order_id"),
@@ -45,6 +49,19 @@ public class PaymentModel extends BaseEntity {
     @Column(name = "failure_reason")
     private String failureReason;
 
+    @Transient
+    private final List<StatusTransition> pendingTransitions = new ArrayList<>();
+
+    public record StatusTransition(PaymentStatus from, PaymentStatus to, String reason, String detail) {}
+
+    public List<StatusTransition> getPendingTransitions() {
+        return Collections.unmodifiableList(pendingTransitions);
+    }
+
+    public void clearPendingTransitions() {
+        pendingTransitions.clear();
+    }
+
     public static PaymentModel create(Long orderId, int amount, String cardType, String cardNo) {
         PaymentModel payment = new PaymentModel();
         payment.orderId = orderId;
@@ -56,26 +73,34 @@ public class PaymentModel extends BaseEntity {
     }
 
     public void markPending(String transactionKey, String pgProvider) {
+        PaymentStatus from = this.status;
         validateTransition(PaymentStatus.PENDING);
         this.status = PaymentStatus.PENDING;
         this.transactionKey = transactionKey;
         this.pgProvider = pgProvider;
+        pendingTransitions.add(new StatusTransition(from, PaymentStatus.PENDING, "PG_RESPONSE", null));
     }
 
     public void markPaid() {
+        PaymentStatus from = this.status;
         validateTransition(PaymentStatus.PAID);
         this.status = PaymentStatus.PAID;
+        pendingTransitions.add(new StatusTransition(from, PaymentStatus.PAID, "PG_RESPONSE", null));
     }
 
     public void markFailed(String reason) {
+        PaymentStatus from = this.status;
         validateTransition(PaymentStatus.FAILED);
         this.status = PaymentStatus.FAILED;
         this.failureReason = reason;
+        pendingTransitions.add(new StatusTransition(from, PaymentStatus.FAILED, "PG_RESPONSE", reason));
     }
 
     public void markUnknown() {
+        PaymentStatus from = this.status;
         validateTransition(PaymentStatus.UNKNOWN);
         this.status = PaymentStatus.UNKNOWN;
+        pendingTransitions.add(new StatusTransition(from, PaymentStatus.UNKNOWN, "PG_RESPONSE", null));
     }
 
     private void validateTransition(PaymentStatus target) {

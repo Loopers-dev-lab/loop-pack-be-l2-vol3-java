@@ -37,7 +37,7 @@ class DbFailureFaultTest {
     void setUp() {
         paymentRepository = new FakePaymentRepository();
         walWriter = new PaymentWalWriter(tempDir.toString(), new ObjectMapper());
-        walRecovery = new WalRecoveryScheduler(walWriter, paymentRepository);
+        walRecovery = new WalRecoveryScheduler(walWriter, paymentRepository, new com.loopers.fake.FakePaymentStatusHistoryRepository());
     }
 
     @DisplayName("F7-4: PG SUCCESS → DB 실패 → WAL 기록 → WAL Recovery → PAID")

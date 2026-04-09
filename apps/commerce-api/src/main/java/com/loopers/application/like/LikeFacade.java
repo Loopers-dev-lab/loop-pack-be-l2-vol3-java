@@ -1,5 +1,8 @@
 package com.loopers.application.like;
 
+import com.loopers.domain.event.DomainEventPublisher;
+import com.loopers.domain.event.LikeCreatedEvent;
+import com.loopers.domain.event.LikeRemovedEvent;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.like.LikeRepository;
 import com.loopers.domain.product.ProductRepository;
@@ -10,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -19,6 +23,7 @@ public class LikeFacade {
 
     private final LikeRepository likeRepository;
     private final ProductRepository productRepository;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Transactional
     public void addLike(Long memberId, Long productId) {
@@ -30,7 +35,10 @@ public class LikeFacade {
         }
 
         likeRepository.save(new Like(memberId, productId));
-        productRepository.incrementLikeCount(productId);
+
+        domainEventPublisher.publish("catalog", String.valueOf(productId),
+            "LIKE_CREATED", Map.of("productId", productId, "memberId", memberId),
+            new LikeCreatedEvent(productId, memberId));
     }
 
     @Transactional
@@ -41,7 +49,10 @@ public class LikeFacade {
         }
 
         likeRepository.delete(likeOpt.get());
-        productRepository.decrementLikeCount(productId);
+
+        domainEventPublisher.publish("catalog", String.valueOf(productId),
+            "LIKE_REMOVED", Map.of("productId", productId, "memberId", memberId),
+            new LikeRemovedEvent(productId, memberId));
     }
 
     public List<Like> getLikesByMemberId(Long memberId) {

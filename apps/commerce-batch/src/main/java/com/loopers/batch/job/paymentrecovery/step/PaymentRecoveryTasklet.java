@@ -13,7 +13,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * 결제 복구 배치 — REQUESTED/PENDING/UNKNOWN 상태 결제건 복구.
@@ -41,50 +40,113 @@ public class PaymentRecoveryTasklet implements Tasklet {
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
         log.info("[PaymentRecovery] 배치 복구 시작");
 
-        // 1. REQUESTED — 1분 이상 경과 → FAILED
-        int requestedCount = entityManager.createNativeQuery(
-            "UPDATE payments SET status = 'FAILED', failure_reason = '배치 복구: PG 호출 누락 (1분 초과)' " +
-            "WHERE status = 'REQUESTED' AND created_at < NOW() - INTERVAL 1 MINUTE AND deleted_at IS NULL"
-        ).executeUpdate();
-        log.info("[PaymentRecovery] REQUESTED → FAILED: {}건", requestedCount);
-
-        // 2. PENDING — 5분 이상 경과 → FAILED
-        int pendingCount = entityManager.createNativeQuery(
-            "UPDATE payments SET status = 'FAILED', failure_reason = '배치 복구: 콜백 미수신 (5분 초과)' " +
-            "WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL 5 MINUTE AND deleted_at IS NULL"
-        ).executeUpdate();
-        log.info("[PaymentRecovery] PENDING(5분+) → FAILED: {}건", pendingCount);
-
-        // 3. UNKNOWN — 일괄 FAILED 처리 (PG 확인 불가 상태)
-        int unknownCount = entityManager.createNativeQuery(
-            "UPDATE payments SET status = 'FAILED', failure_reason = '배치 복구: UNKNOWN 타임아웃' " +
-            "WHERE status = 'UNKNOWN' AND created_at < NOW() - INTERVAL 10 MINUTE AND deleted_at IS NULL"
-        ).executeUpdate();
-        log.info("[PaymentRecovery] UNKNOWN(10분+) → FAILED: {}건", unknownCount);
-
-        // 4. FAILED 전환된 결제건의 재고 복원 (PENDING → FAILED 건만, order_item 기반)
-        if (pendingCount > 0) {
-            List<Object[]> failedPayments = entityManager.createNativeQuery(
-                "SELECT p.order_id FROM payments p " +
-                "WHERE p.status = 'FAILED' AND p.failure_reason LIKE '%콜백 미수신%' " +
-                "AND p.updated_at >= NOW() - INTERVAL 1 MINUTE AND p.deleted_at IS NULL"
-            ).getResultList();
-
-            for (Object[] row : failedPayments) {
-                Long orderId = ((Number) row[0]).longValue();
-                int restored = entityManager.createNativeQuery(
-                    "UPDATE product p INNER JOIN order_item oi ON p.id = oi.product_id " +
-                    "INNER JOIN orders o ON oi.order_id = o.id " +
-                    "SET p.stock_quantity = p.stock_quantity + oi.quantity " +
-                    "WHERE o.id = :orderId AND p.deleted_at IS NULL"
-                ).setParameter("orderId", orderId).executeUpdate();
-                log.info("[PaymentRecovery] 재고 복원: orderId={}, items={}", orderId, restored);
-            }
-        }
+        int requestedCount = recoverRequested();
+        int pendingCount = recoverPending();
+        int unknownCount = recoverUnknown();
 
         log.info("[PaymentRecovery] 배치 복구 완료: REQUESTED={}, PENDING={}, UNKNOWN={}",
             requestedCount, pendingCount, unknownCount);
 
         return RepeatStatus.FINISHED;
+    }
+
+    private int recoverRequested() {
+        List<Number> ids = entityManager.createNativeQuery(
+            "SELECT id FROM payments WHERE status = 'REQUESTED' " +
+            "AND created_at < NOW() - INTERVAL 1 MINUTE AND deleted_at IS NULL"
+        ).getResultList();
+
+        if (ids.isEmpty()) return 0;
+
+        List<Long> targetIds = ids.stream().map(Number::longValue).toList();
+
+        entityManager.createNativeQuery(
+            "INSERT INTO payment_status_history (payment_id, from_status, to_status, reason, detail, created_at, updated_at) " +
+            "SELECT id, 'REQUESTED', 'FAILED', 'BATCH_RECOVERY', '배치 복구: PG 호출 누락 (1분 초과)', NOW(), NOW() " +
+            "FROM payments WHERE id IN :ids AND status = 'REQUESTED' AND deleted_at IS NULL"
+        ).setParameter("ids", targetIds).executeUpdate();
+
+        int count = entityManager.createNativeQuery(
+            "UPDATE payments SET status = 'FAILED', failure_reason = '배치 복구: PG 호출 누락 (1분 초과)' " +
+            "WHERE id IN :ids AND status = 'REQUESTED' AND deleted_at IS NULL"
+        ).setParameter("ids", targetIds).executeUpdate();
+
+        log.info("[PaymentRecovery] REQUESTED → FAILED: {}건", count);
+        return count;
+    }
+
+    @SuppressWarnings("unchecked")
+    private int recoverPending() {
+        List<Number> ids = entityManager.createNativeQuery(
+            "SELECT id FROM payments WHERE status = 'PENDING' " +
+            "AND created_at < NOW() - INTERVAL 5 MINUTE AND deleted_at IS NULL"
+        ).getResultList();
+
+        if (ids.isEmpty()) return 0;
+
+        List<Long> targetIds = ids.stream().map(Number::longValue).toList();
+
+        entityManager.createNativeQuery(
+            "INSERT INTO payment_status_history (payment_id, from_status, to_status, reason, detail, created_at, updated_at) " +
+            "SELECT id, 'PENDING', 'FAILED', 'BATCH_RECOVERY', '배치 복구: 콜백 미수신 (5분 초과)', NOW(), NOW() " +
+            "FROM payments WHERE id IN :ids AND status = 'PENDING' AND deleted_at IS NULL"
+        ).setParameter("ids", targetIds).executeUpdate();
+
+        int count = entityManager.createNativeQuery(
+            "UPDATE payments SET status = 'FAILED', failure_reason = '배치 복구: 콜백 미수신 (5분 초과)' " +
+            "WHERE id IN :ids AND status = 'PENDING' AND deleted_at IS NULL"
+        ).setParameter("ids", targetIds).executeUpdate();
+
+        log.info("[PaymentRecovery] PENDING(5분+) → FAILED: {}건", count);
+
+        // FAILED 전환된 결제건의 재고 복원
+        if (count > 0) {
+            restoreStockForFailedPayments(targetIds);
+        }
+
+        return count;
+    }
+
+    private int recoverUnknown() {
+        List<Number> ids = entityManager.createNativeQuery(
+            "SELECT id FROM payments WHERE status = 'UNKNOWN' " +
+            "AND created_at < NOW() - INTERVAL 10 MINUTE AND deleted_at IS NULL"
+        ).getResultList();
+
+        if (ids.isEmpty()) return 0;
+
+        List<Long> targetIds = ids.stream().map(Number::longValue).toList();
+
+        entityManager.createNativeQuery(
+            "INSERT INTO payment_status_history (payment_id, from_status, to_status, reason, detail, created_at, updated_at) " +
+            "SELECT id, 'UNKNOWN', 'FAILED', 'BATCH_RECOVERY', '배치 복구: UNKNOWN 타임아웃', NOW(), NOW() " +
+            "FROM payments WHERE id IN :ids AND status = 'UNKNOWN' AND deleted_at IS NULL"
+        ).setParameter("ids", targetIds).executeUpdate();
+
+        int count = entityManager.createNativeQuery(
+            "UPDATE payments SET status = 'FAILED', failure_reason = '배치 복구: UNKNOWN 타임아웃' " +
+            "WHERE id IN :ids AND status = 'UNKNOWN' AND deleted_at IS NULL"
+        ).setParameter("ids", targetIds).executeUpdate();
+
+        log.info("[PaymentRecovery] UNKNOWN(10분+) → FAILED: {}건", count);
+        return count;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void restoreStockForFailedPayments(List<Long> paymentIds) {
+        List<Number> orderIds = entityManager.createNativeQuery(
+            "SELECT order_id FROM payments WHERE id IN :ids AND deleted_at IS NULL"
+        ).setParameter("ids", paymentIds).getResultList();
+
+        for (Number orderIdNum : orderIds) {
+            Long orderId = orderIdNum.longValue();
+            int restored = entityManager.createNativeQuery(
+                "UPDATE product p INNER JOIN order_item oi ON p.id = oi.product_id " +
+                "INNER JOIN orders o ON oi.order_id = o.id " +
+                "SET p.stock_quantity = p.stock_quantity + oi.quantity " +
+                "WHERE o.id = :orderId AND p.deleted_at IS NULL"
+            ).setParameter("orderId", orderId).executeUpdate();
+            log.info("[PaymentRecovery] 재고 복원: orderId={}, items={}", orderId, restored);
+        }
     }
 }
