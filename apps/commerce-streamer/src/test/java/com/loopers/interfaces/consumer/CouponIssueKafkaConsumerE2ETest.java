@@ -5,6 +5,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.loopers.application.collector.CouponIssueConsumeService;
 import com.loopers.application.collector.EventDedupService;
 import com.loopers.application.collector.ProductMetricsAggregationService;
+import com.loopers.application.collector.RealtimeRankingAggregationService;
 import com.loopers.domain.collector.CollectorCouponIssueRequestModel;
 import com.loopers.domain.collector.CollectorCouponIssueRequestStatus;
 import com.loopers.domain.collector.CollectorCouponModel;
@@ -19,9 +20,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Propagation;
@@ -131,14 +132,22 @@ class CouponIssueKafkaConsumerE2ETest {
             ObjectMapper objectMapper,
             EventDedupService eventDedupService,
             ProductMetricsAggregationService productMetricsAggregationService,
+            RealtimeRankingAggregationService realtimeRankingAggregationService,
             CouponIssueConsumeService couponIssueConsumeService
         ) {
             return new CommerceEventKafkaConsumer(
                 objectMapper,
                 eventDedupService,
                 productMetricsAggregationService,
+                realtimeRankingAggregationService,
                 couponIssueConsumeService
             );
+        }
+
+        @Bean
+        RealtimeRankingAggregationService realtimeRankingAggregationService(
+        ) {
+            return mock(RealtimeRankingAggregationService.class);
         }
     }
 }
