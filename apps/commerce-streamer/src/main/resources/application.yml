@@ -32,6 +32,8 @@ demo-kafka:
 ranking:
   kafka:
     topic-name: order-events
+  carry-over:
+    weight: 0.1
 
 ---
 spring:
