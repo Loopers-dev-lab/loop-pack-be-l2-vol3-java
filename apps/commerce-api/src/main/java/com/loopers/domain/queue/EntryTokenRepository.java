@@ -15,4 +15,13 @@ public interface EntryTokenRepository {
 
     /** 주문 실패 시 소비된 토큰을 복원한다. */
     void restoreToken(Long userId, String token);
+
+    /** 현재 활성 토큰 수를 조회한다. */
+    long countActiveTokens();
+
+    /** 분산 락을 획득한다. 성공 시 락 값을 반환한다. */
+    Optional<String> acquireLock(String key, long ttlMs);
+
+    /** 분산 락을 해제한다. 본인이 획득한 락만 해제 가능하다. */
+    void releaseLock(String key, String value);
 }

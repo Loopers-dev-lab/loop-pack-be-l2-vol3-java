@@ -7,6 +7,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class OrderQueueSchedulerTest {
@@ -20,7 +22,9 @@ class OrderQueueSchedulerTest {
         waitingQueueRepository = new InMemoryWaitingQueueRepository();
         entryTokenRepository = new InMemoryEntryTokenRepository();
         OrderQueueReader alwaysEnabled = () -> true;
-        queueScheduler = new OrderQueueScheduler(waitingQueueRepository, entryTokenRepository, alwaysEnabled);
+        queueScheduler = new OrderQueueScheduler(
+                waitingQueueRepository, entryTokenRepository, alwaysEnabled,
+                14, 1000, Duration.ofMinutes(5));
     }
 
     @DisplayName("토큰 발급 스케줄러 실행 시, ")
@@ -118,7 +122,8 @@ class OrderQueueSchedulerTest {
             // arrange
             OrderQueueReader disabled = () -> false;
             OrderQueueScheduler disabledScheduler = new OrderQueueScheduler(
-                    waitingQueueRepository, entryTokenRepository, disabled);
+                    waitingQueueRepository, entryTokenRepository, disabled,
+                    14, 1000, Duration.ofMinutes(5));
 
             for (long i = 1; i <= 5; i++) {
                 waitingQueueRepository.enqueue(i, (double) i);

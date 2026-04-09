@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
 
@@ -16,8 +18,10 @@ import static com.loopers.config.redis.RedisConfig.REDIS_TEMPLATE_MASTER;
 public class RedisEntryTokenRepository implements EntryTokenRepository {
 
     private static final String TOKEN_KEY_PREFIX = "entry-token:";
+    private static final String ACTIVE_TOKENS_KEY = "active-tokens";
     private static final Duration RESTORE_TTL = Duration.ofMinutes(5);
     private static final DefaultRedisScript<Long> CONSUME_IF_MATCH_SCRIPT;
+    private static final DefaultRedisScript<Long> RELEASE_LOCK_SCRIPT;
 
     static {
         CONSUME_IF_MATCH_SCRIPT = new DefaultRedisScript<>();
@@ -29,6 +33,16 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
                 "end"
         );
         CONSUME_IF_MATCH_SCRIPT.setResultType(Long.class);
+
+        RELEASE_LOCK_SCRIPT = new DefaultRedisScript<>();
+        RELEASE_LOCK_SCRIPT.setScriptText(
+                "if redis.call('GET', KEYS[1]) == ARGV[1] then " +
+                "  return redis.call('DEL', KEYS[1]) " +
+                "else " +
+                "  return 0 " +
+                "end"
+        );
+        RELEASE_LOCK_SCRIPT.setResultType(Long.class);
     }
 
     private final RedisTemplate<String, String> masterRedisTemplate;
@@ -46,6 +60,7 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
     public void issueToken(Long userId, String token, Duration ttl) {
         masterRedisTemplate.opsForValue()
                 .set(TOKEN_KEY_PREFIX + userId, token, ttl);
+        masterRedisTemplate.opsForSet().add(ACTIVE_TOKENS_KEY, String.valueOf(userId));
     }
 
     @Override
@@ -62,12 +77,37 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
                 List.of(TOKEN_KEY_PREFIX + userId),
                 token
         );
-        return result != null && result > 0;
+
+        if (result != null && result > 0) {
+            masterRedisTemplate.opsForSet().remove(ACTIVE_TOKENS_KEY, String.valueOf(userId));
+            return true;
+        }
+        return false;
     }
 
     @Override
     public void restoreToken(Long userId, String token) {
         masterRedisTemplate.opsForValue()
                 .set(TOKEN_KEY_PREFIX + userId, token, RESTORE_TTL);
+        masterRedisTemplate.opsForSet().add(ACTIVE_TOKENS_KEY, String.valueOf(userId));
+    }
+
+    @Override
+    public long countActiveTokens() {
+        Long size = defaultRedisTemplate.opsForSet().size(ACTIVE_TOKENS_KEY);
+        return size != null ? size : 0L;
+    }
+
+    @Override
+    public Optional<String> acquireLock(String key, long ttlMs) {
+        String value = UUID.randomUUID().toString();
+        Boolean acquired = masterRedisTemplate.opsForValue()
+                .setIfAbsent(key, value, ttlMs, TimeUnit.MILLISECONDS);
+        return Boolean.TRUE.equals(acquired) ? Optional.of(value) : Optional.empty();
+    }
+
+    @Override
+    public void releaseLock(String key, String value) {
+        masterRedisTemplate.execute(RELEASE_LOCK_SCRIPT, List.of(key), value);
     }
 }
