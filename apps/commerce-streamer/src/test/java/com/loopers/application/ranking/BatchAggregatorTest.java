@@ -130,6 +130,45 @@ class BatchAggregatorTest {
             assertThat(aggregator.aggregateCatalog(List.of())).isEmpty();
             assertThat(aggregator.aggregateCatalog(null)).isEmpty();
         }
+
+        @Test
+        @DisplayName("productId 가 문자열 'abc' 이면 0 으로 집계되지 않고 skip 된다")
+        void productIdStringSkipped() {
+            // given
+            String json = """
+                    {"eventId":"e1","eventType":"PRODUCT_VIEWED","data":{"productId":"abc"}}
+                    """;
+            // when
+            Map<Long, MetricDelta> result = aggregator.aggregateCatalog(List.of(record("catalog-events", json)));
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("productId 가 빈 문자열이면 skip 된다")
+        void productIdEmptyStringSkipped() {
+            // given
+            String json = """
+                    {"eventId":"e1","eventType":"PRODUCT_VIEWED","data":{"productId":""}}
+                    """;
+            // when
+            Map<Long, MetricDelta> result = aggregator.aggregateCatalog(List.of(record("catalog-events", json)));
+            // then
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("productId 가 boolean true 이면 1 로 집계되지 않고 skip 된다")
+        void productIdBooleanSkipped() {
+            // given
+            String json = """
+                    {"eventId":"e1","eventType":"PRODUCT_VIEWED","data":{"productId":true}}
+                    """;
+            // when
+            Map<Long, MetricDelta> result = aggregator.aggregateCatalog(List.of(record("catalog-events", json)));
+            // then
+            assertThat(result).isEmpty();
+        }
     }
 
     @Nested

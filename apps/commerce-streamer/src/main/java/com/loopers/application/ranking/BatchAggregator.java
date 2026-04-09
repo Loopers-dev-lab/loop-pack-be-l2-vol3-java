@@ -191,11 +191,15 @@ public class BatchAggregator {
     private Long longOrNull(JsonNode node, String field) {
         JsonNode value = node.path(field);
         if (value.isMissingNode() || value.isNull()) return null;
-        try {
-            return value.asLong();
-        } catch (Exception e) {
-            return null;
+        if (value.isIntegralNumber()) return value.longValue();
+        if (value.isTextual()) {
+            try {
+                return Long.parseLong(value.textValue());
+            } catch (NumberFormatException e) {
+                return null;
+            }
         }
+        return null;
     }
 
     private BigDecimal decimalOrZero(JsonNode node, String field) {
