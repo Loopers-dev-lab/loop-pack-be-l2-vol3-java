@@ -16,7 +16,8 @@ import java.util.List;
  * @param orderId          결제가 완료된 주문 ID
  * @param memberId         주문한 회원 ID
  * @param totalAmount      할인 전 주문 총 금액 (집계/통계용)
- * @param orderedProducts  주문 상품 목록 — Consumer가 product_metrics의 order_count를 상품별로 집계하기 위해 필요
+ * @param orderedProducts  주문 상품 목록 — Consumer가 상품별 주문 수량/금액을 집계하여
+ *                          랭킹 점수(R9) 의 order 가중치 입력으로 사용한다.
  */
 public record OrderPaidEvent(Long orderId, Long memberId, int totalAmount,
                               List<OrderedProduct> orderedProducts) {
@@ -26,6 +27,7 @@ public record OrderPaidEvent(Long orderId, Long memberId, int totalAmount,
      *
      * @param productId 상품 ID
      * @param quantity  주문 수량
+     * @param unitPrice 주문 시점 단가 — R9 랭킹 점수 산정에서 line amount(unitPrice * quantity) 입력
      */
-    public record OrderedProduct(Long productId, int quantity) {}
+    public record OrderedProduct(Long productId, int quantity, int unitPrice) {}
 }

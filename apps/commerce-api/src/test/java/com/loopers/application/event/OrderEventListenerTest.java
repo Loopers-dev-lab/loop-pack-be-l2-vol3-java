@@ -32,7 +32,7 @@ class OrderEventListenerTest {
             // given
             OrderPaidEvent event = new OrderPaidEvent(
                     1L, 100L, 50000,
-                    List.of(new OrderPaidEvent.OrderedProduct(10L, 2))
+                    List.of(new OrderPaidEvent.OrderedProduct(10L, 2, 25000))
             );
 
             // when & then
