@@ -9,4 +9,8 @@ public interface ProductDailyMetricsRepository {
     void upsertLikeCount(Long productId, LocalDate date, int delta, ZonedDateTime updatedAt);
     void upsertOrderAmount(Long productId, LocalDate date, long amount, ZonedDateTime updatedAt);
     List<ProductDailyMetrics> findByMetricDate(LocalDate date);
+
+    void bulkUpsert(List<DailyDelta> deltas);
+
+    record DailyDelta(Long productId, LocalDate date, long viewDelta, long likeDelta, long orderAmountDelta, ZonedDateTime updatedAt) {}
 }

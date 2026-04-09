@@ -1,6 +1,8 @@
 package com.loopers.domain.metrics;
 
 import java.time.ZonedDateTime;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductMetricsRepository {
@@ -12,4 +14,9 @@ public interface ProductMetricsRepository {
     int incrementViewCount(Long productId, ZonedDateTime occurredAt);
     int incrementSalesCount(Long productId, ZonedDateTime occurredAt);
     int decrementSalesCount(Long productId, ZonedDateTime occurredAt);
+
+    void bulkInsertIgnoreProducts(Collection<Long> productIds);
+    void bulkUpsertAllTime(List<AllTimeDelta> deltas);
+
+    record AllTimeDelta(Long productId, long viewDelta, long likeDelta, long salesDelta, ZonedDateTime occurredAt) {}
 }
