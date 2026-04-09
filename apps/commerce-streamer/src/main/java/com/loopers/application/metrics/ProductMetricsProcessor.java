@@ -19,7 +19,7 @@ public class ProductMetricsProcessor {
     private final EventHandledRepository eventHandledRepository;
 
     @Transactional
-    public void process(String eventId, String eventType, Long productId, ZonedDateTime occurredAt) {
+    public void process(String eventId, String eventType, Long productId, Integer quantity, ZonedDateTime occurredAt) {
         // 1. 중복 이벤트 체크 (동일 Kafka 메시지 재수신 방지)
         if (eventHandledRepository.existsByEventIdAndEventType(eventId, eventType)) {
             log.info("중복 이벤트 건너뜀. eventId={}, eventType={}", eventId, eventType);

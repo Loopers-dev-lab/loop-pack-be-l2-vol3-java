@@ -47,14 +47,16 @@ public class ProductMetricsConsumer {
         ZonedDateTime occurredAt = ZonedDateTime.parse((String) payload.get("occurredAt"));
 
         if ("ORDER_CONFIRMED".equals(eventType)) {
-            List<Integer> productIds = (List<Integer>) payload.get("productIds");
-            for (Integer productId : productIds) {
+            List<Map<String, Object>> products = (List<Map<String, Object>>) payload.get("products");
+            for (Map<String, Object> product : products) {
+                Long productId = ((Number) product.get("productId")).longValue();
+                Integer quantity = ((Number) product.get("quantity")).intValue();
                 String eventId = baseEventId + "-" + productId;
-                processor.process(eventId, eventType, productId.longValue(), occurredAt);
+                processor.process(eventId, eventType, productId, quantity, occurredAt);
             }
         } else {
             Long productId = ((Number) payload.get("productId")).longValue();
-            processor.process(baseEventId, eventType, productId, occurredAt);
+            processor.process(baseEventId, eventType, productId, null, occurredAt);
         }
     }
 }
