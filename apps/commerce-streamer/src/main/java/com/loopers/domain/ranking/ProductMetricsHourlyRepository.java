@@ -3,6 +3,8 @@ package com.loopers.domain.ranking;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * `product_metrics_hourly` 저장소 인터페이스 (DIP).
@@ -42,4 +44,10 @@ public interface ProductMetricsHourlyRepository {
      * 매칭 row 가 없으면 모든 필드 0 인 empty 스냅샷을 반환한다.
      */
     ProductDailyAggregate snapshotByDate(Long productId, LocalDate date);
+
+    /**
+     * 여러 상품의 지정 일자 전체 bucket 을 단일 쿼리로 일괄 조회한다.
+     * 매칭 row 가 없는 상품은 모든 필드 0 인 empty 스냅샷으로 채워 반환한다.
+     */
+    Map<Long, ProductDailyAggregate> snapshotsByDate(Set<Long> productIds, LocalDate date);
 }

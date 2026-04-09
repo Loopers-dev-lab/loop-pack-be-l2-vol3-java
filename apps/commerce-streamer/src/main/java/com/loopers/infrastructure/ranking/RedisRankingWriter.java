@@ -4,8 +4,12 @@ import com.loopers.config.redis.RedisConfig;
 import com.loopers.domain.ranking.RankingCacheProperties;
 import com.loopers.domain.ranking.RankingWriter;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /**
  * `RankingWriter` 의 Redis 구현.
@@ -41,6 +45,25 @@ public class RedisRankingWriter implements RankingWriter {
             throw new IllegalArgumentException("key/productId must not be null");
         }
         masterRedisTemplate.opsForZSet().add(key, productId.toString(), score);
+        if (cacheProperties.retention() != null) {
+            masterRedisTemplate.expire(key, cacheProperties.retention());
+        }
+    }
+
+    @Override
+    public void upsertScores(String key, Map<Long, Double> scores) {
+        if (key == null || scores == null || scores.isEmpty()) return;
+        byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
+        masterRedisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            for (Map.Entry<Long, Double> entry : scores.entrySet()) {
+                connection.zSetCommands().zAdd(
+                        keyBytes,
+                        entry.getValue(),
+                        entry.getKey().toString().getBytes(StandardCharsets.UTF_8)
+                );
+            }
+            return null;
+        });
         if (cacheProperties.retention() != null) {
             masterRedisTemplate.expire(key, cacheProperties.retention());
         }

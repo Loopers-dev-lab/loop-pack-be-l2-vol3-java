@@ -159,32 +159,30 @@ public class RankingAggregationService {
     }
 
     /**
-     * 주어진 상품들의 최신 스냅샷을 DB 에서 조회하여 점수를 다시 계산한다.
+     * 주어진 상품들의 최신 스냅샷을 DB 에서 단일 쿼리로 일괄 조회하여 점수를 다시 계산한다.
      * (Redis 재시도 시 점수 정상화를 위한 연산)
      */
     private Map<Long, Double> recalculateFromSnapshot(Set<Long> productIds) {
         if (productIds.isEmpty()) return Collections.emptyMap();
-        
+
         LocalDate today = LocalDate.now(clock.withZone(KST));
+        Map<Long, ProductDailyAggregate> snapshots =
+                productMetricsHourlyRepository.snapshotsByDate(productIds, today);
+
         Map<Long, Double> scores = new LinkedHashMap<>();
-        
-        for (Long productId : productIds) {
-            ProductDailyAggregate snapshot =
-                    productMetricsHourlyRepository.snapshotByDate(productId, today);
-            scores.put(productId, rankingScoreCalculator.calculate(snapshot));
+        for (Map.Entry<Long, ProductDailyAggregate> entry : snapshots.entrySet()) {
+            scores.put(entry.getKey(), rankingScoreCalculator.calculate(entry.getValue()));
         }
         return scores;
     }
 
     /**
-     * TX 커밋 이후 호출 — 상품별 ZADD upsert. 실패 시 예외 전파 → consumer ack 미전송 → 재배달.
+     * TX 커밋 이후 호출 — pipeline 으로 일괄 ZADD upsert. 실패 시 예외 전파 → consumer ack 미전송 → 재배달.
      */
     private void publishScores(Map<Long, Double> scores) {
         if (scores.isEmpty()) return;
         String todayKey = RankingKey.daily(LocalDate.now(clock.withZone(KST)));
-        for (Map.Entry<Long, Double> entry : scores.entrySet()) {
-            rankingWriter.upsertScore(todayKey, entry.getKey(), entry.getValue());
-        }
+        rankingWriter.upsertScores(todayKey, scores);
     }
 
 }

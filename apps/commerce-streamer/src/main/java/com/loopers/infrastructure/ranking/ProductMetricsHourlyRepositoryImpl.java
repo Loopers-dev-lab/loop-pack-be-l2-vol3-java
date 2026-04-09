@@ -6,12 +6,14 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * `ProductMetricsHourlyRepository` 의 JPA/Native 기반 구현.
@@ -28,7 +30,6 @@ public class ProductMetricsHourlyRepositoryImpl implements ProductMetricsHourlyR
     private final EntityManager entityManager;
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED)
     public void upsertIncrements(
             Long productId,
             LocalDateTime bucketHour,
@@ -87,6 +88,52 @@ public class ProductMetricsHourlyRepositoryImpl implements ProductMetricsHourlyR
         BigDecimal totalAmount = toBigDecimal(row[3]);
 
         return new ProductDailyAggregate(productId, totalView, totalLike, totalOrder, totalAmount);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public Map<Long, ProductDailyAggregate> snapshotsByDate(Set<Long> productIds, LocalDate date) {
+        if (productIds == null || productIds.isEmpty()) return Map.of();
+
+        LocalDateTime start = date.atStartOfDay();
+        LocalDateTime end = date.plusDays(1).atStartOfDay();
+
+        Query query = entityManager.createNativeQuery("""
+                SELECT
+                    product_id,
+                    COALESCE(SUM(view_count),   0) AS total_view,
+                    COALESCE(SUM(like_count),   0) AS total_like,
+                    COALESCE(SUM(order_count),  0) AS total_order,
+                    COALESCE(SUM(order_amount), 0) AS total_order_amount
+                FROM product_metrics_hourly
+                WHERE product_id IN (:ids)
+                  AND bucket_hour >= :start
+                  AND bucket_hour <  :end
+                GROUP BY product_id
+                """);
+        query.setParameter("ids", productIds);
+        query.setParameter("start", start);
+        query.setParameter("end", end);
+
+        List<Object[]> rows = query.getResultList();
+        Map<Long, ProductDailyAggregate> result = new LinkedHashMap<>();
+        for (Object[] row : rows) {
+            Long productId = toLong(row[0]);
+            result.put(productId, new ProductDailyAggregate(
+                    productId,
+                    toLong(row[1]),
+                    toLong(row[2]),
+                    toLong(row[3]),
+                    toBigDecimal(row[4])
+            ));
+        }
+
+        // 조회 결과에 없는 상품은 0 스냅샷으로 채운다
+        for (Long productId : productIds) {
+            result.putIfAbsent(productId,
+                    new ProductDailyAggregate(productId, 0L, 0L, 0L, BigDecimal.ZERO));
+        }
+        return result;
     }
 
     private static long toLong(Object value) {

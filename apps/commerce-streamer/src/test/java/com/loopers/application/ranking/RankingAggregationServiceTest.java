@@ -20,7 +20,10 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -96,8 +99,8 @@ class RankingAggregationServiceTest {
         void happyPath() {
             // given
             when(eventHandledRepository.findExistingEventIds(any())).thenReturn(Set.of());
-            when(metricsRepository.snapshotByDate(eq(100L), any()))
-                    .thenReturn(new ProductDailyAggregate(100L, 3L, 1L, 0L, BigDecimal.ZERO));
+            when(metricsRepository.snapshotsByDate(any(), any()))
+                    .thenReturn(Map.of(100L, new ProductDailyAggregate(100L, 3L, 1L, 0L, BigDecimal.ZERO)));
             List<ConsumerRecord<String, String>> records = List.of(
                     record("""
                             {"eventId":"v1","eventType":"PRODUCT_VIEWED","data":{"productId":100}}
@@ -115,8 +118,9 @@ class RankingAggregationServiceTest {
             LocalDateTime expectedBucket = LocalDateTime.of(2026, 4, 9, 14, 0, 0);
             verify(metricsRepository, times(1))
                     .upsertIncrements(eq(100L), eq(expectedBucket), eq(3L), eq(0L), eq(0L), eq(BigDecimal.ZERO));
-            verify(metricsRepository, times(1)).snapshotByDate(eq(100L), eq(LocalDate.of(2026, 4, 9)));
-            verify(rankingWriter, times(1)).upsertScore(eq("ranking:all:20260409"), eq(100L), anyDouble());
+            verify(metricsRepository, times(1)).snapshotsByDate(eq(Set.of(100L)), eq(LocalDate.of(2026, 4, 9)));
+            verify(rankingWriter, times(1)).upsertScores(eq("ranking:all:20260409"),
+                    argThat((Map<Long, Double> m) -> m.containsKey(100L)));
             verify(eventHandledRepository, times(1))
                     .saveAllNew(argThat((Set<String> ids) -> ids.containsAll(Set.of("v1", "v2", "v3"))));
         }
@@ -126,8 +130,8 @@ class RankingAggregationServiceTest {
         void idempotencyFilter() {
             // given
             when(eventHandledRepository.findExistingEventIds(any())).thenReturn(Set.of("v1"));
-            when(metricsRepository.snapshotByDate(any(), any()))
-                    .thenReturn(new ProductDailyAggregate(100L, 1L, 0L, 0L, BigDecimal.ZERO));
+            when(metricsRepository.snapshotsByDate(any(), any()))
+                    .thenReturn(Map.of(100L, new ProductDailyAggregate(100L, 1L, 0L, 0L, BigDecimal.ZERO)));
             List<ConsumerRecord<String, String>> records = List.of(
                     record("""
                             {"eventId":"v1","eventType":"PRODUCT_VIEWED","data":{"productId":100}}
@@ -149,8 +153,11 @@ class RankingAggregationServiceTest {
         void allAlreadyHandled() {
             // given
             when(eventHandledRepository.findExistingEventIds(any())).thenReturn(Set.of("v1", "v2"));
-            when(metricsRepository.snapshotByDate(anyLong(), any()))
-                    .thenReturn(new ProductDailyAggregate(1L, 1L, 0L, 0L, BigDecimal.ZERO));
+            when(metricsRepository.snapshotsByDate(any(), any()))
+                    .thenReturn(Map.of(
+                            1L, new ProductDailyAggregate(1L, 1L, 0L, 0L, BigDecimal.ZERO),
+                            2L, new ProductDailyAggregate(2L, 1L, 0L, 0L, BigDecimal.ZERO)
+                    ));
 
             List<ConsumerRecord<String, String>> records = List.of(
                     record("""
@@ -165,12 +172,12 @@ class RankingAggregationServiceTest {
             // then
             verify(metricsRepository, never()).upsertIncrements(any(), any(), anyLong(), anyLong(), anyLong(), any());
             verify(eventHandledRepository, never()).saveAllNew(any());
-            
+
             // 핵심: DB는 패스하지만 Redis ZADD 는 재계산해서 호출되어야 함 (부분 실패 후 Retry 시 자가 복구)
-            verify(metricsRepository, times(1)).snapshotByDate(eq(1L), any());
-            verify(metricsRepository, times(1)).snapshotByDate(eq(2L), any());
-            verify(rankingWriter, times(1)).upsertScore(any(), eq(1L), anyDouble());
-            verify(rankingWriter, times(1)).upsertScore(any(), eq(2L), anyDouble());
+            verify(metricsRepository, times(1)).snapshotsByDate(
+                    argThat(ids -> ids.containsAll(Set.of(1L, 2L))), any());
+            verify(rankingWriter, times(1)).upsertScores(eq("ranking:all:20260409"),
+                    argThat((Map<Long, Double> m) -> m.containsKey(1L) && m.containsKey(2L)));
         }
 
         @Test
@@ -178,8 +185,8 @@ class RankingAggregationServiceTest {
         void bucketTruncation() {
             // given
             when(eventHandledRepository.findExistingEventIds(any())).thenReturn(Set.of());
-            when(metricsRepository.snapshotByDate(any(), any()))
-                    .thenReturn(new ProductDailyAggregate(1L, 1L, 0L, 0L, BigDecimal.ZERO));
+            when(metricsRepository.snapshotsByDate(any(), any()))
+                    .thenReturn(Map.of(1L, new ProductDailyAggregate(1L, 1L, 0L, 0L, BigDecimal.ZERO)));
             AtomicReference<LocalDateTime> captured = new AtomicReference<>();
             org.mockito.Mockito.doAnswer(inv -> {
                 captured.set(inv.getArgument(1));
@@ -205,10 +212,11 @@ class RankingAggregationServiceTest {
         void orderLinesAggregated() {
             // given
             when(eventHandledRepository.findExistingEventIds(any())).thenReturn(Set.of());
-            when(metricsRepository.snapshotByDate(eq(1L), any()))
-                    .thenReturn(new ProductDailyAggregate(1L, 0L, 0L, 2L, BigDecimal.valueOf(20000)));
-            when(metricsRepository.snapshotByDate(eq(2L), any()))
-                    .thenReturn(new ProductDailyAggregate(2L, 0L, 0L, 1L, BigDecimal.valueOf(50000)));
+            when(metricsRepository.snapshotsByDate(any(), any()))
+                    .thenReturn(Map.of(
+                            1L, new ProductDailyAggregate(1L, 0L, 0L, 2L, BigDecimal.valueOf(20000)),
+                            2L, new ProductDailyAggregate(2L, 0L, 0L, 1L, BigDecimal.valueOf(50000))
+                    ));
 
             List<ConsumerRecord<String, String>> records = List.of(new ConsumerRecord<>(
                     "order-events", 0, 0L, "key", """
@@ -224,7 +232,39 @@ class RankingAggregationServiceTest {
                     eq(1L), any(), eq(0L), eq(0L), eq(2L), eq(BigDecimal.valueOf(20000)));
             verify(metricsRepository).upsertIncrements(
                     eq(2L), any(), eq(0L), eq(0L), eq(1L), eq(BigDecimal.valueOf(50000)));
-            verify(rankingWriter, times(2)).upsertScore(eq("ranking:all:20260409"), any(), anyDouble());
+            verify(rankingWriter, times(1)).upsertScores(eq("ranking:all:20260409"),
+                    argThat((Map<Long, Double> m) -> m.size() == 2));
+        }
+    }
+
+    @Nested
+    @DisplayName("N+1 방지 — bulk 호출 검증")
+    class BulkCallProtection {
+
+        @Test
+        @DisplayName("상품 50개 배치 처리 시 snapshotsByDate 1회 + upsertScores 1회만 호출한다")
+        void nProductsBatch_singleDbAndRedisCall() {
+            // given
+            int n = 50;
+            List<ConsumerRecord<String, String>> records = new ArrayList<>(n);
+            Map<Long, ProductDailyAggregate> snapshots = new LinkedHashMap<>();
+            for (long i = 1; i <= n; i++) {
+                records.add(record("""
+                        {"eventId":"v%d","eventType":"PRODUCT_VIEWED","data":{"productId":%d}}
+                        """.formatted(i, i)));
+                snapshots.put(i, new ProductDailyAggregate(i, 1L, 0L, 0L, BigDecimal.ZERO));
+            }
+            when(eventHandledRepository.findExistingEventIds(any())).thenReturn(Set.of());
+            when(metricsRepository.snapshotsByDate(any(), any())).thenReturn(snapshots);
+
+            // when
+            service.processCatalogBatch(records);
+
+            // then — DB 1회, Redis 1회 (N 회 아님)
+            verify(metricsRepository, times(1)).snapshotsByDate(any(), any());
+            verify(rankingWriter, times(1)).upsertScores(eq("ranking:all:20260409"),
+                    argThat((Map<Long, Double> m) -> m.size() == n));
+            verify(rankingWriter, never()).upsertScore(any(), any(), anyDouble());
         }
     }
 }
