@@ -9,6 +9,7 @@ import com.loopers.domain.product.ProductViewEvent;
 import com.loopers.domain.product.ProductViewEventPublisher;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
+import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.page.PageResponse;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +17,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,7 +39,8 @@ class ProductFacadeTest {
     ProductAssembler productAssembler = new ProductAssembler();
     ProductQueryService productQueryService = mock(ProductQueryService.class);
     ProductViewEventPublisher productViewEventPublisher = mock(ProductViewEventPublisher.class);
-    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler, productQueryService, productViewEventPublisher);
+    RankingRepository rankingRepository = mock(RankingRepository.class);
+    ProductFacade productFacade = new ProductFacade(brandRepository, productRepository, likeRepository, productAssembler, productQueryService, productViewEventPublisher, rankingRepository);
 
     @DisplayName("상품 등록 시, ")
     @Nested
@@ -163,16 +167,52 @@ class ProductFacadeTest {
         void delegatesToProductQueryService_whenProductExists() {
             // arrange
             Long productId = 1L;
-            ProductInfo expected = new ProductInfo(productId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
-            when(productQueryService.getDetail(productId)).thenReturn(expected);
+            ProductInfo productInfo = new ProductInfo(productId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            LocalDate today = LocalDate.now(ZoneOffset.UTC);
+            when(productQueryService.getDetail(productId)).thenReturn(productInfo);
+            when(rankingRepository.findRankByProductId(today, productId)).thenReturn(Optional.empty());
 
             // act
-            ProductInfo result = productFacade.getDetail(productId);
+            ProductDetailInfo result = productFacade.getDetail(productId);
 
             // assert
             verify(productQueryService).getDetail(productId);
             verify(productViewEventPublisher).publish(new ProductViewEvent.Viewed(productId));
-            assertThat(result).isEqualTo(expected);
+            assertThat(result.productInfo()).isEqualTo(productInfo);
+        }
+
+        @DisplayName("상품이 오늘 ZSET 에 있으면 rank 가 포함된 ProductDetailInfo 를 반환한다.")
+        @Test
+        void returnsRank_whenProductIsInZSet() {
+            // arrange
+            Long productId = 1L;
+            ProductInfo productInfo = new ProductInfo(productId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            LocalDate today = LocalDate.now(ZoneOffset.UTC);
+            when(productQueryService.getDetail(productId)).thenReturn(productInfo);
+            when(rankingRepository.findRankByProductId(today, productId)).thenReturn(Optional.of(3L));
+
+            // act
+            ProductDetailInfo result = productFacade.getDetail(productId);
+
+            // assert
+            assertThat(result.rank()).isEqualTo(3L);
+        }
+
+        @DisplayName("상품이 오늘 ZSET 에 없으면 rank 가 null 인 ProductDetailInfo 를 반환한다.")
+        @Test
+        void returnsNullRank_whenProductNotInZSet() {
+            // arrange
+            Long productId = 1L;
+            ProductInfo productInfo = new ProductInfo(productId, "나이키 에어맥스", "설명", 10, 150000, "나이키", 0L);
+            LocalDate today = LocalDate.now(ZoneOffset.UTC);
+            when(productQueryService.getDetail(productId)).thenReturn(productInfo);
+            when(rankingRepository.findRankByProductId(today, productId)).thenReturn(Optional.empty());
+
+            // act
+            ProductDetailInfo result = productFacade.getDetail(productId);
+
+            // assert
+            assertThat(result.rank()).isNull();
         }
 
         @DisplayName("존재하지 않는 상품이면, 조회 이벤트가 발행되지 않는다.")

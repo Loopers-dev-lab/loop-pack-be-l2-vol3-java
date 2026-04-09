@@ -14,6 +14,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -118,6 +119,41 @@ class RedisRankingRepositoryTest {
 
             // assert
             assertThat(count).isZero();
+        }
+    }
+
+    @DisplayName("findRankByProductId() 를 호출할 때, ")
+    @Nested
+    class FindRankByProductId {
+
+        @DisplayName("ZSET 에 해당 상품이 있으면 1-based 순위를 반환한다.")
+        @Test
+        void returnsRank_whenProductExists() {
+            // arrange
+            LocalDate date = LocalDate.of(2026, 4, 8);
+            redisTemplate.opsForZSet().add("ranking:all:20260408", "10", 5.0);
+            redisTemplate.opsForZSet().add("ranking:all:20260408", "20", 3.0);
+            redisTemplate.opsForZSet().add("ranking:all:20260408", "30", 1.0);
+
+            // act
+            Optional<Long> rank = rankingRepository.findRankByProductId(date, 20L);
+
+            // assert
+            assertThat(rank).hasValue(2L); // 점수 높은 순: 10(1위), 20(2위), 30(3위)
+        }
+
+        @DisplayName("ZSET 에 해당 상품이 없으면 Optional.empty() 를 반환한다.")
+        @Test
+        void returnsEmpty_whenProductNotExists() {
+            // arrange
+            LocalDate date = LocalDate.of(2026, 4, 8);
+            redisTemplate.opsForZSet().add("ranking:all:20260408", "10", 5.0);
+
+            // act
+            Optional<Long> rank = rankingRepository.findRankByProductId(date, 999L);
+
+            // assert
+            assertThat(rank).isEmpty();
         }
     }
 }
