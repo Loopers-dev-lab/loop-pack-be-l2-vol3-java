@@ -50,7 +50,7 @@ public class OrderEventConsumer {
         String idempotencyKey = GROUP_ID + ":" + eventId;
 
         switch (eventType) {
-            case "payment.completed" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
+            case "order.completed" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                     () -> applyItems(payload, 1));
             case "payment.canceled" -> idempotentProcessor.process(idempotencyKey, eventType, TOPIC, GROUP_ID,
                     () -> applyItems(payload, -1));

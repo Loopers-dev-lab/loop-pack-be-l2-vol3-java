@@ -54,18 +54,18 @@ class OrderEventConsumerTest {
     class 메시지_파싱 {
 
         @Test
-        void payment_completed_메시지면_idempotentProcessor가_호출된다() throws Exception {
+        void 주문_완료_메시지면_멱등_처리기가_호출된다() throws Exception {
             doAnswer(inv -> { ((Runnable) inv.getArgument(4)).run(); return true; })
-                    .when(idempotentProcessor).process(anyString(), eq("payment.completed"), anyString(), anyString(), any());
+                    .when(idempotentProcessor).process(anyString(), eq("order.completed"), anyString(), anyString(), any());
             Acknowledgment ack = mock(Acknowledgment.class);
 
-            consumer.consume(List.of(createRecord("payment.completed", 1L, "50000")), ack);
+            consumer.consume(List.of(createRecord("order.completed", 1L, "50000")), ack);
 
-            verify(idempotentProcessor).process(anyString(), eq("payment.completed"), anyString(), anyString(), any());
+            verify(idempotentProcessor).process(anyString(), eq("order.completed"), anyString(), anyString(), any());
         }
 
         @Test
-        void payment_failed_메시지면_idempotentProcessor가_호출되지_않는다() throws Exception {
+        void 결제_실패_메시지면_멱등_처리기가_호출되지_않는다() throws Exception {
             String json = "{\"eventId\":\"evt-1\",\"eventType\":\"payment.failed\",\"payload\":\"{}\"}";
             ConsumerRecord<String, byte[]> record = new ConsumerRecord<>("order-events", 0, 0, "1", json.getBytes());
             Acknowledgment ack = mock(Acknowledgment.class);
@@ -78,7 +78,7 @@ class OrderEventConsumerTest {
     }
 
     @Nested
-    class items_펼치기 {
+    class 항목별_판매_집계 {
 
         private ConsumerRecord<String, byte[]> recordWithItems(String eventType) {
             String json = "{\"eventId\":\"evt-1\",\"eventType\":\"" + eventType + "\","
@@ -89,12 +89,12 @@ class OrderEventConsumerTest {
         }
 
         @Test
-        void payment_completed는_각_item별로_incrementSales가_호출된다() {
+        void 주문_완료면_각_항목별로_판매_수량과_금액이_증가한다() {
             doAnswer(inv -> { ((Runnable) inv.getArgument(4)).run(); return true; })
-                    .when(idempotentProcessor).process(anyString(), eq("payment.completed"), anyString(), anyString(), any());
+                    .when(idempotentProcessor).process(anyString(), eq("order.completed"), anyString(), anyString(), any());
             Acknowledgment ack = mock(Acknowledgment.class);
 
-            consumer.consume(List.of(recordWithItems("payment.completed")), ack);
+            consumer.consume(List.of(recordWithItems("order.completed")), ack);
 
             verify(metricsService).incrementSales(eq(10L), eq(2L), eq(new BigDecimal("10000")));
             verify(metricsService).incrementSales(eq(20L), eq(1L), eq(new BigDecimal("20000")));
@@ -102,7 +102,7 @@ class OrderEventConsumerTest {
         }
 
         @Test
-        void payment_canceled는_각_item별로_음수_incrementSales가_호출된다() {
+        void 결제_취소면_각_항목별로_판매_수량과_금액이_차감된다() {
             doAnswer(inv -> { ((Runnable) inv.getArgument(4)).run(); return true; })
                     .when(idempotentProcessor).process(anyString(), eq("payment.canceled"), anyString(), anyString(), any());
             Acknowledgment ack = mock(Acknowledgment.class);
@@ -119,7 +119,7 @@ class OrderEventConsumerTest {
     class 미지원_이벤트 {
 
         @Test
-        void 알_수_없는_eventType이면_idempotentProcessor가_호출되지_않는다() throws Exception {
+        void 알_수_없는_이벤트_타입이면_멱등_처리기가_호출되지_않는다() throws Exception {
             String json = "{\"eventId\":\"evt-1\",\"eventType\":\"unknown\",\"payload\":\"{}\"}";
             ConsumerRecord<String, byte[]> record = new ConsumerRecord<>("order-events", 0, 0, "1", json.getBytes());
             Acknowledgment ack = mock(Acknowledgment.class);

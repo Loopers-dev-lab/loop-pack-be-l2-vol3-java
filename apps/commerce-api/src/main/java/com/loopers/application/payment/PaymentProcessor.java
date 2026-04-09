@@ -2,9 +2,7 @@ package com.loopers.application.payment;
 
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.confg.kafka.KafkaTopics;
-import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.domain.event.PaymentCanceledEvent;
-import com.loopers.domain.event.PaymentCompletedEvent;
 import com.loopers.domain.event.PaymentFailedEvent;
 import com.loopers.application.order.OrderService;
 import com.loopers.application.stock.StockService;
@@ -15,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.List;
 
 @Component
@@ -39,15 +36,6 @@ public class PaymentProcessor {
         Order order = orderService.getOrder(orderId);
         stockService.confirm(order.getProductQuantities());
         orderService.payOrder(orderId);
-
-        Payment payment = paymentService.getPayment(paymentId);
-        List<OrderItemSnapshot> items = order.toItemSnapshots();
-        Instant occurredAt = Instant.now();
-        eventPublisher.publishEvent(new PaymentCompletedEvent(
-                paymentId, orderId, payment.getUserId(), payment.getAmount(), items, occurredAt));
-        outboxEventService.saveAndPublish("payment.completed", "Order",
-                String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
-                new PaymentCompletedEvent(paymentId, orderId, payment.getUserId(), payment.getAmount(), items, occurredAt));
     }
 
     /**
