@@ -17,6 +17,13 @@ spring:
       acks: all
       properties:
         enable.idempotence: true
+        linger.ms: 20
+        batch.size: 65536
+        buffer.memory: 67108864     # 64MB
+        max.block.ms: 1000          # 1초 안에 버퍼 못 비우면 예외
+        compression.type: lz4
+        request.timeout.ms: 30000   # broker 응답 대기 (producer 전용 override)
+        delivery.timeout.ms: 120000 # send → 최종 결과까지 총 한도 (재시도 포함)
     consumer:
       group-id: loopers-default-consumer
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer

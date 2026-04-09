@@ -1,10 +1,12 @@
 package com.loopers.application.like;
 
 import com.loopers.application.brand.BrandService;
+import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.domain.event.ProductLikedEvent;
 import com.loopers.domain.event.ProductUnlikedEvent;
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import com.loopers.infrastructure.product.ProductCacheManager;
 import com.loopers.domain.like.Like;
 import com.loopers.domain.product.Product;
@@ -28,8 +30,8 @@ public class LikeFacade {
     private final LikeService likeService;
     private final ProductService productService;
     private final BrandService brandService;
-    private final ProductCacheManager productCacheManager;
     private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventService outboxEventService;
 
     // Command
 
@@ -39,6 +41,13 @@ public class LikeFacade {
 
         boolean created = likeService.like(userId, productId);
         if (created) {
+            outboxEventService.saveAndPublish(
+                    "product.liked",
+                    "product",
+                    String.valueOf(productId),
+                    KafkaTopics.CATALOG_EVENTS,
+                    new ProductLikedEvent(userId, productId)
+            );
             eventPublisher.publishEvent(new ProductLikedEvent(userId, productId));
         }
     }
@@ -47,6 +56,13 @@ public class LikeFacade {
     public void unlike(Long userId, Long productId) {
         boolean deleted = likeService.unlike(userId, productId);
         if (deleted) {
+            outboxEventService.saveAndPublish(
+                    "product.unliked",
+                    "product",
+                    String.valueOf(productId),
+                    KafkaTopics.CATALOG_EVENTS,
+                    new ProductUnlikedEvent(userId, productId)
+            );
             eventPublisher.publishEvent(new ProductUnlikedEvent(userId, productId));
         }
     }
