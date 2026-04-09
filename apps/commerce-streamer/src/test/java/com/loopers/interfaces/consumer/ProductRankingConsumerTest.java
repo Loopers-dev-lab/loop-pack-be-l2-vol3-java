@@ -43,9 +43,9 @@ class ProductRankingConsumerTest {
     @Captor
     private ArgumentCaptor<List<RankingEvent>> eventsCaptor;
 
-    @DisplayName("랭킹 이벤트를 소비할 때,")
+    @DisplayName("일간 랭킹 이벤트를 소비할 때,")
     @Nested
-    class ConsumeRankingEvents {
+    class ConsumeDailyRankingEvents {
 
         @DisplayName("좋아요 토픽이면, Like 이벤트를 생성한다.")
         @Test
@@ -55,10 +55,10 @@ class ProductRankingConsumerTest {
                     "like-liked-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":1}");
 
             // act
-            productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(List.of(record), acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             RankingEvent event = eventsCaptor.getValue().get(0);
             assertThat(event).isInstanceOf(RankingEvent.Like.class);
             assertThat(event.eventId()).isEqualTo("uuid");
@@ -74,10 +74,10 @@ class ProductRankingConsumerTest {
                     "like-unliked-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":1}");
 
             // act
-            productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(List.of(record), acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             RankingEvent event = eventsCaptor.getValue().get(0);
             assertThat(((RankingEvent.Like) event).liked()).isFalse();
         }
@@ -93,10 +93,10 @@ class ProductRankingConsumerTest {
                             + "{\"productId\":20,\"quantity\":1,\"price\":30000}]}");
 
             // act
-            productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(List.of(record), acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             List<RankingEvent> events = eventsCaptor.getValue();
             assertThat(events).hasSize(1);
 
@@ -117,10 +117,10 @@ class ProductRankingConsumerTest {
                     "product-viewed-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":1}");
 
             // act
-            productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(List.of(record), acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             RankingEvent.View view = (RankingEvent.View) eventsCaptor.getValue().get(0);
             assertThat(view.productId()).isEqualTo(1L);
         }
@@ -137,10 +137,10 @@ class ProductRankingConsumerTest {
             );
 
             // act
-            productRankingConsumer.consumeRankingEvents(records, acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(records, acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             List<RankingEvent> events = eventsCaptor.getValue();
             assertThat(events).hasSize(3);
             assertThat(events.get(0)).isInstanceOf(RankingEvent.View.class);
@@ -156,10 +156,10 @@ class ProductRankingConsumerTest {
                     "unknown-topic-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":1}");
 
             // act
-            productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(List.of(record), acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             assertThat(eventsCaptor.getValue()).isEmpty();
             then(acknowledgment).should().acknowledge();
         }
@@ -173,10 +173,10 @@ class ProductRankingConsumerTest {
                     "{\"eventId\":\"uuid\",\"orderId\":1,\"orderItems\":[]}");
 
             // act
-            productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(List.of(record), acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             assertThat(eventsCaptor.getValue()).isEmpty();
             then(acknowledgment).should().acknowledge();
         }
@@ -191,69 +191,148 @@ class ProductRankingConsumerTest {
             );
 
             // act
-            productRankingConsumer.consumeRankingEvents(records, acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(records, acknowledgment);
 
             // assert
-            then(rankingService).should().processBatch(eventsCaptor.capture());
+            then(rankingService).should().processDailyBatch(eventsCaptor.capture());
             assertThat(eventsCaptor.getValue()).hasSize(1);
             then(acknowledgment).should().acknowledge();
         }
-    }
 
-    @DisplayName("랭킹 적재가 실패해도,")
-    @Nested
-    class RankingFailure {
-
-        @DisplayName("ACK은 정상 수행된다.")
+        @DisplayName("적재 실패해도 ACK은 정상 수행된다.")
         @Test
         void acknowledgesEvenWhenRankingFails() {
             // arrange
             ConsumerRecord<String, Object> record = new ConsumerRecord<>(
                     "product-viewed-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":1}");
             doThrow(new RuntimeException("Redis connection refused"))
-                    .when(rankingService).processBatch(anyList());
+                    .when(rankingService).processDailyBatch(anyList());
 
             // act
-            productRankingConsumer.consumeRankingEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyRankingEvents(List.of(record), acknowledgment);
 
             // assert
             then(acknowledgment).should().acknowledge();
         }
     }
 
-    @DisplayName("상품 삭제 이벤트를 소비할 때,")
+    @DisplayName("일간 삭제 이벤트를 소비할 때,")
     @Nested
-    class ConsumeProductDeletedEvents {
+    class ConsumeDailyDeletedEvents {
 
-        @DisplayName("파싱 후 removeProducts에 Delete 이벤트 목록을 전달한다.")
+        @DisplayName("파싱 후 removeDailyProducts에 위임한다.")
         @Test
-        void callsRemoveProducts_withDeleteEvents() {
+        void callsRemoveDailyProducts() {
             // arrange
             ConsumerRecord<String, Object> record = new ConsumerRecord<>(
                     "product-deleted-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":5}");
 
             // act
-            productRankingConsumer.consumeProductDeletedEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyDeletedEvents(List.of(record), acknowledgment);
 
             // assert
-            then(rankingService).should().removeProducts(
+            then(rankingService).should().removeDailyProducts(
                     List.of(new RankingEvent.Delete("uuid", 5L)));
             then(acknowledgment).should().acknowledge();
         }
 
-        @DisplayName("랭킹 제거 실패해도 ACK은 정상 수행된다.")
+        @DisplayName("제거 실패해도 ACK은 정상 수행된다.")
         @Test
         void acknowledgesEvenWhenRemoveFails() {
             // arrange
             ConsumerRecord<String, Object> record = new ConsumerRecord<>(
                     "product-deleted-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":5}");
             doThrow(new RuntimeException("Redis connection refused"))
-                    .when(rankingService).removeProducts(anyList());
+                    .when(rankingService).removeDailyProducts(anyList());
 
             // act
-            productRankingConsumer.consumeProductDeletedEvents(List.of(record), acknowledgment);
+            productRankingConsumer.consumeDailyDeletedEvents(List.of(record), acknowledgment);
 
             // assert
+            then(acknowledgment).should().acknowledge();
+        }
+    }
+
+    @DisplayName("시간 단위 랭킹 이벤트를 소비할 때,")
+    @Nested
+    class ConsumeHourlyRankingEvents {
+
+        @DisplayName("혼합 토픽 배치를 processHourlyBatch로 처리한다.")
+        @Test
+        void processesMixedTopicsInSingleBatch() {
+            // arrange
+            List<ConsumerRecord<String, Object>> records = List.of(
+                    new ConsumerRecord<>("product-viewed-v1", 0, 0, "1", "{\"eventId\":\"e1\",\"productId\":1}"),
+                    new ConsumerRecord<>("like-liked-v1", 0, 1, "2", "{\"eventId\":\"e2\",\"productId\":1}"),
+                    new ConsumerRecord<>("order-completed-v1", 0, 2, "3",
+                            "{\"eventId\":\"e3\",\"orderId\":1,\"orderItems\":[{\"productId\":1,\"quantity\":1,\"price\":10000}]}")
+            );
+
+            // act
+            productRankingConsumer.consumeHourlyRankingEvents(records, acknowledgment);
+
+            // assert
+            then(rankingService).should().processHourlyBatch(eventsCaptor.capture());
+            List<RankingEvent> events = eventsCaptor.getValue();
+            assertThat(events).hasSize(3);
+            assertThat(events.get(0)).isInstanceOf(RankingEvent.View.class);
+            assertThat(events.get(1)).isInstanceOf(RankingEvent.Like.class);
+            assertThat(events.get(2)).isInstanceOf(RankingEvent.Order.class);
+            then(acknowledgment).should().acknowledge();
+        }
+
+        @DisplayName("파싱 실패 시 skip하고 나머지를 처리한다.")
+        @Test
+        void skipsFailedRecord() {
+            // arrange
+            List<ConsumerRecord<String, Object>> records = List.of(
+                    new ConsumerRecord<>("like-liked-v1", 0, 0, "1", "invalid-json"),
+                    new ConsumerRecord<>("product-viewed-v1", 0, 1, "2", "{\"eventId\":\"uuid\",\"productId\":2}")
+            );
+
+            // act
+            productRankingConsumer.consumeHourlyRankingEvents(records, acknowledgment);
+
+            // assert
+            then(rankingService).should().processHourlyBatch(eventsCaptor.capture());
+            assertThat(eventsCaptor.getValue()).hasSize(1);
+            then(acknowledgment).should().acknowledge();
+        }
+
+        @DisplayName("적재 실패해도 ACK은 정상 수행된다.")
+        @Test
+        void acknowledgesEvenWhenRankingFails() {
+            // arrange
+            ConsumerRecord<String, Object> record = new ConsumerRecord<>(
+                    "product-viewed-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":1}");
+            doThrow(new RuntimeException("Redis connection refused"))
+                    .when(rankingService).processHourlyBatch(anyList());
+
+            // act
+            productRankingConsumer.consumeHourlyRankingEvents(List.of(record), acknowledgment);
+
+            // assert
+            then(acknowledgment).should().acknowledge();
+        }
+    }
+
+    @DisplayName("시간 단위 삭제 이벤트를 소비할 때,")
+    @Nested
+    class ConsumeHourlyDeletedEvents {
+
+        @DisplayName("파싱 후 removeHourlyProducts에 위임한다.")
+        @Test
+        void callsRemoveHourlyProducts() {
+            // arrange
+            ConsumerRecord<String, Object> record = new ConsumerRecord<>(
+                    "product-deleted-v1", 0, 0, "1", "{\"eventId\":\"uuid\",\"productId\":5}");
+
+            // act
+            productRankingConsumer.consumeHourlyDeletedEvents(List.of(record), acknowledgment);
+
+            // assert
+            then(rankingService).should().removeHourlyProducts(
+                    List.of(new RankingEvent.Delete("uuid", 5L)));
             then(acknowledgment).should().acknowledge();
         }
     }

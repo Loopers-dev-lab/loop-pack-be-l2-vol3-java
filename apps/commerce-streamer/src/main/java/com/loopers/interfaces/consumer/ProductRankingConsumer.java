@@ -23,10 +23,9 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 상품 랭킹 적재를 위한 Kafka Consumer.
  *
- * <p>별도 consumer group({@code commerce-streamer-ranking})으로
- * 메트릭스 Consumer와 독립적으로 동일 토픽을 소비한다.
- * 단일 리스너로 모든 이벤트 토픽을 수신하여 배치 단위로
- * {@link RankingService}에 위임한다.</p>
+ * <p>일간({@code commerce-streamer-ranking})과 시간 단위({@code commerce-streamer-hourly-ranking})
+ * 두 consumer group으로 동일 토픽을 독립적으로 소비한다.
+ * 배치 단위로 {@link RankingService}에 위임하여 각각의 Redis Sorted Set에 적재한다.</p>
  *
  * <p>랭킹 적재 실패 시 로그만 남기고 ACK은 정상 수행한다.</p>
  */
@@ -35,60 +34,89 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ProductRankingConsumer {
 
-    private static final String GROUP_ID = "commerce-streamer-ranking";
+    private static final String DAILY_GROUP_ID = "commerce-streamer-ranking";
+    private static final String HOURLY_GROUP_ID = "commerce-streamer-hourly-ranking";
 
     private final RankingService rankingService;
     private final KafkaMessageParser kafkaMessageParser;
 
     @KafkaListener(
             topics = {Topics.LIKED, Topics.UNLIKED, Topics.ORDER_COMPLETED, Topics.PRODUCT_VIEWED},
-            groupId = GROUP_ID,
+            groupId = DAILY_GROUP_ID,
             containerFactory = KafkaConfig.BATCH_LISTENER
     )
-    public void consumeRankingEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
-        log.debug("[Ranking] 배치 수신: size={}", messages.size());
-        List<RankingEvent> rankingEvents = new ArrayList<>();
-
-        for (ConsumerRecord<String, Object> record : messages) {
-            try {
-                parseRankingEvent(record, rankingEvents);
-            } catch (Exception e) {
-                log.error("[Ranking] 파싱 실패: topic={}, offset={}", record.topic(), record.offset(), e);
-            }
-        }
-
-        try {
-            rankingService.processBatch(rankingEvents);
-        } catch (Exception e) {
-            log.error("[Ranking] 랭킹 적재 실패", e);
-        }
+    public void consumeDailyRankingEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
+        List<RankingEvent> events = parseRankingEvents(messages, "DailyRanking");
+        tryExecute(() -> rankingService.processDailyBatch(events), "DailyRanking");
         ack.acknowledge();
     }
 
     @KafkaListener(
             topics = Topics.PRODUCT_DELETED,
-            groupId = GROUP_ID,
+            groupId = DAILY_GROUP_ID,
             containerFactory = KafkaConfig.BATCH_LISTENER
     )
-    public void consumeProductDeletedEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
-        log.debug("[Ranking:Delete] 배치 수신: size={}", messages.size());
-        List<RankingEvent.Delete> deleteEvents = new ArrayList<>();
+    public void consumeDailyDeletedEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
+        List<RankingEvent.Delete> events = parseDeleteEvents(messages, "DailyRanking:Delete");
+        tryExecute(() -> rankingService.removeDailyProducts(events), "DailyRanking:Delete");
+        ack.acknowledge();
+    }
 
+    @KafkaListener(
+            topics = {Topics.LIKED, Topics.UNLIKED, Topics.ORDER_COMPLETED, Topics.PRODUCT_VIEWED},
+            groupId = HOURLY_GROUP_ID,
+            containerFactory = KafkaConfig.BATCH_LISTENER
+    )
+    public void consumeHourlyRankingEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
+        List<RankingEvent> events = parseRankingEvents(messages, "HourlyRanking");
+        tryExecute(() -> rankingService.processHourlyBatch(events), "HourlyRanking");
+        ack.acknowledge();
+    }
+
+    @KafkaListener(
+            topics = Topics.PRODUCT_DELETED,
+            groupId = HOURLY_GROUP_ID,
+            containerFactory = KafkaConfig.BATCH_LISTENER
+    )
+    public void consumeHourlyDeletedEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
+        List<RankingEvent.Delete> events = parseDeleteEvents(messages, "HourlyRanking:Delete");
+        tryExecute(() -> rankingService.removeHourlyProducts(events), "HourlyRanking:Delete");
+        ack.acknowledge();
+    }
+
+    private List<RankingEvent> parseRankingEvents(List<ConsumerRecord<String, Object>> messages, String label) {
+        log.debug("[{}] 배치 수신: size={}", label, messages.size());
+        List<RankingEvent> events = new ArrayList<>();
+        for (ConsumerRecord<String, Object> record : messages) {
+            try {
+                parseRankingEvent(record, events);
+            } catch (Exception e) {
+                log.error("[{}] 파싱 실패: topic={}, offset={}", label, record.topic(), record.offset(), e);
+            }
+        }
+        return events;
+    }
+
+    private List<RankingEvent.Delete> parseDeleteEvents(List<ConsumerRecord<String, Object>> messages, String label) {
+        log.debug("[{}] 배치 수신: size={}", label, messages.size());
+        List<RankingEvent.Delete> events = new ArrayList<>();
         for (ConsumerRecord<String, Object> record : messages) {
             try {
                 ProductDeletedMessage msg = kafkaMessageParser.parse(record.value(), ProductDeletedMessage.class);
-                deleteEvents.add(new RankingEvent.Delete(msg.eventId(), msg.productId()));
+                events.add(new RankingEvent.Delete(msg.eventId(), msg.productId()));
             } catch (Exception e) {
-                log.error("[Ranking:Delete] 파싱 실패: offset={}", record.offset(), e);
+                log.error("[{}] 파싱 실패: offset={}", label, record.offset(), e);
             }
         }
+        return events;
+    }
 
+    private void tryExecute(Runnable action, String label) {
         try {
-            rankingService.removeProducts(deleteEvents);
+            action.run();
         } catch (Exception e) {
-            log.error("[Ranking:Delete] 랭킹 제거 실패", e);
+            log.error("[{}] 랭킹 적재 실패", label, e);
         }
-        ack.acknowledge();
     }
 
     private void parseRankingEvent(ConsumerRecord<String, Object> record, List<RankingEvent> events) throws Exception {

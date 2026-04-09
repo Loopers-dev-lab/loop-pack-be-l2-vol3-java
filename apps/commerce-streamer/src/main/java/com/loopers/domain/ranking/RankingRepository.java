@@ -12,7 +12,7 @@ public interface RankingRepository {
     /**
      * 상품별 점수를 증분한다.
      *
-     * @param key    ZSET 키 (예: {@code ranking:v1:all:20260406})
+     * @param key    ZSET 키 (예: {@code ranking:v1:daily:20260406})
      * @param scores 증분할 랭킹 점수 목록
      */
     void incrementScores(String key, List<RankingScore> scores);

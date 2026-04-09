@@ -38,7 +38,7 @@ class RedisRankingRepositoryTest {
         @Test
         void executesPipelineWithZincrbyAndExpire() {
             // arrange
-            String key = "ranking:v1:all:20260406";
+            String key = "ranking:v1:daily:20260406";
             List<RankingScore> scores = List.of(new RankingScore(1L, 0.1), new RankingScore(2L, 0.2));
             given(redisTemplate.getStringSerializer()).willReturn(new StringRedisSerializer());
             given(redisTemplate.executePipelined(any(RedisCallback.class))).willReturn(List.of());
@@ -54,7 +54,7 @@ class RedisRankingRepositoryTest {
         @Test
         void skips_whenEmptyScores() {
             // act
-            repository.incrementScores("ranking:v1:all:20260406", Collections.emptyList());
+            repository.incrementScores("ranking:v1:daily:20260406", Collections.emptyList());
 
             // assert
             then(redisTemplate).should(times(0)).executePipelined(any(RedisCallback.class));

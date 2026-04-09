@@ -38,7 +38,7 @@ public class ReadActiveProductDetailUseCase {
         Product product = productCacheReader.readActiveProduct(productId);
         Brand brand = brandService.getActiveBrand(product.getBrandId());
         boolean liked = likeService.isLiked(userId, productId);
-        Integer rank = rankingRepository.findRank(RankingKeyResolver.resolveToday(), productId);
+        Integer rank = rankingRepository.findRank(RankingKeyResolver.resolveDaily(null), productId);
         productEventPublisher.publishEvent(ProductEvent.ProductViewed.from(product));
         return ProductDetail.from(product, brand, liked, rank);
     }

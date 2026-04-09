@@ -10,15 +10,31 @@ import com.loopers.interfaces.api.ApiResponse;
 
 public class RankingSteps {
 
-    private static final String RANKING_ENDPOINT = "/api/v1/rankings";
+    private static final String DAILY_ENDPOINT = "/api/v1/rankings/daily";
+    private static final String HOURLY_ENDPOINT = "/api/v1/rankings/hourly";
 
-    public static ResponseEntity<ApiResponse<RankingDto.RankingResponse>> getRankings(
+    public static ResponseEntity<ApiResponse<RankingDto.RankingResponse>> getDailyRankings(
             TestRestTemplate testRestTemplate,
+            String queryParams
+    ) {
+        return doGet(testRestTemplate, DAILY_ENDPOINT, queryParams);
+    }
+
+    public static ResponseEntity<ApiResponse<RankingDto.RankingResponse>> getHourlyRankings(
+            TestRestTemplate testRestTemplate,
+            String queryParams
+    ) {
+        return doGet(testRestTemplate, HOURLY_ENDPOINT, queryParams);
+    }
+
+    private static ResponseEntity<ApiResponse<RankingDto.RankingResponse>> doGet(
+            TestRestTemplate testRestTemplate,
+            String endpoint,
             String queryParams
     ) {
         ParameterizedTypeReference<ApiResponse<RankingDto.RankingResponse>> responseType =
                 new ParameterizedTypeReference<>() {};
-        String url = queryParams.isEmpty() ? RANKING_ENDPOINT : RANKING_ENDPOINT + "?" + queryParams;
+        String url = queryParams.isEmpty() ? endpoint : endpoint + "?" + queryParams;
         return testRestTemplate.exchange(
                 url,
                 HttpMethod.GET,

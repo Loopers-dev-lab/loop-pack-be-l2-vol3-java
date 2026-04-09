@@ -1,6 +1,5 @@
 package com.loopers.domain.ranking;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -17,7 +16,7 @@ import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "ranking_snapshot", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"product_id", "score_date"})
+        @UniqueConstraint(columnNames = {"product_id", "score_hour"})
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
@@ -31,7 +30,7 @@ public class RankingSnapshot {
     private Long productId;
 
     @Column(nullable = false)
-    private LocalDate scoreDate;
+    private LocalDateTime scoreHour;
 
     @Column(nullable = false)
     private Double score;

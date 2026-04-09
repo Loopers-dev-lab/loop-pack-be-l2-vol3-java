@@ -19,13 +19,14 @@ import org.springframework.data.redis.core.ZSetOperations;
 
 import com.loopers.application.ranking.RankingCarryOverScheduler;
 import com.loopers.config.redis.RedisConfig;
+import com.loopers.domain.ranking.RankingKeyConstants;
 import com.loopers.utils.RedisCleanUp;
 
 @SpringBootTest
 class RankingCarryOverIntegrationTest {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final String KEY_PREFIX = "ranking:v1:all:";
+    private static final String KEY_PREFIX = "ranking:v1:daily:";
 
     @Autowired
     private RankingCarryOverScheduler rankingCarryOverScheduler;
@@ -42,9 +43,9 @@ class RankingCarryOverIntegrationTest {
         redisCleanUp.truncateAll();
     }
 
-    @DisplayName("스코어 이월을 수행할 때,")
+    @DisplayName("일간 스코어 이월을 수행할 때,")
     @Nested
-    class CarryOver {
+    class CarryOverDaily {
 
         @DisplayName("오늘 상위 스코어가 감쇠되어 내일 키에 적재된다.")
         @Test
@@ -58,7 +59,7 @@ class RankingCarryOverIntegrationTest {
             redisTemplate.opsForZSet().add(todayKey, "3", 60.0);
 
             // act
-            rankingCarryOverScheduler.carryOver();
+            rankingCarryOverScheduler.carryOverDaily();
 
             // assert
             Set<ZSetOperations.TypedTuple<String>> tomorrowScores =
@@ -81,9 +82,9 @@ class RankingCarryOverIntegrationTest {
             redisTemplate.opsForZSet().add(tomorrowKey, "99", 1.0);
 
             // act
-            rankingCarryOverScheduler.carryOver();
+            rankingCarryOverScheduler.carryOverDaily();
 
-            // assert — 내일 키에 기존 데이터만 존재, 이월 없음
+            // assert
             assertThat(redisTemplate.opsForZSet().zCard(tomorrowKey)).isEqualTo(1);
             assertThat(redisTemplate.opsForZSet().score(tomorrowKey, "1")).isNull();
         }
@@ -98,11 +99,75 @@ class RankingCarryOverIntegrationTest {
             redisTemplate.opsForZSet().add(todayKey, "1", 100.0);
 
             // act
-            rankingCarryOverScheduler.carryOver();
+            rankingCarryOverScheduler.carryOverDaily();
 
             // assert
             Long ttl = redisTemplate.getExpire(tomorrowKey);
             assertThat(ttl).isNotNull().isGreaterThan(172700L);
+        }
+    }
+
+    @DisplayName("시간 단위 스코어 이월을 수행할 때,")
+    @Nested
+    class CarryOverHourly {
+
+        @DisplayName("현재 시간 상위 스코어가 감쇠되어 다음 시간 키에 적재된다.")
+        @Test
+        void carriesOverDecayedScoresToNextHourKey() {
+            // arrange
+            String currentHourKey = RankingKeyConstants.currentHourKey();
+            String nextHourKey = RankingKeyConstants.nextHourKey();
+
+            redisTemplate.opsForZSet().add(currentHourKey, "1", 100.0);
+            redisTemplate.opsForZSet().add(currentHourKey, "2", 80.0);
+            redisTemplate.opsForZSet().add(currentHourKey, "3", 60.0);
+
+            // act
+            rankingCarryOverScheduler.carryOverHourly();
+
+            // assert
+            Set<ZSetOperations.TypedTuple<String>> nextHourScores =
+                    redisTemplate.opsForZSet().reverseRangeWithScores(nextHourKey, 0, -1);
+
+            assertThat(nextHourScores).hasSize(3);
+            assertThat(redisTemplate.opsForZSet().score(nextHourKey, "1")).isCloseTo(1.0, offset(0.001));
+            assertThat(redisTemplate.opsForZSet().score(nextHourKey, "2")).isCloseTo(0.8, offset(0.001));
+            assertThat(redisTemplate.opsForZSet().score(nextHourKey, "3")).isCloseTo(0.6, offset(0.001));
+        }
+
+        @DisplayName("다음 시간 키가 이미 존재하면 이월하지 않는다.")
+        @Test
+        void skips_whenNextHourKeyAlreadyExists() {
+            // arrange
+            String currentHourKey = RankingKeyConstants.currentHourKey();
+            String nextHourKey = RankingKeyConstants.nextHourKey();
+
+            redisTemplate.opsForZSet().add(currentHourKey, "1", 100.0);
+            redisTemplate.opsForZSet().add(nextHourKey, "99", 1.0);
+
+            // act
+            rankingCarryOverScheduler.carryOverHourly();
+
+            // assert
+            assertThat(redisTemplate.opsForZSet().zCard(nextHourKey)).isEqualTo(1);
+            assertThat(redisTemplate.opsForZSet().score(nextHourKey, "1")).isNull();
+        }
+
+        @DisplayName("다음 시간 키에 TTL이 설정된다.")
+        @Test
+        void setsTtlOnNextHourKey() {
+            // arrange
+            String currentHourKey = RankingKeyConstants.currentHourKey();
+            String nextHourKey = RankingKeyConstants.nextHourKey();
+
+            redisTemplate.opsForZSet().add(currentHourKey, "1", 100.0);
+
+            // act
+            rankingCarryOverScheduler.carryOverHourly();
+
+            // assert
+            Long ttl = redisTemplate.getExpire(nextHourKey);
+            assertThat(ttl).isNotNull().isGreaterThan(0L);
         }
     }
 }

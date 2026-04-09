@@ -3,7 +3,8 @@ package com.loopers.infrastructure.ranking.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
 
@@ -34,16 +35,16 @@ class RankingSnapshotRepositoryImplTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
-    private static final LocalDate TODAY = LocalDate.now();
+    private static final LocalDateTime CURRENT_HOUR = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
     }
 
-    private void saveAll(LocalDate scoreDate, List<RankingScore> scores) {
+    private void saveAll(LocalDateTime scoreHour, List<RankingScore> scores) {
         transactionTemplate.executeWithoutResult(status ->
-                rankingSnapshotRepository.saveAll(scoreDate, scores)
+                rankingSnapshotRepository.saveAll(scoreHour, scores)
         );
     }
 
@@ -61,7 +62,7 @@ class RankingSnapshotRepositoryImplTest {
             );
 
             // act
-            saveAll(TODAY, scores);
+            saveAll(CURRENT_HOUR, scores);
 
             // assert
             List<RankingSnapshot> results = rankingSnapshotJpaRepository.findAll();
@@ -72,14 +73,14 @@ class RankingSnapshotRepositoryImplTest {
             );
         }
 
-        @DisplayName("동일 (productId, scoreDate) 조합이면, score가 갱신된다.")
+        @DisplayName("동일 (productId, scoreHour) 조합이면, score가 갱신된다.")
         @Test
-        void updatesScore_whenSameProductAndDate() {
+        void updatesScore_whenSameProductAndHour() {
             // arrange
-            saveAll(TODAY, List.of(new RankingScore(1L, 10.0)));
+            saveAll(CURRENT_HOUR, List.of(new RankingScore(1L, 10.0)));
 
             // act
-            saveAll(TODAY, List.of(new RankingScore(1L, 50.0)));
+            saveAll(CURRENT_HOUR, List.of(new RankingScore(1L, 50.0)));
 
             // assert
             List<RankingSnapshot> results = rankingSnapshotJpaRepository.findAll();
@@ -93,7 +94,7 @@ class RankingSnapshotRepositoryImplTest {
         @Test
         void handlesEmptyList() {
             // act & assert
-            saveAll(TODAY, Collections.emptyList());
+            saveAll(CURRENT_HOUR, Collections.emptyList());
 
             List<RankingSnapshot> results = rankingSnapshotJpaRepository.findAll();
             assertThat(results).isEmpty();

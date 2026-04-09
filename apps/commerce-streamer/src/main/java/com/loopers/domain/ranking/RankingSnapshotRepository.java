@@ -1,6 +1,6 @@
 package com.loopers.domain.ranking;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -12,7 +12,10 @@ import java.util.List;
 public interface RankingSnapshotRepository {
 
     /**
-     * 상품별 score를 일괄 upsert한다.
+     * 상품별 score를 시간 단위로 일괄 upsert한다.
+     *
+     * @param scoreHour 스냅샷 대상 시간 (시간 단위로 truncate된 값)
+     * @param scores    상품별 점수 목록
      */
-    void saveAll(LocalDate scoreDate, List<RankingScore> scores);
+    void saveAll(LocalDateTime scoreHour, List<RankingScore> scores);
 }

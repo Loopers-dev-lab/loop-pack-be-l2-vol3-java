@@ -25,7 +25,7 @@ class RedisRankingRepositoryIntegrationTest extends BaseIntegrationTest {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
-    private static final String KEY = "ranking:v1:all:20250406";
+    private static final String KEY = "ranking:v1:daily:20250406";
 
     @BeforeEach
     void setUp() {
@@ -73,7 +73,7 @@ class RedisRankingRepositoryIntegrationTest extends BaseIntegrationTest {
         @Test
         void returnsEmptyList_whenNoData() {
             // act
-            List<RankingItem> items = rankingRepository.readTopRanked("ranking:v1:all:99990101", 0, 10);
+            List<RankingItem> items = rankingRepository.readTopRanked("ranking:v1:daily:99990101", 0, 10);
 
             // assert
             assertThat(items).isEmpty();

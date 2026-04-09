@@ -2,9 +2,6 @@ package com.loopers.application.ranking;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
 import java.util.Collections;
@@ -23,16 +20,12 @@ import com.loopers.application.product.cache.ProductCacheReader;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.ProductFixture;
 import com.loopers.domain.ranking.RankingItem;
-import com.loopers.domain.ranking.RankingService;
 import com.loopers.support.page.PageSize;
 
 @ExtendWith(MockitoExtension.class)
-class ReadRankingsUseCaseTest {
+class RankingResultAssemblerTest {
 
-    private ReadRankingsUseCase readRankingsUseCase;
-
-    @Mock
-    private RankingService rankingService;
+    private RankingResultAssembler rankingResultAssembler;
 
     @Mock
     private ProductCacheReader productCacheReader;
@@ -42,12 +35,12 @@ class ReadRankingsUseCaseTest {
 
     @BeforeEach
     void setUp() {
-        readRankingsUseCase = new ReadRankingsUseCase(rankingService, productCacheReader, likeService);
+        rankingResultAssembler = new RankingResultAssembler(productCacheReader, likeService);
     }
 
-    @DisplayName("랭킹을 조회할 때,")
+    @DisplayName("랭킹 결과를 조합할 때,")
     @Nested
-    class Execute {
+    class Assemble {
 
         @DisplayName("정상 데이터가 있으면, 순위·상품·brandId·liked를 조합하여 반환한다.")
         @Test
@@ -58,7 +51,6 @@ class ReadRankingsUseCaseTest {
                     new RankingItem(1, 42L, 70.0),
                     new RankingItem(2, 15L, 58.4)
             );
-            given(rankingService.readTopRanked(anyString(), anyInt(), anyInt())).willReturn(items);
 
             var product42 = ProductFixture.createProduct(42L);
             var product15 = ProductFixture.createProduct(15L);
@@ -68,7 +60,7 @@ class ReadRankingsUseCaseTest {
                     .willReturn(Set.of(42L));
 
             // act
-            RankingPageResult result = readRankingsUseCase.execute(userId, "20250406", new PageSize(0, 20));
+            RankingPageResult result = rankingResultAssembler.assemble(userId, items, new PageSize(0, 20));
 
             // assert
             assertAll(
@@ -88,7 +80,6 @@ class ReadRankingsUseCaseTest {
         void returnsAllNotLiked_whenUserIsNull() {
             // arrange
             var items = List.of(new RankingItem(1, 42L, 70.0));
-            given(rankingService.readTopRanked(anyString(), anyInt(), anyInt())).willReturn(items);
 
             var product42 = ProductFixture.createProduct(42L);
             given(productCacheReader.readActiveProductsByIds(List.of(42L)))
@@ -97,7 +88,7 @@ class ReadRankingsUseCaseTest {
                     .willReturn(Collections.emptySet());
 
             // act
-            RankingPageResult result = readRankingsUseCase.execute(null, "20250406", new PageSize(0, 20));
+            RankingPageResult result = rankingResultAssembler.assemble(null, items, new PageSize(0, 20));
 
             // assert
             assertAll(
@@ -109,11 +100,8 @@ class ReadRankingsUseCaseTest {
         @DisplayName("빈 랭킹이면, 빈 결과를 반환한다.")
         @Test
         void returnsEmptyResult_whenNoRankings() {
-            // arrange
-            given(rankingService.readTopRanked(anyString(), anyInt(), anyInt())).willReturn(List.of());
-
             // act
-            RankingPageResult result = readRankingsUseCase.execute(null, "20250406", new PageSize(0, 20));
+            RankingPageResult result = rankingResultAssembler.assemble(null, List.of(), new PageSize(0, 20));
 
             // assert
             assertAll(

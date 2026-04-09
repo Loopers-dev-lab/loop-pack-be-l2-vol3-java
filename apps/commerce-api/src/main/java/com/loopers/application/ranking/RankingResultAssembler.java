@@ -7,36 +7,35 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Component;
+
 import com.loopers.application.product.cache.ProductCacheReader;
-import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.like.LikeService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.ranking.RankingItem;
-import com.loopers.domain.ranking.RankingService;
 import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
 
 /**
- * 인기 상품 랭킹을 페이지 단위로 조회한다.
+ * 랭킹 항목에 상품 정보와 좋아요 여부를 조합하여 {@link RankingPageResult}를 생성한다.
  */
-@UseCase
+@Component
 @RequiredArgsConstructor
-public class ReadRankingsUseCase {
+public class RankingResultAssembler {
 
-    private final RankingService rankingService;
     private final ProductCacheReader productCacheReader;
     private final LikeService likeService;
 
     /**
-     * @param userId   사용자 ID (비로그인 시 null)
-     * @param date     조회 날짜 (yyyyMMdd), null이면 오늘
-     * @param pageSize 페이지 정보
-     * @return 랭킹 페이지 결과 (상품 정보, brandId, 좋아요 여부 포함)
+     * 랭킹 항목 목록에 상품 상세와 좋아요 여부를 결합하여 페이지 결과를 반환한다.
+     *
+     * @param userId       사용자 ID (비로그인 시 null)
+     * @param rankingItems 랭킹 항목 목록
+     * @param pageSize     페이지 정보
+     * @return 조합된 랭킹 페이지 결과
      */
-    public RankingPageResult execute(Long userId, String date, PageSize pageSize) {
-        List<RankingItem> rankingItems = rankingService.readTopRanked(date, pageSize.offset(), pageSize.size());
-
+    public RankingPageResult assemble(Long userId, List<RankingItem> rankingItems, PageSize pageSize) {
         if (rankingItems.isEmpty()) {
             return new RankingPageResult(Collections.emptyList(), pageSize.page(), pageSize.size());
         }

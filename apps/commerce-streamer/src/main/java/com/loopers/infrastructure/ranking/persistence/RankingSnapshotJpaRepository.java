@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.ranking.persistence;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -13,15 +13,15 @@ public interface RankingSnapshotJpaRepository extends JpaRepository<RankingSnaps
 
     @Modifying
     @Query(
-            value = "INSERT INTO ranking_snapshot (product_id, score_date, score, updated_at) "
-                    + "VALUES (:productId, :scoreDate, :score, NOW()) "
+            value = "INSERT INTO ranking_snapshot (product_id, score_hour, score, updated_at) "
+                    + "VALUES (:productId, :scoreHour, :score, NOW()) "
                     + "ON DUPLICATE KEY UPDATE "
                     + "score = :score, updated_at = NOW()",
             nativeQuery = true
     )
     void upsert(
             @Param("productId") Long productId,
-            @Param("scoreDate") LocalDate scoreDate,
+            @Param("scoreHour") LocalDateTime scoreHour,
             @Param("score") Double score
     );
 }

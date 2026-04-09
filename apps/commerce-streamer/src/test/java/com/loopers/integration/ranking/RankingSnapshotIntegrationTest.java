@@ -3,8 +3,8 @@ package com.loopers.integration.ranking;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -18,6 +18,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 
 import com.loopers.application.ranking.RankingSnapshotScheduler;
 import com.loopers.config.redis.RedisConfig;
+import com.loopers.domain.ranking.RankingKeyConstants;
 import com.loopers.domain.ranking.RankingSnapshot;
 import com.loopers.infrastructure.ranking.persistence.RankingSnapshotJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
@@ -25,9 +26,6 @@ import com.loopers.utils.RedisCleanUp;
 
 @SpringBootTest
 class RankingSnapshotIntegrationTest {
-
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.BASIC_ISO_DATE;
-    private static final String KEY_PREFIX = "ranking:v1:all:";
 
     @Autowired
     private RankingSnapshotScheduler rankingSnapshotScheduler;
@@ -55,14 +53,14 @@ class RankingSnapshotIntegrationTest {
     @Nested
     class TakeSnapshot {
 
-        @DisplayName("Redis 상위 스코어가 DB에 저장된다.")
+        @DisplayName("현재 시간 hourly 키의 상위 스코어가 DB에 저장된다.")
         @Test
         void savesTopScoresToDB() {
             // arrange
-            String todayKey = KEY_PREFIX + LocalDate.now().format(DATE_FORMAT);
-            redisTemplate.opsForZSet().add(todayKey, "1", 45.3);
-            redisTemplate.opsForZSet().add(todayKey, "2", 30.1);
-            redisTemplate.opsForZSet().add(todayKey, "3", 15.0);
+            String currentHourKey = RankingKeyConstants.currentHourKey();
+            redisTemplate.opsForZSet().add(currentHourKey, "1", 45.3);
+            redisTemplate.opsForZSet().add(currentHourKey, "2", 30.1);
+            redisTemplate.opsForZSet().add(currentHourKey, "3", 15.0);
 
             // act
             rankingSnapshotScheduler.takeSnapshot();
@@ -73,8 +71,8 @@ class RankingSnapshotIntegrationTest {
                     () -> assertThat(snapshots).hasSize(3),
                     () -> assertThat(snapshots).extracting(RankingSnapshot::getProductId)
                             .containsExactlyInAnyOrder(1L, 2L, 3L),
-                    () -> assertThat(snapshots).extracting(RankingSnapshot::getScoreDate)
-                            .containsOnly(LocalDate.now())
+                    () -> assertThat(snapshots).extracting(RankingSnapshot::getScoreHour)
+                            .containsOnly(LocalDateTime.now().truncatedTo(ChronoUnit.HOURS))
             );
         }
 
@@ -82,13 +80,13 @@ class RankingSnapshotIntegrationTest {
         @Test
         void updatesScore_whenCalledTwice() {
             // arrange
-            String todayKey = KEY_PREFIX + LocalDate.now().format(DATE_FORMAT);
-            redisTemplate.opsForZSet().add(todayKey, "1", 10.0);
+            String currentHourKey = RankingKeyConstants.currentHourKey();
+            redisTemplate.opsForZSet().add(currentHourKey, "1", 10.0);
 
             rankingSnapshotScheduler.takeSnapshot();
 
             // act — score 변경 후 재스냅샷
-            redisTemplate.opsForZSet().add(todayKey, "1", 50.0);
+            redisTemplate.opsForZSet().add(currentHourKey, "1", 50.0);
             rankingSnapshotScheduler.takeSnapshot();
 
             // assert
@@ -103,9 +101,9 @@ class RankingSnapshotIntegrationTest {
         @Test
         void savesOnlyTop100() {
             // arrange
-            String todayKey = KEY_PREFIX + LocalDate.now().format(DATE_FORMAT);
+            String currentHourKey = RankingKeyConstants.currentHourKey();
             for (int i = 1; i <= 120; i++) {
-                redisTemplate.opsForZSet().add(todayKey, String.valueOf(i), (double) i);
+                redisTemplate.opsForZSet().add(currentHourKey, String.valueOf(i), (double) i);
             }
 
             // act
