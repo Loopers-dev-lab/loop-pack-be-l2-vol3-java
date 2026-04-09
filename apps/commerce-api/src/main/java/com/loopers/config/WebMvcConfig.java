@@ -42,7 +42,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/api/v1/products/{id}/no-cache",
                         "/api/v1/examples/**",
                         "/api/v1/payments/callback",
-                        "/api/v2/payments/callback"
+                        "/api/v2/payments/callback",
+                        // R9 랭킹 조회 — 비로그인 노출 허용 (대기열 토큰 검증 대상 아님)
+                        "/api/v1/rankings",
+                        "/api/v1/rankings/**"
                 );
 
         // 주문 API에 대기열 토큰 검증 인터셉터를 등록한다.

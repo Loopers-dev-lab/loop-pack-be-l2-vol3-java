@@ -4,6 +4,7 @@ import com.loopers.application.product.ProductDetailInfo;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductOptionInfo;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.config.WebMvcConfig;
 import com.loopers.domain.auth.LdapAuthService;
 import com.loopers.domain.member.Member;
@@ -53,6 +54,9 @@ class ProductV1ControllerTest {
 
     @MockBean
     private ProductFacade productFacade;
+
+    @MockBean
+    private RankingFacade rankingFacade;
 
     @MockBean
     private MemberService memberService;
