@@ -30,6 +30,15 @@ demo-kafka:
   test:
     topic-name: demo.internal.topic-v1
 
+# 랭킹 집계 설정
+ranking:
+  weights: # 가중치
+    view: 0.1 # 조회
+    like: 0.2 # 좋아요
+    order: 0.7 # 주문
+  cache:
+    retention: P2D
+
 ---
 spring:
   config:
