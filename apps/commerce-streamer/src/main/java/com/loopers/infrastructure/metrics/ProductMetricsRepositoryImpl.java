@@ -1,26 +1,11 @@
 package com.loopers.infrastructure.metrics;
 
-import com.loopers.domain.metrics.ProductMetrics;
-import com.loopers.domain.metrics.ProductMetricsRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
-import java.util.Optional;
-
-// ProductMetricsRepository 구현체
-@RequiredArgsConstructor
-@Component
-public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
-
-    private final ProductMetricsJpaRepository productMetricsJpaRepository;
-
-    @Override
-    public Optional<ProductMetrics> findByProductId(Long productId) {
-        return productMetricsJpaRepository.findById(productId);
-    }
-
-    @Override
-    public ProductMetrics save(ProductMetrics productMetrics) {
-        return productMetricsJpaRepository.save(productMetrics);
-    }
-}
+/*
+ * [R7 레거시 — 주석 보존]
+ *
+ * 본 클래스는 R7 `ProductMetricsRepository` 의 JPA 구현체였으며, R9 랭킹 파이프라인
+ * (`ProductMetricsHourlyRepositoryImpl`) 도입과 함께 비활성화되었다. 히스토리/참고 목적으로 보존한다.
+ *
+ * 대체: com.loopers.infrastructure.ranking.ProductMetricsHourlyRepositoryImpl
+ * 관련 문서: docs/week9/week9.md §9
+ */

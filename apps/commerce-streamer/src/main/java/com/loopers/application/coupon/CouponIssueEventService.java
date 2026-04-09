@@ -20,7 +20,7 @@ import java.util.Set;
  * 선착순 쿠폰 발급 Consumer에서 호출하는 서비스.
  *
  * 동시성 제어 전략: Kafka partition key=couponId → 같은 쿠폰 요청은 순차 처리될 수 있도록, 같은 파티션에 배치
- * 멱등 처리: event_handled 테이블 + UNIQUE 제약 방어 (MetricsEventService와 동일 패턴).
+ * 멱등 처리: event_handled 테이블 + UNIQUE 제약 방어.
  */
 @Slf4j
 @RequiredArgsConstructor
