@@ -14,4 +14,13 @@ import java.time.Duration;
 public record RankingCacheProperties(
         Duration retention
 ) {
+    public RankingCacheProperties {
+        if (retention == null) {
+            throw new IllegalArgumentException("ranking.cache.retention must not be null");
+        }
+        if (retention.isZero() || retention.isNegative()) {
+            throw new IllegalArgumentException(
+                    "ranking.cache.retention must be positive, got: " + retention);
+        }
+    }
 }

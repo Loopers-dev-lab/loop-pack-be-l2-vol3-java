@@ -16,4 +16,18 @@ public record RankingWeights(
         double like,
         double order
 ) {
+    public RankingWeights {
+        if (!Double.isFinite(view) || !Double.isFinite(like) || !Double.isFinite(order)) {
+            throw new IllegalArgumentException(
+                    "ranking.weights must be finite numbers (no NaN/Infinity)");
+        }
+        if (view < 0 || like < 0 || order < 0) {
+            throw new IllegalArgumentException(
+                    "ranking.weights must be non-negative");
+        }
+        if (view + like + order <= 0) {
+            throw new IllegalArgumentException(
+                    "ranking.weights sum must be positive");
+        }
+    }
 }
