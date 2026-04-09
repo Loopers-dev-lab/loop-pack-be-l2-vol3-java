@@ -2,18 +2,26 @@ package com.loopers.infrastructure.outbox;
 
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * OutboxEventService 통합 테스트
+ *
+ * @Scheduled Relay 스케줄러(1초 간격)가 PENDING 이벤트를 먼저 처리하는 경합을 방지하기 위해
+ * BeforeEach에서 스케줄러를 비활성화한다.
+ */
 @SpringBootTest
 @DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class OutboxEventServiceTest {
@@ -26,6 +34,15 @@ class OutboxEventServiceTest {
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private ScheduledAnnotationBeanPostProcessor scheduledProcessor;
+
+    @BeforeEach
+    void setUp() {
+        scheduledProcessor.destroy();
+        databaseCleanUp.truncateAllTables();
+    }
 
     @AfterEach
     void tearDown() {
