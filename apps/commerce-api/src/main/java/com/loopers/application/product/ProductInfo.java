@@ -11,7 +11,8 @@ public record ProductInfo(
     Integer likeCount,
     Long brandId,
     String brandName,
-    String brandDescription
+    String brandDescription,
+    Long rank
 ) {
 
     public static ProductInfo of(Product product, Brand brand) {
@@ -23,7 +24,12 @@ public record ProductInfo(
             product.getLikeCount(),
             brand.getId(),
             brand.getName().value(),
-            brand.getDescription()
+            brand.getDescription(),
+            null
         );
+    }
+
+    public ProductInfo withRank(Long rank) {
+        return new ProductInfo(id, name, price, stock, likeCount, brandId, brandName, brandDescription, rank);
     }
 }

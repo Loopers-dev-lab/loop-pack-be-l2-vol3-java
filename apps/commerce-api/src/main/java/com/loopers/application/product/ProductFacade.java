@@ -3,6 +3,7 @@ package com.loopers.application.product;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.OutboxEventHelper;
 import com.loopers.domain.brand.Brand;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.outbox.OutboxEvent;
@@ -11,6 +12,7 @@ import com.loopers.domain.product.CreateProductRequest;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductSearchCondition;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.infrastructure.product.ProductCacheStore;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +31,7 @@ public class ProductFacade {
     private final ProductCacheStore productCacheStore;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
+    private final RankingRepository rankingRepository;
 
     public List<ProductInfo> createProducts(CreateProductCommand command) {
         command.products().keySet().forEach(brandService::getById);
@@ -61,14 +64,16 @@ public class ProductFacade {
 
     @Transactional(readOnly = true)
     public ProductInfo getProduct(Long productId) {
-        return productCacheStore.getProduct(productId)
+        ProductInfo info = productCacheStore.getProduct(productId)
             .orElseGet(() -> {
                 Product product = productService.getById(productId);
                 Brand brand = brandService.getById(product.getRefBrandId());
-                ProductInfo info = ProductInfo.of(product, brand);
-                productCacheStore.putProduct(productId, info);
-                return info;
+                ProductInfo cached = ProductInfo.of(product, brand);
+                productCacheStore.putProduct(productId, cached);
+                return cached;
             });
+        Long rank = rankingRepository.getRank(productId, LocalDate.now());
+        return info.withRank(rank);
     }
 
     @Transactional(readOnly = true)
