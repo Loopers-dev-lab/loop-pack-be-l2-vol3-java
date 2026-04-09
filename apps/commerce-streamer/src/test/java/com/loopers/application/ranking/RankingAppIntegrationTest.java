@@ -1,0 +1,259 @@
+package com.loopers.application.ranking;
+
+import com.loopers.domain.ranking.ProductDailySignalModel;
+import com.loopers.domain.ranking.ProductDailySignalRepository;
+import com.loopers.domain.ranking.RankingKeyGenerator;
+import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
+import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@SpringBootTest
+@Import({RedisTestContainersConfig.class, MySqlTestContainersConfig.class})
+@DisplayName("RankingApp 통합 테스트 — Redis ZSET 반영 + DB 신호 적재 + 가중치 검증")
+class RankingAppIntegrationTest {
+
+    @Autowired
+    private RankingApp rankingApp;
+
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Autowired
+    private ProductDailySignalRepository productDailySignalRepository;
+
+    @Autowired
+    private RedisCleanUp redisCleanUp;
+
+    @Autowired
+    private DatabaseCleanUp databaseCleanUp;
+
+    @AfterEach
+    void tearDown() {
+        redisCleanUp.truncateAll();
+        databaseCleanUp.truncateAllTables();
+    }
+
+    @Nested
+    @DisplayName("applyLikeDelta - Like 이벤트 점수 반영")
+    class ApplyLikeDelta {
+
+        @Test
+        @DisplayName("LikedEvent → +0.2 점수 누적")
+        void likedEventIncreasesZsetScore() {
+            LocalDate date = LocalDate.of(2026, 4, 5);
+            String key = RankingKeyGenerator.dailyKey(date);
+
+            rankingApp.applyLikeDelta(42L, 1, date);
+            rankingApp.applyLikeDelta(42L, 1, date);
+            rankingApp.applyLikeDelta(42L, 1, date);
+
+            Double score = redisTemplate.opsForZSet().score(key, "42");
+            assertThat(score).isCloseTo(0.6, org.assertj.core.data.Offset.offset(0.01));
+        }
+
+        @Test
+        @DisplayName("LikeRemovedEvent(delta=-1) → 차감 없음 (멘토링 피드백)")
+        void likeRemovedEventDoesNotDeduceScore() {
+            LocalDate date = LocalDate.of(2026, 4, 5);
+            String key = RankingKeyGenerator.dailyKey(date);
+
+            rankingApp.applyLikeDelta(42L, 1, date);
+            rankingApp.applyLikeDelta(42L, 1, date);
+            Double scoreBeforeUnlike = redisTemplate.opsForZSet().score(key, "42");
+
+            rankingApp.applyLikeDelta(42L, -1, date);
+
+            Double scoreAfterUnlike = redisTemplate.opsForZSet().score(key, "42");
+            assertThat(scoreAfterUnlike).isEqualTo(scoreBeforeUnlike);
+        }
+    }
+
+    @Nested
+    @DisplayName("applyOrderScore - Order 이벤트 점수 반영 (price * amount)")
+    class ApplyOrderScore {
+
+        @Test
+        @DisplayName("주문 1건(price=10000, qty=2) → 0.7 * 10000 * 2 = 14000")
+        void orderScoreIsOrderWeightTimesPriceTimesQuantity() {
+            LocalDate date = LocalDate.of(2026, 4, 5);
+            String key = RankingKeyGenerator.dailyKey(date);
+
+            rankingApp.applyOrderScore(42L, new BigDecimal("10000"), 2, date);
+
+            Double score = redisTemplate.opsForZSet().score(key, "42");
+            assertThat(score).isCloseTo(14000.0, org.assertj.core.data.Offset.offset(0.01));
+        }
+    }
+
+    @Nested
+    @DisplayName("applyViewScore - View 이벤트 점수 반영")
+    class ApplyViewScore {
+
+        @Test
+        @DisplayName("View 1회 → 0.1 점수 증가")
+        void viewScoreAddsViewWeight() {
+            LocalDate date = LocalDate.of(2026, 4, 5);
+            String key = RankingKeyGenerator.dailyKey(date);
+
+            rankingApp.applyViewScore(42L, date);
+            rankingApp.applyViewScore(42L, date);
+
+            Double score = redisTemplate.opsForZSet().score(key, "42");
+            assertThat(score).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.01));
+        }
+    }
+
+    @Nested
+    @DisplayName("가중치 복합 시나리오 검증 (발제 체크리스트)")
+    class WeightScenarios {
+
+        @Test
+        @DisplayName("주문 1건(price=10000, qty=1) > 좋아요 3건")
+        void orderOnceBeatsLikeThreeTimes() {
+            LocalDate date = LocalDate.of(2026, 4, 5);
+            String key = RankingKeyGenerator.dailyKey(date);
+
+            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, date);
+            rankingApp.applyLikeDelta(2L, 1, date);
+            rankingApp.applyLikeDelta(2L, 1, date);
+            rankingApp.applyLikeDelta(2L, 1, date);
+
+            Double scoreA = redisTemplate.opsForZSet().score(key, "1");
+            Double scoreB = redisTemplate.opsForZSet().score(key, "2");
+
+            assertThat(scoreA).isGreaterThan(scoreB);
+            assertThat(scoreA).isCloseTo(7000.0, org.assertj.core.data.Offset.offset(0.01));
+            assertThat(scoreB).isCloseTo(0.6, org.assertj.core.data.Offset.offset(0.01));
+        }
+
+        @Test
+        @DisplayName("조회 100건(score≈10) vs 좋아요 50건(score≈10) — 가중치 교차 검증")
+        void viewHundredApproxEqualsLikeFifty() {
+            LocalDate date = LocalDate.of(2026, 4, 5);
+            String key = RankingKeyGenerator.dailyKey(date);
+
+            for (int i = 0; i < 100; i++) rankingApp.applyViewScore(1L, date);
+            for (int i = 0; i < 50; i++) rankingApp.applyLikeDelta(2L, 1, date);
+
+            Double scoreA = redisTemplate.opsForZSet().score(key, "1");
+            Double scoreB = redisTemplate.opsForZSet().score(key, "2");
+
+            assertThat(scoreA).isCloseTo(10.0, org.assertj.core.data.Offset.offset(0.1));
+            assertThat(scoreB).isCloseTo(10.0, org.assertj.core.data.Offset.offset(0.1));
+        }
+
+        @Test
+        @DisplayName("Top-N 정렬 확인 — ZREVRANGE가 score 내림차순으로 반환")
+        void topNSortedByScoreDesc() {
+            LocalDate date = LocalDate.of(2026, 4, 5);
+            String key = RankingKeyGenerator.dailyKey(date);
+
+            // score: A=7000 (주문 10000*1), B=140 (주문 200*1), C=0.6 (좋아요 3)
+            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, date);
+            rankingApp.applyOrderScore(2L, new BigDecimal("200"), 1, date);
+            rankingApp.applyLikeDelta(3L, 1, date);
+            rankingApp.applyLikeDelta(3L, 1, date);
+            rankingApp.applyLikeDelta(3L, 1, date);
+
+            Set<ZSetOperations.TypedTuple<String>> tuples =
+                    redisTemplate.opsForZSet().reverseRangeWithScores(key, 0, 10);
+
+            assertThat(tuples).hasSize(3);
+            String[] expectedOrder = {"1", "2", "3"};
+            int i = 0;
+            for (ZSetOperations.TypedTuple<String> tuple : tuples) {
+                assertThat(tuple.getValue()).isEqualTo(expectedOrder[i++]);
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("DB 신호 적재 검증 — Redis ZSET + product_daily_signals 양쪽 반영")
+    class DailySignalPersistence {
+
+        @Test
+        @DisplayName("View 이벤트 → ZSET 점수 반영 AND DB view_count +1")
+        void viewEventPersistsToBothRedisAndDb() {
+            LocalDate date = LocalDate.of(2026, 4, 8);
+
+            rankingApp.applyViewScore(42L, date);
+
+            Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.dailyKey(date), "42");
+            assertThat(score).isCloseTo(0.1, org.assertj.core.data.Offset.offset(0.001));
+
+            List<ProductDailySignalModel> signals = productDailySignalRepository.findBySignalDate(date);
+            assertThat(signals).hasSize(1);
+            assertThat(signals.get(0).getProductDbId()).isEqualTo(42L);
+            assertThat(signals.get(0).getViewCount()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("Like 이벤트 → ZSET 점수 반영 AND DB like_count +delta")
+        void likeEventPersistsToBothRedisAndDb() {
+            LocalDate date = LocalDate.of(2026, 4, 8);
+
+            rankingApp.applyLikeDelta(42L, 1, date);
+
+            Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.dailyKey(date), "42");
+            assertThat(score).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.001));
+
+            List<ProductDailySignalModel> signals = productDailySignalRepository.findBySignalDate(date);
+            assertThat(signals).hasSize(1);
+            assertThat(signals.get(0).getLikeCount()).isEqualTo(1L);
+        }
+
+        @Test
+        @DisplayName("Order 이벤트 → ZSET 점수 반영 AND DB order_amount 적재")
+        void orderEventPersistsToBothRedisAndDb() {
+            LocalDate date = LocalDate.of(2026, 4, 8);
+
+            rankingApp.applyOrderScore(42L, new BigDecimal("10000"), 2, date);
+
+            Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.dailyKey(date), "42");
+            assertThat(score).isCloseTo(14000.0, org.assertj.core.data.Offset.offset(0.01));
+
+            List<ProductDailySignalModel> signals = productDailySignalRepository.findBySignalDate(date);
+            assertThat(signals).hasSize(1);
+            assertThat(signals.get(0).getOrderAmount()).isEqualByComparingTo(new BigDecimal("20000.00"));
+        }
+
+        @Test
+        @DisplayName("동일 상품에 여러 이벤트 → DB 카운트 누적 정합성")
+        void multipleEventsSameProductAccumulateInDb() {
+            LocalDate date = LocalDate.of(2026, 4, 8);
+            Long productDbId = 42L;
+
+            rankingApp.applyViewScore(productDbId, date);
+            rankingApp.applyViewScore(productDbId, date);
+            rankingApp.applyViewScore(productDbId, date);
+            rankingApp.applyLikeDelta(productDbId, 1, date);
+            rankingApp.applyLikeDelta(productDbId, 1, date);
+            rankingApp.applyOrderScore(productDbId, new BigDecimal("5000"), 1, date);
+
+            List<ProductDailySignalModel> signals = productDailySignalRepository.findBySignalDate(date);
+            assertThat(signals).hasSize(1);
+
+            ProductDailySignalModel signal = signals.get(0);
+            assertThat(signal.getViewCount()).isEqualTo(3L);
+            assertThat(signal.getLikeCount()).isEqualTo(2L);
+            assertThat(signal.getOrderAmount()).isEqualByComparingTo(new BigDecimal("5000.00"));
+        }
+    }
+}

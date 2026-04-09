@@ -60,7 +60,7 @@ class ProductCacheIntegrationTest {
 
         assertThat(productCache().get("prod1")).isNull();
 
-        productApp.getProduct("prod1");
+        productApp.getProduct("prod1", null);
 
         assertThat(productCache().get("prod1")).isNotNull();
     }
@@ -71,8 +71,8 @@ class ProductCacheIntegrationTest {
         brandService.createBrand("nike", "Nike");
         productService.createProduct("prod1", "nike", "Nike Air", new BigDecimal("100000"), 10);
 
-        ProductInfo first = productApp.getProduct("prod1");
-        ProductInfo second = productApp.getProduct("prod1");
+        ProductInfo first = productApp.getProduct("prod1", null);
+        ProductInfo second = productApp.getProduct("prod1", null);
 
         assertThat(second).isEqualTo(first);
     }
@@ -82,7 +82,7 @@ class ProductCacheIntegrationTest {
     void updateProduct_evictsProductCache() {
         brandService.createBrand("nike", "Nike");
         productService.createProduct("prod1", "nike", "Nike Air", new BigDecimal("100000"), 10);
-        productApp.getProduct("prod1");
+        productApp.getProduct("prod1", null);
         assertThat(productCache().get("prod1")).isNotNull();
 
         productApp.updateProduct("prod1", "Nike Air Updated", new BigDecimal("120000"), 10);
@@ -95,7 +95,7 @@ class ProductCacheIntegrationTest {
     void deleteProduct_evictsProductCache() {
         brandService.createBrand("nike", "Nike");
         productService.createProduct("prod1", "nike", "Nike Air", new BigDecimal("100000"), 10);
-        productApp.getProduct("prod1");
+        productApp.getProduct("prod1", null);
         assertThat(productCache().get("prod1")).isNotNull();
 
         productApp.deleteProduct("prod1");
@@ -122,7 +122,7 @@ class ProductCacheIntegrationTest {
     void addLike_evictsProductAndProductsCache() {
         brandService.createBrand("nike", "Nike");
         productService.createProduct("prod1", "nike", "Nike Air", new BigDecimal("100000"), 10);
-        productApp.getProduct("prod1");
+        productApp.getProduct("prod1", null);
         productApp.getProducts(null, "latest", PageRequest.of(0, 10));
         assertThat(productCache().get("prod1")).isNotNull();
         assertThat(productsCache().get("null:latest:0:10")).isNotNull();
@@ -139,7 +139,7 @@ class ProductCacheIntegrationTest {
         brandService.createBrand("nike", "Nike");
         productService.createProduct("prod1", "nike", "Nike Air", new BigDecimal("100000"), 10);
         likeApp.addLike(1L, "prod1");
-        productApp.getProduct("prod1");
+        productApp.getProduct("prod1", null);
         productApp.getProducts(null, "latest", PageRequest.of(0, 10));
         assertThat(productCache().get("prod1")).isNotNull();
         assertThat(productsCache().get("null:latest:0:10")).isNotNull();
