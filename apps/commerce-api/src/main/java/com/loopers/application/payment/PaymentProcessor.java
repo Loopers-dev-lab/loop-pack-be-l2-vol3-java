@@ -2,7 +2,7 @@ package com.loopers.application.payment;
 
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.confg.kafka.KafkaTopics;
-import com.loopers.application.event.OrderItemSnapshot;
+import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.domain.event.PaymentCanceledEvent;
 import com.loopers.domain.event.PaymentCompletedEvent;
 import com.loopers.domain.event.PaymentFailedEvent;
@@ -41,7 +41,7 @@ public class PaymentProcessor {
         orderService.payOrder(orderId);
 
         Payment payment = paymentService.getPayment(paymentId);
-        List<OrderItemSnapshot> items = toSnapshots(order);
+        List<OrderItemSnapshot> items = order.toItemSnapshots();
         Instant occurredAt = Instant.now();
         eventPublisher.publishEvent(new PaymentCompletedEvent(
                 paymentId, orderId, payment.getUserId(), payment.getAmount(), items, occurredAt));
@@ -87,7 +87,7 @@ public class PaymentProcessor {
         orderService.cancelOrder(orderId);
 
         Payment payment = paymentService.getPayment(paymentId);
-        List<OrderItemSnapshot> items = toSnapshots(order);
+        List<PaymentCanceledEvent.OrderItem> items = toCanceledItems(order);
         eventPublisher.publishEvent(new PaymentCanceledEvent(
                 paymentId, orderId, payment.getUserId(), items));
         outboxEventService.saveAndPublish("payment.canceled", "Order",
@@ -95,9 +95,9 @@ public class PaymentProcessor {
                 new PaymentCanceledEvent(paymentId, orderId, payment.getUserId(), items));
     }
 
-    private List<OrderItemSnapshot> toSnapshots(Order order) {
+    private List<PaymentCanceledEvent.OrderItem> toCanceledItems(Order order) {
         return order.getOrderItems().stream()
-                .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity(), item.getPrice()))
+                .map(item -> PaymentCanceledEvent.OrderItem.of(item.getProductId(), item.getQuantity(), item.getPrice()))
                 .toList();
     }
 }

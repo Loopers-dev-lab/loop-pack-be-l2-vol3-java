@@ -1,14 +1,21 @@
 package com.loopers.domain.event;
 
 
-import com.loopers.application.event.OrderItemSnapshot;
-
+import java.math.BigDecimal;
 import java.util.List;
 
 public record PaymentCanceledEvent(
         Long paymentId,
         Long orderId,
         Long userId,
-        List<OrderItemSnapshot> items
+        List<OrderItem> items
 ) {
+
+    public
+
+    record OrderItem (Long productId, Integer quantity, BigDecimal unitPrice) {
+        public static OrderItem of (Long productId, Integer quantity, BigDecimal unitPrice) {
+            return new OrderItem(productId, quantity, unitPrice);
+        }
+    }
 }

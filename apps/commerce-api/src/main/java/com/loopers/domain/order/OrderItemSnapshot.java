@@ -1,4 +1,4 @@
-package com.loopers.application.event;
+package com.loopers.domain.order;
 
 import java.math.BigDecimal;
 
