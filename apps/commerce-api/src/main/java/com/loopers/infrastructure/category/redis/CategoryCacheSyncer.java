@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.category.redis;
 
 import com.loopers.application.coupon.category.CategoryCacheRepository;
+import com.loopers.application.coupon.category.CategoryCacheSyncPort;
 import com.loopers.domain.category.Category;
 import com.loopers.infrastructure.cachesync.CacheSyncFailurePersistence;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ import java.util.UUID;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class CategoryCacheSyncer {
+public class CategoryCacheSyncer implements CategoryCacheSyncPort {
 
     private final CategoryCacheRepository categoryCacheRepository;
     private final CacheSyncFailurePersistence cacheSyncFailurePersistence;

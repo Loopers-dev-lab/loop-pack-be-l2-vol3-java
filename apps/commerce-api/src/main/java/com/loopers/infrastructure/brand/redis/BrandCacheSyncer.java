@@ -1,6 +1,7 @@
 package com.loopers.infrastructure.brand.redis;
 
 import com.loopers.application.brand.BrandCacheRepository;
+import com.loopers.application.brand.BrandCacheSyncPort;
 import com.loopers.domain.brand.Brand;
 import com.loopers.infrastructure.cachesync.CacheSyncFailurePersistence;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +15,7 @@ import java.util.UUID;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class BrandCacheSyncer {
+public class BrandCacheSyncer implements BrandCacheSyncPort {
 
     private final BrandCacheRepository brandCacheRepository;
     private final CacheSyncFailurePersistence cacheSyncFailurePersistence;
