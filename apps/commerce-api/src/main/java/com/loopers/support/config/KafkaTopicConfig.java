@@ -13,7 +13,7 @@ public class KafkaTopicConfig {
     @Bean
     public NewTopic productViewEvents() {
         return TopicBuilder.name(KafkaTopics.PRODUCT_VIEW_EVENTS)
-                .partitions(3)
+                .partitions(12)
                 .config(TopicConfig.RETENTION_MS_CONFIG, "86400000")
                 .build();
     }
