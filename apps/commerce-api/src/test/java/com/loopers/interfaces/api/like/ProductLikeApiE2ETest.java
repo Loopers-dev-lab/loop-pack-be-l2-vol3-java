@@ -146,7 +146,7 @@ class ProductLikeApiE2ETest {
         }
 
         @Test
-        void 좋아요_등록_후_상품의_likeCount가_증가한다() {
+        void 좋아요_등록_후_좋아요_레코드가_생성된다() {
             // arrange
             Brand brand = createActiveBrand("나이키");
             Product product = createProduct(brand.getId(), "에어맥스");
@@ -155,9 +155,10 @@ class ProductLikeApiE2ETest {
             testRestTemplate.exchange(
                     likeUrl(product.getId()), HttpMethod.POST, new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // assert
-            Product updated = productRepository.findById(product.getId()).orElseThrow();
-            assertThat(updated.getLikeCount()).isEqualTo(1);
+            // assert — 좋아요 레코드 생성 확인 (동기적으로 즉시 검증 가능)
+            // likeCount 증분은 Outbox → Kafka → commerce-streamer Consumer 비동기 파이프라인이므로
+            // 단일 앱(commerce-api) E2E에서는 검증 불가 — ProductLike 존재 여부로 대체
+            assertThat(productLikeRepository.existsByUserIdAndProductId(1L, product.getId())).isTrue();
         }
     }
 
@@ -196,7 +197,7 @@ class ProductLikeApiE2ETest {
         }
 
         @Test
-        void 좋아요_취소_후_상품의_likeCount가_감소한다() {
+        void 좋아요_취소_후_좋아요_레코드가_삭제된다() {
             // arrange
             Brand brand = createActiveBrand("나이키");
             Product product = createProduct(brand.getId(), "에어맥스");
@@ -207,9 +208,8 @@ class ProductLikeApiE2ETest {
             testRestTemplate.exchange(
                     likeUrl(product.getId()), HttpMethod.DELETE, new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // assert
-            Product updated = productRepository.findById(product.getId()).orElseThrow();
-            assertThat(updated.getLikeCount()).isZero();
+            // assert — 좋아요 레코드 삭제 확인 (동기적으로 즉시 검증 가능)
+            assertThat(productLikeRepository.existsByUserIdAndProductId(1L, product.getId())).isFalse();
         }
     }
 }

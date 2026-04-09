@@ -2,10 +2,12 @@ package com.loopers.infrastructure.outbox;
 
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
@@ -15,6 +17,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Graceful Shutdown 및 복구 로직 통합 테스트
+ *
+ * @Scheduled Relay 스케줄러(1초 간격)가 테스트 데이터를 먼저 처리하는 경합을 방지하기 위해
+ * BeforeEach에서 스케줄러를 비활성화한다.
  */
 @SpringBootTest
 @DisplayName("OutboxRelayService — Graceful Shutdown 및 복구 테스트")
@@ -34,6 +39,15 @@ class OutboxGracefulShutdownTest {
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
+
+    @Autowired
+    private ScheduledAnnotationBeanPostProcessor scheduledProcessor;
+
+    @BeforeEach
+    void setUp() {
+        scheduledProcessor.destroy();
+        databaseCleanUp.truncateAllTables();
+    }
 
     @AfterEach
     void tearDown() {

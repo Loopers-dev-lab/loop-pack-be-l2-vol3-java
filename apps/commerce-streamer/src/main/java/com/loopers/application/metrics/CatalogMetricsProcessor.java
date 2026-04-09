@@ -2,7 +2,6 @@ package com.loopers.application.metrics;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.loopers.application.ranking.RankingScoreUpdater;
 import com.loopers.infrastructure.event.EventHandledEntity;
 import com.loopers.infrastructure.event.EventHandledJpaRepository;
 import com.loopers.infrastructure.product.ProductMetricsEntity;
@@ -12,10 +11,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * 카탈로그 메트릭 처리 — @Transactional 보장
@@ -35,9 +30,9 @@ import java.util.List;
  *   LikeFacade에서 products.like_count 직접 증분을 제거하고,
  *   이 Processor가 단일 파이프라인으로 두 테이블을 동기화한다.
  *
- * 랭킹 점수 (R9 배치 정제):
- *   기존 afterCommit 건별 Redis 호출 → ProcessResult에 delta를 담아 Consumer에 반환.
- *   Consumer가 배치 내 동일 상품 delta를 합산 후 Pipeline으로 일괄 flush.
+ * 랭킹 책임 분리 (R9 → 케브 피드백):
+ *   랭킹 delta 추출/flush는 별도 RankingConsumer(ranking-group)로 분리.
+ *   이 Processor는 메트릭 집계에만 집중한다.
  */
 @Service
 public class CatalogMetricsProcessor {
@@ -48,31 +43,28 @@ public class CatalogMetricsProcessor {
     private final ProductMetricsJpaRepository productMetricsRepository;
     private final ProductLikeCountJpaRepository productLikeCountRepository;
     private final EventHandledJpaRepository eventHandledRepository;
-    private final RankingScoreUpdater rankingScoreUpdater;
 
     public CatalogMetricsProcessor(ObjectMapper objectMapper,
                                     ProductMetricsJpaRepository productMetricsRepository,
                                     ProductLikeCountJpaRepository productLikeCountRepository,
-                                    EventHandledJpaRepository eventHandledRepository,
-                                    RankingScoreUpdater rankingScoreUpdater) {
+                                    EventHandledJpaRepository eventHandledRepository) {
         this.objectMapper = objectMapper;
         this.productMetricsRepository = productMetricsRepository;
         this.productLikeCountRepository = productLikeCountRepository;
         this.eventHandledRepository = eventHandledRepository;
-        this.rankingScoreUpdater = rankingScoreUpdater;
     }
 
     /**
      * 메트릭 이벤트 처리 — 같은 TX에서 increment + 멱등성 기록
      *
-     * @return ProcessResult: 처리 여부 + 랭킹 delta 목록 (Consumer가 배치 합산에 사용)
+     * @return 처리 여부 (true=처리됨, false=스킵)
      */
     @Transactional
-    public ProcessResult process(String eventType, String outboxId, String payload) {
+    public boolean process(String eventType, String outboxId, String payload) {
         // 멱등성 체크 — increment는 멱등하지 않으므로 반드시 중복 방지
         if (outboxId != null && eventHandledRepository.existsByEventId(outboxId)) {
             log.warn("[MetricsProcessor] 중복 스킵 — outboxId={}", outboxId);
-            return ProcessResult.skipped();
+            return false;
         }
 
         JsonNode node;
@@ -80,7 +72,7 @@ public class CatalogMetricsProcessor {
             node = objectMapper.readTree(payload);
         } catch (Exception e) {
             log.error("[MetricsProcessor] JSON 파싱 실패 — payload={}", payload, e);
-            return ProcessResult.skipped();
+            return false;
         }
 
         switch (eventType) {
@@ -90,55 +82,16 @@ public class CatalogMetricsProcessor {
             case "OrderItemSoldEvent" -> handleOrderItemSold(node);
             default -> {
                 log.warn("[MetricsProcessor] 알 수 없는 eventType={}", eventType);
-                return ProcessResult.skipped();
+                return false;
             }
         }
-
-        // 랭킹 delta 추출 — Consumer가 배치 합산에 사용
-        List<RankingDelta> deltas = extractRankingDeltas(eventType, node);
 
         // 멱등성 기록 — increment와 같은 TX (핵심!)
         if (outboxId != null) {
             eventHandledRepository.save(EventHandledEntity.of(outboxId, "catalog-events-v1"));
         }
 
-        return ProcessResult.processed(deltas);
-    }
-
-    /**
-     * 이벤트에서 랭킹 delta를 추출한다.
-     *
-     * OrderItemSoldEvent는 productQtyMap에 여러 상품이 있을 수 있으므로 각각 추출한다.
-     * delta 계산은 RankingScoreUpdater.calculateDelta() — 순수 함수.
-     */
-    private List<RankingDelta> extractRankingDeltas(String eventType, JsonNode node) {
-        double delta = rankingScoreUpdater.calculateDelta(eventType);
-        if (delta == 0.0) {
-            return Collections.emptyList();
-        }
-
-        return switch (eventType) {
-            case "ProductViewedEvent", "ProductLikedEvent", "ProductUnlikedEvent" -> {
-                long productId = node.path("productId").asLong(0);
-                if (productId > 0) {
-                    yield List.of(new RankingDelta(productId, delta));
-                }
-                yield Collections.emptyList();
-            }
-            case "OrderItemSoldEvent" -> {
-                JsonNode productQtyMap = node.path("productQtyMap");
-                if (productQtyMap.isMissingNode() || !productQtyMap.isObject()) {
-                    yield Collections.emptyList();
-                }
-                List<RankingDelta> deltas = new ArrayList<>();
-                productQtyMap.fieldNames().forEachRemaining(key -> {
-                    long productId = Long.parseLong(key);
-                    deltas.add(new RankingDelta(productId, delta));
-                });
-                yield deltas;
-            }
-            default -> Collections.emptyList();
-        };
+        return true;
     }
 
     private void handleProductViewed(JsonNode node) {
@@ -199,22 +152,4 @@ public class CatalogMetricsProcessor {
                 .orElseGet(() -> productMetricsRepository.save(ProductMetricsEntity.create(productId)));
     }
 
-    /**
-     * 메트릭 처리 결과 — 처리 여부 + 랭킹 delta 목록
-     */
-    public record ProcessResult(boolean processed, List<RankingDelta> deltas) {
-
-        public static ProcessResult processed(List<RankingDelta> deltas) {
-            return new ProcessResult(true, deltas);
-        }
-
-        public static ProcessResult skipped() {
-            return new ProcessResult(false, Collections.emptyList());
-        }
-    }
-
-    /**
-     * 랭킹 점수 변화량 — Consumer가 배치 합산에 사용
-     */
-    public record RankingDelta(long productId, double delta) {}
 }
