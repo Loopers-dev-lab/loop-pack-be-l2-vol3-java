@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -34,9 +35,10 @@ public class OrderV1Controller {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<OrderV1Dto.OrderResponse> createOrder(
             @LoginUser Long userId,
+            @RequestHeader(value = "X-Entry-Token", required = false) String entryToken,
             @Valid @RequestBody OrderV1Dto.CreateRequest request
     ) {
-        OrderInfo order = orderFacade.createOrder(request.toCommand(userId));
+        OrderInfo order = orderFacade.createOrder(request.toCommand(userId), entryToken);
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(order));
     }
 

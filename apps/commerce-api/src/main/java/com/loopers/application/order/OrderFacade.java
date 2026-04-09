@@ -5,8 +5,12 @@ import com.loopers.application.coupon.IssuedCouponInfo;
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.product.ProductInfo;
+import com.loopers.application.queue.EntryTokenService;
+import com.loopers.application.queue.OrderQueueReader;
 import com.loopers.domain.coupon.Coupon;
 import com.loopers.domain.order.OrderItemSnapshot;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,32 @@ public class OrderFacade {
     private final ProductService productService;
     private final IssuedCouponService issuedCouponService;
     private final CouponService couponService;
+    private final EntryTokenService entryTokenService;
+    private final OrderQueueReader orderQueueReader;
+
+    @Transactional
+    public OrderInfo createOrder(OrderCreateCommand command, String entryToken) {
+        boolean queueEnabled = orderQueueReader.isEnabled();
+
+        if (queueEnabled && entryToken == null) {
+            throw new CoreException(ErrorType.ENTRY_TOKEN_REQUIRED);
+        }
+        if (!queueEnabled && entryToken != null) {
+            throw new CoreException(ErrorType.ENTRY_TOKEN_NOT_ACCEPTED);
+        }
+
+        if (queueEnabled) {
+            entryTokenService.validateAndConsume(command.userId(), entryToken);
+            try {
+                return createOrder(command);
+            } catch (Exception e) {
+                entryTokenService.restore(command.userId(), entryToken);
+                throw e;
+            }
+        }
+
+        return createOrder(command);
+    }
 
     @Transactional
     public OrderInfo createOrder(OrderCreateCommand command) {
