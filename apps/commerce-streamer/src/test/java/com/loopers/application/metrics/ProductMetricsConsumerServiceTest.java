@@ -1,10 +1,12 @@
 package com.loopers.application.metrics;
 
+import com.loopers.application.ranking.RankingProperties;
 import com.loopers.contract.kafka.ProductMetricsEventMessage;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsDailyRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsHourlyRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsRepository;
+import com.loopers.infrastructure.ranking.redis.RedisProductRankingRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -19,6 +21,8 @@ import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,13 +34,20 @@ import static org.mockito.Mockito.when;
 
 class ProductMetricsConsumerServiceTest {
 
+    private static final RankingProperties RANKING_PROPERTIES = new RankingProperties(
+            new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
+            new RankingProperties.CarryOver(true, 0.1d, "0 50 23 * * *"),
+            new RankingProperties.Sync(true, 60000L)
+    );
+
     @Test
-    @DisplayName("중복 이벤트가 아니면 집계를 반영한다")
-    void consume_newEvent_updatesMetrics() {
+    @DisplayName("중복 이벤트가 아니면 집계를 반영하고 현재 랭킹판에 점수를 즉시 누적한다")
+    void consume_newEvent_updatesMetricsAndRanking() {
         EventHandledRepository eventHandledRepository = mock(EventHandledRepository.class);
         ProductMetricsRepository productMetricsRepository = mock(ProductMetricsRepository.class);
         ProductMetricsDailyRepository productMetricsDailyRepository = mock(ProductMetricsDailyRepository.class);
         ProductMetricsHourlyRepository productMetricsHourlyRepository = mock(ProductMetricsHourlyRepository.class);
+        RedisProductRankingRepository redisProductRankingRepository = mock(RedisProductRankingRepository.class);
         ProductMetricsAckPublisher productMetricsAckPublisher = mock(ProductMetricsAckPublisher.class);
         ProductMetricsConsumerService productMetricsConsumerService =
                 new ProductMetricsConsumerService(
@@ -44,6 +55,8 @@ class ProductMetricsConsumerServiceTest {
                         productMetricsRepository,
                         productMetricsDailyRepository,
                         productMetricsHourlyRepository,
+                        redisProductRankingRepository,
+                        RANKING_PROPERTIES,
                         productMetricsAckPublisher
                 );
 
@@ -53,9 +66,10 @@ class ProductMetricsConsumerServiceTest {
                 "product-1",
                 1,
                 0,
-                0,
                 1000,
-                Instant.now()
+                1,
+                1,
+                Instant.parse("2025-09-07T00:15:00Z")
         );
 
         when(eventHandledRepository.markHandledIfAbsent("collector", message.eventId())).thenReturn(true);
@@ -65,16 +79,19 @@ class ProductMetricsConsumerServiceTest {
         verify(productMetricsRepository, times(1)).upsert(message);
         verify(productMetricsDailyRepository, times(1)).upsert(message);
         verify(productMetricsHourlyRepository, times(1)).upsert(message);
+        verify(redisProductRankingRepository, times(1)).incrementDailyRanking(LocalDate.of(2025, 9, 7), "product-1", 700.3d);
+        verify(redisProductRankingRepository, times(1)).incrementHourlyRanking(LocalDateTime.of(2025, 9, 7, 9, 0), "product-1", 700.3d);
         verify(productMetricsAckPublisher, times(1)).publish(message.eventId(), "collector");
     }
 
     @Test
-    @DisplayName("이미 처리된 이벤트면 집계를 건너뛴다")
-    void consume_duplicateEvent_skipsMetrics() {
+    @DisplayName("이미 처리된 이벤트면 집계와 랭킹 누적을 건너뛴다")
+    void consume_duplicateEvent_skipsMetricsAndRanking() {
         EventHandledRepository eventHandledRepository = mock(EventHandledRepository.class);
         ProductMetricsRepository productMetricsRepository = mock(ProductMetricsRepository.class);
         ProductMetricsDailyRepository productMetricsDailyRepository = mock(ProductMetricsDailyRepository.class);
         ProductMetricsHourlyRepository productMetricsHourlyRepository = mock(ProductMetricsHourlyRepository.class);
+        RedisProductRankingRepository redisProductRankingRepository = mock(RedisProductRankingRepository.class);
         ProductMetricsAckPublisher productMetricsAckPublisher = mock(ProductMetricsAckPublisher.class);
         ProductMetricsConsumerService productMetricsConsumerService =
                 new ProductMetricsConsumerService(
@@ -82,6 +99,8 @@ class ProductMetricsConsumerServiceTest {
                         productMetricsRepository,
                         productMetricsDailyRepository,
                         productMetricsHourlyRepository,
+                        redisProductRankingRepository,
+                        RANKING_PROPERTIES,
                         productMetricsAckPublisher
                 );
 
@@ -91,9 +110,10 @@ class ProductMetricsConsumerServiceTest {
                 "product-1",
                 1,
                 0,
-                0,
                 1000,
-                Instant.now()
+                1,
+                1,
+                Instant.parse("2025-09-07T00:15:00Z")
         );
 
         when(eventHandledRepository.markHandledIfAbsent("collector", message.eventId())).thenReturn(false);
@@ -103,6 +123,8 @@ class ProductMetricsConsumerServiceTest {
         verify(productMetricsRepository, never()).upsert(message);
         verify(productMetricsDailyRepository, never()).upsert(message);
         verify(productMetricsHourlyRepository, never()).upsert(message);
+        verify(redisProductRankingRepository, never()).incrementDailyRanking(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble());
+        verify(redisProductRankingRepository, never()).incrementHourlyRanking(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble());
         verify(productMetricsAckPublisher, never()).publish(message.eventId(), "collector");
     }
 }
@@ -119,6 +141,9 @@ class ProductMetricsConsumerServiceIntegrationTest {
     @MockBean
     private ProductMetricsAckPublisher productMetricsAckPublisher;
 
+    @MockBean
+    private RedisProductRankingRepository redisProductRankingRepository;
+
     @PersistenceContext
     private EntityManager entityManager;
 
@@ -131,17 +156,18 @@ class ProductMetricsConsumerServiceIntegrationTest {
     }
 
     @Test
-    @DisplayName("같은 eventId를 두 번 소비해도 metrics 버킷은 한 번만 누적된다")
-    void consume_sameEventTwice_updatesMetricsOnlyOnce() {
+    @DisplayName("같은 eventId를 두 번 소비해도 metrics 버킷과 랭킹 점수는 한 번만 누적된다")
+    void consume_sameEventTwice_updatesMetricsAndRankingOnlyOnce() {
         ProductMetricsEventMessage message = new ProductMetricsEventMessage(
                 UUID.randomUUID(),
                 "LIKE_REGISTER",
                 "product-1",
                 1,
                 2,
-                3,
+                3000,
                 1000,
-                Instant.now()
+                1,
+                Instant.parse("2025-09-07T00:15:00Z")
         );
 
         productMetricsConsumerService.consume("collector", message);
@@ -149,7 +175,7 @@ class ProductMetricsConsumerServiceIntegrationTest {
 
         Object[] totalRow = (Object[]) entityManager.createNativeQuery(
                         """
-                        SELECT like_count, sales_count, view_count
+                        SELECT like_count, sales_count, sales_amount, view_count
                         FROM product_metrics
                         WHERE product_id = :productId
                         """
@@ -159,7 +185,7 @@ class ProductMetricsConsumerServiceIntegrationTest {
 
         Object[] dailyRow = (Object[]) entityManager.createNativeQuery(
                         """
-                        SELECT like_count, sales_count, view_count
+                        SELECT like_count, sales_count, sales_amount, view_count
                         FROM product_metrics_daily
                         WHERE product_id = :productId
                         """
@@ -169,7 +195,7 @@ class ProductMetricsConsumerServiceIntegrationTest {
 
         Object[] hourlyRow = (Object[]) entityManager.createNativeQuery(
                         """
-                        SELECT like_count, sales_count, view_count
+                        SELECT like_count, sales_count, sales_amount, view_count
                         FROM product_metrics_hourly
                         WHERE product_id = :productId
                         """
@@ -189,14 +215,19 @@ class ProductMetricsConsumerServiceIntegrationTest {
 
         assertThat(((Number) totalRow[0]).longValue()).isEqualTo(message.deltaLike());
         assertThat(((Number) totalRow[1]).longValue()).isEqualTo(message.deltaSales());
-        assertThat(((Number) totalRow[2]).longValue()).isEqualTo(message.deltaView());
+        assertThat(((Number) totalRow[2]).longValue()).isEqualTo(message.deltaRevenue());
+        assertThat(((Number) totalRow[3]).longValue()).isEqualTo(message.deltaView());
         assertThat(((Number) dailyRow[0]).longValue()).isEqualTo(message.deltaLike());
         assertThat(((Number) dailyRow[1]).longValue()).isEqualTo(message.deltaSales());
-        assertThat(((Number) dailyRow[2]).longValue()).isEqualTo(message.deltaView());
+        assertThat(((Number) dailyRow[2]).longValue()).isEqualTo(message.deltaRevenue());
+        assertThat(((Number) dailyRow[3]).longValue()).isEqualTo(message.deltaView());
         assertThat(((Number) hourlyRow[0]).longValue()).isEqualTo(message.deltaLike());
         assertThat(((Number) hourlyRow[1]).longValue()).isEqualTo(message.deltaSales());
-        assertThat(((Number) hourlyRow[2]).longValue()).isEqualTo(message.deltaView());
+        assertThat(((Number) hourlyRow[2]).longValue()).isEqualTo(message.deltaRevenue());
+        assertThat(((Number) hourlyRow[3]).longValue()).isEqualTo(message.deltaView());
         assertThat(handledCount.longValue()).isEqualTo(1L);
+        verify(redisProductRankingRepository, times(1)).incrementDailyRanking(LocalDate.of(2025, 9, 7), "product-1", 2200.2d);
+        verify(redisProductRankingRepository, times(1)).incrementHourlyRanking(LocalDateTime.of(2025, 9, 7, 9, 0), "product-1", 2200.2d);
         verify(productMetricsAckPublisher, times(1)).publish(message.eventId(), "collector");
     }
 }

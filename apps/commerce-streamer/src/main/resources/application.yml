@@ -35,6 +35,18 @@ loopers:
       order-cancel-requested: commerce.order.cancel-requested.v1
       payment-status-changed: commerce.payment.status-changed.v1
       coupon-issue-requested: commerce.coupon.issue-requested.v1
+  ranking:
+    weight:
+      view: 0.1
+      like: 0.2
+      sales: 0.7
+    sync:
+      enabled: true
+      fixed-delay-ms: 60000
+    carry-over:
+      enabled: true
+      ratio: 0.1
+      daily-cron: "0 50 23 * * *"
 
 ---
 spring:

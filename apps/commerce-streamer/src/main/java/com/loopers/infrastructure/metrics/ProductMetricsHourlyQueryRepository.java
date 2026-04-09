@@ -5,25 +5,25 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public class ProductMetricsDailyQueryRepository {
+public class ProductMetricsHourlyQueryRepository {
 
     @PersistenceContext
     private EntityManager entityManager;
 
-    public List<ProductMetricsSummary> findByMetricDate(LocalDate metricDate) {
+    public List<ProductMetricsSummary> findByMetricHour(LocalDateTime metricHour) {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = entityManager.createNativeQuery(
                         """
                         SELECT product_id, like_count, sales_count, sales_amount, view_count
-                        FROM product_metrics_daily
-                        WHERE metric_date = :metricDate
+                        FROM product_metrics_hourly
+                        WHERE metric_hour = :metricHour
                         """
                 )
-                .setParameter("metricDate", metricDate)
+                .setParameter("metricHour", metricHour)
                 .getResultList();
 
         return rows.stream()

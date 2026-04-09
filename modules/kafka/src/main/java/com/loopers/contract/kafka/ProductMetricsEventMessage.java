@@ -9,6 +9,7 @@ public record ProductMetricsEventMessage(
         String productId,
         long deltaLike,
         long deltaSales,
+        long deltaRevenue,
         long deltaView,
         long version,
         Instant updatedAt
