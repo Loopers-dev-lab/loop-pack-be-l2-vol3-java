@@ -12,6 +12,7 @@ import com.loopers.domain.order.OrderService;
 import com.loopers.domain.order.event.OrderCreatedEvent;
 import com.loopers.domain.point.PointService;
 import com.loopers.domain.product.ProductModel;
+import com.loopers.domain.queue.EntryTokenService;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.vo.Money;
 import com.loopers.support.error.CoreException;
@@ -63,6 +64,9 @@ class OrderFacadeUnitTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private EntryTokenService entryTokenService;
 
     @InjectMocks
     private OrderFacade orderFacade;
