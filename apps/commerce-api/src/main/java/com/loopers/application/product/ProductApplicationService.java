@@ -74,6 +74,11 @@ public class ProductApplicationService {
         return productRepository.findIdsByBrandId(brandId);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<Product> findAllByIds(java.util.List<UUID> productIds) {
+        return productRepository.findAllByIdIn(productIds);
+    }
+
     @Transactional
     public void deleteSoftByBrandId(UUID brandId) {
         productRepository.softDeleteByBrandId(brandId);
