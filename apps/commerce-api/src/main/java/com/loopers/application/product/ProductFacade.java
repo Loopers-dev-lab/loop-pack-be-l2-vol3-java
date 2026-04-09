@@ -9,6 +9,7 @@ import com.loopers.domain.product.Option;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductSortCondition;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ProductFacade {
@@ -39,7 +41,7 @@ public class ProductFacade {
         boolean likedByUser = userId != null && likeAppService.isLikedByUser(userId, productId);
 
         String today = LocalDate.now().format(DATE_FORMAT);
-        Long rank = rankingAppService.getProductRank(today, productId);
+        Long rank = resolveProductRank(today, productId);
 
         eventPublisher.publishEvent(new ProductViewedEvent(productId, userId, ZonedDateTime.now()));
 
@@ -110,5 +112,14 @@ public class ProductFacade {
                 .likedByUser(false)
                 .options(List.of())
                 .build();
+    }
+
+    private Long resolveProductRank(String date, Long productId) {
+        try {
+            return rankingAppService.getProductRank(date, productId);
+        } catch (Exception e) {
+            log.warn("상품 랭킹 조회 실패: date={}, productId={}", date, productId, e);
+            return null;
+        }
     }
 }

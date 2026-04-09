@@ -38,8 +38,13 @@ public class RankingAppService {
     }
 
     public void updateOrderRanking(List<Long> productIds, long totalAmount) {
+        if (productIds.isEmpty()) {
+            return;
+        }
+        long perProductAmount = Math.max(totalAmount / productIds.size(), 0);
+        double perProductScore = Math.log1p(perProductAmount) * ORDER_WEIGHT;
         for (Long productId : productIds) {
-            increaseHourlyScore(productId, ORDER_WEIGHT);
+            increaseHourlyScore(productId, perProductScore);
         }
     }
 

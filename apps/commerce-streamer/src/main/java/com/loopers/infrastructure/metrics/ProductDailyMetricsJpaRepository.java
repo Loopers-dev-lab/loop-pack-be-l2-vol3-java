@@ -23,7 +23,7 @@ public interface ProductDailyMetricsJpaRepository extends JpaRepository<ProductD
 
     @Modifying
     @Query(value = "INSERT INTO product_daily_metrics (product_id, metric_date, view_count, like_count, order_amount, updated_at) " +
-            "VALUES (:productId, :date, 0, :delta, 0, :updatedAt) " +
+            "VALUES (:productId, :date, 0, GREATEST(:delta, 0), 0, :updatedAt) " +
             "ON DUPLICATE KEY UPDATE like_count = GREATEST(like_count + :delta, 0), updated_at = :updatedAt",
             nativeQuery = true)
     void upsertLikeCount(@Param("productId") Long productId,
@@ -33,7 +33,7 @@ public interface ProductDailyMetricsJpaRepository extends JpaRepository<ProductD
 
     @Modifying
     @Query(value = "INSERT INTO product_daily_metrics (product_id, metric_date, view_count, like_count, order_amount, updated_at) " +
-            "VALUES (:productId, :date, 0, 0, :amount, :updatedAt) " +
+            "VALUES (:productId, :date, 0, 0, GREATEST(:amount, 0), :updatedAt) " +
             "ON DUPLICATE KEY UPDATE order_amount = GREATEST(order_amount + :amount, 0), updated_at = :updatedAt",
             nativeQuery = true)
     void upsertOrderAmount(@Param("productId") Long productId,

@@ -31,8 +31,6 @@ class RankingAppServiceTest {
     @Autowired
     private RedisCleanUp redisCleanUp;
 
-    private final String hourlyKey = "ranking:hourly:" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHH"));
-
     @AfterEach
     void tearDown() {
         redisCleanUp.truncateAll();
@@ -45,7 +43,7 @@ class RankingAppServiceTest {
 
         rankingAppService.updateViewRanking(productId);
 
-        Double hourlyScore = redisTemplate.opsForZSet().score(hourlyKey, "101");
+        Double hourlyScore = redisTemplate.opsForZSet().score(currentHourlyKey(), "101");
         assertThat(hourlyScore).isEqualTo(0.1);
     }
 
@@ -56,7 +54,7 @@ class RankingAppServiceTest {
 
         rankingAppService.updateLikeRanking(productId);
 
-        Double hourlyScore = redisTemplate.opsForZSet().score(hourlyKey, "101");
+        Double hourlyScore = redisTemplate.opsForZSet().score(currentHourlyKey(), "101");
         assertThat(hourlyScore).isEqualTo(0.2);
     }
 
@@ -67,10 +65,24 @@ class RankingAppServiceTest {
 
         rankingAppService.updateOrderRanking(productIds, 20000);
 
-        Double hourly101 = redisTemplate.opsForZSet().score(hourlyKey, "101");
-        Double hourly202 = redisTemplate.opsForZSet().score(hourlyKey, "202");
-        assertThat(hourly101).isEqualTo(0.6);
-        assertThat(hourly202).isEqualTo(0.6);
+        Double hourly101 = redisTemplate.opsForZSet().score(currentHourlyKey(), "101");
+        Double hourly202 = redisTemplate.opsForZSet().score(currentHourlyKey(), "202");
+        assertThat(hourly101).isEqualTo(Math.log1p(10000) * 0.6);
+        assertThat(hourly202).isEqualTo(Math.log1p(10000) * 0.6);
+    }
+
+    @Test
+    @DisplayName("주문 금액이 클수록 hourly 점수가 더 크게 반영된다")
+    void updateOrderRanking_usesTotalAmount() {
+        rankingAppService.updateOrderRanking(List.of(101L), 10_000);
+        rankingAppService.updateOrderRanking(List.of(202L), 1_000_000);
+
+        Double hourly101 = redisTemplate.opsForZSet().score(currentHourlyKey(), "101");
+        Double hourly202 = redisTemplate.opsForZSet().score(currentHourlyKey(), "202");
+
+        assertThat(hourly101).isNotNull();
+        assertThat(hourly202).isNotNull();
+        assertThat(hourly202).isGreaterThan(hourly101);
     }
 
     @Test
@@ -83,7 +95,7 @@ class RankingAppServiceTest {
         rankingAppService.updateLikeRanking(productId);
 
         // hourly 점수 합산: 0.1+0.1+0.2 = 0.4
-        Double hourlyScore = redisTemplate.opsForZSet().score(hourlyKey, "101");
+        Double hourlyScore = redisTemplate.opsForZSet().score(currentHourlyKey(), "101");
         assertThat(hourlyScore).isCloseTo(0.4, Offset.offset(0.001));
     }
 
@@ -92,8 +104,12 @@ class RankingAppServiceTest {
     void hourlyKeyTtlIsSet() {
         rankingAppService.updateViewRanking(101L);
 
-        Long ttl = redisTemplate.getExpire(hourlyKey);
+        Long ttl = redisTemplate.getExpire(currentHourlyKey());
         assertThat(ttl).isGreaterThan(0);
         assertThat(ttl).isLessThanOrEqualTo(7200L);
+    }
+
+    private String currentHourlyKey() {
+        return "ranking:hourly:" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHH"));
     }
 }

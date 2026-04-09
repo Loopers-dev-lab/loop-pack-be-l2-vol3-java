@@ -35,6 +35,8 @@ const BASE_URL    = __ENV.BASE_URL || 'http://localhost:8080';
 const CASE        = parseInt(__ENV.CASE || '1');
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 const ADMIN_HEADERS = { ...JSON_HEADERS, 'X-Loopers-Ldap': 'admin' };
+const DAILY_RANKING_TIMEOUT_S = parseInt(__ENV.DAILY_RANKING_TIMEOUT_S || '330');
+const DAILY_RANKING_POLL_INTERVAL_S = parseFloat(__ENV.DAILY_RANKING_POLL_INTERVAL_S || '5');
 
 function parseDataId(res) {
   try { return res.json('data.id'); } catch (_) { return null; }
@@ -43,6 +45,26 @@ function parseDataId(res) {
 function abortSetup(step, res) {
   console.error(`[setup:${step}] FAILED (${res.status}): ${res.body}`);
   throw new Error(`setup failed at ${step}`);
+}
+
+function waitForDailyRanking() {
+  const deadline = Date.now() + DAILY_RANKING_TIMEOUT_S * 1000;
+  let lastRes = null;
+
+  while (Date.now() < deadline) {
+    lastRes = http.get(`${BASE_URL}/api/v1/rankings?size=20&page=1`);
+    if (lastRes.status === 200) {
+      try {
+        const rankings = lastRes.json('data.rankings');
+        if (rankings && rankings.length > 0) {
+          return lastRes;
+        }
+      } catch (_) {}
+    }
+    sleep(DAILY_RANKING_POLL_INTERVAL_S);
+  }
+
+  return lastRes;
 }
 
 // ── Scenario Options ─────────────────────────────────────────────
@@ -61,7 +83,7 @@ const scenarios = {
     executor: 'per-vu-iterations',
     vus: 50,
     iterations: 1,
-    maxDuration: '120s',
+    maxDuration: '420s',
     env: { ACTIVE_CASE: '2' },
   },
 };
@@ -229,11 +251,20 @@ function runCase2(data) {
   http.get(`${BASE_URL}/api/v1/products/${p[4].productId}`, { headers: authHeaders });
   http.get(`${BASE_URL}/api/v1/products/${p[4].productId}`, { headers: authHeaders });
 
-  // 스케줄러 대기 후 랭킹 확인
-  sleep(10);
-
-  const rankRes = http.get(`${BASE_URL}/api/v1/rankings?size=20&page=1`);
-  check(rankRes, { '정합성 랭킹조회 200': r => r.status === 200 });
+  // daily ranking 갱신을 polling으로 대기
+  const rankRes = waitForDailyRanking();
+  check(rankRes, {
+    '정합성 랭킹조회 200': r => r && r.status === 200,
+    '정합성 랭킹 데이터 존재': r => {
+      if (!r || r.status !== 200) return false;
+      try {
+        const rankings = r.json('data.rankings');
+        return rankings && rankings.length > 0;
+      } catch (_) {
+        return false;
+      }
+    },
+  });
 
   if (rankRes.status === 200) {
     try {

@@ -128,6 +128,37 @@ class ProductFacadeTest {
             assertThat(result.getRank()).isNull();
             verify(likeAppService, never()).isLikedByUser(any(), any());
         }
+
+        @Test
+        @DisplayName("랭킹 조회가 실패해도 상품 상세는 rank 없이 반환된다")
+        void getProductDetail_rankingFailure_degradesGracefully() {
+            Long productId = 1L;
+            Long brandId = 10L;
+
+            CachedProductDetail cachedDetail = CachedProductDetail.builder()
+                    .productId(productId)
+                    .productName("테스트 상품")
+                    .basePrice(Money.of(10000L))
+                    .deleted(false)
+                    .brandId(brandId)
+                    .likeCount(0L)
+                    .options(List.of())
+                    .build();
+
+            Brand brand = mock(Brand.class);
+            given(brand.getId()).willReturn(brandId);
+            given(brand.getName()).willReturn("테스트 브랜드");
+
+            given(productAppService.getProductDetailCached(productId)).willReturn(cachedDetail);
+            given(brandAppService.getById(brandId)).willReturn(brand);
+            given(rankingAppService.getProductRank(any(), eq(productId))).willThrow(new RuntimeException("redis down"));
+
+            ProductInfo result = productFacade.getProductDetail(productId, null);
+
+            assertThat(result.getProductId()).isEqualTo(productId);
+            assertThat(result.getBrandName()).isEqualTo("테스트 브랜드");
+            assertThat(result.getRank()).isNull();
+        }
     }
 
     @Nested
