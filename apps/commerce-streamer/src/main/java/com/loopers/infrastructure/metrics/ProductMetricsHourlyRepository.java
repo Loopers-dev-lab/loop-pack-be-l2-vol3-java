@@ -9,7 +9,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 @Repository
-public class ProductMetricsRepository {
+public class ProductMetricsHourlyRepository {
 
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
@@ -18,9 +18,11 @@ public class ProductMetricsRepository {
 
     public void upsert(ProductMetricsEventMessage eventMessage) {
         ZonedDateTime updatedAt = ZonedDateTime.ofInstant(eventMessage.updatedAt(), KOREA_ZONE);
+        ZonedDateTime metricHour = updatedAt.withMinute(0).withSecond(0).withNano(0);
         entityManager.createNativeQuery(
                         """
-                        INSERT INTO product_metrics (
+                        INSERT INTO product_metrics_hourly (
+                            metric_hour,
                             product_id,
                             like_count,
                             sales_count,
@@ -29,6 +31,7 @@ public class ProductMetricsRepository {
                             updated_at,
                             created_at
                         ) VALUES (
+                            :metricHour,
                             :productId,
                             :deltaLike,
                             :deltaSales,
@@ -65,6 +68,7 @@ public class ProductMetricsRepository {
                             END
                         """
                 )
+                .setParameter("metricHour", metricHour.toLocalDateTime())
                 .setParameter("productId", eventMessage.productId())
                 .setParameter("deltaLike", eventMessage.deltaLike())
                 .setParameter("deltaSales", eventMessage.deltaSales())
