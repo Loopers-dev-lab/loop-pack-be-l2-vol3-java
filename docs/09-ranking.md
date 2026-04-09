@@ -287,10 +287,10 @@ quantity는 Phase 2에서 ZSET 점수 계산(`0.7 * log1p(quantity)`)에 사용�
 
 ### Phase 2. Redis ZSET 랭킹 적재
 
-- [ ] `RankingRepository` 인터페이스 (domain)
-- [ ] `RankingRepositoryImpl` 구현 (infrastructure, Redis ZSET)
-- [ ] Key 전략: `ranking:all:{yyyyMMdd}`, TTL 2일
-- [ ] `ProductMetricsProcessor`에 ZSET 점수 갱신 로직 추가
+- [x] `RankingRepository` 인터페이스 (domain)
+- [x] `RankingRepositoryImpl` 구현 (infrastructure, Redis ZSET)
+- [x] Key 전략: `ranking:all:{yyyyMMdd}`, TTL 2일
+- [x] `ProductMetricsProcessor`에 ZSET 점수 갱신 로직 추가
 
 ### Phase 3. 랭킹 API
 
