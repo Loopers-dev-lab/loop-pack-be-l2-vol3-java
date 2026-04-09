@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> {
@@ -43,4 +44,7 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> 
         countQuery = "SELECT COUNT(p) FROM ProductModel p WHERE p.deletedAt IS NULL AND p.brand.id = :brandId"
     )
     Page<ProductModel> findAllByBrandIdOrderByLikeCountDesc(@Param("brandId") Long brandId, Pageable pageable);
+
+    @Query("SELECT p FROM ProductModel p JOIN FETCH p.brand WHERE p.deletedAt IS NULL AND p.id IN :ids")
+    List<ProductModel> findAllByIdInAndDeletedAtIsNull(@Param("ids") List<Long> ids);
 }

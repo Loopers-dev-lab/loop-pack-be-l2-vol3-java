@@ -17,7 +17,8 @@ public record ProductInfo(
     String status,
     long likeCount,
     ZonedDateTime createdAt,
-    ZonedDateTime updatedAt
+    ZonedDateTime updatedAt,
+    Long ranking
 ) {
     public static ProductInfo from(ProductModel product) {
         return new ProductInfo(
@@ -31,7 +32,25 @@ public record ProductInfo(
             product.getStatus().name(),
             product.getLikeCount(),
             product.getCreatedAt(),
-            product.getUpdatedAt()
+            product.getUpdatedAt(),
+            null
+        );
+    }
+
+    public ProductInfo withRanking(Long ranking) {
+        return new ProductInfo(
+            id,
+            brandId,
+            brandName,
+            name,
+            price,
+            description,
+            stockQuantity,
+            status,
+            likeCount,
+            createdAt,
+            updatedAt,
+            ranking
         );
     }
 }

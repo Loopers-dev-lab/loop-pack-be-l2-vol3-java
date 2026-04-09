@@ -4,8 +4,10 @@ import com.loopers.application.event.ApplicationDomainEventPublisher;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductPageInfo;
+import com.loopers.application.ranking.RankingQueryService;
 import com.loopers.domain.product.ProductSortType;
 import com.loopers.interfaces.api.ApiResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
@@ -17,6 +19,7 @@ public class ProductV1Controller implements ProductV1ApiSpec {
 
     private final ProductFacade productFacade;
     private final ApplicationDomainEventPublisher applicationDomainEventPublisher;
+    private final RankingQueryService rankingQueryService;
 
     @GetMapping
     @Override
@@ -33,9 +36,20 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     @GetMapping("/{productId}")
     @Override
     public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
-        ProductInfo info = productFacade.getProduct(productId);
+        ProductInfo info = productFacade.getProduct(productId)
+            .withRanking(rankingQueryService.getTodayRank(productId));
         applicationDomainEventPublisher.publishProductClicked(productId, null);
         applicationDomainEventPublisher.publishProductViewed(productId, null);
         return ApiResponse.success(ProductV1Dto.ProductResponse.from(info));
+    }
+
+    @PostMapping("/{productId}/dwell")
+    @Override
+    public ApiResponse<Object> reportDwell(
+        @PathVariable Long productId,
+        @Valid @RequestBody ProductV1Dto.DwellRequest request
+    ) {
+        applicationDomainEventPublisher.publishProductDwelled(productId, null, request.dwellTimeSeconds());
+        return ApiResponse.success();
     }
 }

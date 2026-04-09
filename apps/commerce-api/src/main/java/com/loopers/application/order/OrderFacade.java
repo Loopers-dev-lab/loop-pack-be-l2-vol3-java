@@ -73,7 +73,7 @@ public class OrderFacade {
             order.getId(),
             user.getId(),
             order.getOrderItems().stream()
-                .map(item -> new AppEvents.OrderItemPayload(item.getProductId(), item.getQuantity()))
+                .map(item -> new AppEvents.OrderItemPayload(item.getProductId(), item.getQuantity(), item.getUnitPrice()))
                 .toList(),
             order.getTotalAmount()
         );

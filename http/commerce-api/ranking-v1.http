@@ -1,0 +1,14 @@
+### 오늘 랭킹 조회 (기본값: page=1, size=20)
+GET {{commerce-api}}/api/v1/rankings
+
+### 특정 날짜 랭킹 조회 (yyyyMMdd)
+GET {{commerce-api}}/api/v1/rankings?date=20260405&size=20&page=1
+
+### 랭킹 페이징 조회 (2페이지)
+GET {{commerce-api}}/api/v1/rankings?date=20260405&size=10&page=2
+
+### 시간별 랭킹 조회 (yyyyMMddHH)
+GET {{commerce-api}}/api/v1/rankings/hourly?hour=2026040523&size=20&page=1
+
+### 상품 상세 조회 (응답의 ranking 필드 확인)
+GET {{commerce-api}}/api/v1/products/1

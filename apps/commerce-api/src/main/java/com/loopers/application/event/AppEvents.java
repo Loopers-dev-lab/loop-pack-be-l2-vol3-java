@@ -15,7 +15,7 @@ public class AppEvents {
     ) {
     }
 
-    public record OrderItemPayload(Long productId, Integer quantity) {
+    public record OrderItemPayload(Long productId, Integer quantity, Long unitPrice) {
     }
 
     public record ProductLikeChangedApplicationEvent(
@@ -39,6 +39,15 @@ public class AppEvents {
         String eventId,
         Long productId,
         Long userId,
+        ZonedDateTime occurredAt
+    ) {
+    }
+
+    public record ProductDwelledApplicationEvent(
+        String eventId,
+        Long productId,
+        Long userId,
+        int dwellTimeSeconds,
         ZonedDateTime occurredAt
     ) {
     }
