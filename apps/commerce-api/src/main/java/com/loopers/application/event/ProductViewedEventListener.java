@@ -1,0 +1,40 @@
+package com.loopers.application.event;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.confg.kafka.KafkaTopics;
+import com.loopers.domain.event.ProductViewedEvent;
+import com.loopers.domain.event.ViewEventBuffer;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+import java.util.UUID;
+
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class ProductViewedEventListener {
+
+    private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+
+    @EventListener
+    public void on(ProductViewedEvent event) {
+        try {
+            log.info("상품 조회: viewerId={}, productId={}, occurredAt={}",
+                    event.viewerId(), event.productId(), event.occurredAt());
+            String payloadJson = objectMapper.writeValueAsString(event);
+            Map<String, Object> envelope = Map.of(
+                    "eventId", UUID.randomUUID().toString(),
+                    "eventType", "product.viewed",
+                    "payload", payloadJson
+            );
+            kafkaTemplate.send(KafkaTopics.CATALOG_EVENTS, String.valueOf(event.productId()), envelope);
+        } catch (Exception e) {
+            log.error("상품 조회 이벤트 발행 실패: productId={}", event.productId(), e);
+        }
+    }
+}

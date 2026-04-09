@@ -1,5 +1,7 @@
-package com.loopers.application.event;
+package com.loopers.domain.event;
 
+
+import com.loopers.application.event.OrderItemSnapshot;
 
 import java.math.BigDecimal;
 import java.time.Instant;

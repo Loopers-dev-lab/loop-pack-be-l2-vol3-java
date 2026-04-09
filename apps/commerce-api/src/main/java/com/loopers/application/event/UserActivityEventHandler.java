@@ -2,6 +2,10 @@ package com.loopers.application.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaTopics;
+import com.loopers.domain.event.PaymentCanceledEvent;
+import com.loopers.domain.event.PaymentCompletedEvent;
+import com.loopers.domain.event.PaymentFailedEvent;
+import com.loopers.domain.event.ProductViewedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;

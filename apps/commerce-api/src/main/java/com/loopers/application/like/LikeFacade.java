@@ -1,8 +1,8 @@
 package com.loopers.application.like;
 
 import com.loopers.application.brand.BrandService;
-import com.loopers.application.event.ProductLikedEvent;
-import com.loopers.application.event.ProductUnlikedEvent;
+import com.loopers.domain.event.ProductLikedEvent;
+import com.loopers.domain.event.ProductUnlikedEvent;
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.brand.Brand;
 import com.loopers.infrastructure.product.ProductCacheManager;

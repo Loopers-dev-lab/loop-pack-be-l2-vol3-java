@@ -3,6 +3,8 @@ package com.loopers.application.event;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.product.ProductService;
 import com.loopers.confg.kafka.KafkaTopics;
+import com.loopers.domain.event.ProductLikedEvent;
+import com.loopers.domain.event.ProductUnlikedEvent;
 import com.loopers.infrastructure.product.ProductCacheManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

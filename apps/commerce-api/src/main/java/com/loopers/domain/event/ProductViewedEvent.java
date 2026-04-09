@@ -1,4 +1,4 @@
-package com.loopers.application.event;
+package com.loopers.domain.event;
 
 import java.time.Instant;
 

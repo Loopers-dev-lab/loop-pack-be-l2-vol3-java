@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
+import com.loopers.application.product.ProductViewTracker;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductUserV1Controller implements ProductUserApiV1Spec {
 
     private final ProductFacade productFacade;
+    private final ProductViewTracker productViewTracker;
 
     // Query
 
@@ -43,7 +45,9 @@ public class ProductUserV1Controller implements ProductUserApiV1Spec {
             HttpServletRequest request
     ) {
         String anonymousId = (String) request.getAttribute("anonymous_id");
-        ProductInfo info = productFacade.getActiveDetail(productId, userId, anonymousId, userAgent);
+        ProductInfo info = productFacade.getActiveDetail(productId);
+        productViewTracker.track(productId, userId, anonymousId, userAgent);
+
         return ApiResponse.success(ProductUserV1Dto.ProductResponse.from(info));
     }
 }

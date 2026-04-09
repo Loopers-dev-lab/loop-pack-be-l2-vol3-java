@@ -1,7 +1,6 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
-import com.loopers.application.event.ProductViewedEvent;
 import com.loopers.application.queue.ModeManager;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.viewer.BotDetector;
@@ -23,7 +22,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import static com.loopers.support.transaction.TransactionHelper.afterCommit;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -37,10 +35,7 @@ public class ProductFacade {
     private final BrandService brandService;
     private final StockService stockService;
     private final ProductCacheManager productCacheManager;
-    private final ApplicationEventPublisher eventPublisher;
     private final ModeManager modeManager;
-    private final BotDetector botDetector;
-    private final ViewerIdResolver viewerIdResolver;
 
     // Command
 
@@ -93,9 +88,7 @@ public class ProductFacade {
     }
 
     @Transactional(readOnly = true)
-    public ProductInfo getActiveDetail(Long productId, Long userId, String anonymousId, String userAgent) {
-        boolean isBot = botDetector.isBot(userAgent);
-
+    public ProductInfo getActiveDetail(Long productId) {
         Optional<ProductInfo> cached = productCacheManager.getDetail(productId);
         if (cached.isPresent()) {
             return cached.get();
@@ -107,10 +100,6 @@ public class ProductFacade {
         ProductInfo info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
         productCacheManager.putDetail(productId, info);
 
-        if (!isBot) {
-            String viewerId = viewerIdResolver.resolve(userId, anonymousId);
-            eventPublisher.publishEvent(new ProductViewedEvent(viewerId, productId, Instant.now()));
-        }
         return info;
     }
 

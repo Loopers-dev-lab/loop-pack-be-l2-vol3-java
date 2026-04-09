@@ -1,4 +1,4 @@
-package com.loopers.application.event;
+package com.loopers.domain.event;
 
 
 public record PaymentFailedEvent(Long paymentId, Long orderId, Long userId, String reason) {
