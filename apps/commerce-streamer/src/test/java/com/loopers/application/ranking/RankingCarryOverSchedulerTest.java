@@ -45,6 +45,9 @@ class RankingCarryOverSchedulerTest {
     @Captor
     private ArgumentCaptor<List<RankingScore>> scoresCaptor;
 
+    @Captor
+    private ArgumentCaptor<Long> ttlCaptor;
+
     @DisplayName("스코어 이월을 수행할 때,")
     @Nested
     class CarryOver {
@@ -61,11 +64,12 @@ class RankingCarryOverSchedulerTest {
             rankingCarryOverScheduler.carryOver();
 
             // assert
-            then(rankingRepository).should().addScores(eq(TOMORROW_KEY), scoresCaptor.capture(), eq(172800L));
+            then(rankingRepository).should().addScores(eq(TOMORROW_KEY), scoresCaptor.capture(), ttlCaptor.capture());
             List<RankingScore> decayed = scoresCaptor.getValue();
             assertThat(decayed).hasSize(2);
             assertThat(findByProductId(decayed, 1L).score()).isCloseTo(1.0, offset(0.001));
             assertThat(findByProductId(decayed, 2L).score()).isCloseTo(0.5, offset(0.001));
+            assertThat(ttlCaptor.getValue()).isPositive();
         }
 
         @DisplayName("내일 키가 이미 존재하면, 중복 실행으로 판단하여 스킵한다.")

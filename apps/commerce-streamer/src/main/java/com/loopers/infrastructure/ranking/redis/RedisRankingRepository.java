@@ -13,6 +13,7 @@ import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Repository;
 
 import com.loopers.config.redis.RedisConfig;
+import com.loopers.domain.ranking.RankingKeyConstants;
 import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.domain.ranking.RankingScore;
 
@@ -29,8 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 @Repository
 public class RedisRankingRepository implements RankingRepository {
 
-    private static final long TTL_SECONDS = 172800;
-
     private final RedisTemplate<String, String> redisTemplate;
 
     public RedisRankingRepository(
@@ -46,22 +45,14 @@ public class RedisRankingRepository implements RankingRepository {
         }
 
         byte[] rawKey = Objects.requireNonNull(redisTemplate.getStringSerializer().serialize(key));
+        long ttlSeconds = RankingKeyConstants.calculateTtlSeconds(key);
 
-        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            for (RankingScore score : scores) {
-                byte[] member = Objects.requireNonNull(
-                        redisTemplate.getStringSerializer().serialize(String.valueOf(score.productId()))
-                );
-                connection.zSetCommands().zIncrBy(rawKey, score.score(), member);
-            }
-            connection.keyCommands().expire(rawKey, TTL_SECONDS);
-            return null;
-        });
+        executeScorePipeline(scores, rawKey, ttlSeconds);
     }
 
     @Override
     public boolean exists(String key) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
+        return redisTemplate.hasKey(key);
     }
 
     @Override
@@ -91,16 +82,7 @@ public class RedisRankingRepository implements RankingRepository {
 
         byte[] rawKey = Objects.requireNonNull(redisTemplate.getStringSerializer().serialize(key));
 
-        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            for (RankingScore score : scores) {
-                byte[] member = Objects.requireNonNull(
-                        redisTemplate.getStringSerializer().serialize(String.valueOf(score.productId()))
-                );
-                connection.zSetCommands().zIncrBy(rawKey, score.score(), member);
-            }
-            connection.keyCommands().expire(rawKey, ttlSeconds);
-            return null;
-        });
+        executeScorePipeline(scores, rawKey, ttlSeconds);
     }
 
     @Override
@@ -118,6 +100,19 @@ public class RedisRankingRepository implements RankingRepository {
         byte[] rawKey = Objects.requireNonNull(redisTemplate.getStringSerializer().serialize(key));
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             connection.zSetCommands().zRem(rawKey, members);
+            return null;
+        });
+    }
+
+    private void executeScorePipeline(List<RankingScore> scores, byte[] rawKey, long ttlSeconds) {
+        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
+            for (RankingScore score : scores) {
+                byte[] member = Objects.requireNonNull(
+                        redisTemplate.getStringSerializer().serialize(String.valueOf(score.productId()))
+                );
+                connection.zSetCommands().zIncrBy(rawKey, score.score(), member);
+            }
+            connection.keyCommands().expire(rawKey, ttlSeconds);
             return null;
         });
     }

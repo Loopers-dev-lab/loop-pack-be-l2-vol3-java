@@ -3,6 +3,8 @@ package com.loopers.application.ranking;
 import static com.loopers.domain.ranking.RankingKeyConstants.DATE_FORMAT;
 import static com.loopers.domain.ranking.RankingKeyConstants.KEY_PREFIX;
 
+import com.loopers.domain.ranking.RankingKeyConstants;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,7 +31,6 @@ public class RankingCarryOverScheduler {
 
     private static final int TOP_N = 200;
     private static final double DECAY_FACTOR = 0.01;
-    private static final long TTL_SECONDS = 172800;
 
     private final RankingRepository rankingRepository;
 
@@ -60,7 +61,8 @@ public class RankingCarryOverScheduler {
                 .map(s -> s.decay(DECAY_FACTOR))
                 .toList();
 
-        rankingRepository.addScores(tomorrowKey, decayedScores, TTL_SECONDS);
+        long ttlSeconds = RankingKeyConstants.calculateTtlSeconds(tomorrowKey);
+        rankingRepository.addScores(tomorrowKey, decayedScores, ttlSeconds);
 
         log.debug("[CarryOver] 스코어 이월 완료: {} → {}, {}건", todayKey, tomorrowKey, decayedScores.size());
     }
