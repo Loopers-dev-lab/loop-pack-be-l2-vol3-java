@@ -87,4 +87,58 @@ class RankingRedisRepositoryTest {
             assertThat(ttl).isLessThanOrEqualTo(2 * 24 * 60 * 60);
         }
     }
+
+    @Nested
+    @DisplayName("Carry-Over (ZUNIONSTORE)")
+    class CarryOver {
+
+        @Test
+        @DisplayName("전날 점수가 가중치 적용되어 오늘 key로 복사된다")
+        void carryOverAppliesWeight() {
+            rankingRedisRepository.incrementScore("20260409", 1L, 100.0);
+            rankingRedisRepository.incrementScore("20260409", 2L, 50.0);
+
+            rankingRedisRepository.carryOver("20260409", "20260410", 0.1);
+
+            Double score1 = redisTemplate.opsForZSet().score("ranking:all:20260410", "1");
+            Double score2 = redisTemplate.opsForZSet().score("ranking:all:20260410", "2");
+            assertThat(score1).isCloseTo(10.0, org.assertj.core.data.Offset.offset(0.001));
+            assertThat(score2).isCloseTo(5.0, org.assertj.core.data.Offset.offset(0.001));
+        }
+
+        @Test
+        @DisplayName("오늘 key가 이미 있을 때 기존 점수 유지 + 전날 점수 합산")
+        void carryOverMergesWithExistingScores() {
+            rankingRedisRepository.incrementScore("20260409", 1L, 100.0);
+            rankingRedisRepository.incrementScore("20260410", 1L, 20.0);
+
+            rankingRedisRepository.carryOver("20260409", "20260410", 0.1);
+
+            Double score = redisTemplate.opsForZSet().score("ranking:all:20260410", "1");
+            assertThat(score).isCloseTo(30.0, org.assertj.core.data.Offset.offset(0.001));
+        }
+
+        @Test
+        @DisplayName("빈 source key일 때 오류 없이 동작한다")
+        void carryOverWithEmptySource() {
+            rankingRedisRepository.incrementScore("20260410", 1L, 20.0);
+
+            rankingRedisRepository.carryOver("20260409", "20260410", 0.1);
+
+            Double score = redisTemplate.opsForZSet().score("ranking:all:20260410", "1");
+            assertThat(score).isCloseTo(20.0, org.assertj.core.data.Offset.offset(0.001));
+        }
+
+        @Test
+        @DisplayName("carry-over 후 TTL이 설정된다")
+        void carryOverSetsTtl() {
+            rankingRedisRepository.incrementScore("20260409", 1L, 100.0);
+
+            rankingRedisRepository.carryOver("20260409", "20260410", 0.1);
+
+            Long ttl = redisTemplate.getExpire("ranking:all:20260410");
+            assertThat(ttl).isGreaterThan(0);
+            assertThat(ttl).isLessThanOrEqualTo(2 * 24 * 60 * 60);
+        }
+    }
 }
