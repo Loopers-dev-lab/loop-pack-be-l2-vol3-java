@@ -5,6 +5,7 @@ import com.loopers.domain.ranking.ProductMetricsHourlyRepository;
 import com.loopers.domain.ranking.RankingKey;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +17,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -41,6 +44,9 @@ class RankingAggregationServiceIntegrationTest {
     @Autowired
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private RedisTemplate<String, String> masterRedisTemplate;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -158,6 +164,28 @@ class RankingAggregationServiceIntegrationTest {
             // ZREVRANK — 1위는 주문 상품(id=2)
             Long rankOfOrder = masterRedisTemplate.opsForZSet().reverseRank(todayKey, "2");
             assertThat(rankOfOrder).isEqualTo(0L); // 0-based 에서 0 == 1위
+        }
+
+        @Test
+        @DisplayName("상위 TX 롤백 시 UPSERT 도 함께 되돌아간다")
+        void rollback_upsertIsRevertedWithTransaction() {
+            // given
+            LocalDateTime bucket = LocalDateTime.of(2026, 4, 9, 14, 0);
+
+            // when — 트랜잭션 내에서 UPSERT 후 예외로 롤백
+            try {
+                transactionTemplate.executeWithoutResult(status -> {
+                    metricsRepository.upsertIncrements(999L, bucket, 5, 2, 1, BigDecimal.valueOf(10000));
+                    throw new RuntimeException("강제 롤백");
+                });
+            } catch (RuntimeException ignored) {
+            }
+
+            // then — 롤백되어 데이터가 없어야 한다
+            var snap = metricsRepository.snapshotByDate(999L, bucket.toLocalDate());
+            assertThat(snap.totalView()).isZero();
+            assertThat(snap.totalLike()).isZero();
+            assertThat(snap.totalOrder()).isZero();
         }
 
         @Test

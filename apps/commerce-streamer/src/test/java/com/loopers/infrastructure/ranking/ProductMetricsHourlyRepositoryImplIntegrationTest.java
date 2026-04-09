@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Testcontainers 기반 통합 테스트 — Native UPSERT / snapshotByDate 검증.
  */
 @SpringBootTest
+@Transactional
 @DisplayName("ProductMetricsHourlyRepositoryImpl 통합 테스트")
 class ProductMetricsHourlyRepositoryImplIntegrationTest {
 
