@@ -60,4 +60,10 @@ public class RankingFacade {
     public Long getRankForProduct(Long productId, String date) {
         return rankingService.getRankForProduct(date, productId);
     }
+
+    public ProductRankInfo getProductRankInfo(Long productId, String date) {
+        Long rank = rankingService.getRankForProduct(date, productId);
+        Double score = rankingService.getScoreForProduct(date, productId);
+        return new ProductRankInfo(productId, rank, score, date);
+    }
 }

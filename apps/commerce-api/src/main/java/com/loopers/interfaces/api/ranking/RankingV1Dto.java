@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.ranking;
 
+import com.loopers.application.ranking.ProductRankInfo;
 import com.loopers.application.ranking.RankingInfo;
 
 import java.util.List;
@@ -30,6 +31,22 @@ public class RankingV1Dto {
                     .map(RankingResponse::from)
                     .toList();
             return new RankingListResponse(rankings);
+        }
+    }
+
+    public record ProductRankResponse(
+            Long productId,
+            Long rank,
+            Double score,
+            String date
+    ) {
+        public static ProductRankResponse from(ProductRankInfo info) {
+            return new ProductRankResponse(
+                    info.productId(),
+                    info.rank(),
+                    info.score(),
+                    info.date()
+            );
         }
     }
 }

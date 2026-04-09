@@ -9,4 +9,7 @@ public interface RankingV1ApiSpec {
 
     @Operation(summary = "랭킹 조회", description = "날짜별 상품 인기 랭킹을 조회합니다.")
     ApiResponse<RankingV1Dto.RankingListResponse> getRankings(String date, int size, int page);
+
+    @Operation(summary = "특정 상품 랭킹 조회", description = "특정 상품의 랭킹 순위와 점수를 조회합니다.")
+    ApiResponse<RankingV1Dto.ProductRankResponse> getProductRank(Long productId, String date);
 }
