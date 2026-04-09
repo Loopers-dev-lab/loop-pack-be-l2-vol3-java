@@ -1,6 +1,7 @@
 package com.loopers.application.order;
 
 import com.loopers.application.queue.QueueService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.coupon.CouponTemplate;
 import com.loopers.domain.coupon.CouponTemplateRepository;
 import com.loopers.domain.coupon.IssuedCoupon;
@@ -9,15 +10,22 @@ import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderDomainService;
 import com.loopers.domain.order.OrderDomainService.OrderLineRequest;
 import com.loopers.domain.order.OrderLine;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventRepository;
+import com.loopers.kafka.event.CatalogEvent;
+import com.loopers.kafka.topic.KafkaTopics;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -28,6 +36,8 @@ public class OrderService {
     private final IssuedCouponRepository issuedCouponRepository;
     private final CouponTemplateRepository couponTemplateRepository;
     private final QueueService queueService;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * 주문 처리: 쿠폰 검증 → 재고 차감 → 주문 생성을 하나의 트랜잭션으로 묶는다.
@@ -68,6 +78,7 @@ public class OrderService {
      * OptimisticLockException 후 재시도 시 사용 가능한 쿠폰이 없으면 결국 실패이므로
      * 비관적 락이 더 명확한 의도를 드러낸다.
      */
+    @SneakyThrows
     @Transactional
     public OrderResult placeOrder(Long memberId, List<OrderLineRequest> items, Long couponId) {
         // Back-pressure Gate: 대기열 입장 허가 없으면 403
@@ -125,6 +136,19 @@ public class OrderService {
         List<OrderLineInfo> resultLines = order.getOrderLines().stream()
             .map(ol -> new OrderLineInfo(ol.getProductId(), ol.getQuantity(), ol.getUnitPrice()))
             .collect(Collectors.toList());
+
+        // Outbox에 ORDERED 이벤트 저장 (주문 라인별 1건씩 — 랭킹은 상품 단위)
+        for (OrderLine ol : order.getOrderLines()) {
+            String eventId = UUID.randomUUID().toString();
+            CatalogEvent event = CatalogEvent.ordered(
+                eventId, ol.getProductId(), memberId, Instant.now().toEpochMilli(),
+                ol.getUnitPrice(), ol.getQuantity()
+            );
+            outboxEventRepository.save(OutboxEvent.create(
+                eventId, KafkaTopics.CATALOG_EVENTS, String.valueOf(ol.getProductId()),
+                objectMapper.writeValueAsString(event)
+            ));
+        }
 
         // 주문 완료 후 entered 키 삭제 — 슬롯 즉시 반환 (TTL 만료 대기 없이)
         // 트랜잭션 커밋 후 실행: 커밋 실패 시 Redis 키가 먼저 삭제되는 문제 방지

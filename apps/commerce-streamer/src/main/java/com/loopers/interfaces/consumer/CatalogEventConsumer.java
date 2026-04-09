@@ -1,6 +1,7 @@
 package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.RankingService;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.EventHandled;
 import com.loopers.domain.ProductMetrics;
@@ -25,6 +26,7 @@ public class CatalogEventConsumer {
 
     private final EventHandledJpaRepository eventHandledRepository;
     private final ProductMetricsJpaRepository productMetricsRepository;
+    private final RankingService rankingService;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(topics = KafkaTopics.CATALOG_EVENTS, containerFactory = KafkaConfig.BATCH_LISTENER)
@@ -41,6 +43,7 @@ public class CatalogEventConsumer {
                 }
 
                 upsertMetrics(event);
+                rankingService.updateRanking(event);
                 eventHandledRepository.save(EventHandled.of(event.eventId()));
                 log.info("[CatalogEvent] handled eventId={} type={} productId={}", event.eventId(), event.eventType(), event.productId());
 
@@ -58,7 +61,8 @@ public class CatalogEventConsumer {
         switch (CatalogEvent.Type.valueOf(event.eventType())) {
             case LIKED -> metrics.increaseLikes(event.occurredAt());
             case UNLIKED -> metrics.decreaseLikes(event.occurredAt());
-            default -> log.debug("[CatalogEvent] unhandled type={}", event.eventType());
+            case VIEWED -> log.debug("[CatalogEvent] VIEWED productId={} (metrics 미구현)", event.productId());
+            case ORDERED -> log.debug("[CatalogEvent] ORDERED productId={} (metrics 미구현)", event.productId());
         }
     }
 }

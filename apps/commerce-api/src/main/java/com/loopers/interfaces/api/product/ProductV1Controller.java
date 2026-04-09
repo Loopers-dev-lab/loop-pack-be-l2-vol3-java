@@ -39,6 +39,7 @@ public class ProductV1Controller implements ProductV1ApiSpec {
         @PathVariable Long productId
     ) {
         ProductDetailInfo info = productFacade.getProductDetail(productId);
+        productFacade.publishViewedEvent(productId);
         return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info));
     }
 }

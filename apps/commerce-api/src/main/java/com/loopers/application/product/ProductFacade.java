@@ -1,18 +1,27 @@
 package com.loopers.application.product;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventRepository;
 import com.loopers.domain.product.Brand;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.SortCondition;
 import com.loopers.domain.product.BrandRepository;
+import com.loopers.kafka.event.CatalogEvent;
+import com.loopers.kafka.topic.KafkaTopics;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -21,6 +30,8 @@ public class ProductFacade {
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     @Cacheable(value = "product:detail", key = "#productId")
     public ProductDetailInfo getProductDetail(Long productId) {
@@ -31,6 +42,22 @@ public class ProductFacade {
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."))
             : null;
         return ProductDetailInfo.of(product, brand, product.getLikesCount());
+    }
+
+    /**
+     * VIEWED 이벤트 발행 — getProductDetail()과 분리된 이유:
+     * getProductDetail()은 @Cacheable이라 캐시 히트 시 메서드 자체가 실행되지 않음.
+     * 조회 이벤트는 캐시 히트 여부와 무관하게 매번 발행해야 하므로 별도 메서드로 분리.
+     */
+    @SneakyThrows
+    @Transactional
+    public void publishViewedEvent(Long productId) {
+        String eventId = UUID.randomUUID().toString();
+        CatalogEvent event = CatalogEvent.of(eventId, CatalogEvent.Type.VIEWED, productId, null, Instant.now().toEpochMilli());
+        outboxEventRepository.save(OutboxEvent.create(
+            eventId, KafkaTopics.CATALOG_EVENTS, String.valueOf(productId),
+            objectMapper.writeValueAsString(event)
+        ));
     }
 
     @Cacheable(value = "product:list", key = "#sort.name()")
