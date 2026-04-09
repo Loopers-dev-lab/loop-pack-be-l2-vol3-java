@@ -59,4 +59,9 @@ public class ProductRepositoryImpl implements ProductRepository {
     public List<ProductModel> findAllByBrandId(Long brandId, Sort sort) {
         return productJpaRepository.findAllByBrandId(brandId, sort);
     }
+
+    @Override
+    public List<ProductModel> findAllByIdIn(List<Long> ids) {
+        return productJpaRepository.findAllByIdIn(ids);
+    }
 }

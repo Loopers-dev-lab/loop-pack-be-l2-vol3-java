@@ -59,4 +59,9 @@ public class ProductService {
     public void decreaseLikeCount(Long productId) {
         productRepository.decreaseLikeCount(productId);
     }
+
+    @Transactional(readOnly = true)
+    public List<ProductModel> getByIds(List<Long> ids) {
+        return productRepository.findAllByIdIn(ids);
+    }
 }

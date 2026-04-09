@@ -6,6 +6,7 @@ import com.loopers.domain.like.ProductLikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.event.ProductViewedEvent;
+import com.loopers.domain.ranking.RankingService;
 import com.loopers.infrastructure.product.ProductCacheService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -27,6 +28,7 @@ public class ProductFacade {
     private final ProductLikeService productLikeService;
     private final ProductCacheService productCacheService;
     private final ApplicationEventPublisher eventPublisher;
+    private final RankingService rankingService;
 
     @Transactional
     public ProductInfo register(Long brandId, String name, String description, int price, int stockQuantity, String imageUrl) {
@@ -53,7 +55,16 @@ public class ProductFacade {
             productCacheService.setProductDetail(id, result);
         }
 
-        // 4. 상품 조회 이벤트 발행 (캐시 히트/미스 무관하게 매번)
+        // 4. 랭킹 순위 조회
+        // RankingService.getProductRank() → ZREVRANK → 0-based → 1-based 변환
+        Long rank = rankingService.getProductRank(id);
+        result = new ProductDetailInfo(
+                result.id(), result.name(), result.description(),
+                result.price(), result.stockQuantity(), result.imageUrl(),
+                result.brandName(), result.likeCount(), rank
+        );
+
+        // 5. 상품 조회 이벤트 발행 (캐시 히트/미스 무관하게 매번)
         eventPublisher.publishEvent(ProductViewedEvent.from(id));
 
         return result;

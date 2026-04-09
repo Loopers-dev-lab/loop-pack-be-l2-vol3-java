@@ -34,7 +34,8 @@ public class ProductV1Dto {
             int price,
             int stockQuantity,
             String brandName,
-            long likeCount
+            long likeCount,
+            Long rank
     ) {}
 
     // 상품 목록 응답
