@@ -13,5 +13,7 @@ public interface ProductRepository {
 
     Optional<Product> findByIdForUpdate(Long id);
 
+    List<Product> findAllByIds(List<Long> ids);
+
     List<Product> findAll(SortCondition sort);
 }

@@ -11,9 +11,10 @@ public class ProductV1Dto {
         Long price,
         int stockQuantity,
         BrandResponse brand,
-        long likeCount
+        long likeCount,
+        Long rank
     ) {
-        public static ProductDetailResponse from(ProductDetailInfo info) {
+        public static ProductDetailResponse from(ProductDetailInfo info, Long rank) {
             BrandResponse brandResponse = info.brand() != null
                 ? new BrandResponse(info.brand().id(), info.brand().name())
                 : null;
@@ -23,7 +24,8 @@ public class ProductV1Dto {
                 info.price(),
                 info.stockQuantity(),
                 brandResponse,
-                info.likeCount()
+                info.likeCount(),
+                rank
             );
         }
     }
