@@ -45,7 +45,7 @@ public class LikeFacade {
                     "product.liked",
                     "product",
                     String.valueOf(productId),
-                    KafkaTopics.CATALOG_EVENTS,
+                    KafkaTopics.PRODUCT_INTERACTION_EVENTS,
                     new ProductLikedEvent(userId, productId)
             );
             eventPublisher.publishEvent(new ProductLikedEvent(userId, productId));
@@ -60,7 +60,7 @@ public class LikeFacade {
                     "product.unliked",
                     "product",
                     String.valueOf(productId),
-                    KafkaTopics.CATALOG_EVENTS,
+                    KafkaTopics.PRODUCT_INTERACTION_EVENTS,
                     new ProductUnlikedEvent(userId, productId)
             );
             eventPublisher.publishEvent(new ProductUnlikedEvent(userId, productId));

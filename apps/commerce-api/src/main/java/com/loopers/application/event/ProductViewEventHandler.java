@@ -31,7 +31,7 @@ public class ProductViewEventHandler {
                     "eventType", "product.viewed",
                     "payload", payloadJson
             );
-            kafkaTemplate.send(KafkaTopics.CATALOG_EVENTS, String.valueOf(event.productId()), envelope)
+            kafkaTemplate.send(KafkaTopics.PRODUCT_VIEW_EVENTS, String.valueOf(event.productId()), envelope)
                     .whenComplete((result, ex) -> {
                         if (ex != null) {
                             log.warn("kafka send failed: productId = {}", event.productId(), ex);

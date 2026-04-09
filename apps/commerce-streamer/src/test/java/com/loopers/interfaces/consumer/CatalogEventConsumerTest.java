@@ -46,7 +46,7 @@ class CatalogEventConsumerTest {
         String json = String.format(
                 "{\"eventId\":\"evt-1\",\"eventType\":\"%s\",\"payload\":\"{\\\"productId\\\":%d}\"}",
                 eventType, productId);
-        return new ConsumerRecord<>("catalog-events", 0, 0, "1", json.getBytes());
+        return new ConsumerRecord<>("product-interaction-events", 0, 0, "1", json.getBytes());
     }
 
     @Nested

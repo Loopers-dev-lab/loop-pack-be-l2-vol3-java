@@ -47,7 +47,7 @@ class CatalogEventEnvelopeTest {
             viewListener.handleViewed(new ProductViewedEvent("u:1", 300L, Instant.now()));
 
             ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-            verify(kafkaTemplate).send(eq(KafkaTopics.CATALOG_EVENTS), eq("300"), captor.capture());
+            verify(kafkaTemplate).send(eq(KafkaTopics.PRODUCT_VIEW_EVENTS), eq("300"), captor.capture());
 
             Object value = captor.getValue();
             assertThat(value).isInstanceOf(Map.class);
