@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.EventHandledService;
 import com.loopers.application.ProductMetricsService;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.domain.ranking.RankingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -22,6 +23,7 @@ public class CatalogEventConsumer {
 
     private final EventHandledService eventHandledService;
     private final ProductMetricsService productMetricsService;
+    private final RankingService rankingService;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
@@ -66,7 +68,14 @@ public class CatalogEventConsumer {
                     default -> log.warn("알 수 없는 이벤트 타입: {}", eventType);
                 }
 
-                // 3. 처리 완료 기록
+                // 4. 랭킹 점수 반영
+                switch (eventType) {
+                    case "PRODUCT_VIEWED" -> rankingService.addViewScore(aggregateId);    // +0.1
+                    case "PRODUCT_LIKED" -> rankingService.addLikeScore(aggregateId);     // +0.2
+                    // PRODUCT_UNLIKED → 랭킹에서는 감점하지 않음 (좋아요 취소는 무시)
+                }
+
+                // 5. 처리 완료
                 eventHandledService.markHandled(eventId);
 
             } catch (Exception e) {
@@ -92,6 +101,13 @@ public class CatalogEventConsumer {
     private Map<String, Object> parseEvent(Object value) {
         if (value instanceof Map) {
             return (Map<String, Object>) value;
+        }
+        if (value instanceof byte[] bytes) {
+            try {
+                return objectMapper.readValue(bytes, Map.class);
+            } catch (Exception e) {
+                throw new RuntimeException("이벤트 파싱 실패", e);
+            }
         }
         if (value instanceof String str) {
             try {

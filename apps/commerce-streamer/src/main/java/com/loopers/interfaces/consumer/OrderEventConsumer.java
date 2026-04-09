@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.EventHandledService;
 import com.loopers.application.ProductMetricsService;
 import com.loopers.confg.kafka.KafkaConfig;
+import com.loopers.domain.ranking.RankingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -22,6 +23,7 @@ public class OrderEventConsumer {
 
     private final EventHandledService eventHandledService;
     private final ProductMetricsService productMetricsService;
+    private final RankingService rankingService;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
@@ -49,6 +51,18 @@ public class OrderEventConsumer {
                 if ("ORDER_CREATED".equals(eventType)) {
                     Map<String, Object> payload = extractPayload(event);
                     log.info("주문 생성 이벤트 처리: orderId={}, createdAt={}", event.get("aggregateId"), eventCreatedAt);
+
+                    // payload.items → 상품별 반복 → RankingService.addOrderScore() → ZINCRBY
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> items =
+                            (List<Map<String, Object>>) payload.get("items");
+                    if (items != null) {
+                        for (Map<String, Object> item : items) {
+                            Long productId = ((Number) item.get("productId")).longValue();
+                            int quantity = ((Number) item.get("quantity")).intValue();
+                            rankingService.addOrderScore(productId, quantity);  // +0.7 * quantity
+                        }
+                    }
                 }
 
                 eventHandledService.markHandled(eventId);
@@ -74,6 +88,10 @@ public class OrderEventConsumer {
     @SuppressWarnings("unchecked")
     private Map<String, Object> parseEvent(Object value) {
         if (value instanceof Map) return (Map<String, Object>) value;
+        if (value instanceof byte[] bytes) {
+            try { return objectMapper.readValue(bytes, Map.class); }
+            catch (Exception e) { throw new RuntimeException("이벤트 파싱 실패", e); }
+        }
         if (value instanceof String str) {
             try { return objectMapper.readValue(str, Map.class); }
             catch (Exception e) { throw new RuntimeException("이벤트 파싱 실패", e); }
