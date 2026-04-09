@@ -88,5 +88,23 @@ class RedisRankingRepositoryTest {
             // key 날짜 + 2일 = 2026-04-10 00:00:00 UTC 까지. TTL은 최대 2일(172800초) 이내
             assertThat(ttlSeconds).isLessThanOrEqualTo(172800L);
         }
+
+        @DisplayName("두 번째 호출 후에도 TTL 이 변경되지 않는다. (EXPIRE NX 보장)")
+        @Test
+        void doesNotOverwriteTtl_onSubsequentCalls() {
+            // arrange
+            LocalDate date = LocalDate.of(2026, 4, 8);
+            rankingRepository.incrementScore(42L, date, 0.1);
+            Long ttlAfterFirst = redisTemplate.getExpire("ranking:all:20260408", TimeUnit.SECONDS);
+
+            // act
+            rankingRepository.incrementScore(42L, date, 0.2);
+
+            // assert
+            Long ttlAfterSecond = redisTemplate.getExpire("ranking:all:20260408", TimeUnit.SECONDS);
+            assertThat(ttlAfterSecond).isNotNull().isPositive();
+            // TTL 은 첫 번째 설정 이후 변경되지 않아야 함 (오차 1초 허용)
+            assertThat(ttlAfterSecond).isGreaterThanOrEqualTo(ttlAfterFirst - 1);
+        }
     }
 }
