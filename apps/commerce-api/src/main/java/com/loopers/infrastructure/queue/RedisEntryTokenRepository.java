@@ -98,7 +98,7 @@ public class RedisEntryTokenRepository implements EntryTokenRepository {
     public long countActiveTokens() {
         masterRedisTemplate.opsForZSet()
                 .removeRangeByScore(ACTIVE_TOKENS_KEY, 0, System.currentTimeMillis());
-        Long size = defaultRedisTemplate.opsForZSet().size(ACTIVE_TOKENS_KEY);
+        Long size = masterRedisTemplate.opsForZSet().size(ACTIVE_TOKENS_KEY);
         return size != null ? size : 0L;
     }
 
