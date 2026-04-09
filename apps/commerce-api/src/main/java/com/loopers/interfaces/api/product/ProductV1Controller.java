@@ -83,7 +83,7 @@ public class ProductV1Controller {
             @PathVariable Long productId) {
         Long memberId = member != null ? member.getId() : null;
         ProductDetailInfo info = productFacade.getProduct(productId, memberId);
-        Long dailyRank = rankingFacade.getDailyRank(productId);
+        Long dailyRank = resolveDailyRankSafely(productId);
         return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info, dailyRank));
     }
 
@@ -95,7 +95,7 @@ public class ProductV1Controller {
     @GetMapping("/{productId}/local-cache")
     public ApiResponse<ProductV1Dto.ProductDetailResponse> getProductWithLocalCache(@PathVariable Long productId) {
         ProductDetailInfo info = productFacade.getProductWithLocalCache(productId);
-        Long dailyRank = rankingFacade.getDailyRank(productId);
+        Long dailyRank = resolveDailyRankSafely(productId);
         return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info, dailyRank));
     }
 
@@ -105,8 +105,18 @@ public class ProductV1Controller {
     @GetMapping("/{productId}/no-cache")
     public ApiResponse<ProductV1Dto.ProductDetailResponse> getProductNoCache(@PathVariable Long productId) {
         ProductDetailInfo info = productFacade.getProductNoCache(productId);
-        Long dailyRank = rankingFacade.getDailyRank(productId);
+        Long dailyRank = resolveDailyRankSafely(productId);
         return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info, dailyRank));
+    }
+
+    // Redis 장애가 상품 상세 조회 전체 장애로 전파되지 않도록 dailyRank 조회를 격리한다.
+    // 연결 실패·타임아웃 등 RuntimeException 발생 시 null 로 폴백하여 핵심 응답은 유지한다.
+    private Long resolveDailyRankSafely(Long productId) {
+        try {
+            return rankingFacade.getDailyRank(productId);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     @PostMapping("/{productId}/likes")
