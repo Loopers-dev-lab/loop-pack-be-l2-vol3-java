@@ -58,11 +58,11 @@ public class OutboxEvent {
         this.published = true;
     }
 
-    public static OutboxEvent forOrderCreated(Long orderId, Long productId, int quantity) {
+    public static OutboxEvent forOrderCreated(Long orderId, Long productId, int quantity, int finalAmount) {
         String payloadEventId = UUID.randomUUID().toString();
         String payload = String.format(
-            "{\"type\":\"ORDER_CREATED\",\"orderId\":%d,\"productId\":%d,\"quantity\":%d,\"eventId\":\"%s\"}",
-            orderId, productId, quantity, payloadEventId
+            "{\"type\":\"ORDER_CREATED\",\"orderId\":%d,\"productId\":%d,\"quantity\":%d,\"finalAmount\":%d,\"eventId\":\"%s\"}",
+            orderId, productId, quantity, finalAmount, payloadEventId
         );
         return new OutboxEvent("order-events", String.valueOf(orderId), payload);
     }
