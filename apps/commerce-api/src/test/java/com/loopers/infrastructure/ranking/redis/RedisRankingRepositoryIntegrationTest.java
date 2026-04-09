@@ -80,31 +80,6 @@ class RedisRankingRepositoryIntegrationTest extends BaseIntegrationTest {
         }
     }
 
-    @DisplayName("전체 상품 수를 조회할 때,")
-    @Nested
-    class CountAll {
-
-        @DisplayName("Sorted Set의 전체 멤버 수를 반환한다.")
-        @Test
-        void returnsTotalCount() {
-            // act
-            long count = rankingRepository.countAll(KEY);
-
-            // assert
-            assertThat(count).isEqualTo(5);
-        }
-
-        @DisplayName("데이터가 없으면, 0을 반환한다.")
-        @Test
-        void returnsZero_whenNoData() {
-            // act
-            long count = rankingRepository.countAll("ranking:v1:all:99990101");
-
-            // assert
-            assertThat(count).isZero();
-        }
-    }
-
     @DisplayName("특정 상품의 순위를 조회할 때,")
     @Nested
     class FindRank {

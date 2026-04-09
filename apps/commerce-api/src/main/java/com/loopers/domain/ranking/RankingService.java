@@ -16,9 +16,4 @@ public class RankingService {
         String key = RankingKeyResolver.resolve(date);
         return rankingRepository.readTopRanked(key, offset, count);
     }
-
-    public long countAll(String date) {
-        String key = RankingKeyResolver.resolve(date);
-        return rankingRepository.countAll(key);
-    }
 }

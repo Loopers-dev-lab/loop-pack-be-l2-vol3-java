@@ -56,15 +56,6 @@ public class RedisRankingRepository implements RankingRepository {
      * {@inheritDoc}
      */
     @Override
-    public long countAll(String key) {
-        Long count = redisTemplate.opsForZSet().zCard(key);
-        return Objects.isNull(count) ? 0L : count;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public Integer findRank(String key, Long productId) {
         Long rank = redisTemplate.opsForZSet().reverseRank(key, String.valueOf(productId));
         return Objects.isNull(rank) ? null : rank.intValue() + 1;

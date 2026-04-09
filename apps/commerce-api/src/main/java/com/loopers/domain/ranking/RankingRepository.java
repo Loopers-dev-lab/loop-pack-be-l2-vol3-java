@@ -20,14 +20,6 @@ public interface RankingRepository {
     List<RankingItem> readTopRanked(String key, int offset, int count);
 
     /**
-     * 랭킹에 등록된 전체 상품 수를 조회한다.
-     *
-     * @param key Redis 키
-     * @return 전체 상품 수
-     */
-    long countAll(String key);
-
-    /**
      * 특정 상품의 순위를 조회한다.
      *
      * @param key       Redis 키

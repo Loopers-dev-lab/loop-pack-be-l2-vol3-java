@@ -63,20 +63,22 @@ class RankingV1ApiE2ETest extends BaseE2ETest {
             redisTemplate.opsForZSet().add(rankingKey, String.valueOf(productId3), 45.2);
         }
 
-        @DisplayName("순위순으로 상품 정보를 반환한다.")
+        @DisplayName("순위순으로 상품 정보(brandId, liked 포함)를 반환한다.")
         @Test
         void returnsRankedProducts() {
             // act
             var response = getRankings(testRestTemplate, "");
 
             // assert
+            var first = response.getBody().data().rankings().get(0);
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
                     () -> assertThat(response.getBody().data().rankings()).hasSize(3),
-                    () -> assertThat(response.getBody().data().rankings().get(0).rank()).isEqualTo(1),
-                    () -> assertThat(response.getBody().data().rankings().get(0).productId()).isEqualTo(productId1),
-                    () -> assertThat(response.getBody().data().rankings().get(0).productName()).isEqualTo("상품1"),
-                    () -> assertThat(response.getBody().data().totalCount()).isEqualTo(3)
+                    () -> assertThat(first.rank()).isEqualTo(1),
+                    () -> assertThat(first.productId()).isEqualTo(productId1),
+                    () -> assertThat(first.productName()).isEqualTo("상품1"),
+                    () -> assertThat(first.brandId()).isNotNull(),
+                    () -> assertThat(first.liked()).isFalse()
             );
         }
 
@@ -93,8 +95,7 @@ class RankingV1ApiE2ETest extends BaseE2ETest {
                     () -> assertThat(rankings.get(0).rank()).isEqualTo(3),
                     () -> assertThat(rankings.get(0).productId()).isEqualTo(productId3),
                     () -> assertThat(response.getBody().data().page()).isEqualTo(1),
-                    () -> assertThat(response.getBody().data().size()).isEqualTo(2),
-                    () -> assertThat(response.getBody().data().totalCount()).isEqualTo(3)
+                    () -> assertThat(response.getBody().data().size()).isEqualTo(2)
             );
         }
     }
@@ -108,8 +109,7 @@ class RankingV1ApiE2ETest extends BaseE2ETest {
         // assert
         assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                () -> assertThat(response.getBody().data().rankings()).isEmpty(),
-                () -> assertThat(response.getBody().data().totalCount()).isZero()
+                () -> assertThat(response.getBody().data().rankings()).isEmpty()
         );
     }
 

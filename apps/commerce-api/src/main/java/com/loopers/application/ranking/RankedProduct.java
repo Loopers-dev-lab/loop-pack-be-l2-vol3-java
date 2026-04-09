@@ -11,6 +11,8 @@ import com.loopers.domain.ranking.RankingItem;
  * @param productName  상품명
  * @param price        가격
  * @param thumbnailUrl 썸네일 URL
+ * @param brandId      브랜드 ID
+ * @param liked        좋아요 여부
  * @param score        가중치 기반 누적 점수
  */
 public record RankedProduct(
@@ -19,23 +21,20 @@ public record RankedProduct(
         String productName,
         Long price,
         String thumbnailUrl,
+        Long brandId,
+        boolean liked,
         double score
 ) {
 
-    /**
-     * 랭킹 항목과 상품 정보를 조합하여 생성한다.
-     *
-     * @param item    랭킹 항목
-     * @param product 상품 도메인 객체
-     * @return 순위가 포함된 상품 결과
-     */
-    public static RankedProduct from(RankingItem item, Product product) {
+    public static RankedProduct from(RankingItem item, Product product, boolean liked) {
         return new RankedProduct(
                 item.rank(),
                 product.getId(),
                 product.getName().getValue(),
                 product.getPrice().getAmount(),
                 product.getThumbnailUrl().getValue(),
+                product.getBrandId(),
+                liked,
                 item.score()
         );
     }
