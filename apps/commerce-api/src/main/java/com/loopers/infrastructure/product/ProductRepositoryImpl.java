@@ -2,11 +2,8 @@ package com.loopers.infrastructure.product;
 
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -54,40 +51,22 @@ public class ProductRepositoryImpl implements ProductRepository {
 
     @Override
     public Page<ProductModel> findAllSortedByLikeCountDesc(Pageable pageable) {
-        return productJpaRepository.findAllSortedByMetricsLikeCountDesc(pageable);
+        return productJpaRepository.findAllByDeletedAtIsNullOrderByLikeCountDesc(pageable);
     }
 
     @Override
     public Page<ProductModel> findAllByBrandIdSortedByLikeCountDesc(Long brandId, Pageable pageable) {
-        return productJpaRepository.findAllByBrandIdSortedByMetricsLikeCountDesc(brandId, pageable);
+        return productJpaRepository.findAllByBrandIdAndDeletedAtIsNullOrderByLikeCountDesc(
+                brandId, pageable);
     }
 
     @Override
-    public Map<Long, Long> findLikeCountsByProductIds(List<Long> productIds) {
-        if (productIds.isEmpty()) return Collections.emptyMap();
-        return productJpaRepository.findLikeCountsByProductIds(productIds).stream()
-                .collect(Collectors.toMap(
-                        row -> ((Number) row[0]).longValue(),
-                        row -> ((Number) row[1]).longValue()));
+    public void incrementLikeCount(Long id) {
+        productJpaRepository.incrementLikeCount(id);
     }
 
     @Override
-    public long findLikeCountByProductId(Long productId) {
-        return productJpaRepository.findLikeCountByProductId(productId);
-    }
-
-    @Override
-    public int decreaseStock(Long id, int quantity) {
-        return productJpaRepository.decreaseStock(id, quantity);
-    }
-
-    @Override
-    public int increaseStock(Long id, int quantity) {
-        return productJpaRepository.increaseStock(id, quantity);
-    }
-
-    @Override
-    public List<ProductModel> findByIdModulo(int divisor, int remainder) {
-        return productJpaRepository.findByIdModulo(divisor, remainder);
+    public void decrementLikeCount(Long id) {
+        productJpaRepository.decrementLikeCount(id);
     }
 }

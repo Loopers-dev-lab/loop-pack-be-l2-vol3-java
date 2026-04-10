@@ -27,8 +27,7 @@ public class PaymentFacade {
     private final PaymentGateway paymentGateway;
     private final OrderService orderService;
 
-    public PaymentResult createPayment(Long userId, PaymentCriteria.Create criteria) {
-
+    public PaymentResult requestPayment(Long userId, PaymentCriteria.Create criteria) {
         PaymentModel payment = paymentService.createPending(
                 criteria.orderId(), criteria.amount(),
                 criteria.cardType(), maskCardNo(criteria.cardNo()));

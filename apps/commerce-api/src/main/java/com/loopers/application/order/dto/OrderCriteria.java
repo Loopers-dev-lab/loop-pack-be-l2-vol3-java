@@ -1,24 +1,15 @@
 package com.loopers.application.order.dto;
 
-import com.loopers.domain.payment.CardType;
 import com.loopers.domain.product.dto.ProductCommand;
 import java.time.ZonedDateTime;
 import java.util.List;
 
 public class OrderCriteria {
 
-    public record Create(
-            List<CreateItem> items,
-            Long ownedCouponId,
-            CardType cardType,
-            String cardNo) {
+    public record Create(List<CreateItem> items, Long ownedCouponId) {
 
         public Create(List<CreateItem> items) {
-            this(items, null, null, null);
-        }
-
-        public Create(List<CreateItem> items, Long ownedCouponId) {
-            this(items, ownedCouponId, null, null);
+            this(items, null);
         }
 
         public List<ProductCommand.StockDeduction> toStockDeductions() {

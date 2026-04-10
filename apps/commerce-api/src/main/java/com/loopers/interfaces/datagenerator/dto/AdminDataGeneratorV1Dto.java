@@ -90,11 +90,4 @@ public class AdminDataGeneratorV1Dto {
         int totalIssued,
         String message
     ) {}
-
-    // === Queue Bulk Enter ===
-
-    public record BulkQueueEnterRequest(
-        String prefix,
-        Integer count
-    ) {}
 }

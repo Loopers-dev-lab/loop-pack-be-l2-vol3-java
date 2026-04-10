@@ -16,8 +16,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @Entity
 @Table(name = "products", indexes = {
+        @Index(name = "idx_products_like", columnList = "like_count"),
         @Index(name = "idx_products_price", columnList = "price"),
         @Index(name = "idx_products_created", columnList = "created_at DESC"),
+        @Index(name = "idx_products_brand_like", columnList = "brand_id, like_count"),
         @Index(name = "idx_products_brand_price", columnList = "brand_id, price"),
         @Index(name = "idx_products_brand_created", columnList = "brand_id, created_at DESC")})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -34,6 +36,9 @@ public class ProductModel extends BaseEntity {
 
     @Column(name = "stock", nullable = false)
     private int stock;
+
+    @Column(name = "like_count", nullable = false)
+    private int likeCount;
 
     @Column(name = "thumbnail_url")
     private String thumbnailUrl;
@@ -94,6 +99,16 @@ public class ProductModel extends BaseEntity {
 
     public boolean isSoldOut() {
         return this.stock == 0;
+    }
+
+    public void addLikeCount() {
+        this.likeCount++;
+    }
+
+    public void subtractLikeCount() {
+        if (this.likeCount > 0) {
+            this.likeCount--;
+        }
     }
 
     public void updateThumbnailUrl(String thumbnailUrl) {

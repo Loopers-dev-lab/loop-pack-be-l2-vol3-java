@@ -25,9 +25,7 @@ public class PaymentRequest {
                             .map(i -> new OrderCriteria.Create.CreateItem(
                                     i.productId(), i.quantity(), i.expectedPrice()))
                             .toList() : null,
-                    couponId,
-                    cardType,
-                    cardNo);
+                    couponId);
         }
 
         public record OrderItemRequest(

@@ -2,7 +2,6 @@ package com.loopers.domain.coupon;
 
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,8 +21,4 @@ public interface OwnedCouponRepository {
     Optional<OwnedCouponModel> findByOrderId(Long orderId);
 
     int useByIdWhenAvailable(Long id, Long orderId, ZonedDateTime usedAt);
-
-    long countByCouponId(Long couponId);
-
-    Map<Long, Long> countByCouponIds(List<Long> couponIds);
 }

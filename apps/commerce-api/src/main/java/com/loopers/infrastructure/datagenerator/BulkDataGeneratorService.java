@@ -1,7 +1,6 @@
 package com.loopers.infrastructure.datagenerator;
 
 import com.loopers.domain.user.PasswordEncoder;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -118,10 +117,8 @@ public class BulkDataGeneratorService {
                 log.info("  Phase 5: Orders {} already exist. Skipping.", totalOrders);
             }
 
-            // Phase 6: Ranking Scores
-            if (totalProducts >= properties.productCount()) {
-                generateRankingScores();
-            }
+            // Phase 6: Sync like_count
+            syncLikeCounts();
 
             // Phase 7: Clear all caches (Redis에 이전 세션 캐시 제거)
             evictAllCaches();
@@ -443,6 +440,12 @@ public class BulkDataGeneratorService {
         log.info("  Phase 5: Orders {} created ({}s)", created, elapsed(start));
     }
 
+    private void syncLikeCounts() {
+        long start = System.currentTimeMillis();
+        dataGeneratorRepository.syncLikeCounts();
+        log.info("  Phase 6: like_count synced from likes table ({}s)", elapsed(start));
+    }
+
     private int flushOrderBatch(List<Object[]> orderBatch, List<List<Object[]>> itemsPerOrder) {
         long maxId = dataGeneratorRepository.getMaxOrderId();
         dataGeneratorRepository.batchInsertOrders(orderBatch);
@@ -461,51 +464,6 @@ public class BulkDataGeneratorService {
         orderBatch.clear();
         itemsPerOrder.clear();
         return size;
-    }
-
-    private void generateRankingScores() {
-        LocalDate today = LocalDate.now();
-        if (dataGeneratorRepository.countRankingScoresByDate(today) > 0) {
-            log.info("  Phase 6: Ranking scores for {} already exist. Skipping.", today);
-            return;
-        }
-
-        long start = System.currentTimeMillis();
-        List<Long> productIds = dataGeneratorRepository.findAllProductIds();
-        if (productIds.isEmpty()) {
-            log.warn("  Phase 6: No active products. Skipping ranking score generation.");
-            return;
-        }
-
-        Random random = new Random(42);
-        double baseScore = 10000.0;
-        int batchSize = 10_000;
-        List<Object[]> batch = new ArrayList<>(batchSize);
-        int created = 0;
-
-        // Zipf 분포: 상위 상품일수록 높은 점수 + 약간의 랜덤 노이즈
-        for (int i = 0; i < productIds.size(); i++) {
-            double weight = 1.0 / Math.pow(i + 1, 0.8);
-            double score = weight * baseScore + random.nextDouble() * 10;
-            batch.add(new Object[]{productIds.get(i), today, score});
-
-            if (batch.size() >= batchSize) {
-                dataGeneratorRepository.batchInsertRankingScores(batch);
-                created += batch.size();
-                batch.clear();
-                log.info("  Phase 6: Ranking scores {}/{} ({}s)",
-                        created, productIds.size(), elapsed(start));
-            }
-        }
-
-        if (!batch.isEmpty()) {
-            dataGeneratorRepository.batchInsertRankingScores(batch);
-            created += batch.size();
-            batch.clear();
-        }
-
-        log.info("  Phase 6: Ranking scores {} created for {} ({}s)",
-                created, today, elapsed(start));
     }
 
     private void evictAllCaches() {

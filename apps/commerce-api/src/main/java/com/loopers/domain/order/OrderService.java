@@ -1,13 +1,11 @@
 package com.loopers.domain.order;
 
-import com.loopers.domain.order.event.OrderCompletedEvent;
 import com.loopers.domain.order.dto.OrderCommand;
 import com.loopers.domain.order.dto.OrderInfo;
 import com.loopers.support.error.CoreException;
 import java.time.ZonedDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -19,7 +17,6 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public OrderModel createOrder(Long userId, List<OrderCommand.CreateItem> commands) {
@@ -87,8 +84,6 @@ public class OrderService {
     public void completeOrder(Long orderId) {
         OrderModel order = getById(orderId);
         order.completePayment();
-        eventPublisher.publishEvent(
-                new OrderCompletedEvent(orderId, order.getUserId(), order.getTotalPrice()));
     }
 
     @Transactional

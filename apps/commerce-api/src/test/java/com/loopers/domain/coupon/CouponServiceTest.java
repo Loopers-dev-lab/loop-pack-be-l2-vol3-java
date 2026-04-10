@@ -140,7 +140,7 @@ class CouponServiceTest {
     @Nested
     class Issue {
 
-        @DisplayName("성공하면 OwnedCouponModel이 생성된다")
+        @DisplayName("성공하면 OwnedCouponModel이 생성되고 issuedQuantity가 증가한다")
         @Test
         void issue_success() {
             // arrange
@@ -156,10 +156,24 @@ class CouponServiceTest {
                     () -> assertThat(result.getCouponId()).isEqualTo(coupon.getId()),
                     () -> assertThat(result.getUserId()).isEqualTo(100L),
                     () -> assertThat(result.isAvailable()).isTrue(),
-                    () -> assertThat(ownedCouponRepository.countByCouponId(coupon.getId()))
-                            .isEqualTo(1));
+                    () -> assertThat(coupon.getIssuedQuantity()).isEqualTo(1));
         }
 
+        @DisplayName("이미 발급받은 사용자가 중복 발급하면 예외가 발생한다")
+        @Test
+        void issue_whenAlreadyIssued() {
+            // arrange
+            CouponModel coupon = couponRepository.save(CouponModel.create(
+                    "발급 쿠폰", CouponDiscountType.FIXED, 5000L,
+                    null, 1000, ZonedDateTime.now().plusDays(30)));
+            couponService.issue(coupon.getId(), 100L);
+
+            // act & assert
+            assertThatThrownBy(() -> couponService.issue(coupon.getId(), 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorCode())
+                            .isEqualTo(CouponErrorCode.ALREADY_ISSUED));
+        }
     }
 
     @DisplayName("쿠폰을 사용하고 할인을 계산할 때, ")

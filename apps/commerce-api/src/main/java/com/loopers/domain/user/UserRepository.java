@@ -15,6 +15,4 @@ public interface UserRepository {
     Page<UserModel> findAll(Pageable pageable);
 
     List<UserModel> findAll();
-
-    int deductPoint(Long id, long amount);
 }
