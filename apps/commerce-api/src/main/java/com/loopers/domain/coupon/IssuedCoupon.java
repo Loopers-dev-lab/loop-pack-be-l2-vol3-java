@@ -15,7 +15,6 @@ import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 
@@ -101,11 +100,7 @@ public class IssuedCoupon {
     }
 
     public BigDecimal calculateDiscount(BigDecimal totalAmount) {
-        return switch (couponType) {
-            case FIXED -> totalAmount.min(BigDecimal.valueOf(couponValue));
-            case RATE -> totalAmount.multiply(BigDecimal.valueOf(couponValue))
-                    .divide(BigDecimal.valueOf(100), 0, RoundingMode.DOWN);
-        };
+        return couponType.calculateDiscount(couponValue, totalAmount);
     }
 
     public void validateUsable() {
