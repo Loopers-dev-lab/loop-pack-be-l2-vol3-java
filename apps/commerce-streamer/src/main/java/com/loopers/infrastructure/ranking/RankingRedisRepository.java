@@ -41,9 +41,8 @@ public class RankingRedisRepository implements RankingRepository {
     }
 
     @Override
-    public void incrementScore(LocalDate date, Long productDbId, double score) {
+    public void incrementScore(LocalDate date, int hour, Long productDbId, double score) {
         String dailyKey = RankingKeyGenerator.dailyKey(date);
-        int hour = java.time.LocalTime.now().getHour();
         String hourlyKey = RankingKeyGenerator.hourlyKey(date, hour);
         redisTemplate.execute(
                 zincrbyScript,
@@ -53,15 +52,6 @@ public class RankingRedisRepository implements RankingRepository {
                 String.valueOf(DAILY_TTL.toSeconds()),
                 String.valueOf(HOURLY_TTL.toSeconds())
         );
-    }
-
-    public void incrementScoreSequential(LocalDate date, Long productDbId, double score) {
-        String key = RankingKeyGenerator.dailyKey(date);
-        Boolean hasKey = redisTemplate.hasKey(key);
-        redisTemplate.opsForZSet().incrementScore(key, String.valueOf(productDbId), score);
-        if (Boolean.FALSE.equals(hasKey)) {
-            redisTemplate.expire(key, DAILY_TTL);
-        }
     }
 
     @Override
@@ -110,9 +100,9 @@ public class RankingRedisRepository implements RankingRepository {
     }
 
     @Override
-    public long carryOverHourly(LocalDate date, int sourceHour, int destHour, double weight) {
-        String sourceKey = RankingKeyGenerator.hourlyKey(date, sourceHour);
-        String destKey = RankingKeyGenerator.hourlyKey(date, destHour);
+    public long carryOverHourly(LocalDate sourceDate, int sourceHour, LocalDate destDate, int destHour, double weight) {
+        String sourceKey = RankingKeyGenerator.hourlyKey(sourceDate, sourceHour);
+        String destKey = RankingKeyGenerator.hourlyKey(destDate, destHour);
 
         Boolean sourceExists = redisTemplate.hasKey(sourceKey);
         if (Boolean.FALSE.equals(sourceExists)) {

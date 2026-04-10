@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 public interface RankingRepository {
-    void incrementScore(LocalDate date, Long productDbId, double score);
+    void incrementScore(LocalDate date, int hour, Long productDbId, double score);
 
     /**
      * {@code sourceDate}의 ZSET을 {@code destDate}의 ZSET으로 carry-over 한다.
@@ -18,5 +18,5 @@ public interface RankingRepository {
 
     void renameShadowToMain(LocalDate date);
 
-    long carryOverHourly(LocalDate date, int sourceHour, int destHour, double weight);
+    long carryOverHourly(LocalDate sourceDate, int sourceHour, LocalDate destDate, int destHour, double weight);
 }

@@ -38,10 +38,11 @@ public class RankingCarryOverScheduler {
         LocalDate today = LocalDate.now();
         int currentHour = LocalTime.now().getHour();
         int nextHour = (currentHour + 1) % 24;
-        long count = rankingApp.carryOverHourly(today, currentHour, nextHour, HOURLY_CARRY_OVER_WEIGHT);
+        LocalDate destDate = (nextHour == 0) ? today.plusDays(1) : today;
+        long count = rankingApp.carryOverHourly(today, currentHour, destDate, nextHour, HOURLY_CARRY_OVER_WEIGHT);
         log.info("[RANKING_HOURLY_CARRY_OVER] {}:{} → {}:{}, weight={}, members={}",
                 today, String.format("%02d", currentHour),
-                today, String.format("%02d", nextHour),
+                destDate, String.format("%02d", nextHour),
                 HOURLY_CARRY_OVER_WEIGHT, count);
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 @Slf4j
@@ -22,12 +23,14 @@ public class RankingApp {
     private final ScoreAggregator scoreAggregator;
     private final ProductDailySignalRepository productDailySignalRepository;
 
-    public void applyLikeDelta(Long productDbId, int delta, LocalDate date) {
+    public void applyLikeDelta(Long productDbId, int delta, LocalDateTime eventAt) {
         if (delta <= 0) {
             return;
         }
+        LocalDate date = eventAt.toLocalDate();
+        int hour = eventAt.getHour();
         double score = scoreAggregator.scoreForLike(delta) + tieBreakFraction();
-        rankingRepository.incrementScore(date, productDbId, score);
+        rankingRepository.incrementScore(date, hour, productDbId, score);
         try {
             productDailySignalRepository.upsertLikeCount(productDbId, date, delta);
         } catch (Exception e) {
@@ -35,9 +38,11 @@ public class RankingApp {
         }
     }
 
-    public void applyViewScore(Long productDbId, LocalDate date) {
+    public void applyViewScore(Long productDbId, LocalDateTime eventAt) {
+        LocalDate date = eventAt.toLocalDate();
+        int hour = eventAt.getHour();
         double score = scoreAggregator.scoreForView() + tieBreakFraction();
-        rankingRepository.incrementScore(date, productDbId, score);
+        rankingRepository.incrementScore(date, hour, productDbId, score);
         try {
             productDailySignalRepository.upsertViewCount(productDbId, date, 1);
         } catch (Exception e) {
@@ -45,11 +50,13 @@ public class RankingApp {
         }
     }
 
-    public void applyOrderScore(Long productDbId, BigDecimal price, int quantity, LocalDate date) {
+    public void applyOrderScore(Long productDbId, BigDecimal price, int quantity, LocalDateTime eventAt) {
+        LocalDate date = eventAt.toLocalDate();
+        int hour = eventAt.getHour();
         double score = scoreAggregator.scoreForOrder(price, quantity) + tieBreakFraction();
-        rankingRepository.incrementScore(date, productDbId, score);
+        rankingRepository.incrementScore(date, hour, productDbId, score);
         try {
-            double amount = price.doubleValue() * quantity;
+            BigDecimal amount = price.multiply(BigDecimal.valueOf(quantity));
             productDailySignalRepository.upsertOrderAmount(productDbId, date, amount);
         } catch (Exception e) {
             log.warn("[DAILY_SIGNAL] order upsert 실패 — productDbId={}, date={}", productDbId, date, e);
@@ -65,7 +72,7 @@ public class RankingApp {
         return rankingRepository.carryOver(sourceDate, destDate, weight);
     }
 
-    public long carryOverHourly(LocalDate date, int sourceHour, int destHour, double weight) {
-        return rankingRepository.carryOverHourly(date, sourceHour, destHour, weight);
+    public long carryOverHourly(LocalDate sourceDate, int sourceHour, LocalDate destDate, int destHour, double weight) {
+        return rankingRepository.carryOverHourly(sourceDate, sourceHour, destDate, destHour, weight);
     }
 }

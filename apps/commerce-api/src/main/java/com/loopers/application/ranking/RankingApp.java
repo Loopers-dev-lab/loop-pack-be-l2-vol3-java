@@ -28,7 +28,7 @@ public class RankingApp {
     public RankingCursorResult getByCursor(LocalDate date, Double cursorScore, long size) {
         List<RankingEntry> entries = rankingRepository.findByCursor(date, cursorScore, size);
         List<RankingInfo> items = enrichByCursor(date, entries);
-        Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
+        Double nextCursor = entries.isEmpty() ? null : entries.get(entries.size() - 1).score();
         return new RankingCursorResult(items, nextCursor);
     }
 
@@ -86,7 +86,7 @@ public class RankingApp {
     public RankingCursorResult getHourlyByCursor(LocalDate date, int hour, Double cursorScore, long size) {
         List<RankingEntry> entries = rankingRepository.findHourlyCursor(date, hour, cursorScore, size);
         List<RankingInfo> items = enrichHourlyCursor(date, hour, entries);
-        Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
+        Double nextCursor = entries.isEmpty() ? null : entries.get(entries.size() - 1).score();
         return new RankingCursorResult(items, nextCursor);
     }
 
