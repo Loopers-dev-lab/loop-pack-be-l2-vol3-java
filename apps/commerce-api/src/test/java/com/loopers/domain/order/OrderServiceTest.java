@@ -4,11 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import com.loopers.domain.order.event.OrderCompletedEvent;
 import com.loopers.domain.order.dto.OrderCommand;
 import com.loopers.domain.order.dto.OrderInfo;
 import com.loopers.support.error.CoreException;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,15 +21,12 @@ class OrderServiceTest {
     private OrderService orderService;
     private FakeOrderRepository fakeOrderRepository;
     private FakeOrderItemRepository fakeOrderItemRepository;
-    private List<Object> publishedEvents;
 
     @BeforeEach
     void setUp() {
         fakeOrderRepository = new FakeOrderRepository();
         fakeOrderItemRepository = new FakeOrderItemRepository();
-        publishedEvents = new ArrayList<>();
-        orderService = new OrderService(
-                fakeOrderRepository, fakeOrderItemRepository, publishedEvents::add);
+        orderService = new OrderService(fakeOrderRepository, fakeOrderItemRepository);
     }
 
     private List<OrderCommand.CreateItem> createSampleCommands() {
@@ -222,32 +217,6 @@ class OrderServiceTest {
         void validateNoPendingPayment_whenNotExists_passes() {
             // act & assert — 예외 없이 통과
             orderService.validateNoPendingPayment(1L);
-        }
-    }
-
-    @DisplayName("주문을 완료할 때, ")
-    @Nested
-    class CompleteOrder {
-
-        @DisplayName("주문 완료 이벤트가 발행된다")
-        @Test
-        void completeOrder_publishesOrderCompletedEvent() {
-            // arrange
-            OrderModel order = orderService.createOrder(1L, createSampleCommands());
-
-            // act
-            orderService.completeOrder(order.getId());
-
-            // assert
-            assertAll(
-                    () -> assertThat(publishedEvents).hasSize(1),
-                    () -> assertThat(publishedEvents.get(0)).isInstanceOf(OrderCompletedEvent.class),
-                    () -> {
-                        OrderCompletedEvent event = (OrderCompletedEvent) publishedEvents.get(0);
-                        assertThat(event.orderId()).isEqualTo(order.getId());
-                        assertThat(event.userId()).isEqualTo(1L);
-                        assertThat(event.totalPrice()).isEqualTo(50000);
-                    });
         }
     }
 

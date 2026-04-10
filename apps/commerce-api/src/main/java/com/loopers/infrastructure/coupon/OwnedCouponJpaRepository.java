@@ -29,10 +29,4 @@ public interface OwnedCouponJpaRepository extends JpaRepository<OwnedCouponModel
             @Param("id") Long id,
             @Param("orderId") Long orderId,
             @Param("usedAt") ZonedDateTime usedAt);
-
-    long countByCouponId(Long couponId);
-
-    @Query("SELECT o.couponId, COUNT(o) FROM OwnedCouponModel o"
-            + " WHERE o.couponId IN :couponIds GROUP BY o.couponId")
-    List<Object[]> countByCouponIdIn(@Param("couponIds") List<Long> couponIds);
 }

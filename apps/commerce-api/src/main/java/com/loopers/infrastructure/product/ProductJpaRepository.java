@@ -23,50 +23,17 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> 
 
     List<ProductModel> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("UPDATE ProductModel p SET p.stock = p.stock - :quantity"
-            + " WHERE p.id = :id AND p.stock >= :quantity AND p.deletedAt IS NULL")
-    int decreaseStock(@Param("id") Long id, @Param("quantity") int quantity);
+    Page<ProductModel> findAllByDeletedAtIsNullOrderByLikeCountDesc(Pageable pageable);
+
+    Page<ProductModel> findAllByBrandIdAndDeletedAtIsNullOrderByLikeCountDesc(
+            Long brandId, Pageable pageable);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("UPDATE ProductModel p SET p.stock = p.stock + :quantity"
-            + " WHERE p.id = :id AND p.deletedAt IS NULL")
-    int increaseStock(@Param("id") Long id, @Param("quantity") int quantity);
+    @Query("UPDATE ProductModel p SET p.likeCount = p.likeCount + 1 WHERE p.id = :id")
+    int incrementLikeCount(@Param("id") Long id);
 
-    @Query("SELECT p FROM ProductModel p"
-            + " WHERE MOD(p.id, :divisor) = :remainder AND p.deletedAt IS NULL")
-    List<ProductModel> findByIdModulo(
-            @Param("divisor") int divisor, @Param("remainder") int remainder);
-
-    @Query(value = "SELECT p.* FROM products p"
-            + " LEFT JOIN product_metrics pm ON p.id = pm.product_id"
-            + " WHERE p.deleted_at IS NULL"
-            + " ORDER BY COALESCE(pm.like_count, 0) DESC",
-            countQuery = "SELECT COUNT(*) FROM products WHERE deleted_at IS NULL",
-            nativeQuery = true)
-    Page<ProductModel> findAllSortedByMetricsLikeCountDesc(Pageable pageable);
-
-    @Query(value = "SELECT p.* FROM products p"
-            + " LEFT JOIN product_metrics pm ON p.id = pm.product_id"
-            + " WHERE p.deleted_at IS NULL AND p.brand_id = :brandId"
-            + " ORDER BY COALESCE(pm.like_count, 0) DESC",
-            countQuery = "SELECT COUNT(*) FROM products"
-                    + " WHERE deleted_at IS NULL AND brand_id = :brandId",
-            nativeQuery = true)
-    Page<ProductModel> findAllByBrandIdSortedByMetricsLikeCountDesc(
-            @Param("brandId") Long brandId, Pageable pageable);
-
-    @Query(value = "SELECT COALESCE(pm.like_count, 0)"
-            + " FROM products p"
-            + " LEFT JOIN product_metrics pm ON p.id = pm.product_id"
-            + " WHERE p.id = :productId",
-            nativeQuery = true)
-    long findLikeCountByProductId(@Param("productId") Long productId);
-
-    @Query(value = "SELECT p.id AS productId, COALESCE(pm.like_count, 0) AS likeCount"
-            + " FROM products p"
-            + " LEFT JOIN product_metrics pm ON p.id = pm.product_id"
-            + " WHERE p.id IN :productIds",
-            nativeQuery = true)
-    List<Object[]> findLikeCountsByProductIds(@Param("productIds") List<Long> productIds);
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE ProductModel p SET p.likeCount = p.likeCount - 1"
+            + " WHERE p.id = :id AND p.likeCount > 0")
+    int decrementLikeCount(@Param("id") Long id);
 }

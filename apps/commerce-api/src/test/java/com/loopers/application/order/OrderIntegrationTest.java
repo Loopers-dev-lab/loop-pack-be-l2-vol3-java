@@ -33,7 +33,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 class OrderIntegrationTest {
 
     @Autowired
-    private AdminOrderService adminOrderService;
+    private OrderFacade orderFacade;
 
     @Autowired
     private UserJpaRepository userJpaRepository;
@@ -76,6 +76,8 @@ class OrderIntegrationTest {
         CouponModel coupon = couponJpaRepository.save(
                 CouponModel.create("테스트 쿠폰", type, value, minOrderAmount, 100,
                         ZonedDateTime.now().plusMonths(3)));
+        coupon.issue();
+        couponJpaRepository.save(coupon);
         return ownedCouponJpaRepository.save(OwnedCouponModel.create(coupon, userId));
     }
 
@@ -95,7 +97,7 @@ class OrderIntegrationTest {
                     user.getId(), CouponDiscountType.FIXED, 5000, 500_000L);
 
             // act — 쿠폰 최소 주문 금액 미달로 실패 예상
-            assertThatThrownBy(() -> adminOrderService.createOrder(user.getId(),
+            assertThatThrownBy(() -> orderFacade.createOrder(user.getId(),
                     new OrderCriteria.Create(List.of(
                             new OrderCriteria.Create.CreateItem(
                                     product.getId(), 2, 10000)),
@@ -131,7 +133,7 @@ class OrderIntegrationTest {
                     user.getId(), CouponDiscountType.FIXED, 5000, null);
 
             // act — 주문 생성 (50000 * 2 = 100000, 할인 5000 → 최종 95000)
-            OrderResult.OrderSummary result = adminOrderService.createOrder(user.getId(),
+            OrderResult.OrderSummary result = orderFacade.createOrder(user.getId(),
                     new OrderCriteria.Create(List.of(
                             new OrderCriteria.Create.CreateItem(
                                     product.getId(), 2, 50000)),

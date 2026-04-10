@@ -15,7 +15,6 @@ public class PaymentService {
     @Transactional
     public PaymentModel createPending(Long orderId, int amount,
                                       CardType cardType, String maskedCardNo) {
-
         paymentRepository.findByOrderId(orderId)
                 .ifPresent(existing -> {
                     throw new CoreException(PaymentErrorCode.PAYMENT_IN_PROGRESS);

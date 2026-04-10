@@ -35,6 +35,7 @@ class CouponModelTest {
                     () -> assertThat(coupon.getDiscountValue()).isEqualTo(10L),
                     () -> assertThat(coupon.getMinOrderAmount()).isEqualTo(10000L),
                     () -> assertThat(coupon.getTotalQuantity()).isEqualTo(1000),
+                    () -> assertThat(coupon.getIssuedQuantity()).isEqualTo(0),
                     () -> assertThat(coupon.getExpiredAt()).isEqualTo(expiredAt));
         }
 
@@ -131,6 +132,21 @@ class CouponModelTest {
                     .hasMessageContaining("삭제된 쿠폰입니다.");
         }
 
+        @DisplayName("수량이 소진된 쿠폰이면 예외가 발생한다")
+        @Test
+        void validateIssuable_whenQuantityExhausted() {
+            // arrange
+            CouponModel coupon = CouponModel.create(
+                    "할인 쿠폰", CouponDiscountType.FIXED, 5000L,
+                    null, 1, ZonedDateTime.now().plusDays(30));
+            setField(coupon, "issuedQuantity", 1);
+
+            // act & assert
+            assertThatThrownBy(coupon::validateIssuable)
+                    .isInstanceOf(CoreException.class)
+                    .hasMessageContaining("쿠폰 수량이 소진되었습니다.");
+        }
+
         @DisplayName("만료된 쿠폰이면 예외가 발생한다")
         @Test
         void validateIssuable_whenExpired() {
@@ -144,6 +160,26 @@ class CouponModelTest {
             assertThatThrownBy(coupon::validateIssuable)
                     .isInstanceOf(CoreException.class)
                     .hasMessageContaining("만료된 쿠폰입니다.");
+        }
+    }
+
+    @DisplayName("발급할 때, ")
+    @Nested
+    class Issue {
+
+        @DisplayName("validateIssuable 통과 후 issuedQuantity가 1 증가한다")
+        @Test
+        void issue_incrementsIssuedQuantity() {
+            // arrange
+            CouponModel coupon = CouponModel.create(
+                    "할인 쿠폰", CouponDiscountType.FIXED, 5000L,
+                    null, 1000, ZonedDateTime.now().plusDays(30));
+
+            // act
+            coupon.issue();
+
+            // assert
+            assertThat(coupon.getIssuedQuantity()).isEqualTo(1);
         }
     }
 

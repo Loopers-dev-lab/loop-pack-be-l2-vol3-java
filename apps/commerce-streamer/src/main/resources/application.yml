@@ -1,5 +1,4 @@
 server:
-  port: 8090
   shutdown: graceful
   tomcat:
     threads:
@@ -15,7 +14,7 @@ spring:
   main:
     web-application-type: servlet
   application:
-    name: commerce-streamer
+    name: commerce-api
   profiles:
     active: local
   config:
@@ -26,17 +25,15 @@ spring:
       - logging.yml
       - monitoring.yml
 
-spring.kafka.consumer.group-id: commerce-streamer-group
+demo-kafka:
+  test:
+    topic-name: demo.internal.topic-v1
 
 ---
 spring:
   config:
     activate:
       on-profile: local, test
-
-management:
-  server:
-    port: 8091
 
 ---
 spring:

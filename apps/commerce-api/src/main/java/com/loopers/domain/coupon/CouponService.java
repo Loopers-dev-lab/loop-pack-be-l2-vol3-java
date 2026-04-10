@@ -4,7 +4,6 @@ import com.loopers.domain.coupon.dto.CouponCommand;
 import com.loopers.support.error.CoreException;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -53,19 +52,14 @@ public class CouponService {
 
     @Transactional
     public OwnedCouponModel issue(Long couponId, Long userId) {
-        CouponModel coupon = getById(couponId);
-        coupon.validateIssuable();
+        CouponModel coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new CoreException(CouponErrorCode.NOT_FOUND));
+        ownedCouponRepository.findByCouponIdAndUserId(couponId, userId)
+                .ifPresent(owned -> {
+                    throw new CoreException(CouponErrorCode.ALREADY_ISSUED);
+                });
+        coupon.issue();
         return ownedCouponRepository.save(OwnedCouponModel.create(coupon, userId));
-    }
-
-    @Transactional(readOnly = true)
-    public long countIssuedCoupons(Long couponId) {
-        return ownedCouponRepository.countByCouponId(couponId);
-    }
-
-    @Transactional(readOnly = true)
-    public Map<Long, Long> countIssuedCoupons(List<Long> couponIds) {
-        return ownedCouponRepository.countByCouponIds(couponIds);
     }
 
     @Transactional

@@ -44,12 +44,4 @@ public class ProductLikeRepositoryImpl implements ProductLikeRepository {
                         row -> (Long) row[0],
                         row -> (Long) row[1]));
     }
-
-    @Override
-    public Map<Long, Long> countByProductIdsWithModulo(int divisor, int remainder) {
-        return productLikeJpaRepository.countByProductIdModulo(divisor, remainder).stream()
-                .collect(java.util.stream.Collectors.toMap(
-                        row -> (Long) row[0],
-                        row -> (Long) row[1]));
-    }
 }

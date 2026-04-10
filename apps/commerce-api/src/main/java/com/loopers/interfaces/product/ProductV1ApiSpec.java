@@ -1,7 +1,6 @@
 package com.loopers.interfaces.product;
 
 import com.loopers.interfaces.api.ApiResponse;
-import com.loopers.interfaces.auth.LoginUser;
 import com.loopers.interfaces.product.dto.ProductV1Dto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,8 +30,6 @@ public interface ProductV1ApiSpec {
     )
     ApiResponse<ProductV1Dto.DetailResponse> getById(
         @Parameter(description = "상품 ID", required = true, example = "1")
-        Long productId,
-        @Parameter(hidden = true)
-        LoginUser loginUser
+        Long productId
     );
 }

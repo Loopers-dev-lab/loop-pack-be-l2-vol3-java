@@ -4,9 +4,7 @@ import com.loopers.domain.coupon.OwnedCouponModel;
 import com.loopers.domain.coupon.OwnedCouponRepository;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -51,18 +49,5 @@ public class OwnedCouponRepositoryImpl implements OwnedCouponRepository {
     @Override
     public int useByIdWhenAvailable(Long id, Long orderId, ZonedDateTime usedAt) {
         return ownedCouponJpaRepository.useByIdWhenAvailable(id, orderId, usedAt);
-    }
-
-    @Override
-    public long countByCouponId(Long couponId) {
-        return ownedCouponJpaRepository.countByCouponId(couponId);
-    }
-
-    @Override
-    public Map<Long, Long> countByCouponIds(List<Long> couponIds) {
-        return ownedCouponJpaRepository.countByCouponIdIn(couponIds).stream()
-                .collect(Collectors.toMap(
-                        row -> (Long) row[0],
-                        row -> (Long) row[1]));
     }
 }

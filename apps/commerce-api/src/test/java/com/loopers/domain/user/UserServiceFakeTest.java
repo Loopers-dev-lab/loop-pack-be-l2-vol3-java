@@ -4,9 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.loopers.support.error.CoreException;
-import java.util.ArrayList;
-import java.util.List;
-import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -17,7 +14,6 @@ class UserServiceFakeTest {
 
     private FakeUserRepository userRepository;
     private FakePasswordEncoder passwordEncoder;
-    private List<Object> publishedEvents;
     private UserService userService;
 
     private String loginId;
@@ -30,9 +26,7 @@ class UserServiceFakeTest {
     void setUp() {
         userRepository = new FakeUserRepository();
         passwordEncoder = new FakePasswordEncoder();
-        publishedEvents = new ArrayList<>();
-        ApplicationEventPublisher publisher = publishedEvents::add;
-        userService = new UserService(userRepository, passwordEncoder, publisher);
+        userService = new UserService(userRepository, passwordEncoder);
 
         loginId = "testuser1";
         rawPassword = "Test1234!@#";

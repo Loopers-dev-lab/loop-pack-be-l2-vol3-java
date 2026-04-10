@@ -17,8 +17,8 @@ public class UserFacade {
     @Transactional
     public UserResult signup(UserCriteria.Signup criteria) {
         UserModel userModel = userService.signup(
-                criteria.loginId(), criteria.rawPassword(), criteria.name(),
-                criteria.birthDate(), criteria.email());
+            criteria.loginId(), criteria.rawPassword(), criteria.name(), criteria.birthDate(), criteria.email()
+        );
         return UserResult.from(userModel);
     }
 

@@ -62,27 +62,10 @@ export const CouponApi = {
     myList: () => request('GET', '/api/v1/users/me/coupons', null, true),
 };
 
-// === Queue ===
-export const QueueApi = {
-    enter: () => request('POST', '/api/v1/queue/enter', null, true),
-    position: () => request('GET', '/api/v1/queue/position', null, true),
-    cancel: () => request('DELETE', '/api/v1/queue/cancel', null, true),
-    order: (data, token) => request('POST', '/api/v1/orders', data, true, { 'X-Entry-Token': token }),
-};
-
 // === Payments ===
 export const PaymentApi = {
     request: (data) => request('POST', '/api/v1/payments', data, true),
     status: (orderId) => request('GET', `/api/v1/payments/status?orderId=${orderId}`, null, true),
-};
-
-// === Rankings ===
-export const RankingApi = {
-    list: (date = null, page = 1, size = 20) => {
-        let url = `/api/v1/rankings?page=${page}&size=${size}`;
-        if (date) url += `&date=${date}`;
-        return request('GET', url);
-    },
 };
 
 // === Users ===

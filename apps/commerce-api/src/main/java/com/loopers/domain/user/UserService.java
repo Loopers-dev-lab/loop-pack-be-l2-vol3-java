@@ -1,6 +1,5 @@
 package com.loopers.domain.user;
 
-import com.loopers.domain.user.event.UserSignedUpEvent;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import java.time.LocalDate;
@@ -8,7 +7,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,7 +21,6 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public UserModel signup(String loginId, String rawPassword, String name, String birthDate, String email) {
@@ -35,10 +32,8 @@ public class UserService {
         validatePasswordFormat(rawPassword);
         validateBirthDateNotInPassword(rawPassword, parsedBirthDate);
 
-        UserModel user = userRepository.save(
+        return userRepository.save(
                 UserModel.create(loginId, passwordEncoder.encode(rawPassword), name, parsedBirthDate, email));
-        eventPublisher.publishEvent(UserSignedUpEvent.from(user));
-        return user;
     }
 
     @Transactional(readOnly = true)
@@ -75,13 +70,9 @@ public class UserService {
 
     @Transactional
     public void deductPoint(Long userId, long amount) {
-        if (amount < 1) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "차감 금액은 1 이상이어야 합니다.");
-        }
-        int updated = userRepository.deductPoint(userId, amount);
-        if (updated == 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "포인트가 부족합니다.");
-        }
+        UserModel user = userRepository.findById(userId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
+        user.deductPoint(amount);
     }
 
     @Transactional(readOnly = true)

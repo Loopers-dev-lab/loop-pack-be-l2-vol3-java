@@ -2,7 +2,6 @@ package com.loopers.application.order;
 
 import com.loopers.application.order.dto.OrderCriteria;
 import com.loopers.application.order.dto.OrderResult;
-import com.loopers.application.order.event.OrderPaymentEvent;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.OrderModel;
@@ -11,15 +10,15 @@ import com.loopers.domain.order.dto.OrderInfo;
 import com.loopers.domain.order.dto.OrderCommand;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.dto.ProductInfo;
-import com.loopers.domain.waitingroom.WaitingRoomService;
 import com.loopers.domain.user.UserService;
-import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,48 +31,22 @@ public class OrderFacade {
     private final OrderService orderService;
     private final CouponService couponService;
     private final UserService userService;
-    private final WaitingRoomService waitingRoomService;
-    private final ApplicationEventPublisher eventPublisher;
 
-    @Bulkhead(name = "orderApi", type = Bulkhead.Type.SEMAPHORE)
+    @Retryable(
+            retryFor = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 10,
+            backoff = @Backoff(delay = 50, random = true))
     @Transactional
-    public OrderResult.OrderSummary createOrderWithToken(
-            Long userId, String token, OrderCriteria.Create criteria) {
-
-        waitingRoomService.validateToken(userId, token);
-        OrderModel order = processOrder(userId, criteria);
-        waitingRoomService.completeEntry(userId);
-
-        return OrderResult.OrderSummary.from(order);
-    }
-
-    @Transactional
-    public OrderResult.OrderPaymentSummary createOrderWithPayment(
-            Long userId, OrderCriteria.Create criteria) {
-
-        OrderModel order = processOrder(userId, criteria);
-
-        // PG 결제는 TX 커밋 후 이벤트로 처리
-        eventPublisher.publishEvent(new OrderPaymentEvent(
-                order.getId(), userId, order.getTotalPrice(),
-                criteria.cardType(), criteria.cardNo()));
-
-        return OrderResult.OrderPaymentSummary.pending(order);
-    }
-
-    private OrderModel processOrder(Long userId, OrderCriteria.Create criteria) {
-        // 1. 재고 차감
+    public OrderResult.OrderSummary createOrder(Long userId, OrderCriteria.Create criteria) {
         List<ProductInfo.StockDeduction> deductionInfos =
                 productService.validateAndDeductStock(criteria.toStockDeductions());
 
         Map<Long, String> brandNameMap = brandService.getNameMapByIds(
                 ProductInfo.StockDeduction.extractDistinctBrandIds(deductionInfos));
 
-        // 2. 주문 생성
         OrderModel order = orderService.createOrder(
                 userId, OrderCommand.CreateItem.from(deductionInfos, brandNameMap));
 
-        // 3. 쿠폰 사용
         if (criteria.ownedCouponId() != null) {
             orderService.applyDiscount(
                     order,
@@ -82,10 +55,9 @@ public class OrderFacade {
                             order.getOriginalTotalPrice()));
         }
 
-        // 4. 포인트 차감
         userService.deductPoint(userId, order.getTotalPrice());
 
-        return order;
+        return OrderResult.OrderSummary.from(order);
     }
 
     @Transactional(readOnly = true)
@@ -112,10 +84,13 @@ public class OrderFacade {
         return OrderResult.OrderDetail.from(orderService.getById(orderId));
     }
 
+    @Retryable(
+            retryFor = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 5,
+            backoff = @Backoff(delay = 50, random = true))
     @Transactional
     public void cancelMyOrderItem(Long userId, Long orderId, Long orderItemId) {
-        OrderModel order = orderService.getByIdWithLock(orderId);
-        order.validateOwner(userId);
+        OrderModel order = orderService.getByIdAndUserId(orderId, userId);
         OrderInfo.CancelledItem cancelledItem = orderService.cancelItem(order, orderItemId);
         productService.increaseStock(cancelledItem.productId(), cancelledItem.quantity());
         if (cancelledItem.orderFullyCancelled()) {
@@ -123,14 +98,17 @@ public class OrderFacade {
         }
     }
 
+    @Retryable(
+            retryFor = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 5,
+            backoff = @Backoff(delay = 50, random = true))
     @Transactional
     public void cancelOrderItem(Long orderId, Long orderItemId) {
-        OrderModel order = orderService.getByIdWithLock(orderId);
+        OrderModel order = orderService.getById(orderId);
         OrderInfo.CancelledItem cancelledItem = orderService.cancelItem(order, orderItemId);
         productService.increaseStock(cancelledItem.productId(), cancelledItem.quantity());
         if (cancelledItem.orderFullyCancelled()) {
             couponService.restoreByOrderId(orderId);
         }
     }
-
 }

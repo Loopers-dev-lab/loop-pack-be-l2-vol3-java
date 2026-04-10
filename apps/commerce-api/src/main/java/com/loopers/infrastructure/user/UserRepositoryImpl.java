@@ -38,9 +38,4 @@ public class UserRepositoryImpl implements UserRepository {
     public List<UserModel> findAll() {
         return userJpaRepository.findAllByDeletedAtIsNull();
     }
-
-    @Override
-    public int deductPoint(Long id, long amount) {
-        return userJpaRepository.deductPoint(id, amount);
-    }
 }
