@@ -4,7 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.idempotency.EventHandled;
 import com.loopers.domain.idempotency.EventHandledRepository;
-import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.RankingDeltaPending;
+import com.loopers.domain.ranking.RankingDeltaPendingRepository;
 import com.loopers.support.kafka.KafkaOutboxMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,7 @@ public class ProductMetricsService {
 
     private final ProductMetricsRepository productMetricsRepository;
     private final EventHandledRepository eventHandledRepository;
-    private final RankingRepository rankingRepository;
+    private final RankingDeltaPendingRepository rankingDeltaPendingRepository;
     private final ObjectMapper objectMapper;
 
     public void handle(KafkaOutboxMessage message) {
@@ -45,23 +46,23 @@ public class ProductMetricsService {
             case "LIKE_CREATED" -> {
                 LikePayload payload = parsePayload(message.payload(), LikePayload.class);
                 productMetricsRepository.incrementLikeCount(payload.productId(), occurredAt);
-                rankingRepository.incrementScore(payload.productId(), WEIGHT_LIKE, rankingDate);
+                rankingDeltaPendingRepository.save(new RankingDeltaPending(message.eventId(), rankingDate, payload.productId(), WEIGHT_LIKE));
             }
             case "LIKE_DELETED" -> {
                 LikePayload payload = parsePayload(message.payload(), LikePayload.class);
                 productMetricsRepository.decrementLikeCount(payload.productId(), occurredAt);
-                rankingRepository.incrementScore(payload.productId(), -WEIGHT_LIKE, rankingDate);
+                rankingDeltaPendingRepository.save(new RankingDeltaPending(message.eventId(), rankingDate, payload.productId(), -WEIGHT_LIKE));
             }
             case "PRODUCT_SOLD" -> {
                 ProductSoldPayload payload = parsePayload(message.payload(), ProductSoldPayload.class);
                 productMetricsRepository.incrementSalesCount(payload.productId(), occurredAt);
-                double score = WEIGHT_SOLD * Math.log1p(payload.amount());
-                rankingRepository.incrementScore(payload.productId(), score, rankingDate);
+                double delta = WEIGHT_SOLD * Math.log1p(payload.amount());
+                rankingDeltaPendingRepository.save(new RankingDeltaPending(message.eventId(), rankingDate, payload.productId(), delta));
             }
             case "PRODUCT_VIEWED" -> {
                 ViewPayload payload = parsePayload(message.payload(), ViewPayload.class);
                 productMetricsRepository.incrementViewCount(payload.productId(), occurredAt);
-                rankingRepository.incrementScore(payload.productId(), WEIGHT_VIEW, rankingDate);
+                rankingDeltaPendingRepository.save(new RankingDeltaPending(message.eventId(), rankingDate, payload.productId(), WEIGHT_VIEW));
             }
             default -> log.warn("알 수 없는 eventType: {}", message.eventType());
         }

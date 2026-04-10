@@ -2,6 +2,9 @@ package com.loopers.domain.metrics;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.domain.ranking.RankingDeltaPending;
+import com.loopers.domain.ranking.RankingDeltaPendingRepository;
+import com.loopers.domain.ranking.RankingDeltaPendingStatus;
 import com.loopers.support.kafka.KafkaOutboxMessage;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
@@ -15,6 +18,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,6 +30,9 @@ class ProductMetricsServiceRankingTest {
 
     @Autowired
     private ProductMetricsService productMetricsService;
+
+    @Autowired
+    private RankingDeltaPendingRepository rankingDeltaPendingRepository;
 
     @Autowired
     private StringRedisTemplate redisTemplate;
@@ -62,39 +69,61 @@ class ProductMetricsServiceRankingTest {
     @Nested
     class ViewEvent {
 
-        @DisplayName("오늘 날짜 ZSET에 0.1점이 누적된다.")
+        @DisplayName("PENDING 상태의 RankingDeltaPending이 delta=0.1로 저장된다.")
         @Test
-        void incrementsViewScore() throws JsonProcessingException {
+        void savesPendingDeltaForView() throws JsonProcessingException {
             // arrange
-            LocalDate today = LocalDate.now();
-            Long productId = 1L;
-            KafkaOutboxMessage msg = message("PRODUCT_VIEWED",
-                new ProductMetricsService.ViewPayload(productId, "user1", "Mozilla"));
+            String eventId = UUID.randomUUID().toString();
+            KafkaOutboxMessage msg = new KafkaOutboxMessage(
+                eventId, "PRODUCT_VIEWED",
+                objectMapper.writeValueAsString(new ProductMetricsService.ViewPayload(1L, "user1", "Mozilla")),
+                null
+            );
 
             // act
             productMetricsService.handle(msg);
 
             // assert
-            Double score = redisTemplate.opsForZSet().score(rankingKey(today), productId.toString());
-            assertThat(score).isNotNull().isEqualTo(0.1);
+            List<RankingDeltaPending> deltas = rankingDeltaPendingRepository.findPendingByEventIds(List.of(eventId));
+            assertThat(deltas).hasSize(1);
+            assertThat(deltas.get(0).getDelta()).isEqualTo(0.1);
+            assertThat(deltas.get(0).getProductId()).isEqualTo(1L);
+            assertThat(deltas.get(0).getStatus()).isEqualTo(RankingDeltaPendingStatus.PENDING);
         }
 
-        @DisplayName("중복 이벤트는 ZSET 점수에 반영되지 않는다.")
+        @DisplayName("Redis에 직접 반영되지 않는다.")
         @Test
-        void doesNotIncrementOnDuplicate() throws JsonProcessingException {
+        void doesNotWriteToRedisDirectly() throws JsonProcessingException {
             // arrange
-            LocalDate today = LocalDate.now();
-            Long productId = 1L;
             KafkaOutboxMessage msg = message("PRODUCT_VIEWED",
-                new ProductMetricsService.ViewPayload(productId, "user1", "Mozilla"));
+                new ProductMetricsService.ViewPayload(1L, "user1", "Mozilla"));
+
+            // act
+            productMetricsService.handle(msg);
+
+            // assert
+            Double score = redisTemplate.opsForZSet().score(rankingKey(LocalDate.now()), "1");
+            assertThat(score).isNull();
+        }
+
+        @DisplayName("중복 이벤트는 RankingDeltaPending을 추가 생성하지 않는다.")
+        @Test
+        void doesNotCreateDuplicatePending() throws JsonProcessingException {
+            // arrange
+            String eventId = UUID.randomUUID().toString();
+            KafkaOutboxMessage msg = new KafkaOutboxMessage(
+                eventId, "PRODUCT_VIEWED",
+                objectMapper.writeValueAsString(new ProductMetricsService.ViewPayload(1L, "user1", "Mozilla")),
+                null
+            );
 
             // act
             productMetricsService.handle(msg);
             productMetricsService.handle(msg); // 동일 eventId
 
             // assert
-            Double score = redisTemplate.opsForZSet().score(rankingKey(today), productId.toString());
-            assertThat(score).isNotNull().isEqualTo(0.1);
+            List<RankingDeltaPending> deltas = rankingDeltaPendingRepository.findPendingByEventIds(List.of(eventId));
+            assertThat(deltas).hasSize(1);
         }
     }
 
@@ -102,21 +131,25 @@ class ProductMetricsServiceRankingTest {
     @Nested
     class LikeCreatedEvent {
 
-        @DisplayName("오늘 날짜 ZSET에 0.2점이 누적된다.")
+        @DisplayName("PENDING 상태의 RankingDeltaPending이 delta=0.2로 저장된다.")
         @Test
-        void incrementsLikeScore() throws JsonProcessingException {
+        void savesPendingDeltaForLike() throws JsonProcessingException {
             // arrange
-            LocalDate today = LocalDate.now();
-            Long productId = 1L;
-            KafkaOutboxMessage msg = message("LIKE_CREATED",
-                new ProductMetricsService.LikePayload(99L, productId));
+            String eventId = UUID.randomUUID().toString();
+            KafkaOutboxMessage msg = new KafkaOutboxMessage(
+                eventId, "LIKE_CREATED",
+                objectMapper.writeValueAsString(new ProductMetricsService.LikePayload(99L, 1L)),
+                null
+            );
 
             // act
             productMetricsService.handle(msg);
 
             // assert
-            Double score = redisTemplate.opsForZSet().score(rankingKey(today), productId.toString());
-            assertThat(score).isNotNull().isEqualTo(0.2);
+            List<RankingDeltaPending> deltas = rankingDeltaPendingRepository.findPendingByEventIds(List.of(eventId));
+            assertThat(deltas).hasSize(1);
+            assertThat(deltas.get(0).getDelta()).isEqualTo(0.2);
+            assertThat(deltas.get(0).getStatus()).isEqualTo(RankingDeltaPendingStatus.PENDING);
         }
     }
 
@@ -124,27 +157,25 @@ class ProductMetricsServiceRankingTest {
     @Nested
     class LikeDeletedEvent {
 
-        @DisplayName("오늘 날짜 ZSET에 0.2점이 차감된다.")
+        @DisplayName("PENDING 상태의 RankingDeltaPending이 delta=-0.2로 저장된다.")
         @Test
-        void decrementsLikeScore() throws JsonProcessingException {
+        void savesPendingDeltaForLikeDelete() throws JsonProcessingException {
             // arrange
-            LocalDate today = LocalDate.now();
-            Long productId = 1L;
-            // 먼저 좋아요 2개 추가
-            productMetricsService.handle(message("LIKE_CREATED",
-                new ProductMetricsService.LikePayload(1L, productId)));
-            productMetricsService.handle(message("LIKE_CREATED",
-                new ProductMetricsService.LikePayload(2L, productId)));
-
-            KafkaOutboxMessage deleteMsg = message("LIKE_DELETED",
-                new ProductMetricsService.LikePayload(1L, productId));
+            String eventId = UUID.randomUUID().toString();
+            KafkaOutboxMessage msg = new KafkaOutboxMessage(
+                eventId, "LIKE_DELETED",
+                objectMapper.writeValueAsString(new ProductMetricsService.LikePayload(1L, 1L)),
+                null
+            );
 
             // act
-            productMetricsService.handle(deleteMsg);
+            productMetricsService.handle(msg);
 
             // assert
-            Double score = redisTemplate.opsForZSet().score(rankingKey(today), productId.toString());
-            assertThat(score).isNotNull().isEqualTo(0.2); // 0.4 - 0.2 = 0.2
+            List<RankingDeltaPending> deltas = rankingDeltaPendingRepository.findPendingByEventIds(List.of(eventId));
+            assertThat(deltas).hasSize(1);
+            assertThat(deltas.get(0).getDelta()).isEqualTo(-0.2);
+            assertThat(deltas.get(0).getStatus()).isEqualTo(RankingDeltaPendingStatus.PENDING);
         }
     }
 
@@ -152,62 +183,26 @@ class ProductMetricsServiceRankingTest {
     @Nested
     class SoldEvent {
 
-        @DisplayName("0.6 * log1p(amount) 점수가 ZSET에 누적된다.")
+        @DisplayName("PENDING 상태의 RankingDeltaPending이 delta=0.6*log1p(amount)로 저장된다.")
         @Test
-        void incrementsSoldScore() throws JsonProcessingException {
+        void savesPendingDeltaForSold() throws JsonProcessingException {
             // arrange
-            LocalDate today = LocalDate.now();
-            Long productId = 1L;
             long amount = 10000L;
-            KafkaOutboxMessage msg = message("PRODUCT_SOLD",
-                new ProductMetricsService.ProductSoldPayload(productId, 999L, amount));
+            String eventId = UUID.randomUUID().toString();
+            KafkaOutboxMessage msg = new KafkaOutboxMessage(
+                eventId, "PRODUCT_SOLD",
+                objectMapper.writeValueAsString(new ProductMetricsService.ProductSoldPayload(1L, 999L, amount)),
+                null
+            );
 
             // act
             productMetricsService.handle(msg);
 
             // assert
-            double expected = 0.6 * Math.log1p(amount);
-            Double score = redisTemplate.opsForZSet().score(rankingKey(today), productId.toString());
-            assertThat(score).isNotNull().isCloseTo(expected, org.assertj.core.data.Offset.offset(0.0001));
+            List<RankingDeltaPending> deltas = rankingDeltaPendingRepository.findPendingByEventIds(List.of(eventId));
+            assertThat(deltas).hasSize(1);
+            assertThat(deltas.get(0).getDelta()).isCloseTo(0.6 * Math.log1p(amount), org.assertj.core.data.Offset.offset(0.0001));
+            assertThat(deltas.get(0).getStatus()).isEqualTo(RankingDeltaPendingStatus.PENDING);
         }
-
-        @DisplayName("주문 1건이 좋아요 3건보다 높은 점수를 가진다.")
-        @Test
-        void soldScoreExceedsThreeLikes() throws JsonProcessingException {
-            // arrange
-            Long productA = 1L; // 좋아요 3건
-            Long productB = 2L; // 주문 1건 (10,000원)
-
-            for (int i = 0; i < 3; i++) {
-                productMetricsService.handle(message("LIKE_CREATED",
-                    new ProductMetricsService.LikePayload((long) i, productA)));
-            }
-            productMetricsService.handle(message("PRODUCT_SOLD",
-                new ProductMetricsService.ProductSoldPayload(productB, 999L, 10000L)));
-
-            // assert
-            LocalDate today = LocalDate.now();
-            String key = rankingKey(today);
-            Double scoreA = redisTemplate.opsForZSet().score(key, productA.toString()); // 0.6
-            Double scoreB = redisTemplate.opsForZSet().score(key, productB.toString()); // 0.6 * log1p(10000) ≈ 5.53
-
-            assertThat(scoreB).isGreaterThan(scoreA);
-        }
-    }
-
-    @DisplayName("ZSET TTL은 2일로 설정된다.")
-    @Test
-    void zsetHasTwoDayTtl() throws JsonProcessingException {
-        // arrange
-        Long productId = 1L;
-        KafkaOutboxMessage msg = message("PRODUCT_VIEWED",
-            new ProductMetricsService.ViewPayload(productId, "user1", "Mozilla"));
-
-        // act
-        productMetricsService.handle(msg);
-
-        // assert
-        Long ttl = redisTemplate.getExpire(rankingKey(LocalDate.now()));
-        assertThat(ttl).isNotNull().isPositive().isLessThanOrEqualTo(2 * 24 * 60 * 60L);
     }
 }
