@@ -5,6 +5,8 @@ import { initProduct } from './pages/product.js';
 import { initLogin } from './pages/login.js';
 import { initMyPage } from './pages/mypage.js';
 import { initCoupons } from './pages/coupons.js';
+import { initBlackFriday } from './pages/blackfriday.js';
+import { initRanking } from './pages/ranking.js';
 
 // === Globals ===
 window.Modal = {
@@ -65,6 +67,8 @@ const routes = {
     login: initLogin,
     coupons: initCoupons,
     mypage: initMyPage,
+    blackfriday: initBlackFriday,
+    ranking: initRanking,
 };
 
 function navigate(page, params = {}) {
@@ -80,7 +84,7 @@ async function router() {
     window._routeParams = {};
 
     // Auth guard
-    if ((page === 'mypage') && !Auth.isLoggedIn()) {
+    if ((page === 'mypage' || page === 'blackfriday') && !Auth.isLoggedIn()) {
         Toast.error('로그인이 필요합니다');
         location.hash = 'login';
         return;

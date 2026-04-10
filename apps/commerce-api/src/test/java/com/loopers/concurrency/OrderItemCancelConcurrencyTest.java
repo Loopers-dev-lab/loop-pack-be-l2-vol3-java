@@ -3,6 +3,7 @@ package com.loopers.concurrency;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+import com.loopers.application.order.AdminOrderService;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.dto.OrderCriteria;
 import com.loopers.application.order.dto.OrderResult;
@@ -37,6 +38,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 class OrderItemCancelConcurrencyTest {
 
     private static final int THREAD_COUNT = 3;
+
+    @Autowired
+    private AdminOrderService adminOrderService;
 
     @Autowired
     private OrderFacade orderFacade;
@@ -90,7 +94,7 @@ class OrderItemCancelConcurrencyTest {
 
         UserModel user = createUserWithPoint("canceluser", 1_000_000);
 
-        OrderResult.OrderSummary orderSummary = orderFacade.createOrder(
+        OrderResult.OrderSummary orderSummary = adminOrderService.createOrder(
                 user.getId(),
                 new OrderCriteria.Create(List.of(
                         new OrderCriteria.Create.CreateItem(product1.getId(), 1, 10000),

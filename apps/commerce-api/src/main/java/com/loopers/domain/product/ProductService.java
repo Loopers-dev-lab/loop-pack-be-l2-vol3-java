@@ -3,10 +3,12 @@ package com.loopers.domain.product;
 import com.loopers.domain.product.dto.ProductCommand;
 import com.loopers.domain.product.dto.ProductInfo;
 import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.PageRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +38,11 @@ public class ProductService {
             throw new CoreException(ProductErrorCode.NOT_FOUND);
         }
         return products;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductModel> findAllByIds(List<Long> ids) {
+        return productRepository.findAllByIdIn(ids);
     }
 
     @Transactional
@@ -85,11 +92,6 @@ public class ProductService {
         return productRepository.findAllByBrandId(brandId);
     }
 
-    @Transactional
-    public void increaseStock(Long productId, int quantity) {
-        getById(productId).increaseStock(quantity);
-    }
-
     @Transactional(readOnly = true)
     public Page<ProductModel> getAllSortedByLikeCountDesc(Pageable pageable) {
         return productRepository.findAllSortedByLikeCountDesc(pageable);
@@ -100,14 +102,22 @@ public class ProductService {
         return productRepository.findAllByBrandIdSortedByLikeCountDesc(brandId, pageable);
     }
 
-    @Transactional
-    public void incrementLikeCount(Long id) {
-        productRepository.incrementLikeCount(id);
+    @Transactional(readOnly = true)
+    public Map<Long, Long> getLikeCountsByProductIds(List<Long> productIds) {
+        return productRepository.findLikeCountsByProductIds(productIds);
+    }
+
+    @Transactional(readOnly = true)
+    public long getLikeCountByProductId(Long productId) {
+        return productRepository.findLikeCountByProductId(productId);
     }
 
     @Transactional
-    public void decrementLikeCount(Long id) {
-        productRepository.decrementLikeCount(id);
+    public void increaseStock(Long productId, int quantity) {
+        if (quantity < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "복구 수량은 1 이상이어야 합니다.");
+        }
+        productRepository.increaseStock(productId, quantity);
     }
 
     @Transactional
@@ -119,11 +129,10 @@ public class ProductService {
         Map<Long, ProductModel> productMap = products.stream()
                 .collect(Collectors.toMap(ProductModel::getId, Function.identity()));
 
-        return commands.stream()
+        List<ProductInfo.StockDeduction> results = commands.stream()
                 .map(command -> {
                     ProductModel product = productMap.get(command.productId());
                     product.validateExpectedPrice(command.expectedPrice());
-                    product.decreaseStock(command.quantity());
                     return new ProductInfo.StockDeduction(
                             command.productId(),
                             product.getName(),
@@ -132,5 +141,17 @@ public class ProductService {
                             product.getBrandId());
                 })
                 .toList();
+
+        for (ProductCommand.StockDeduction command : commands) {
+            if (command.quantity() < 1) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "차감 수량은 1 이상이어야 합니다.");
+            }
+            int updated = productRepository.decreaseStock(command.productId(), command.quantity());
+            if (updated == 0) {
+                throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
+            }
+        }
+
+        return results;
     }
 }

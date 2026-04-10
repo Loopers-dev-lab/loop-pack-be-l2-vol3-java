@@ -14,11 +14,18 @@ import java.time.ZonedDateTime;
 public interface OrderV1ApiSpec {
 
     @Operation(
-        summary = "주문 생성",
-        description = "새로운 주문을 생성합니다."
+        summary = "주문 생성 (대기열 토큰 필수)",
+        description = "대기열 입장 토큰을 검증한 뒤 주문을 생성합니다. "
+                + "토큰이 없거나 만료되면 403 응답을 반환합니다. "
+                + "주문 완료 후 토큰은 자동 삭제됩니다."
     )
     ApiResponse<OrderResponse.OrderSummary> create(
         @Parameter(hidden = true) LoginUser loginUser,
+        @Parameter(
+            description = "대기열 입장 토큰 (GET /api/v1/queue/position에서 ENTERED 시 발급)",
+            required = true,
+            example = "550e8400-e29b-41d4-a716-446655440000"
+        ) String entryToken,
         @RequestBody(description = "주문 생성 요청 정보") OrderRequest.Create request
     );
 

@@ -1,4 +1,4 @@
-import { DataGenApi } from '../api.js';
+import { DataGenApi, UserApi } from '../api.js';
 
 export async function initDashboard() {
     const panel = document.getElementById('tab-dashboard');
@@ -16,6 +16,23 @@ export async function initDashboard() {
             </div>
         </div>
         <div class="panel" style="margin-top:16px">
+            <div class="panel-header"><h2>대기열 시뮬레이션</h2></div>
+            <p style="font-size:13px;color:#64748b;margin-bottom:12px">
+                1) 유저를 일괄 생성한 뒤, 2) 생성된 유저를 대기열에 입장시킵니다.<br>
+                서버에서 배치 처리하므로 빠릅니다. 비밀번호는 모두 <code>Test1234!</code>
+            </p>
+
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+                <label style="font-size:13px;font-weight:600">유저 수</label>
+                <input type="number" id="dash-queue-count" value="200" min="1" max="5000" style="width:80px;padding:6px 10px;border:1px solid #e2e8f0;border-radius:6px">
+                <button class="btn btn-primary" id="dash-queue-create-btn">1. 유저 생성</button>
+                <button class="btn btn-success" id="dash-queue-enter-btn" disabled>2. 대기열 입장</button>
+                <span id="dash-queue-status" style="font-size:13px;color:#64748b"></span>
+            </div>
+            <div style="font-size:12px;color:#94a3b8;margin-bottom:4px" id="dash-queue-prefix-info"></div>
+        </div>
+
+        <div class="panel" style="margin-top:16px">
             <div class="panel-header"><h2>대용량 데이터 초기화</h2></div>
             <p style="font-size:13px;color:#64748b;margin-bottom:12px">
                 100 브랜드, 10만 상품, 1만 유저, ~50만 좋아요, 10만 주문을 일괄 생성합니다.
@@ -26,6 +43,51 @@ export async function initDashboard() {
                 <span id="dash-bulk-init-status" style="font-size:13px;color:#64748b"></span>
             </div>
         </div>`;
+
+    let queuePrefix = null;
+
+    // 1. 유저 생성 (서버 배치 INSERT)
+    document.getElementById('dash-queue-create-btn').addEventListener('click', async () => {
+        const count = parseInt(document.getElementById('dash-queue-count').value) || 200;
+        const createBtn = document.getElementById('dash-queue-create-btn');
+        const enterBtn = document.getElementById('dash-queue-enter-btn');
+        const status = document.getElementById('dash-queue-status');
+        const prefixInfo = document.getElementById('dash-queue-prefix-info');
+        createBtn.disabled = true;
+        status.textContent = '유저 생성 중...';
+
+        queuePrefix = 'qu' + String(Date.now()).slice(-4);
+
+        try {
+            const result = await DataGenApi.generateUsers(queuePrefix, count, 999999999);
+            status.textContent = result.message;
+            prefixInfo.textContent = `loginId: ${queuePrefix}0001 ~ ${queuePrefix}${String(count).padStart(4, '0')}`;
+            enterBtn.disabled = false;
+            Toast.success(result.message);
+        } catch (e) {
+            status.textContent = '생성 실패: ' + e.message;
+        }
+        createBtn.disabled = false;
+    });
+
+    // 2. 대기열 입장 (서버에서 Redis ZADD 일괄)
+    document.getElementById('dash-queue-enter-btn').addEventListener('click', async () => {
+        if (!queuePrefix) { Toast.error('유저를 먼저 생성하세요'); return; }
+        const count = parseInt(document.getElementById('dash-queue-count').value) || 200;
+        const enterBtn = document.getElementById('dash-queue-enter-btn');
+        const status = document.getElementById('dash-queue-status');
+        enterBtn.disabled = true;
+        status.textContent = '대기열 입장 중...';
+
+        try {
+            const result = await DataGenApi.bulkQueueEnter(queuePrefix, count);
+            status.textContent = result.message;
+            Toast.success(result.message);
+        } catch (e) {
+            status.textContent = '입장 실패: ' + e.message;
+        }
+        enterBtn.disabled = false;
+    });
 
     document.getElementById('dash-bulk-init-btn').addEventListener('click', async () => {
         const btn = document.getElementById('dash-bulk-init-btn');

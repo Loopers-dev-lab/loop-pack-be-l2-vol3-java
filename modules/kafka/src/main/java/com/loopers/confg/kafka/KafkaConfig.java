@@ -21,6 +21,7 @@ import java.util.Map;
 @EnableConfigurationProperties(KafkaProperties.class)
 public class KafkaConfig {
     public static final String BATCH_LISTENER = "BATCH_LISTENER_DEFAULT";
+    public static final String SINGLE_LISTENER = "SINGLE_LISTENER_DEFAULT";
 
     public static final int MAX_POLLING_SIZE = 3000; // read 3000 msg
     public static final int FETCH_MIN_BYTES = (1024 * 1024); // 1mb
@@ -49,6 +50,19 @@ public class KafkaConfig {
     @Bean
     public ByteArrayJsonMessageConverter jsonMessageConverter(ObjectMapper objectMapper) {
         return new ByteArrayJsonMessageConverter(objectMapper);
+    }
+
+    @Bean(name = SINGLE_LISTENER)
+    public ConcurrentKafkaListenerContainerFactory<Object, Object> defaultSingleListenerContainerFactory(
+            KafkaProperties kafkaProperties,
+            ByteArrayJsonMessageConverter converter
+    ) {
+        ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(kafkaProperties.buildConsumerProperties()));
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+        factory.setRecordMessageConverter(converter);
+        factory.setConcurrency(1);
+        return factory;
     }
 
     @Bean(name = BATCH_LISTENER)

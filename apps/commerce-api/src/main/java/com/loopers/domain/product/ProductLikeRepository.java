@@ -16,4 +16,6 @@ public interface ProductLikeRepository {
     long countByProductId(Long productId);
 
     Map<Long, Long> countByProductIds(List<Long> productIds);
+
+    Map<Long, Long> countByProductIdsWithModulo(int divisor, int remainder);
 }

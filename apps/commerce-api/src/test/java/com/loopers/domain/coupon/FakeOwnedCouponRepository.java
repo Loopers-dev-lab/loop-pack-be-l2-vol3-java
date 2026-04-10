@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -66,6 +67,21 @@ public class FakeOwnedCouponRepository implements OwnedCouponRepository {
                 : filtered.subList(start, end);
 
         return new PageImpl<>(pageContent, pageable, filtered.size());
+    }
+
+    @Override
+    public long countByCouponId(Long couponId) {
+        return store.values().stream()
+                .filter(owned -> owned.getCouponId().equals(couponId))
+                .count();
+    }
+
+    @Override
+    public Map<Long, Long> countByCouponIds(List<Long> couponIds) {
+        return store.values().stream()
+                .filter(owned -> couponIds.contains(owned.getCouponId()))
+                .collect(Collectors.groupingBy(
+                        OwnedCouponModel::getCouponId, Collectors.counting()));
     }
 
     @Override

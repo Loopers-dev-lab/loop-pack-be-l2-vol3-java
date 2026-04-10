@@ -1,18 +1,26 @@
 package com.loopers.application.coupon;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.loopers.application.coupon.dto.CouponCriteria;
 import com.loopers.application.coupon.dto.CouponResult;
 import com.loopers.domain.coupon.CouponDiscountType;
+import com.loopers.domain.coupon.CouponErrorCode;
+import com.loopers.domain.coupon.CouponIssueResult;
 import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.OwnedCouponModel;
+import com.loopers.domain.coupon.CouponIssueLimiter;
+import com.loopers.infrastructure.outbox.OutboxEventPublisher;
+import com.loopers.support.error.CoreException;
 import java.time.ZonedDateTime;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -32,6 +40,12 @@ class CouponFacadeTest {
 
     @Mock
     private CouponService couponService;
+
+    @Mock
+    private CouponIssueLimiter couponIssueLimiter;
+
+    @Mock
+    private OutboxEventPublisher outboxEventPublisher;
 
     @InjectMocks
     private CouponFacade couponFacade;
@@ -62,7 +76,7 @@ class CouponFacadeTest {
                     () -> assertThat(result.name()).isEqualTo("신규가입 10% 할인"),
                     () -> assertThat(result.discountType()).isEqualTo("RATE"),
                     () -> assertThat(result.discountValue()).isEqualTo(10L),
-                    () -> assertThat(result.issuedQuantity()).isEqualTo(0));
+                    () -> assertThat(result.issuedQuantity()).isEqualTo(0L));
         }
     }
 
@@ -78,6 +92,7 @@ class CouponFacadeTest {
                     "여름 세일 5000원 할인", CouponDiscountType.FIXED, 5000L,
                     20000L, 500, ZonedDateTime.now().plusDays(14));
             when(couponService.getById(1L)).thenReturn(coupon);
+            when(couponService.countIssuedCoupons(1L)).thenReturn(42L);
 
             // act
             CouponResult.Detail result = couponFacade.getCoupon(1L);
@@ -88,7 +103,8 @@ class CouponFacadeTest {
                     () -> assertThat(result.name()).isEqualTo("여름 세일 5000원 할인"),
                     () -> assertThat(result.discountType()).isEqualTo("FIXED"),
                     () -> assertThat(result.discountValue()).isEqualTo(5000L),
-                    () -> assertThat(result.minOrderAmount()).isEqualTo(20000L));
+                    () -> assertThat(result.minOrderAmount()).isEqualTo(20000L),
+                    () -> assertThat(result.issuedQuantity()).isEqualTo(42L));
         }
     }
 
@@ -109,6 +125,7 @@ class CouponFacadeTest {
             PageRequest pageable = PageRequest.of(0, 20);
             when(couponService.getAll(pageable))
                     .thenReturn(new PageImpl<>(List.of(coupon1, coupon2), pageable, 2));
+            when(couponService.countIssuedCoupons(any(List.class))).thenReturn(java.util.Map.of());
 
             // act
             Page<CouponResult.Detail> result = couponFacade.getCoupons(pageable);
@@ -190,24 +207,68 @@ class CouponFacadeTest {
     @Nested
     class IssueCoupon {
 
-        @DisplayName("CouponService에 위임하고 발급된 쿠폰 정보를 반환한다")
+        @DisplayName("Redis 승인 후 Outbox에 저장하고 PENDING 상태를 반환한다")
         @Test
         void issueCoupon_success() {
             // arrange
-            CouponModel coupon = CouponModel.create(
-                    "신규가입 할인", CouponDiscountType.RATE, 10L,
-                    10000L, 1000, ZonedDateTime.now().plusDays(30));
-            OwnedCouponModel owned = OwnedCouponModel.create(coupon, 100L);
-            when(couponService.issue(1L, 100L)).thenReturn(owned);
+            when(couponIssueLimiter.tryIssue(1L, 100L))
+                    .thenReturn(CouponIssueResult.SUCCESS);
 
             // act
             CouponResult.IssuedDetail result = couponFacade.issueCoupon(1L, 100L);
 
             // assert
             assertAll(
-                    () -> verify(couponService).issue(1L, 100L),
+                    () -> verify(couponIssueLimiter).tryIssue(1L, 100L),
+                    () -> verify(outboxEventPublisher).publish(
+                            eq("COUPON_ISSUED"), eq("coupon-issued"), eq("1"), any()),
                     () -> assertThat(result.userId()).isEqualTo(100L),
-                    () -> assertThat(result.status()).isEqualTo("AVAILABLE"));
+                    () -> assertThat(result.status()).isEqualTo("PENDING"));
+        }
+
+        @DisplayName("Redis에서 수량 초과 시 Service를 호출하지 않고 즉시 거절한다")
+        @Test
+        void issueCoupon_whenQuantityExhausted() {
+            // arrange
+            when(couponIssueLimiter.tryIssue(1L, 200L))
+                    .thenReturn(CouponIssueResult.QUANTITY_EXHAUSTED);
+
+            // act & assert
+            assertThatThrownBy(() -> couponFacade.issueCoupon(1L, 200L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorCode())
+                            .isEqualTo(CouponErrorCode.QUANTITY_EXHAUSTED));
+            verify(couponService, never()).issue(anyLong(), anyLong());
+        }
+
+        @DisplayName("Redis에서 중복 발급 감지 시 ALREADY_ISSUED 예외를 던진다")
+        @Test
+        void issueCoupon_whenAlreadyIssued() {
+            // arrange
+            when(couponIssueLimiter.tryIssue(1L, 100L))
+                    .thenReturn(CouponIssueResult.ALREADY_ISSUED);
+
+            // act & assert
+            assertThatThrownBy(() -> couponFacade.issueCoupon(1L, 100L))
+                    .isInstanceOf(CoreException.class)
+                    .satisfies(e -> assertThat(((CoreException) e).getErrorCode())
+                            .isEqualTo(CouponErrorCode.ALREADY_ISSUED));
+            verify(couponService, never()).issue(anyLong(), anyLong());
+        }
+
+        @DisplayName("Outbox 저장 실패 시 Redis에서 ZREM으로 롤백한다")
+        @Test
+        void issueCoupon_whenOutboxFails_rollbacksRedis() {
+            // arrange
+            when(couponIssueLimiter.tryIssue(1L, 100L))
+                    .thenReturn(CouponIssueResult.SUCCESS);
+            org.mockito.Mockito.doThrow(new RuntimeException("DB error"))
+                    .when(outboxEventPublisher).publish(any(), any(), any(), any());
+
+            // act & assert
+            assertThatThrownBy(() -> couponFacade.issueCoupon(1L, 100L))
+                    .isInstanceOf(RuntimeException.class);
+            verify(couponIssueLimiter).rollback(1L, 100L);
         }
     }
 

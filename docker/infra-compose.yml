@@ -109,11 +109,45 @@ services:
       KAFKA_CLUSTERS_0_NAME: local  # kafka-ui 에서 보이는 클러스터명
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092 # kafka-ui 가 연겷할 브로커 주소
 
+  # === Monitoring ===
+
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./grafana/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  influxdb:
+    image: influxdb:1.8
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=k6
+      - INFLUXDB_HTTP_MAX_BODY_SIZE=0
+    volumes:
+      - influxdb-data:/var/lib/influxdb
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+      - influxdb
+
 volumes:
   mysql-8-data:
   redis_master_data:
   redis_readonly_data:
   kafka-data:
+  influxdb-data:
 
 networks:
   default:

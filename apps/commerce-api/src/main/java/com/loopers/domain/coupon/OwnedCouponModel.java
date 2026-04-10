@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.ZonedDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -14,7 +15,9 @@ import lombok.NoArgsConstructor;
 
 @Getter
 @Entity
-@Table(name = "owned_coupons")
+@Table(name = "owned_coupons", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"coupon_id", "user_id"})
+})
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class OwnedCouponModel extends BaseEntity {
 

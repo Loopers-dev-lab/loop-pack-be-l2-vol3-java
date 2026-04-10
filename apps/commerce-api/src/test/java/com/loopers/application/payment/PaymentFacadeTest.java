@@ -56,7 +56,7 @@ class PaymentFacadeTest {
                             true, "20260316:TR:abc", PgRequestStatus.ACCEPTED));
 
             // act
-            PaymentResult result = paymentFacade.requestPayment(
+            PaymentResult result = paymentFacade.createPayment(
                     100L,
                     new PaymentCriteria.Create(1L, 50000, CardType.SAMSUNG, "1234-5678-9814-1451"));
 
@@ -81,7 +81,7 @@ class PaymentFacadeTest {
                             "현재 서버가 불안정합니다."));
 
             // act & assert
-            assertThatThrownBy(() -> paymentFacade.requestPayment(
+            assertThatThrownBy(() -> paymentFacade.createPayment(
                     100L,
                     new PaymentCriteria.Create(1L, 50000, CardType.SAMSUNG, "1234-5678-9814-1451")))
                     .isInstanceOf(CoreException.class)
@@ -101,7 +101,7 @@ class PaymentFacadeTest {
                             "카드 번호는 xxxx-xxxx-xxxx-xxxx 형식이어야 합니다."));
 
             // act & assert
-            assertThatThrownBy(() -> paymentFacade.requestPayment(
+            assertThatThrownBy(() -> paymentFacade.createPayment(
                     100L,
                     new PaymentCriteria.Create(1L, 50000, CardType.SAMSUNG, "invalid")))
                     .isInstanceOf(CoreException.class)

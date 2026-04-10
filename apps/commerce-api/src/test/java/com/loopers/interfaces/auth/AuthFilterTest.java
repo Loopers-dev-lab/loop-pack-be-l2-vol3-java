@@ -106,6 +106,50 @@ class AuthFilterTest {
         verify(filterChain, never()).doFilter(request, response);
     }
 
+    @DisplayName("인증 불필요 URL에 인증 헤더가 있으면, 선택적으로 LoginUser를 설정한다")
+    @Test
+    void setsLoginUser_whenOptionalAuthHeadersPresent() throws Exception {
+        // arrange
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/products/1");
+        request.addHeader("X-Loopers-LoginId", "testuser1");
+        request.addHeader("X-Loopers-LoginPw", "Test1234!");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        UserModel userModel = UserModel.create(
+                "testuser1", "encoded", "홍길동", LocalDate.of(1990, 1, 15), "test@example.com");
+        when(authenticationService.authenticate("testuser1", "Test1234!")).thenReturn(userModel);
+
+        // act
+        authFilter.doFilterInternal(request, response, filterChain);
+
+        // assert
+        LoginUser loginUser = (LoginUser) request.getAttribute("loginUser");
+        assertThat(loginUser).isNotNull();
+        assertThat(loginUser.loginId()).isEqualTo("testuser1");
+        verify(filterChain).doFilter(request, response);
+    }
+
+    @DisplayName("인증 불필요 URL에 인증 헤더가 있지만 실패하면, loginUser 없이 진행한다")
+    @Test
+    void proceedsWithoutLoginUser_whenOptionalAuthFails() throws Exception {
+        // arrange
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/products/1");
+        request.addHeader("X-Loopers-LoginId", "testuser1");
+        request.addHeader("X-Loopers-LoginPw", "Wrong!");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        when(authenticationService.authenticate("testuser1", "Wrong!"))
+                .thenThrow(new CoreException(ErrorType.UNAUTHORIZED));
+
+        // act
+        authFilter.doFilterInternal(request, response, filterChain);
+
+        // assert
+        assertThat(request.getAttribute("loginUser")).isNull();
+        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        verify(filterChain).doFilter(request, response);
+    }
+
     @DisplayName("인증 불필요 URL이면, 헤더 없이도 filterChain을 진행한다")
     @Test
     void proceedsFilterChain_whenUrlDoesNotRequireAuth() throws Exception {

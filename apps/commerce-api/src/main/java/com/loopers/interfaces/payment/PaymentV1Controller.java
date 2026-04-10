@@ -2,9 +2,7 @@ package com.loopers.interfaces.payment;
 
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.dto.OrderResult;
-import com.loopers.application.payment.PaymentCriteria;
 import com.loopers.application.payment.PaymentFacade;
-import com.loopers.application.payment.PaymentResult;
 import com.loopers.application.payment.PaymentStatusResult;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.auth.Login;
@@ -30,22 +28,14 @@ public class PaymentV1Controller {
     private final PaymentFacade paymentFacade;
 
     @PostMapping
-    public ApiResponse<PaymentResponse.PaymentSummary> requestPayment(
+    public ApiResponse<PaymentResponse.OrderPaymentSummary> requestPayment(
             @Login LoginUser loginUser,
             @Valid @RequestBody PaymentRequest.Create request
     ) {
-        OrderResult.OrderSummary order = orderFacade.createOrder(
+        OrderResult.OrderPaymentSummary result = orderFacade.createOrderWithPayment(
                 loginUser.id(), request.toOrderCriteria());
 
-        PaymentResult result = paymentFacade.requestPayment(
-                loginUser.id(),
-                new PaymentCriteria.Create(
-                        order.orderId(),
-                        order.totalPrice(),
-                        request.cardType(),
-                        request.cardNo()));
-
-        return ApiResponse.success(PaymentResponse.PaymentSummary.from(result));
+        return ApiResponse.success(PaymentResponse.OrderPaymentSummary.from(result));
     }
 
     @PostMapping("/callback")

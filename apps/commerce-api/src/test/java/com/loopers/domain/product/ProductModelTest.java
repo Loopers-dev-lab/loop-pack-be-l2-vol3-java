@@ -197,52 +197,6 @@ class ProductModelTest {
         }
     }
 
-    @DisplayName("좋아요 수를 증감할 때, ")
-    @Nested
-    class LikeCount {
-
-        @DisplayName("addLikeCount 호출 시 좋아요 수가 1 증가한다.")
-        @Test
-        void addLikeCount_increments() {
-            // arrange
-            ProductModel product = ProductModel.create(BRAND_ID, "에어맥스", 150000, 100);
-
-            // act
-            product.addLikeCount();
-
-            // assert
-            assertThat(product.getLikeCount()).isEqualTo(1);
-        }
-
-        @DisplayName("subtractLikeCount 호출 시 좋아요 수가 1 감소한다.")
-        @Test
-        void subtractLikeCount_decrements() {
-            // arrange
-            ProductModel product = ProductModel.create(BRAND_ID, "에어맥스", 150000, 100);
-            product.addLikeCount();
-            product.addLikeCount();
-
-            // act
-            product.subtractLikeCount();
-
-            // assert
-            assertThat(product.getLikeCount()).isEqualTo(1);
-        }
-
-        @DisplayName("좋아요 수가 0일 때 subtractLikeCount 호출해도 0 이하로 내려가지 않는다.")
-        @Test
-        void subtractLikeCount_whenZero_remainsZero() {
-            // arrange
-            ProductModel product = ProductModel.create(BRAND_ID, "에어맥스", 150000, 100);
-
-            // act
-            product.subtractLikeCount();
-
-            // assert
-            assertThat(product.getLikeCount()).isZero();
-        }
-    }
-
     @DisplayName("썸네일 URL을 수정할 때, ")
     @Nested
     class UpdateThumbnailUrl {

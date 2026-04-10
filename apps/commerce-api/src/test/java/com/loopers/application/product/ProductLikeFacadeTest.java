@@ -34,16 +34,15 @@ class ProductLikeFacadeTest {
     @Nested
     class Like {
 
-        @DisplayName("상품 존재를 검증하고 like를 호출하고 좋아요 수를 증가시킨다.")
+        @DisplayName("상품 존재를 검증하고 좋아요를 저장한다.")
         @Test
-        void like_validatesProductAndCallsLikeAndIncrementsCount() {
+        void like_validatesProductAndCallsLike() {
             // act
             productLikeFacade.like(1L, 2L);
 
             // assert
             verify(productService).validateExists(2L);
             verify(productLikeService).like(1L, 2L);
-            verify(productService).incrementLikeCount(2L);
         }
     }
 
@@ -51,15 +50,14 @@ class ProductLikeFacadeTest {
     @Nested
     class Unlike {
 
-        @DisplayName("unlike를 호출하고 좋아요 수를 감소시킨다.")
+        @DisplayName("좋아요를 삭제한다.")
         @Test
-        void unlike_callsUnlikeAndDecrementsCount() {
+        void unlike_callsUnlike() {
             // act
             productLikeFacade.unlike(1L, 2L);
 
             // assert
             verify(productLikeService).unlike(1L, 2L);
-            verify(productService).decrementLikeCount(2L);
         }
     }
 

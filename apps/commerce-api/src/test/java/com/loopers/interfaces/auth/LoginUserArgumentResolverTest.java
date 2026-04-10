@@ -101,9 +101,60 @@ class LoginUserArgumentResolverTest {
         }
     }
 
+    @DisplayName("@OptionalLogin 파라미터는")
+    @Nested
+    class OptionalLoginResolve {
+
+        @DisplayName("request attribute에 LoginUser가 없으면 null을 반환한다")
+        @Test
+        void returnsNull_whenAttributeNotExists() throws Exception {
+            // arrange
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            NativeWebRequest webRequest = new ServletWebRequest(request);
+            MethodParameter parameter = new MethodParameter(
+                    TestController.class.getMethod("optionalLoginMethod", LoginUser.class), 0);
+
+            // act
+            Object result = resolver.resolveArgument(parameter, null, webRequest, null);
+
+            // assert
+            assertThat(result).isNull();
+        }
+
+        @DisplayName("request attribute에 LoginUser가 있으면 반환한다")
+        @Test
+        void returnsLoginUser_whenAttributeExists() throws Exception {
+            // arrange
+            MockHttpServletRequest request = new MockHttpServletRequest();
+            request.setAttribute("loginUser", new LoginUser(1L, "testuser1", "홍길동"));
+            NativeWebRequest webRequest = new ServletWebRequest(request);
+            MethodParameter parameter = new MethodParameter(
+                    TestController.class.getMethod("optionalLoginMethod", LoginUser.class), 0);
+
+            // act
+            Object result = resolver.resolveArgument(parameter, null, webRequest, null);
+
+            // assert
+            assertThat(result).isInstanceOf(LoginUser.class);
+            assertThat(((LoginUser) result).id()).isEqualTo(1L);
+        }
+
+        @DisplayName("supportsParameter가 true를 반환한다")
+        @Test
+        void supportsParameter_returnsTrue() throws Exception {
+            // arrange
+            MethodParameter parameter = new MethodParameter(
+                    TestController.class.getMethod("optionalLoginMethod", LoginUser.class), 0);
+
+            // act & assert
+            assertThat(resolver.supportsParameter(parameter)).isTrue();
+        }
+    }
+
     // 테스트용 컨트롤러
     static class TestController {
         public void testMethod(@Login LoginUser loginUser) {}
         public void noAnnotationMethod(LoginUser loginUser) {}
+        public void optionalLoginMethod(@OptionalLogin LoginUser loginUser) {}
     }
 }
