@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.RankingListSource;
 import com.loopers.domain.ranking.RankingPage;
 import com.loopers.domain.ranking.RankingQueryService;
 import com.loopers.domain.ranking.RankingRow;
@@ -37,11 +38,12 @@ class RankingFacadeTest {
     @DisplayName("date 문자열을 파싱해 QueryService에 LocalDate로 넘긴다.")
     void getRankings_shouldDelegateWithParsedDate() {
         RankingPage domainPage = new RankingPage(
-                List.of(new RankingRow(1, 1L, 1.0d, "n", BigDecimal.ONE, 1L, "b", 0L)),
+                List.of(new RankingRow(1, 1L, 1.0d, "n", BigDecimal.ONE, 1L, "b", 0L, 0)),
                 1,
                 20,
                 1L,
-                1
+                1,
+                RankingListSource.REDIS_ZSET
         );
         when(rankingQueryService.loadPage(eq(LocalDate.of(2026, 4, 8)), eq(1), eq(20)))
                 .thenReturn(domainPage);
@@ -50,6 +52,7 @@ class RankingFacadeTest {
 
         verify(rankingQueryService).loadPage(LocalDate.of(2026, 4, 8), 1, 20);
         assertThat(out.totalElements()).isEqualTo(1L);
+        assertThat(out.dataSource()).isEqualTo("REDIS");
         assertThat(out.items()).hasSize(1);
         assertThat(out.items().get(0).productId()).isEqualTo(1L);
     }

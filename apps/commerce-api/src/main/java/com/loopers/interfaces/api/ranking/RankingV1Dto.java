@@ -14,13 +14,15 @@ public class RankingV1Dto {
             @Schema(description = "전역 순위(1-based). 오프셋: (page-1)*size + 행 인덱스")
             int rank,
             long productId,
-            @Schema(description = "ZSET score(동일 score 시 Redis member 규칙으로 상대 순서 결정)")
+            @Schema(description = "ZSET score(동일 score 시 Redis member 규칙으로 상대 순서 결정). FALLBACK_LATEST 시 0")
             double score,
             String name,
             BigDecimal price,
             long brandId,
             String brandName,
-            long likeCount
+            long likeCount,
+            @Schema(description = "재고 수량(품절 UI용). 랭킹에서 품절 필터는 하지 않음.")
+            int stockQuantity
     ) {
         /**
          * 랭킹 아이템을 응답 DTO로 변환한다.
@@ -45,7 +47,8 @@ public class RankingV1Dto {
                     item.price(),
                     item.brandId(),
                     item.brandName(),
-                    item.likeCount()
+                    item.likeCount(),
+                    item.stockQuantity()
             );
         }
     }
@@ -61,10 +64,12 @@ public class RankingV1Dto {
             int page,
             @Schema(description = "요청한 페이지 크기")
             int size,
-            @Schema(description = "ZSET 전체 원소 수(ZCARD)")
+            @Schema(description = "ZSET 전체 원소 수(ZCARD). FALLBACK_LATEST 시 DB 페이지 total")
             long totalElements,
             @Schema(description = "총 페이지 수(ceil(totalElements/size), totalElements=0이면 0)")
-            int totalPages
+            int totalPages,
+            @Schema(description = "REDIS=일간 ZSET, FALLBACK_LATEST=Redis 장애 시 DB 최신순, DEGRADED=복구 불가 빈 목록")
+            String dataSource
     ) {
         /**
          * 랭킹 목록 결과를 응답 DTO로 변환한다.
@@ -86,7 +91,8 @@ public class RankingV1Dto {
                     result.page(),
                     result.size(),
                     result.totalElements(),
-                    result.totalPages()
+                    result.totalPages(),
+                    result.dataSource()
             );
         }
     }

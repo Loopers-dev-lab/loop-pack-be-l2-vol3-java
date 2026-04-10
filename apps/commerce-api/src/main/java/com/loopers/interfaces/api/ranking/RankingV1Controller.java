@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Validated
 public class RankingV1Controller implements RankingV1ApiSpec {
 
+    public static final String HEADER_RANKING_DATA_SOURCE = "X-Loopers-Ranking-Data-Source";
+
     private final RankingFacade rankingFacade;
 
     public RankingV1Controller(RankingFacade rankingFacade) {
@@ -41,6 +43,8 @@ public class RankingV1Controller implements RankingV1ApiSpec {
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
     ) {
         RankingListInfo listResult = rankingFacade.getRankings(date, page, size);
-        return ResponseEntity.ok(ApiResponse.success(RankingV1Dto.ListResponse.from(listResult)));
+        return ResponseEntity.ok()
+                .header(HEADER_RANKING_DATA_SOURCE, listResult.dataSource())
+                .body(ApiResponse.success(RankingV1Dto.ListResponse.from(listResult)));
     }
 }

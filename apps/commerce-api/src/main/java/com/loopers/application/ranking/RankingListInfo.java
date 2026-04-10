@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.RankingListSource;
 import com.loopers.domain.ranking.RankingPage;
 
 import java.util.List;
@@ -12,13 +13,15 @@ import java.util.List;
  * @param size 페이지 크기
  * @param totalElements 총 아이템 수
  * @param totalPages 총 페이지 수
+ * @param dataSource 목록 생성 경로(API {@code dataSource} 문자열과 동일 의미)
  */
 public record RankingListInfo(
         List<RankingItemInfo> items,
         int page,
         int size,
         long totalElements,
-        int totalPages
+        int totalPages,
+        String dataSource
 ) {
     public static RankingListInfo from(RankingPage page) {
         List<RankingItemInfo> items = page.rows().stream()
@@ -29,7 +32,21 @@ public record RankingListInfo(
                 page.page(),
                 page.size(),
                 page.totalElements(),
-                page.totalPages()
+                page.totalPages(),
+                toDataSource(page.listSource())
         );
+    }
+
+    /**
+     * 랭킹 목록 생성 경로를 문자열로 변환한다.
+     * @param source 랭킹 목록 생성 경로
+     * @return 문자열
+     */
+    private static String toDataSource(RankingListSource source) {
+        return switch (source) {
+            case REDIS_ZSET -> "REDIS";
+            case FALLBACK_DB_LATEST -> "FALLBACK_LATEST";
+            case DEGRADED_EMPTY -> "DEGRADED";
+        };
     }
 }

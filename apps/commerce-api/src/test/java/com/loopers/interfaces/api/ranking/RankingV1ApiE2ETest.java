@@ -88,9 +88,12 @@ class RankingV1ApiE2ETest {
 
         assertAll(
                 () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getHeaders().getFirst(RankingV1Controller.HEADER_RANKING_DATA_SOURCE))
+                        .isEqualTo("REDIS"),
                 () -> assertThat(response.getBody()).isNotNull(),
                 () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
                 () -> assertThat(response.getBody().data().totalElements()).isEqualTo(2L),
+                () -> assertThat(response.getBody().data().dataSource()).isEqualTo("REDIS"),
                 () -> assertThat(response.getBody().data().content()).hasSize(2),
                 () -> assertThat(response.getBody().data().content().get(0).rank()).isEqualTo(1),
                 () -> assertThat(response.getBody().data().content().get(0).productId()).isEqualTo(highScoreProductId),
@@ -224,5 +227,99 @@ class RankingV1ApiE2ETest {
                 new ParameterizedTypeReference<>() {});
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - ZSET에만 있고 DB에 없는 member는 제외·totalElements는 ZCARD 유지 (R3)")
+    void getRankings_whenZsetContainsUnknownProductId_shouldOmitRowAndKeepTotalFromZcard() {
+        BrandModel brand = brandService.registerBrand("랭킹ZSET없음E2E");
+        ProductModel existing = productService.registerProduct(
+                brand.getId(), "실제상품", new BigDecimal("3000"), 5);
+        long ghostId = existing.getId() + 1_000_000_000L;
+        String key = "ranking:all:" + RANKING_DATE;
+        redisTemplate.opsForZSet().add(key, String.valueOf(ghostId), 2.0d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(existing.getId()), 1.0d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?date=" + RANKING_DATE + "&page=1&size=10",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(2L),
+                () -> assertThat(response.getBody().data().content()).hasSize(1),
+                () -> assertThat(response.getBody().data().content().get(0).productId()).isEqualTo(existing.getId()),
+                () -> assertThat(response.getBody().data().content().get(0).rank()).isEqualTo(2)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - 재고 0이어도 랭킹 목록에 포함된다 (E-STOCK-NOFILTER / R6)")
+    void getRankings_whenProductStockZero_shouldStillReturnInRankingList() {
+        BrandModel brand = brandService.registerBrand("품절랭킹E2E");
+        ProductModel outOfStock = productService.registerProduct(
+                brand.getId(), "품절랭킹상품", new BigDecimal("1000"), 0);
+        String key = "ranking:all:" + RANKING_DATE;
+        redisTemplate.opsForZSet().add(key, String.valueOf(outOfStock.getId()), 0.55d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?date=" + RANKING_DATE + "&page=1&size=10",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().content()).hasSize(1),
+                () -> assertThat(response.getBody().data().content().get(0).productId()).isEqualTo(outOfStock.getId()),
+                () -> assertThat(response.getBody().data().content().get(0).name()).isEqualTo("품절랭킹상품"),
+                () -> assertThat(response.getBody().data().content().get(0).stockQuantity()).isEqualTo(0)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - 동일 page 재요청 사이 ZSET 갱신 시 결과가 달라질 수 있다 (E-OFFSET-SHIFT)")
+    void getRankings_whenZsetChangesBetweenRequests_shouldAllowOffsetShift() {
+        BrandModel brand = brandService.registerBrand("오프셋시프트E2E");
+        ProductModel p1 = productService.registerProduct(brand.getId(), "p1", new BigDecimal("1000"), 5);
+        ProductModel p2 = productService.registerProduct(brand.getId(), "p2", new BigDecimal("2000"), 5);
+        ProductModel p3 = productService.registerProduct(brand.getId(), "p3", new BigDecimal("3000"), 5);
+        ProductModel p4 = productService.registerProduct(brand.getId(), "p4", new BigDecimal("4000"), 5);
+        ProductModel p5 = productService.registerProduct(brand.getId(), "p5", new BigDecimal("5000"), 5);
+        String key = "ranking:all:" + RANKING_DATE;
+        redisTemplate.opsForZSet().add(key, String.valueOf(p1.getId()), 0.9d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p2.getId()), 0.8d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p3.getId()), 0.7d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p4.getId()), 0.6d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p5.getId()), 0.5d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> before = testRestTemplate.exchange(
+                ENDPOINT + "?date=" + RANKING_DATE + "&page=2&size=2",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        redisTemplate.opsForZSet().add(key, String.valueOf(p5.getId()), 1.1d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> after = testRestTemplate.exchange(
+                ENDPOINT + "?date=" + RANKING_DATE + "&page=2&size=2",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(before.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(after.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(before.getBody()).isNotNull(),
+                () -> assertThat(after.getBody()).isNotNull(),
+                () -> assertThat(before.getBody().data().content()).hasSize(2),
+                () -> assertThat(after.getBody().data().content()).hasSize(2),
+                () -> assertThat(before.getBody().data().content().get(0).productId())
+                        .isNotEqualTo(after.getBody().data().content().get(0).productId())
+        );
     }
 }
