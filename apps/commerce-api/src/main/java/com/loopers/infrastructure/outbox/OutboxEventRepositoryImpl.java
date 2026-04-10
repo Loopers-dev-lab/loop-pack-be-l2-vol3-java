@@ -4,8 +4,8 @@ import com.loopers.support.outbox.OutboxEvent;
 import com.loopers.support.outbox.OutboxEventRepository;
 import com.loopers.support.outbox.OutboxEventStatus;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -24,7 +24,8 @@ public class OutboxEventRepositoryImpl implements OutboxEventRepository {
     @Override
     public List<OutboxEvent> findPending(int limit) {
         ZonedDateTime staleBefore = ZonedDateTime.now().minusSeconds(10);
-        return jpaRepository.findStalePending(OutboxEventStatus.PENDING, staleBefore, PageRequest.of(0, limit));
+        return jpaRepository.findStalePendingForUpdate(
+                OutboxEventStatus.PENDING.name(), staleBefore, limit);
     }
 
     @Override

@@ -2,7 +2,6 @@ package com.loopers.infrastructure.outbox;
 
 import com.loopers.support.outbox.OutboxEvent;
 import com.loopers.support.outbox.OutboxEventStatus;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -14,10 +13,16 @@ import java.util.List;
 
 public interface OutboxEventJpaRepository extends JpaRepository<OutboxEvent, Long> {
 
-    @Query("SELECT o FROM OutboxEvent o WHERE o.status = :status AND o.createdAt < :before ORDER BY o.id ASC")
-    List<OutboxEvent> findStalePending(@Param("status") OutboxEventStatus status,
-                                       @Param("before") ZonedDateTime before,
-                                       Pageable pageable);
+    @Query(value = """
+            SELECT * FROM outbox_events
+            WHERE status = :status AND created_at < :before
+            ORDER BY id ASC
+            LIMIT :lim
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<OutboxEvent> findStalePendingForUpdate(@Param("status") String status,
+                                                 @Param("before") ZonedDateTime before,
+                                                 @Param("lim") int lim);
 
     @Modifying
     @Transactional
