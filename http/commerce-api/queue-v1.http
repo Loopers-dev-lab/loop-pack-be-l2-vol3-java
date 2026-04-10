@@ -1,0 +1,68 @@
+### ==============================
+### Step 1 — 대기열
+### ==============================
+
+### 대기열 진입 (신규)
+POST {{commerce-api}}/api/v1/queue/enter?userId=user-1
+
+### 대기열 진입 (중복 — 같은 userId, 기존 순번 유지)
+POST {{commerce-api}}/api/v1/queue/enter?userId=user-1
+
+### 대기열 진입 (여러 유저)
+POST {{commerce-api}}/api/v1/queue/enter?userId=user-2
+
+###
+POST {{commerce-api}}/api/v1/queue/enter?userId=user-3
+
+### 순번 조회 (대기 중)
+GET {{commerce-api}}/api/v1/queue/position?userId=user-3
+
+### 순번 조회 (존재하지 않는 userId → 404)
+GET {{commerce-api}}/api/v1/queue/position?userId=ghost-user
+
+
+### ==============================
+### Step 2 — 토큰 검증
+### ==============================
+
+### 주문 API — 토큰 없이 진입 (→ 403 QUEUE_TOKEN_INVALID)
+POST {{commerce-api}}/api/v1/orders
+X-User-Id: user-1
+Content-Type: application/json
+
+{
+  "items": [
+    { "productId": 1, "quantity": 1 }
+  ]
+}
+
+### 주문 API — 유효한 토큰으로 진입 (스케줄러 실행 후 발급된 토큰 사용)
+# X-Queue-Token 값은 GET /queue/position 응답의 token 필드 값으로 교체
+POST {{commerce-api}}/api/v1/orders
+X-User-Id: user-1
+X-Queue-Token: <발급된-토큰-값>
+Content-Type: application/json
+
+{
+  "items": [
+    { "productId": 1, "quantity": 1 }
+  ]
+}
+
+
+### ==============================
+### Step 3 — 실시간 순번 조회 (Adaptive Polling)
+### ==============================
+
+### 순번 조회 — 1번 (nextPollAfter: 5초)
+GET {{commerce-api}}/api/v1/queue/position?userId=user-1
+
+### 순번 조회 — 중간 순번 (nextPollAfter: 15초)
+GET {{commerce-api}}/api/v1/queue/position?userId=user-2
+
+### 순번 조회 — 먼 순번 (nextPollAfter: 30초)
+GET {{commerce-api}}/api/v1/queue/position?userId=user-3
+
+### 순번 조회 — 토큰 발급된 유저 (token 필드 포함)
+# 스케줄러 실행 후 토큰이 발급된 유저는 token 필드가 채워짐
+GET {{commerce-api}}/api/v1/queue/position?userId=user-1

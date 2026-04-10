@@ -1,0 +1,64 @@
+### 블랙프라이데이 시뮬레이터 Seed 데이터
+### 실행 순서: 1 → 2 → 3 순서대로 실행
+### 전제: commerce-api 실행 중, Admin LDAP 헤더 필요
+
+@baseUrl = http://localhost:8080
+@adminLdap = loopers.admin
+
+### 1. 테스트 브랜드 생성
+POST {{baseUrl}}/api-admin/v1/brands
+Content-Type: application/json
+X-Loopers-Ldap: {{adminLdap}}
+
+{
+  "name": "블프테스트브랜드",
+  "description": "블랙프라이데이 부하 테스트 전용 브랜드",
+  "logoImageUrl": "https://example.com/logo.png"
+}
+
+###
+
+### 2-A. 한계점 탐색 전용 상품 생성 (재고 10,000 → 재고 고갈 노이즈 제거)
+### → 응답에서 productId 확인 후 아래 SQL로 재고 등록
+POST {{baseUrl}}/api-admin/v1/products
+Content-Type: application/json
+X-Loopers-Ldap: {{adminLdap}}
+
+{
+  "brandId": 1,
+  "name": "한계점테스트상품",
+  "price": 10000,
+  "description": "breakpoint.js 전용 - 재고 10000",
+  "thumbnailImageUrl": "https://example.com/bp.png"
+}
+
+###
+
+### 2-B. 블랙프라이데이 전용 상품 생성 (재고 50 → 한정 수량 재현)
+### → 응답에서 productId 확인 후 아래 SQL로 재고 등록
+POST {{baseUrl}}/api-admin/v1/products
+Content-Type: application/json
+X-Loopers-Ldap: {{adminLdap}}
+
+{
+  "brandId": 1,
+  "name": "한정판 블프 상품",
+  "price": 99000,
+  "description": "black-friday.js 전용 - 재고 50",
+  "thumbnailImageUrl": "https://example.com/bf.png"
+}
+
+###
+
+### 3. 재고 등록 (Admin API에 재고 수정 엔드포인트 없으므로 직접 SQL 사용)
+### MySQL 접속: localhost:3307 / root / root
+###
+### 한계점 테스트 상품 재고 (productId는 2-A 응답에서 확인):
+###   INSERT INTO stock (product_id, quantity) VALUES ({productId_A}, 10000);
+###
+### 블랙프라이데이 상품 재고 (productId는 2-B 응답에서 확인):
+###   INSERT INTO stock (product_id, quantity) VALUES ({productId_B}, 50);
+###
+### 재고 리셋 (테스트 재실행 시):
+###   UPDATE stock SET quantity = 50 WHERE product_id = {productId_B};
+###   UPDATE stock SET quantity = 10000 WHERE product_id = {productId_A};
