@@ -3,9 +3,9 @@ package com.loopers.application.like;
 import com.loopers.domain.like.LikeResult;
 import com.loopers.domain.like.LikeModel;
 import com.loopers.domain.like.LikeToggleService;
-import com.loopers.application.product.ProductService;
+import com.loopers.domain.like.event.LikeToggledEvent;
 import lombok.RequiredArgsConstructor;
-import org.springframework.cache.CacheManager;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,9 +16,8 @@ import java.util.Optional;
 public class LikeTransactionService {
 
     private final LikeService likeService;
-    private final ProductService productService;
     private final LikeToggleService likeToggleService;
-    private final CacheManager cacheManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void doLike(Long userId, Long productId) {
@@ -28,8 +27,7 @@ public class LikeTransactionService {
         result.newLike().ifPresent(likeService::save);
 
         if (result.countChanged()) {
-            productService.incrementLikeCount(productId);
-            evictProductDetailCache(productId);
+            eventPublisher.publishEvent(new LikeToggledEvent(productId, true));
         }
     }
 
@@ -39,14 +37,6 @@ public class LikeTransactionService {
         if (activeLike.isEmpty()) return;
 
         likeToggleService.unlike(activeLike.get());
-        productService.decrementLikeCount(activeLike.get().productId());
-        evictProductDetailCache(productId);
-    }
-
-    private void evictProductDetailCache(Long productId) {
-        var cache = cacheManager.getCache("productDetail");
-        if (cache != null) {
-            cache.evict(productId);
-        }
+        eventPublisher.publishEvent(new LikeToggledEvent(productId, false));
     }
 }

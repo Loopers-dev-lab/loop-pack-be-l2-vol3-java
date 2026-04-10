@@ -8,9 +8,12 @@ import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.stock.StockModel;
 import com.loopers.domain.stock.StockStatus;
 import com.loopers.application.stock.StockService;
+import com.loopers.application.ranking.RankingFacade;
+import com.loopers.domain.product.event.ProductViewedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -26,6 +29,8 @@ public class ProductFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final StockService stockService;
+    private final RankingFacade rankingFacade;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public ProductDetail register(String name, String description, Money price, Long brandId, int initialStock) {
@@ -38,12 +43,14 @@ public class ProductFacade {
     }
 
     @Cacheable(cacheNames = "productDetail", key = "#productId")
-    @Transactional(readOnly = true)
+    @Transactional
     public ProductDetail getProduct(Long productId) {
         ProductModel product = productService.getById(productId);
         String brandName = getBrandName(product.getBrandId());
         StockModel stock = stockService.getByProductId(productId);
-        return ProductDetail.ofCustomer(product, brandName, StockStatus.from(stock.getQuantity()));
+        Long rank = rankingFacade.getProductRank(productId);
+        eventPublisher.publishEvent(new ProductViewedEvent(productId, null));
+        return ProductDetail.ofCustomer(product, brandName, StockStatus.from(stock.getQuantity()), rank);
     }
 
     @Transactional(readOnly = true)

@@ -7,10 +7,12 @@ import com.loopers.domain.payment.PaymentModel;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.infrastructure.payment.PgPaymentGateway;
 import com.loopers.infrastructure.payment.dto.PgPaymentRequest;
+import com.loopers.domain.payment.event.PaymentCompletedEvent;
 import com.loopers.infrastructure.payment.dto.PgPaymentResponse;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class PaymentFacade {
     private final OrderService orderService;
     private final PgPaymentGateway pgPaymentGateway;
     private final PgProperties pgProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * TX 분리 패턴:
@@ -76,6 +79,10 @@ public class PaymentFacade {
             payment.markFailed(failureReason);
             order.failPayment();
         }
+
+        eventPublisher.publishEvent(new PaymentCompletedEvent(
+            payment.getId(), payment.orderId(), payment.userId(), "SUCCESS".equals(status)
+        ));
     }
 
     @Transactional

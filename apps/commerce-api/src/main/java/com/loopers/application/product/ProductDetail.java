@@ -15,16 +15,21 @@ public record ProductDetail(
     int likeCount,
     StockStatus stockStatus,
     int stockQuantity,
+    Long rank,
     ZonedDateTime createdAt,
     ZonedDateTime updatedAt,
     ZonedDateTime deletedAt
 ) {
 
     public static ProductDetail ofCustomer(ProductModel product, String brandName, StockStatus stockStatus) {
+        return ofCustomer(product, brandName, stockStatus, null);
+    }
+
+    public static ProductDetail ofCustomer(ProductModel product, String brandName, StockStatus stockStatus, Long rank) {
         return new ProductDetail(
             product.getId(), product.getName(), product.getDescription(),
             product.getPrice().value(), product.getBrandId(), brandName,
-            product.getLikeCount(), stockStatus, 0,
+            product.getLikeCount(), stockStatus, 0, rank,
             product.getCreatedAt(), product.getUpdatedAt(), product.getDeletedAt()
         );
     }
@@ -33,7 +38,7 @@ public record ProductDetail(
         return new ProductDetail(
             product.getId(), product.getName(), product.getDescription(),
             product.getPrice().value(), product.getBrandId(), brandName,
-            product.getLikeCount(), null, stockQuantity,
+            product.getLikeCount(), null, stockQuantity, null,
             product.getCreatedAt(), product.getUpdatedAt(), product.getDeletedAt()
         );
     }
