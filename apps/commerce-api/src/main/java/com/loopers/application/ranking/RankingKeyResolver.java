@@ -3,6 +3,8 @@ package com.loopers.application.ranking;
 import com.loopers.domain.ranking.RankingPeriod;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.WeekFields;
@@ -13,8 +15,19 @@ public class RankingKeyResolver {
     private static final DateTimeFormatter DAILY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter MONTHLY_FORMAT = DateTimeFormatter.ofPattern("yyyyMM");
 
+    private final Clock clock;
+
+    public RankingKeyResolver(Clock clock) {
+        this.clock = clock;
+    }
+
     public String resolve(RankingPeriod period, LocalDate date, String groupName) {
         String base = switch (period) {
+            case HOURLY -> {
+                long epochSecond = clock.instant().getEpochSecond();
+                long truncatedHour = epochSecond - (epochSecond % 3600);
+                yield "ranking:hourly:" + truncatedHour;
+            }
             case DAILY -> "ranking:daily:" + date.format(DAILY_FORMAT);
             case WEEKLY -> {
                 WeekFields iso = WeekFields.ISO;
