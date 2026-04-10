@@ -15,6 +15,9 @@ import java.util.List;
  *
  * <p>catalog-events 토픽에서 PRODUCT_VIEWED, PRODUCT_LIKED, PRODUCT_UNLIKED
  * 이벤트를 배치로 수신하여 {@link CatalogEventProcessor}에 위임한다.</p>
+ *
+ * <p>PRODUCT_VIEWED 이벤트는 배치 합산 후 Redis Pipeline으로 일괄 처리하고,
+ * PRODUCT_LIKED/UNLIKED는 멱등 처리(SADD)가 필요하므로 1건씩 처리한다.</p>
  */
 @Component
 @RequiredArgsConstructor
@@ -31,14 +34,7 @@ public class CatalogEventConsumer {
     public void consume(List<ConsumerRecord<Object, Object>> records, Acknowledgment ack) {
         log.debug("[CatalogConsumer] 수신 {}건", records.size());
 
-        for (ConsumerRecord<Object, Object> record : records) {
-            try {
-                catalogEventProcessor.process(record);
-            } catch (Exception e) {
-                log.error("[CatalogConsumer] 처리 실패 — offset={}, key={}",
-                    record.offset(), record.key(), e);
-            }
-        }
+        catalogEventProcessor.processBatch(records);
 
         ack.acknowledge();
     }
