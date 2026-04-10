@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.product.dto;
 
 import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.ranking.RankingInfo;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -16,11 +17,21 @@ public class ProductV1Dto {
             String description,
             Integer price,
             Integer stockQuantity,
-            Integer likeCount
+            Integer likeCount,
+            RankingSummary ranking
     ) {
         public record BrandInfo(String name) {}
+        public record RankingSummary(Long rank, Double score) {}
 
         public static ProductResponse from(ProductInfo productInfo) {
+            return from(productInfo, null);
+        }
+
+        public static ProductResponse from(ProductInfo productInfo, RankingInfo ranking) {
+            RankingSummary rankingSummary = (ranking != null)
+                    ? new RankingSummary(ranking.rank(), ranking.score())
+                    : null;
+
             return new ProductResponse(
                     productInfo.id(),
                     new BrandInfo(productInfo.brand().name()),
@@ -28,7 +39,8 @@ public class ProductV1Dto {
                     productInfo.description(),
                     productInfo.price(),
                     productInfo.stockQuantity(),
-                    productInfo.likeCount()
+                    productInfo.likeCount(),
+                    rankingSummary
             );
         }
     }
