@@ -1,7 +1,7 @@
 package com.loopers.application.order;
 
-import com.loopers.application.order.event.OrderPaymentCancelRequestEvent;
-import com.loopers.application.order.event.OrderPaymentRequestEvent;
+import com.loopers.application.process.checkout.event.OrderPaymentCancelRequestEvent;
+import com.loopers.application.process.checkout.event.OrderPaymentRequestEvent;
 import com.loopers.application.payment.PaymentCancelApplicationService;
 import com.loopers.application.payment.PaymentStartApplicationService;
 import com.loopers.application.payment.command.CancelPaymentCommand;

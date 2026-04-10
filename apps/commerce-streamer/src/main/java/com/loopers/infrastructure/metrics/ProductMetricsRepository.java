@@ -5,22 +5,26 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
 
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 @Repository
 public class ProductMetricsRepository {
 
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+
     @PersistenceContext
     private EntityManager entityManager;
 
     public void upsert(ProductMetricsEventMessage eventMessage) {
-        ZonedDateTime updatedAt = ZonedDateTime.ofInstant(eventMessage.updatedAt(), ZonedDateTime.now().getZone());
+        ZonedDateTime updatedAt = ZonedDateTime.ofInstant(eventMessage.updatedAt(), KOREA_ZONE);
         entityManager.createNativeQuery(
                         """
                         INSERT INTO product_metrics (
                             product_id,
                             like_count,
                             sales_count,
+                            sales_amount,
                             view_count,
                             version,
                             updated_at,
@@ -29,6 +33,7 @@ public class ProductMetricsRepository {
                             :productId,
                             :deltaLike,
                             :deltaSales,
+                            :deltaRevenue,
                             :deltaView,
                             :version,
                             :updatedAt,
@@ -44,6 +49,11 @@ public class ProductMetricsRepository {
                                 WHEN (version < :version OR (version = :version AND updated_at <= :updatedAt))
                                 THEN sales_count + :deltaSales
                                 ELSE sales_count
+                            END,
+                            sales_amount = CASE
+                                WHEN (version < :version OR (version = :version AND updated_at <= :updatedAt))
+                                THEN sales_amount + :deltaRevenue
+                                ELSE sales_amount
                             END,
                             view_count = CASE
                                 WHEN (version < :version OR (version = :version AND updated_at <= :updatedAt))
@@ -65,6 +75,7 @@ public class ProductMetricsRepository {
                 .setParameter("productId", eventMessage.productId())
                 .setParameter("deltaLike", eventMessage.deltaLike())
                 .setParameter("deltaSales", eventMessage.deltaSales())
+                .setParameter("deltaRevenue", eventMessage.deltaRevenue())
                 .setParameter("deltaView", eventMessage.deltaView())
                 .setParameter("version", eventMessage.version())
                 .setParameter("updatedAt", updatedAt)

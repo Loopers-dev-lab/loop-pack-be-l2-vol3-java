@@ -75,6 +75,21 @@ public record Order(
         if (this.status == OrderStatus.CANCELLED) {
             throw new CoreException(ErrorType.CONFLICT, "이미 취소된 주문입니다.");
         }
+        if (this.status == OrderStatus.CANCEL_PENDING) {
+            return new Order(
+                    id,
+                    memberId,
+                    orderNumber,
+                    orderDate,
+                    OrderStatus.CANCELLED,
+                    totalAmount,
+                    couponId,
+                    usedPointAmount,
+                    items,
+                    ZonedDateTime.now(),
+                    stockDeductedAt
+            );
+        }
         return new Order(
                 id,
                 memberId,
@@ -86,6 +101,29 @@ public record Order(
                 usedPointAmount,
                 items,
                 ZonedDateTime.now(),
+                stockDeductedAt
+        );
+    }
+
+    public Order requestCancel() {
+        if (this.status == OrderStatus.CANCELLED) {
+            throw new CoreException(ErrorType.CONFLICT, "이미 취소된 주문입니다.");
+        }
+        if (this.status == OrderStatus.CANCEL_PENDING) {
+            throw new CoreException(ErrorType.CONFLICT, "주문 취소 처리 중입니다.");
+        }
+
+        return new Order(
+                id,
+                memberId,
+                orderNumber,
+                orderDate,
+                OrderStatus.CANCEL_PENDING,
+                totalAmount,
+                couponId,
+                usedPointAmount,
+                items,
+                deletedAt,
                 stockDeductedAt
         );
     }
@@ -119,6 +157,10 @@ public record Order(
 
     public boolean isCancelled() {
         return this.status == OrderStatus.CANCELLED;
+    }
+
+    public boolean isCancelPending() {
+        return this.status == OrderStatus.CANCEL_PENDING;
     }
 
     public boolean isStockDeducted() {

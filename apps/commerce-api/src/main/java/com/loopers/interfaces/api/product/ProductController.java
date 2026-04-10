@@ -3,12 +3,15 @@ package com.loopers.interfaces.api.product;
 import com.loopers.application.product.ProductApplicationService;
 import com.loopers.application.product.PublicProductListQueryApplicationService;
 import com.loopers.application.product.ProductQueryFacade;
+import com.loopers.application.product.ProductDetailQueryFacade;
+import com.loopers.application.ranking.RankingQueryFacade;
 import com.loopers.application.behavior.BehaviorEventPublisher;
 import com.loopers.application.behavior.event.BehaviorActionType;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.query.ProductListCriteria;
 import com.loopers.domain.product.query.ProductListQuery;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.ranking.RankingDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,7 +31,9 @@ public class ProductController {
 
     private final ProductApplicationService productApplicationService;
     private final ProductQueryFacade productQueryFacade;
+    private final ProductDetailQueryFacade productDetailQueryFacade;
     private final PublicProductListQueryApplicationService publicProductListQueryApplicationService;
+    private final RankingQueryFacade rankingQueryFacade;
     private final BehaviorEventPublisher behaviorEventPublisher;
 
     @PostMapping
@@ -42,9 +47,14 @@ public class ProductController {
 
     @GetMapping("/{productId}")
     public ApiResponse<ProductDto.ProductResponse> getProduct(@PathVariable UUID productId) {
-        ApiResponse<ProductDto.ProductResponse> response = ApiResponse.success(ProductDto.ProductResponse.from(productQueryFacade.get(productId)));
+        ApiResponse<ProductDto.ProductResponse> response = ApiResponse.success(ProductDto.ProductResponse.from(productDetailQueryFacade.get(productId)));
         behaviorEventPublisher.publish(BehaviorActionType.PRODUCT_DETAIL_REQUESTED, "", productId.toString(), "");
         return response;
+    }
+
+    @GetMapping("/{productId}/rank")
+    public ApiResponse<RankingDto.ProductRankResponse> getProductRank(@PathVariable UUID productId) {
+        return ApiResponse.success(RankingDto.ProductRankResponse.from(rankingQueryFacade.getProductRank(productId)));
     }
 
     @GetMapping

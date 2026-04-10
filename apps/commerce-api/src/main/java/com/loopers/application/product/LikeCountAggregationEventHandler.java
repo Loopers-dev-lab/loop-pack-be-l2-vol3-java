@@ -14,7 +14,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class LikeCountAggregationEventHandler {
 
-    private final ProductLikeApplicationService productLikeApplicationService;
+    private final ProductLikeAplicationService productLikeApplicationService;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)

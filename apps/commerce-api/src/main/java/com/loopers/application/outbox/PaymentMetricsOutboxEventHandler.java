@@ -54,6 +54,7 @@ public class PaymentMetricsOutboxEventHandler {
                     item.productId().toString(),
                     0,
                     salesDelta * item.quantity(),
+                    salesDelta * item.totalPrice(),
                     0,
                     event.changedAt().toEpochMilli(),
                     event.changedAt()

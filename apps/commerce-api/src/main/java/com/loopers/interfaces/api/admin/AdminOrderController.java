@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.admin;
 
 import com.loopers.application.order.OrderApplicationService;
-import com.loopers.application.order.OrderUseCase;
+import com.loopers.application.process.checkout.OrderUseCase;
 import com.loopers.application.order.query.OrderAccessRequest;
 import com.loopers.domain.order.Order;
 import com.loopers.interfaces.api.ApiResponse;

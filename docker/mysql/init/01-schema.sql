@@ -244,17 +244,45 @@ CREATE TABLE IF NOT EXISTS outbox_event (
 );
 
 CREATE TABLE IF NOT EXISTS product_metrics (
-    product_id VARCHAR(36) NOT NULL,
+    product_id VARCHAR(36) PRIMARY KEY,
     like_count BIGINT NOT NULL DEFAULT 0,
     sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
     view_count BIGINT NOT NULL DEFAULT 0,
     version BIGINT NOT NULL DEFAULT 0,
     updated_at DATETIME(6) NOT NULL,
-    created_at DATETIME(6) NOT NULL,
-    PRIMARY KEY (product_id),
-    KEY idx_product_metrics_updated_at (updated_at)
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 );
 
+CREATE TABLE IF NOT EXISTS product_metrics_daily (
+    metric_date DATE NOT NULL,
+    product_id VARCHAR(36) NOT NULL,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    version BIGINT NOT NULL DEFAULT 0,
+    updated_at DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (metric_date, product_id),
+    KEY idx_product_metrics_daily_product_date (product_id, metric_date),
+    KEY idx_product_metrics_daily_date (metric_date)
+);
+
+CREATE TABLE IF NOT EXISTS product_metrics_hourly (
+    metric_hour DATETIME(0) NOT NULL,
+    product_id VARCHAR(36) NOT NULL,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    version BIGINT NOT NULL DEFAULT 0,
+    updated_at DATETIME(6) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (metric_hour, product_id),
+    KEY idx_product_metrics_hourly_product_hour (product_id, metric_hour),
+    KEY idx_product_metrics_hourly_hour (metric_hour)
+);
 CREATE TABLE IF NOT EXISTS event_handled (
     id BIGINT NOT NULL AUTO_INCREMENT,
     consumer_group VARCHAR(120) NOT NULL,

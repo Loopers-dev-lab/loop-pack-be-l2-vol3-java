@@ -9,6 +9,8 @@ TRUNCATE TABLE order_event_log;
 TRUNCATE TABLE order_cancel_saga_progress;
 TRUNCATE TABLE order_create_saga_progress;
 TRUNCATE TABLE product_metrics;
+TRUNCATE TABLE product_metrics_daily;
+TRUNCATE TABLE product_metrics_hourly;
 TRUNCATE TABLE likes;
 TRUNCATE TABLE payments;
 TRUNCATE TABLE order_items;
