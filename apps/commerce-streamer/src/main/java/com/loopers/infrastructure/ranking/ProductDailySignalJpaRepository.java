@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -47,5 +48,5 @@ public interface ProductDailySignalJpaRepository extends JpaRepository<ProductDa
             """, nativeQuery = true)
     void upsertOrderAmount(@Param("productDbId") Long productDbId,
                            @Param("signalDate") LocalDate signalDate,
-                           @Param("amount") double amount);
+                           @Param("amount") BigDecimal amount);
 }

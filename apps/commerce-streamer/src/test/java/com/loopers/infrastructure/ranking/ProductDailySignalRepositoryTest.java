@@ -84,7 +84,7 @@ class ProductDailySignalRepositoryTest {
         @DisplayName("order upsert는 order_amount만 증가시킨다")
         void orderUpsertOnlyAffectsOrderAmount() {
             repository.upsertViewCount(1L, DATE, 1);
-            repository.upsertOrderAmount(1L, DATE, 15000.50);
+            repository.upsertOrderAmount(1L, DATE, new BigDecimal("15000.50"));
 
             List<ProductDailySignalModel> signals = repository.findBySignalDate(DATE);
             assertThat(signals).hasSize(1);

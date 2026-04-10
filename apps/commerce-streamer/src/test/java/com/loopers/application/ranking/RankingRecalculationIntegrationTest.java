@@ -60,12 +60,12 @@ class RankingRecalculationIntegrationTest {
         @Test
         @DisplayName("이벤트 적재 → 재집계 → ZSET 점수가 DB 원본 × 가중치와 일치한다")
         void recalculatedScoresMatchDbSignals() {
-            rankingApp.applyViewScore(1L, DATE);
-            rankingApp.applyViewScore(1L, DATE);
-            rankingApp.applyViewScore(1L, DATE);
-            rankingApp.applyLikeDelta(1L, 1, DATE);
-            rankingApp.applyLikeDelta(1L, 1, DATE);
-            rankingApp.applyOrderScore(1L, new BigDecimal("5000"), 2, DATE);
+            rankingApp.applyViewScore(1L, DATE.atStartOfDay());
+            rankingApp.applyViewScore(1L, DATE.atStartOfDay());
+            rankingApp.applyViewScore(1L, DATE.atStartOfDay());
+            rankingApp.applyLikeDelta(1L, 1, DATE.atStartOfDay());
+            rankingApp.applyLikeDelta(1L, 1, DATE.atStartOfDay());
+            rankingApp.applyOrderScore(1L, new BigDecimal("5000"), 2, DATE.atStartOfDay());
 
             long count = recalculationApp.recalculate(DATE);
             assertThat(count).isEqualTo(1L);
@@ -79,12 +79,12 @@ class RankingRecalculationIntegrationTest {
         @Test
         @DisplayName("여러 상품 재집계 → 모든 상품 점수가 DB 기반으로 갱신된다")
         void multipleProductsRecalculated() {
-            rankingApp.applyViewScore(1L, DATE);
-            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, DATE);
+            rankingApp.applyViewScore(1L, DATE.atStartOfDay());
+            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, DATE.atStartOfDay());
 
-            rankingApp.applyViewScore(2L, DATE);
-            rankingApp.applyViewScore(2L, DATE);
-            rankingApp.applyLikeDelta(2L, 1, DATE);
+            rankingApp.applyViewScore(2L, DATE.atStartOfDay());
+            rankingApp.applyViewScore(2L, DATE.atStartOfDay());
+            rankingApp.applyLikeDelta(2L, 1, DATE.atStartOfDay());
 
             long count = recalculationApp.recalculate(DATE);
             assertThat(count).isEqualTo(2L);
@@ -100,7 +100,7 @@ class RankingRecalculationIntegrationTest {
         @Test
         @DisplayName("재집계는 tie-break fraction을 제거하고 순수 가중치 점수로 교체한다")
         void recalculationRemovesTieBreakFraction() {
-            rankingApp.applyViewScore(1L, DATE);
+            rankingApp.applyViewScore(1L, DATE.atStartOfDay());
 
             String mainKey = RankingKeyGenerator.dailyKey(DATE);
             Double scoreBeforeRecalc = redisTemplate.opsForZSet().score(mainKey, "1");
@@ -120,7 +120,7 @@ class RankingRecalculationIntegrationTest {
         @Test
         @DisplayName("재집계 완료 후 shadow key는 존재하지 않는다")
         void shadowKeyRemovedAfterRename() {
-            rankingApp.applyViewScore(1L, DATE);
+            rankingApp.applyViewScore(1L, DATE.atStartOfDay());
 
             recalculationApp.recalculate(DATE);
 
@@ -132,8 +132,8 @@ class RankingRecalculationIntegrationTest {
         @Test
         @DisplayName("재집계 전 기존 ZSET의 순위와 재집계 후 순위가 올바르게 교체된다")
         void rankingOrderUpdatedAfterRecalculation() {
-            rankingApp.applyOrderScore(1L, new BigDecimal("100"), 1, DATE);
-            rankingApp.applyOrderScore(2L, new BigDecimal("10000"), 1, DATE);
+            rankingApp.applyOrderScore(1L, new BigDecimal("100"), 1, DATE.atStartOfDay());
+            rankingApp.applyOrderScore(2L, new BigDecimal("10000"), 1, DATE.atStartOfDay());
 
             String mainKey = RankingKeyGenerator.dailyKey(DATE);
             Long rankBefore = redisTemplate.opsForZSet().reverseRank(mainKey, "2");

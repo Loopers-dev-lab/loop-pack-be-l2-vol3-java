@@ -42,14 +42,14 @@ class RankingViewAbuseVerificationTest {
 
         // 단일 봇이 동일 상품을 3000회 조회
         for (int i = 0; i < 3000; i++) {
-            rankingApp.applyViewScore(1L, date);
+            rankingApp.applyViewScore(1L, date.atStartOfDay());
         }
 
         Double abusedScore = redisTemplate.opsForZSet().score(key, "1");
 
         // 실제 정상 상품: 좋아요 50건 = 0.2 * 50 = 10점
         for (int i = 0; i < 50; i++) {
-            rankingApp.applyLikeDelta(2L, 1, date);
+            rankingApp.applyLikeDelta(2L, 1, date.atStartOfDay());
         }
         Double normalScore = redisTemplate.opsForZSet().score(key, "2");
 
@@ -72,7 +72,7 @@ class RankingViewAbuseVerificationTest {
         int viewsPerBot = 300;
         for (int bot = 0; bot < botCount; bot++) {
             for (int view = 0; view < viewsPerBot; view++) {
-                rankingApp.applyViewScore(1L, date);
+                rankingApp.applyViewScore(1L, date.atStartOfDay());
             }
         }
 
@@ -99,7 +99,7 @@ class RankingViewAbuseVerificationTest {
             for (int view = 0; view < viewsPerBot; view++) {
                 // Bitmap SETBIT 시뮬레이션: 이미 카운트된 봇이면 스킵
                 if (seenMembers.add(bot)) {
-                    rankingApp.applyViewScore(1L, date);
+                    rankingApp.applyViewScore(1L, date.atStartOfDay());
                 }
             }
         }
@@ -123,7 +123,7 @@ class RankingViewAbuseVerificationTest {
         // A: 중복 방지 없음 (현재)
         for (int bot = 0; bot < 10; bot++) {
             for (int view = 0; view < 300; view++) {
-                rankingApp.applyViewScore(1L, dateA);
+                rankingApp.applyViewScore(1L, dateA.atStartOfDay());
             }
         }
 
@@ -132,7 +132,7 @@ class RankingViewAbuseVerificationTest {
         for (int bot = 0; bot < 10; bot++) {
             for (int view = 0; view < 300; view++) {
                 if (seen.add(bot)) {
-                    rankingApp.applyViewScore(1L, dateB);
+                    rankingApp.applyViewScore(1L, dateB.atStartOfDay());
                 }
             }
         }

@@ -58,7 +58,7 @@ public class ViewEventConsumer {
             return;
         }
         try {
-            rankingApp.applyViewScore(payload.productDbId(), payload.likedAt().toLocalDate());
+            rankingApp.applyViewScore(payload.productDbId(), payload.likedAt());
         } catch (Exception e) {
             log.warn("[RANKING_BEST_EFFORT] View 랭킹 반영 실패 — productDbId={}", payload.productDbId(), e);
         }
@@ -69,7 +69,7 @@ public class ViewEventConsumer {
         try {
             return objectMapper.readValue((byte[]) record.value(), CatalogEventPayload.class);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to deserialize ViewEventPayload", e);
+            throw new RuntimeException("Failed to deserialize CatalogEventPayload", e);
         }
     }
 }

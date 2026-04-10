@@ -12,6 +12,7 @@ import org.mockito.ArgumentCaptor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -43,12 +44,14 @@ class RankingAppTest {
         void likedEventIncreasesScoreByWeight() {
             Long productDbId = 42L;
             LocalDate date = LocalDate.of(2026, 4, 5);
+            LocalDateTime eventAt = date.atTime(10, 30);
 
-            rankingApp.applyLikeDelta(productDbId, 1, date);
+            rankingApp.applyLikeDelta(productDbId, 1, eventAt);
 
             ArgumentCaptor<Double> scoreCaptor = ArgumentCaptor.forClass(Double.class);
             verify(rankingRepository).incrementScore(
                     org.mockito.ArgumentMatchers.eq(date),
+                    org.mockito.ArgumentMatchers.eq(10),
                     org.mockito.ArgumentMatchers.eq(productDbId),
                     scoreCaptor.capture()
             );
@@ -60,12 +63,13 @@ class RankingAppTest {
         @DisplayName("LikeRemovedEvent(delta=-1)는 차감하지 않고 DB에도 적재하지 않는다")
         void likeRemovedEventDoesNotDeduceScore() {
             Long productDbId = 42L;
-            LocalDate date = LocalDate.of(2026, 4, 5);
+            LocalDateTime eventAt = LocalDate.of(2026, 4, 5).atTime(10, 30);
 
-            rankingApp.applyLikeDelta(productDbId, -1, date);
+            rankingApp.applyLikeDelta(productDbId, -1, eventAt);
 
             verify(rankingRepository, never()).incrementScore(
                     org.mockito.ArgumentMatchers.any(),
+                    org.mockito.ArgumentMatchers.anyInt(),
                     org.mockito.ArgumentMatchers.any(),
                     org.mockito.ArgumentMatchers.anyDouble()
             );
@@ -86,12 +90,14 @@ class RankingAppTest {
         void viewScoreIsViewWeight() {
             Long productDbId = 42L;
             LocalDate date = LocalDate.of(2026, 4, 5);
+            LocalDateTime eventAt = date.atTime(14, 0);
 
-            rankingApp.applyViewScore(productDbId, date);
+            rankingApp.applyViewScore(productDbId, eventAt);
 
             ArgumentCaptor<Double> scoreCaptor = ArgumentCaptor.forClass(Double.class);
             verify(rankingRepository).incrementScore(
                     org.mockito.ArgumentMatchers.eq(date),
+                    org.mockito.ArgumentMatchers.eq(14),
                     org.mockito.ArgumentMatchers.eq(productDbId),
                     scoreCaptor.capture()
             );
@@ -111,17 +117,19 @@ class RankingAppTest {
             BigDecimal price = new BigDecimal("10000");
             int quantity = 2;
             LocalDate date = LocalDate.of(2026, 4, 5);
+            LocalDateTime eventAt = date.atTime(8, 15);
 
-            rankingApp.applyOrderScore(productDbId, price, quantity, date);
+            rankingApp.applyOrderScore(productDbId, price, quantity, eventAt);
 
             ArgumentCaptor<Double> scoreCaptor = ArgumentCaptor.forClass(Double.class);
             verify(rankingRepository).incrementScore(
                     org.mockito.ArgumentMatchers.eq(date),
+                    org.mockito.ArgumentMatchers.eq(8),
                     org.mockito.ArgumentMatchers.eq(productDbId),
                     scoreCaptor.capture()
             );
             assertThat(scoreCaptor.getValue()).isCloseTo(14000.0, org.assertj.core.data.Offset.offset(0.001));
-            verify(productDailySignalRepository).upsertOrderAmount(productDbId, date, 20000.0);
+            verify(productDailySignalRepository).upsertOrderAmount(productDbId, date, new BigDecimal("20000"));
         }
     }
 }

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,7 +30,7 @@ public class ProductDailySignalRepositoryImpl implements ProductDailySignalRepos
 
     @Override
     @Transactional
-    public void upsertOrderAmount(Long productDbId, LocalDate date, double amount) {
+    public void upsertOrderAmount(Long productDbId, LocalDate date, BigDecimal amount) {
         jpaRepository.upsertOrderAmount(productDbId, date, amount);
     }
 

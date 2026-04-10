@@ -54,11 +54,11 @@ class RankingScenarioVerificationTest {
             // 시나리오: 저가상품(1000원)이 50개 팔림 vs 고가상품(100,000원)이 3개 팔림
             // 저가: 50건의 주문 이벤트, 각 quantity=1
             for (int i = 0; i < 50; i++) {
-                rankingApp.applyOrderScore(1L, new BigDecimal("1000"), 1, date);
+                rankingApp.applyOrderScore(1L, new BigDecimal("1000"), 1, date.atStartOfDay());
             }
             // 고가: 3건의 주문 이벤트, 각 quantity=1
             for (int i = 0; i < 3; i++) {
-                rankingApp.applyOrderScore(2L, new BigDecimal("100000"), 1, date);
+                rankingApp.applyOrderScore(2L, new BigDecimal("100000"), 1, date.atStartOfDay());
             }
 
             Double cheapScore = redisTemplate.opsForZSet().score(key, "1");
@@ -83,10 +83,10 @@ class RankingScenarioVerificationTest {
 
             // 저가: 100건 팔림
             for (int i = 0; i < 100; i++) {
-                rankingApp.applyOrderScore(1L, new BigDecimal("1000"), 1, date);
+                rankingApp.applyOrderScore(1L, new BigDecimal("1000"), 1, date.atStartOfDay());
             }
             // 고가: 1건 팔림
-            rankingApp.applyOrderScore(2L, new BigDecimal("100000"), 1, date);
+            rankingApp.applyOrderScore(2L, new BigDecimal("100000"), 1, date.atStartOfDay());
 
             Double cheapScore = redisTemplate.opsForZSet().score(key, "1");
             Double expensiveScore = redisTemplate.opsForZSet().score(key, "2");

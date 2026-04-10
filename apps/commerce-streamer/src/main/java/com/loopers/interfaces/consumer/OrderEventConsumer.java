@@ -58,9 +58,8 @@ public class OrderEventConsumer {
         if (eventHandledRepository.existsByEventId(payload.eventId())) {
             return;
         }
-        java.time.LocalDate date = payload.createdAt().toLocalDate();
         for (OrderItemEventPayload item : payload.items()) {
-            rankingApp.applyOrderScore(item.productDbId(), item.price(), item.quantity(), date);
+            rankingApp.applyOrderScore(item.productDbId(), item.price(), item.quantity(), payload.createdAt());
         }
         eventHandledRepository.save(EventHandledModel.create(payload.eventId(), TOPIC));
     }

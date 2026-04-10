@@ -6,6 +6,7 @@ import com.loopers.application.ranking.ProductRankingInfo;
 import com.loopers.application.ranking.RankingApp;
 import com.loopers.domain.common.cursor.CursorPageResult;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class ProductFacade {
@@ -41,6 +43,7 @@ public class ProductFacade {
             }
             return product.withRanking(ranking.get().rank(), ranking.get().score());
         } catch (Exception e) {
+            log.warn("[RANKING_ENRICH] 랭킹 enrichment 실패 — productDbId={}", product.id(), e);
             return product;
         }
     }

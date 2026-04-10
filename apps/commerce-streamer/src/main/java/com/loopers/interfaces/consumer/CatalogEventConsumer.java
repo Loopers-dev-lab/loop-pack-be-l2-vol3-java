@@ -49,7 +49,7 @@ public class CatalogEventConsumer {
                             rankingApp.applyLikeDelta(
                                     payload.productDbId(),
                                     payload.delta(),
-                                    payload.likedAt().toLocalDate()
+                                    payload.likedAt()
                             );
                         } catch (Exception e) {
                             log.warn("[RANKING_BEST_EFFORT] Like 랭킹 반영 실패 — productDbId={}", payload.productDbId(), e);

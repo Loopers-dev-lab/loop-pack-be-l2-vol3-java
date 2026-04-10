@@ -60,9 +60,9 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
-            rankingApp.applyLikeDelta(42L, 1, date);
-            rankingApp.applyLikeDelta(42L, 1, date);
-            rankingApp.applyLikeDelta(42L, 1, date);
+            rankingApp.applyLikeDelta(42L, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(42L, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(42L, 1, date.atStartOfDay());
 
             Double score = redisTemplate.opsForZSet().score(key, "42");
             assertThat(score).isCloseTo(0.6, org.assertj.core.data.Offset.offset(0.01));
@@ -74,11 +74,11 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
-            rankingApp.applyLikeDelta(42L, 1, date);
-            rankingApp.applyLikeDelta(42L, 1, date);
+            rankingApp.applyLikeDelta(42L, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(42L, 1, date.atStartOfDay());
             Double scoreBeforeUnlike = redisTemplate.opsForZSet().score(key, "42");
 
-            rankingApp.applyLikeDelta(42L, -1, date);
+            rankingApp.applyLikeDelta(42L, -1, date.atStartOfDay());
 
             Double scoreAfterUnlike = redisTemplate.opsForZSet().score(key, "42");
             assertThat(scoreAfterUnlike).isEqualTo(scoreBeforeUnlike);
@@ -95,7 +95,7 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
-            rankingApp.applyOrderScore(42L, new BigDecimal("10000"), 2, date);
+            rankingApp.applyOrderScore(42L, new BigDecimal("10000"), 2, date.atStartOfDay());
 
             Double score = redisTemplate.opsForZSet().score(key, "42");
             assertThat(score).isCloseTo(14000.0, org.assertj.core.data.Offset.offset(0.01));
@@ -112,8 +112,8 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
-            rankingApp.applyViewScore(42L, date);
-            rankingApp.applyViewScore(42L, date);
+            rankingApp.applyViewScore(42L, date.atStartOfDay());
+            rankingApp.applyViewScore(42L, date.atStartOfDay());
 
             Double score = redisTemplate.opsForZSet().score(key, "42");
             assertThat(score).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.01));
@@ -130,10 +130,10 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
-            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, date);
-            rankingApp.applyLikeDelta(2L, 1, date);
-            rankingApp.applyLikeDelta(2L, 1, date);
-            rankingApp.applyLikeDelta(2L, 1, date);
+            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(2L, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(2L, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(2L, 1, date.atStartOfDay());
 
             Double scoreA = redisTemplate.opsForZSet().score(key, "1");
             Double scoreB = redisTemplate.opsForZSet().score(key, "2");
@@ -149,8 +149,8 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 5);
             String key = RankingKeyGenerator.dailyKey(date);
 
-            for (int i = 0; i < 100; i++) rankingApp.applyViewScore(1L, date);
-            for (int i = 0; i < 50; i++) rankingApp.applyLikeDelta(2L, 1, date);
+            for (int i = 0; i < 100; i++) rankingApp.applyViewScore(1L, date.atStartOfDay());
+            for (int i = 0; i < 50; i++) rankingApp.applyLikeDelta(2L, 1, date.atStartOfDay());
 
             Double scoreA = redisTemplate.opsForZSet().score(key, "1");
             Double scoreB = redisTemplate.opsForZSet().score(key, "2");
@@ -166,11 +166,11 @@ class RankingAppIntegrationTest {
             String key = RankingKeyGenerator.dailyKey(date);
 
             // score: A=7000 (주문 10000*1), B=140 (주문 200*1), C=0.6 (좋아요 3)
-            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, date);
-            rankingApp.applyOrderScore(2L, new BigDecimal("200"), 1, date);
-            rankingApp.applyLikeDelta(3L, 1, date);
-            rankingApp.applyLikeDelta(3L, 1, date);
-            rankingApp.applyLikeDelta(3L, 1, date);
+            rankingApp.applyOrderScore(1L, new BigDecimal("10000"), 1, date.atStartOfDay());
+            rankingApp.applyOrderScore(2L, new BigDecimal("200"), 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(3L, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(3L, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(3L, 1, date.atStartOfDay());
 
             Set<ZSetOperations.TypedTuple<String>> tuples =
                     redisTemplate.opsForZSet().reverseRangeWithScores(key, 0, 10);
@@ -193,7 +193,7 @@ class RankingAppIntegrationTest {
         void viewEventPersistsToBothRedisAndDb() {
             LocalDate date = LocalDate.of(2026, 4, 8);
 
-            rankingApp.applyViewScore(42L, date);
+            rankingApp.applyViewScore(42L, date.atStartOfDay());
 
             Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.dailyKey(date), "42");
             assertThat(score).isCloseTo(0.1, org.assertj.core.data.Offset.offset(0.001));
@@ -209,7 +209,7 @@ class RankingAppIntegrationTest {
         void likeEventPersistsToBothRedisAndDb() {
             LocalDate date = LocalDate.of(2026, 4, 8);
 
-            rankingApp.applyLikeDelta(42L, 1, date);
+            rankingApp.applyLikeDelta(42L, 1, date.atStartOfDay());
 
             Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.dailyKey(date), "42");
             assertThat(score).isCloseTo(0.2, org.assertj.core.data.Offset.offset(0.001));
@@ -224,7 +224,7 @@ class RankingAppIntegrationTest {
         void orderEventPersistsToBothRedisAndDb() {
             LocalDate date = LocalDate.of(2026, 4, 8);
 
-            rankingApp.applyOrderScore(42L, new BigDecimal("10000"), 2, date);
+            rankingApp.applyOrderScore(42L, new BigDecimal("10000"), 2, date.atStartOfDay());
 
             Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.dailyKey(date), "42");
             assertThat(score).isCloseTo(14000.0, org.assertj.core.data.Offset.offset(0.01));
@@ -240,12 +240,12 @@ class RankingAppIntegrationTest {
             LocalDate date = LocalDate.of(2026, 4, 8);
             Long productDbId = 42L;
 
-            rankingApp.applyViewScore(productDbId, date);
-            rankingApp.applyViewScore(productDbId, date);
-            rankingApp.applyViewScore(productDbId, date);
-            rankingApp.applyLikeDelta(productDbId, 1, date);
-            rankingApp.applyLikeDelta(productDbId, 1, date);
-            rankingApp.applyOrderScore(productDbId, new BigDecimal("5000"), 1, date);
+            rankingApp.applyViewScore(productDbId, date.atStartOfDay());
+            rankingApp.applyViewScore(productDbId, date.atStartOfDay());
+            rankingApp.applyViewScore(productDbId, date.atStartOfDay());
+            rankingApp.applyLikeDelta(productDbId, 1, date.atStartOfDay());
+            rankingApp.applyLikeDelta(productDbId, 1, date.atStartOfDay());
+            rankingApp.applyOrderScore(productDbId, new BigDecimal("5000"), 1, date.atStartOfDay());
 
             List<ProductDailySignalModel> signals = productDailySignalRepository.findBySignalDate(date);
             assertThat(signals).hasSize(1);
