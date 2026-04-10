@@ -50,7 +50,7 @@ class OrderFacadeTest {
             mock(KafkaTemplate.class), new ObjectMapper(),
             Clock.systemDefaultZone());
         orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository,
-            couponFacade);
+            couponFacade, null);
     }
 
     @Nested
