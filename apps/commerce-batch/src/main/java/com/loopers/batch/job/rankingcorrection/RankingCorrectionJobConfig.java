@@ -26,6 +26,7 @@ import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -37,6 +38,10 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>DB 원장(product_metrics) 기준으로 Redis 랭킹(Hash + ZSET)을 덮어쓴다.
  * 실시간 경로(Kafka → Redis)에서 누적된 드리프트를 1시간 주기로 보정.</p>
+ *
+ * <p>Score 수식 (v2 — 0~1 정규화):
+ * {@code categoryPriority + W(view)×log₁₀(viewCount+1)/MAX_LOG + W(like)×log₁₀(likeCount+1)/MAX_LOG
+ *   + W(order)×log₁₀(salesAmount+1)/MAX_LOG + lastEventEpochSeconds × TIEBREAKER_SCALE}</p>
  */
 @Slf4j
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = RankingCorrectionJobConfig.JOB_NAME)
@@ -51,8 +56,10 @@ public class RankingCorrectionJobConfig {
     // RankingScoreUpdater와 동일한 Semantic Definition
     private static final String RANKING_ZSET_PREFIX = "ranking:all:";
     private static final String RANKING_METRICS_PREFIX = "ranking:metrics:";
-    private static final long RANKING_TTL_SECONDS = 172_800L; // 2일
-    private static final double TIEBREAKER_EPSILON = 1e-10;
+    private static final long RANKING_ZSET_TTL_SECONDS = 691_200L; // 8일
+    private static final long RANKING_HASH_TTL_SECONDS = 172_800L; // 2일
+    private static final double MAX_LOG = 7.0;
+    private static final double TIEBREAKER_SCALE = 1e-16;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
@@ -94,17 +101,21 @@ public class RankingCorrectionJobConfig {
         return new JdbcCursorItemReaderBuilder<ProductMetricsRow>()
             .name("metricsReader")
             .dataSource(dataSource)
-            .sql("SELECT product_id, view_count, " +
-                "(like_count - unlike_count) AS net_like, " +
-                "sales_count, " +
-                "(sales_amount - cancel_amount_by_event_date) AS net_sales_amount " +
-                "FROM product_metrics WHERE metric_date = CURDATE()")
+            .sql("SELECT pm.product_id, pm.view_count, " +
+                "(pm.like_count - pm.unlike_count) AS net_like, " +
+                "pm.sales_count, " +
+                "(pm.sales_amount - pm.cancel_amount_by_event_date) AS net_sales_amount, " +
+                "p.category_id " +
+                "FROM product_metrics pm " +
+                "JOIN product p ON pm.product_id = p.id " +
+                "WHERE pm.metric_date = CURDATE() AND p.deleted_at IS NULL")
             .rowMapper((rs, rowNum) -> new ProductMetricsRow(
                 rs.getLong("product_id"),
                 rs.getLong("view_count"),
                 rs.getLong("net_like"),
                 rs.getLong("sales_count"),
-                rs.getLong("net_sales_amount")
+                rs.getLong("net_sales_amount"),
+                rs.getObject("category_id") != null ? rs.getLong("category_id") : null
             ))
             .build();
     }
@@ -118,25 +129,29 @@ public class RankingCorrectionJobConfig {
             LocalDate today = LocalDate.now(KST);
             String dateStr = today.format(DATE_FORMATTER);
             String zsetKey = RANKING_ZSET_PREFIX + dateStr;
+            long nowEpochSeconds = Instant.now().getEpochSecond();
 
             writeTemplate.executePipelined(new SessionCallback<>() {
                 @Override
                 public Object execute(RedisOperations operations) throws DataAccessException {
                     for (ProductMetricsRow row : chunk) {
                         String hashKey = RANKING_METRICS_PREFIX + dateStr + ":" + row.productId;
-                        double score = calculateScore(row);
+
+                        int categoryPriority = resolveCategoryPriority(row.categoryId);
+                        double score = calculateScore(row, categoryPriority, nowEpochSeconds);
 
                         operations.delete(hashKey);
                         operations.opsForHash().putAll(hashKey, Map.of(
                             "viewCount", String.valueOf(row.viewCount),
                             "likeCount", String.valueOf(row.netLike),
                             "salesCount", String.valueOf(row.salesCount),
-                            "salesAmount", String.valueOf(row.netSalesAmount)
+                            "salesAmount", String.valueOf(row.netSalesAmount),
+                            "lastEventAt", String.valueOf(nowEpochSeconds)
                         ));
                         operations.opsForZSet().add(zsetKey, String.valueOf(row.productId), score);
-                        operations.expire(hashKey, RANKING_TTL_SECONDS, TimeUnit.SECONDS);
+                        operations.expire(hashKey, RANKING_HASH_TTL_SECONDS, TimeUnit.SECONDS);
                     }
-                    operations.expire(zsetKey, RANKING_TTL_SECONDS, TimeUnit.SECONDS);
+                    operations.expire(zsetKey, RANKING_ZSET_TTL_SECONDS, TimeUnit.SECONDS);
                     return null;
                 }
             });
@@ -146,13 +161,25 @@ public class RankingCorrectionJobConfig {
     }
 
     double calculateScore(ProductMetricsRow row) {
+        int categoryPriority = resolveCategoryPriority(row.categoryId);
+        return calculateScore(row, categoryPriority, Instant.now().getEpochSecond());
+    }
+
+    double calculateScore(ProductMetricsRow row, int categoryPriority, long lastEventEpochSeconds) {
         RankingCorrectionProperties.Weights w = properties.weights();
-        return w.view() * Math.log10(Math.max(0, row.viewCount) + 1)
-            + w.like() * Math.log10(Math.max(0, row.netLike) + 1)
-            + w.order() * Math.log10(Math.max(0, row.netSalesAmount) + 1)
-            + row.productId * TIEBREAKER_EPSILON;
+        return categoryPriority
+            + w.view() * Math.log10(Math.max(0, row.viewCount) + 1) / MAX_LOG
+            + w.like() * Math.log10(Math.max(0, row.netLike) + 1) / MAX_LOG
+            + w.order() * Math.log10(Math.max(0, row.netSalesAmount) + 1) / MAX_LOG
+            + lastEventEpochSeconds * TIEBREAKER_SCALE;
+    }
+
+    private int resolveCategoryPriority(Long categoryId) {
+        if (categoryId == null) return properties.defaultCategoryPriority();
+        return properties.categoryPriority()
+            .getOrDefault(categoryId, properties.defaultCategoryPriority());
     }
 
     record ProductMetricsRow(long productId, long viewCount, long netLike,
-                             long salesCount, long netSalesAmount) {}
+                             long salesCount, long netSalesAmount, Long categoryId) {}
 }

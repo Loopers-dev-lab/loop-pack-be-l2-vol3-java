@@ -30,17 +30,23 @@ public class RankingFacade {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final int MAX_RANKING_SIZE = 100;
 
+    private static final String DAILY_ZSET_PREFIX = "ranking:all:";
+    private static final String WEEKLY_ZSET_PREFIX = "ranking:weekly:";
+    private static final String MONTHLY_ZSET_PREFIX = "ranking:monthly:";
+
     private final RankingRedisRepository rankingRedisRepository;
     private final ProductRepository productRepository;
+    private final RankingProperties properties;
 
-    public RankingDto.PagedRankingResponse getRankings(String date, int page, int size) {
+    public RankingDto.PagedRankingResponse getRankings(String scope, String date, int page, int size, Long memberId) {
         String resolvedDate = (date != null) ? date : LocalDate.now(KST).format(DATE_FORMATTER);
+        String prefix = resolveZsetPrefix(scope, memberId);
 
         long totalElements;
         List<RankingRedisRepository.RankingEntry> entries;
 
         try {
-            long rawTotal = rankingRedisRepository.getTotalCount(resolvedDate);
+            long rawTotal = rankingRedisRepository.getTotalCount(prefix, resolvedDate);
             totalElements = Math.min(rawTotal, MAX_RANKING_SIZE);
 
             long start = (long) page * size;
@@ -51,7 +57,7 @@ public class RankingFacade {
             }
 
             long end = Math.min(start + size - 1, totalElements - 1);
-            entries = rankingRedisRepository.getTopN(resolvedDate, start, end);
+            entries = rankingRedisRepository.getTopN(prefix, resolvedDate, start, end);
         } catch (Exception e) {
             log.error("랭킹 Redis 조회 실패", e);
             throw new CoreException(ErrorType.INTERNAL_ERROR, "랭킹 서비스를 일시적으로 이용할 수 없습니다.");
@@ -80,5 +86,26 @@ public class RankingFacade {
 
         int totalPages = (int) Math.ceil((double) totalElements / size);
         return new RankingDto.PagedRankingResponse(data, totalElements, totalPages, page, size);
+    }
+
+    private String resolveZsetPrefix(String scope, Long memberId) {
+        // A/B 테스트는 daily에만 적용
+        if ("daily".equals(scope) || scope == null) {
+            RankingProperties.Experiment experiment = properties.experiment();
+            if (experiment.enabled() && !experiment.variants().isEmpty() && memberId != null) {
+                List<String> variantKeys = new ArrayList<>(experiment.variants().keySet());
+                int variantIndex = (int) (Math.abs(memberId) % variantKeys.size());
+                String selectedKey = variantKeys.get(variantIndex);
+                RankingProperties.Variant variant = experiment.variants().get(selectedKey);
+                return variant.zsetPrefix();
+            }
+            return DAILY_ZSET_PREFIX;
+        }
+
+        return switch (scope) {
+            case "weekly" -> WEEKLY_ZSET_PREFIX;
+            case "monthly" -> MONTHLY_ZSET_PREFIX;
+            default -> DAILY_ZSET_PREFIX;
+        };
     }
 }

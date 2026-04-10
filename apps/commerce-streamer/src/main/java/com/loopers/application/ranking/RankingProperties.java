@@ -2,6 +2,8 @@ package com.loopers.application.ranking;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.Map;
+
 /**
  * 랭킹 시스템 설정.
  *
@@ -14,12 +16,38 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  *     view: 0.1
  *     like: 0.2
  *     order: 0.7
+ *   carry-over-rate: 0.1
+ *   monthly-decay-rate: 0.97
+ *   category-priority: {}
+ *   default-category-priority: 0
+ *   experiment:
+ *     enabled: false
  * </pre>
  */
 @ConfigurationProperties(prefix = "ranking")
 public record RankingProperties(
     Weights weights,
-    double carryOverRate
+    double carryOverRate,
+    double monthlyDecayRate,
+    int carryOverCap,
+    Map<Long, Integer> categoryPriority,
+    int defaultCategoryPriority,
+    Experiment experiment
 ) {
+    public RankingProperties {
+        if (monthlyDecayRate == 0) monthlyDecayRate = 0.97;
+        if (carryOverCap == 0) carryOverCap = 10_000;
+        if (categoryPriority == null) categoryPriority = Map.of();
+        if (experiment == null) experiment = new Experiment(false, Map.of());
+    }
+
     public record Weights(double view, double like, double order) {}
+
+    public record Experiment(boolean enabled, Map<String, Variant> variants) {
+        public Experiment {
+            if (variants == null) variants = Map.of();
+        }
+    }
+
+    public record Variant(Weights weights, String zsetPrefix) {}
 }

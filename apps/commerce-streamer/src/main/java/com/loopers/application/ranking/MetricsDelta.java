@@ -20,6 +20,7 @@ public class MetricsDelta {
     private long salesAmountDelta;
     private int cancelCountDelta;
     private long cancelAmountDelta;
+    private long lastEventEpochSeconds;
 
     // ── DB用 getters (additive, ≥ 0) ──
 
@@ -30,6 +31,7 @@ public class MetricsDelta {
     public long getSalesAmountDelta() { return salesAmountDelta; }
     public int getCancelCountDelta() { return cancelCountDelta; }
     public long getCancelAmountDelta() { return cancelAmountDelta; }
+    public long getLastEventEpochSeconds() { return lastEventEpochSeconds; }
 
     // ── Redis用 net delta getters (HINCRBY에 전달, 음수 가능) ──
 
@@ -45,15 +47,33 @@ public class MetricsDelta {
         return d;
     }
 
+    public static MetricsDelta ofView(long eventEpochSeconds) {
+        MetricsDelta d = ofView();
+        d.lastEventEpochSeconds = eventEpochSeconds;
+        return d;
+    }
+
     public static MetricsDelta ofLike() {
         MetricsDelta d = new MetricsDelta();
         d.likeDelta = 1;
         return d;
     }
 
+    public static MetricsDelta ofLike(long eventEpochSeconds) {
+        MetricsDelta d = ofLike();
+        d.lastEventEpochSeconds = eventEpochSeconds;
+        return d;
+    }
+
     public static MetricsDelta ofUnlike() {
         MetricsDelta d = new MetricsDelta();
         d.unlikeDelta = 1;
+        return d;
+    }
+
+    public static MetricsDelta ofUnlike(long eventEpochSeconds) {
+        MetricsDelta d = ofUnlike();
+        d.lastEventEpochSeconds = eventEpochSeconds;
         return d;
     }
 
@@ -64,10 +84,22 @@ public class MetricsDelta {
         return d;
     }
 
+    public static MetricsDelta ofSales(int count, long amount, long eventEpochSeconds) {
+        MetricsDelta d = ofSales(count, amount);
+        d.lastEventEpochSeconds = eventEpochSeconds;
+        return d;
+    }
+
     public static MetricsDelta ofCancel(int count, long amount) {
         MetricsDelta d = new MetricsDelta();
         d.cancelCountDelta = count;
         d.cancelAmountDelta = amount;
+        return d;
+    }
+
+    public static MetricsDelta ofCancel(int count, long amount, long eventEpochSeconds) {
+        MetricsDelta d = ofCancel(count, amount);
+        d.lastEventEpochSeconds = eventEpochSeconds;
         return d;
     }
 
@@ -80,6 +112,7 @@ public class MetricsDelta {
         result.salesAmountDelta = a.salesAmountDelta + b.salesAmountDelta;
         result.cancelCountDelta = a.cancelCountDelta + b.cancelCountDelta;
         result.cancelAmountDelta = a.cancelAmountDelta + b.cancelAmountDelta;
+        result.lastEventEpochSeconds = Math.max(a.lastEventEpochSeconds, b.lastEventEpochSeconds);
         return result;
     }
 }

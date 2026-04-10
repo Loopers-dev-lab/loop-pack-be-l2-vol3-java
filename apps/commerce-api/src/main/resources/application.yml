@@ -98,6 +98,15 @@ resilience4j:
         limit-refresh-period: 1s
         timeout-duration: 0              # 초과 시 즉시 실패 (대기 안 함)
 
+ranking:
+  experiment:
+    enabled: false
+    variants:
+      A:
+        zset-prefix: "ranking:exp:A:"
+      B:
+        zset-prefix: "ranking:exp:B:"
+
 ---
 spring:
   config:

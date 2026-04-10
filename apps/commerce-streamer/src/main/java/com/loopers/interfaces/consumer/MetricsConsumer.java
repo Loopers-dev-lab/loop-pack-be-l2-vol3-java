@@ -110,25 +110,27 @@ public class MetricsConsumer {
             );
 
             if (inserted > 0) {
+                long eventEpochSeconds = record.timestamp() / 1000;
+
                 // 새 이벤트만 집계
                 switch (eventType) {
                     case "LIKE_CREATED" -> deltaMap.merge(productId,
-                        MetricsDelta.ofLike(), MetricsDelta::merge);
+                        MetricsDelta.ofLike(eventEpochSeconds), MetricsDelta::merge);
                     case "LIKE_REMOVED" -> deltaMap.merge(productId,
-                        MetricsDelta.ofUnlike(), MetricsDelta::merge);
+                        MetricsDelta.ofUnlike(eventEpochSeconds), MetricsDelta::merge);
                     case "PRODUCT_VIEWED" -> deltaMap.merge(productId,
-                        MetricsDelta.ofView(), MetricsDelta::merge);
+                        MetricsDelta.ofView(eventEpochSeconds), MetricsDelta::merge);
                     case "ORDER_CREATED" -> {
                         int salesCount = parseIntField(record.value(), "salesCount", 1);
                         long salesAmount = parseLongField(record.value(), "salesAmount", 0);
                         deltaMap.merge(productId,
-                            MetricsDelta.ofSales(salesCount, salesAmount), MetricsDelta::merge);
+                            MetricsDelta.ofSales(salesCount, salesAmount, eventEpochSeconds), MetricsDelta::merge);
                     }
                     case "ORDER_CANCELLED" -> {
                         int cancelCount = parseIntField(record.value(), "salesCount", 1);
                         long cancelAmount = parseLongField(record.value(), "salesAmount", 0);
                         deltaMap.merge(productId,
-                            MetricsDelta.ofCancel(cancelCount, cancelAmount), MetricsDelta::merge);
+                            MetricsDelta.ofCancel(cancelCount, cancelAmount, eventEpochSeconds), MetricsDelta::merge);
 
                         // Late-Arriving Fact: 발생일(원주문일) 기준 별도 수집
                         String originalOrderDateStr = extractField(record.value(), "originalOrderDate");

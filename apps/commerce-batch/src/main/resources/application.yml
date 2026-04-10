@@ -22,6 +22,8 @@ ranking:
     view: 0.1
     like: 0.2
     order: 0.7
+  category-priority: {}
+  default-category-priority: 0
 
 management:
   health:
