@@ -1,5 +1,6 @@
 package com.loopers.interfaces.api.user;
 
+import com.loopers.domain.user.UserAuthCacheRepository;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -37,19 +38,24 @@ class UserV1ApiE2ETest {
 
     private final TestRestTemplate testRestTemplate;
     private final DatabaseCleanUp databaseCleanUp;
+    private final UserAuthCacheRepository userAuthCacheRepository;
 
     @Autowired
     public UserV1ApiE2ETest(
         TestRestTemplate testRestTemplate,
-        DatabaseCleanUp databaseCleanUp
+        DatabaseCleanUp databaseCleanUp,
+        UserAuthCacheRepository userAuthCacheRepository
     ) {
         this.testRestTemplate = testRestTemplate;
         this.databaseCleanUp = databaseCleanUp;
+        this.userAuthCacheRepository = userAuthCacheRepository;
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        // DB truncate 후 Redis 인증 캐시도 비워야 다음 테스트에서 stale 캐시로 인한 401 방지
+        userAuthCacheRepository.evict(VALID_LOGIN_ID);
     }
 
     @DisplayName("POST /api/v1/users/signup")
