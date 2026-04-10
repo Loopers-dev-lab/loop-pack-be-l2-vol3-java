@@ -8,7 +8,6 @@ import com.loopers.application.ranking.RankingInfo.RankingItem;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.ranking.RankEntry;
 import com.loopers.domain.ranking.RankingPeriod;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,11 +17,14 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Component
 public class RankingFacade {
+
+    private static final int OVER_FETCH_MULTIPLIER = 2;
 
     private final RankingService rankingService;
     private final ProductService productService;
@@ -49,7 +51,9 @@ public class RankingFacade {
     }
 
     private RankingInfo loadRankings(RankingPeriod period, LocalDate date, int page, int size, String group) {
-        List<RankEntry> entries = rankingService.getRankEntries(period, date, page, size, group);
+        int fetchSize = size * OVER_FETCH_MULTIPLIER;
+        List<RankEntry> entries = rankingService.getRankEntries(period, date, page, fetchSize, group);
+        // TODO: totalCount는 ZSET 전체 크기. 비활성 필터링 미반영. 실제 서빙 가능 개수와 다를 수 있음.
         long totalCount = rankingService.getTotalCount(period, date, group);
 
         if (entries.isEmpty()) {
@@ -61,12 +65,15 @@ public class RankingFacade {
                 .collect(Collectors.toSet());
         Map<Long, Product> productMap = productService.getProductsMapByIds(productIds);
 
+        AtomicInteger rank = new AtomicInteger(page * size + 1);
         List<RankingItem> items = entries.stream()
                 .filter(e -> productMap.containsKey(e.productId()))
+                .filter(e -> !productMap.get(e.productId()).isDeleted())
+                .limit(size)
                 .map(e -> {
                     Product product = productMap.get(e.productId());
                     return new RankingItem(
-                            e.rank(),
+                            rank.getAndIncrement(),
                             e.score(),
                             toSimpleInfo(product)
                     );
