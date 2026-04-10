@@ -27,7 +27,7 @@ class CaffeineProductCacheAdapterTest {
         @Test
         void putAndGet() {
             ProductDto.ProductResponse response = new ProductDto.ProductResponse(
-                1L, 10L, "나이키", "에어맥스", 150000, 10, 5, null);
+                1L, 10L, "나이키", "에어맥스", 150000, 10, 5, null, null);
 
             cache.putProductDetail(1L, response);
 
@@ -45,7 +45,7 @@ class CaffeineProductCacheAdapterTest {
         @Test
         void evictRemovesEntry() {
             ProductDto.ProductResponse response = new ProductDto.ProductResponse(
-                1L, 10L, "나이키", "에어맥스", 150000, 10, 5, null);
+                1L, 10L, "나이키", "에어맥스", 150000, 10, 5, null, null);
             cache.putProductDetail(1L, response);
 
             cache.evictProductDetail(1L);

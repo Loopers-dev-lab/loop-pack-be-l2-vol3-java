@@ -170,10 +170,10 @@ public class ProductFacade {
     // ── 상품 CUD (캐시 무효화 포함) ──
 
     @Transactional
-    public Product createProduct(Long brandId, String name, int price, int stockQuantity) {
+    public Product createProduct(Long brandId, String name, int price, int stockQuantity, Long categoryId) {
         brandRepository.findById(brandId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
-        Product product = new Product(brandId, name, new Price(price), new Stock(stockQuantity));
+        Product product = new Product(brandId, name, new Price(price), new Stock(stockQuantity), categoryId);
         Product saved = productRepository.save(product);
         productCachePort.evictProductList();
         return saved;

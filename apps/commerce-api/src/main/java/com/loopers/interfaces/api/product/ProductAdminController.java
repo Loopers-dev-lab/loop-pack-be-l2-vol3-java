@@ -36,7 +36,7 @@ public class ProductAdminController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<ProductDto.ProductResponse> createProduct(@Valid @RequestBody ProductDto.CreateRequest request) {
         Product product = productFacade.createProduct(
-            request.brandId(), request.name(), request.price(), request.stockQuantity());
+            request.brandId(), request.name(), request.price(), request.stockQuantity(), request.categoryId());
         return ApiResponse.success(ProductDto.ProductResponse.from(product));
     }
 

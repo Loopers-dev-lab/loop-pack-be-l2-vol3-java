@@ -16,7 +16,8 @@ public class ProductDto {
         @NotNull Long brandId,
         @NotBlank String name,
         @Min(0) int price,
-        @Min(0) int stockQuantity
+        @Min(0) int stockQuantity,
+        Long categoryId
     ) {}
 
     public record UpdateRequest(
@@ -33,6 +34,7 @@ public class ProductDto {
         int price,
         int stockQuantity,
         int likeCount,
+        Long categoryId,
         RankingDto.RankingInfo ranking
     ) {
         public static ProductResponse from(ProductWithBrand info) {
@@ -45,6 +47,7 @@ public class ProductDto {
                 product.getPrice().getValue(),
                 product.getStock().getQuantity(),
                 (int) info.likeCount(),
+                product.getCategoryId(),
                 null
             );
         }
@@ -58,12 +61,13 @@ public class ProductDto {
                 product.getPrice().getValue(),
                 product.getStock().getQuantity(),
                 0,
+                product.getCategoryId(),
                 null
             );
         }
 
         public ProductResponse withRanking(RankingDto.RankingInfo ranking) {
-            return new ProductResponse(id, brandId, brandName, name, price, stockQuantity, likeCount, ranking);
+            return new ProductResponse(id, brandId, brandName, name, price, stockQuantity, likeCount, categoryId, ranking);
         }
     }
 

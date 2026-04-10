@@ -239,7 +239,7 @@ class ProductFacadeTest {
             Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
 
             // act
-            Product result = productFacade.createProduct(brand.getId(), "에어맥스", 150000, 10);
+            Product result = productFacade.createProduct(brand.getId(), "에어맥스", 150000, 10, null);
 
             // assert
             assertThat(result.getId()).isNotNull();
@@ -253,7 +253,7 @@ class ProductFacadeTest {
         @DisplayName("존재하지 않는 브랜드로 상품을 생성하면 예외가 발생한다")
         @Test
         void createProduct_withInvalidBrand_throwsCoreException() {
-            assertThatThrownBy(() -> productFacade.createProduct(999L, "에어맥스", 150000, 10))
+            assertThatThrownBy(() -> productFacade.createProduct(999L, "에어맥스", 150000, 10, null))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.NOT_FOUND);
