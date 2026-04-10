@@ -30,9 +30,10 @@ public class OrderV1Controller {
     public ApiResponse<OrderV1Dto.OrderResponse> createOrder(
         @RequestHeader("X-Loopers-LoginId") String loginId,
         @RequestHeader("X-Loopers-LoginPw") String rawPassword,
+        @RequestHeader("X-Entry-Token") String entryToken,
         @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
-        OrderInfo info = orderFacade.createOrder(loginId, rawPassword, request.toOrderItemRequests(), request.couponId());
+        OrderInfo info = orderFacade.createOrder(loginId, rawPassword, entryToken, request.toOrderItemRequests(), request.couponId());
         return ApiResponse.success(OrderV1Dto.OrderResponse.from(info));
     }
 

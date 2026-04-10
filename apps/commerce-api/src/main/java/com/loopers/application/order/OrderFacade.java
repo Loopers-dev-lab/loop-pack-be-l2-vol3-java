@@ -3,8 +3,17 @@ package com.loopers.application.order;
 import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.coupon.CouponTemplate;
+import com.loopers.domain.coupon.IssuedCoupon;
 import com.loopers.domain.order.OrderCreatedEvent;
 import com.loopers.domain.outbox.OutboxEventPublisher;
+import com.loopers.domain.coupon.CouponTemplateRepository;
+import com.loopers.domain.coupon.IssuedCouponRepository;
+import com.loopers.infrastructure.preorder.PreOrder;
+import com.loopers.infrastructure.preorder.PreOrderCacheService;
+import com.loopers.infrastructure.preorder.PreOrderItem;
+import com.loopers.infrastructure.preorder.PreOrderStatus;
+import com.loopers.infrastructure.queue.QueueCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.domain.order.Order;
@@ -18,10 +27,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Map;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -40,11 +48,19 @@ public class OrderFacade {
     private final BrandService brandService;
     private final ApplicationEventPublisher eventPublisher;
     private final OutboxEventPublisher outboxEventPublisher;
+    private final QueueCacheService queueCacheService;
+    private final IssuedCouponRepository issuedCouponRepository;
+    private final CouponTemplateRepository couponTemplateRepository;
+    private final PreOrderCacheService preOrderCacheService;
 
     @Transactional
-    public OrderInfo createOrder(String loginId, String rawPassword,
+    public OrderInfo createOrder(String loginId, String rawPassword, String entryToken,
                                  List<OrderRequest.OrderItemRequest> items, Long issuedCouponId) {
         User user = userService.authenticate(loginId, rawPassword);
+
+        if (!queueCacheService.validateToken(user.getId(), entryToken)) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "유효하지 않거나 만료된 입장 토큰입니다.");
+        }
 
         // 데드락 방지: 상품 ID 오름차순으로 정렬하여 락 획득 순서를 일관되게 보장
         List<OrderRequest.OrderItemRequest> sortedItems = items.stream()
@@ -110,6 +126,8 @@ public class OrderFacade {
         }
 
         List<OrderItem> orderItems = orderService.getOrderItems(order.getId());
+        queueCacheService.deleteToken(user.getId());
+
         outboxEventPublisher.publish(
             KafkaTopics.ORDER_EVENTS,
             order.getId().toString(),

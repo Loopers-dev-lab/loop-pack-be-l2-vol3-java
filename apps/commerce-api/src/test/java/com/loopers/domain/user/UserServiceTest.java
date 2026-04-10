@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.infrastructure.auth.AuthCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +14,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -20,13 +22,16 @@ class UserServiceTest {
 
     private UserRepository userRepository;
     private PasswordEncoder passwordEncoder;
+    private AuthCacheService authCacheService;
     private UserService userService;
 
     @BeforeEach
     void setUp() {
         userRepository = mock(UserRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
-        userService = new UserService(userRepository, passwordEncoder);
+        authCacheService = mock(AuthCacheService.class);
+        when(authCacheService.getCachedUserId(anyString(), anyString())).thenReturn(Optional.empty());
+        userService = new UserService(userRepository, passwordEncoder, authCacheService);
     }
 
     @DisplayName("회원가입")

@@ -1,5 +1,6 @@
 package com.loopers.domain.user;
 
+import com.loopers.infrastructure.auth.AuthCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -7,12 +8,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
+
 @RequiredArgsConstructor
 @Component
 public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthCacheService authCacheService;
 
     @Transactional
     public User signUp(String loginId, String rawPassword, String name, String birthday, String email) {
@@ -33,14 +37,21 @@ public class UserService {
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "사용자를 찾을 수 없습니다."));
     }
 
-    @Transactional(readOnly = true)
     public User authenticate(String loginId, String rawPassword) {
+        Optional<Long> cachedUserId = authCacheService.getCachedUserId(loginId, rawPassword);
+        if (cachedUserId.isPresent()) {
+            return userRepository.findById(cachedUserId.get())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다."));
+        }
+
         User user = userRepository.findByLoginId(loginId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "회원을 찾을 수 없습니다."));
 
         if (!passwordEncoder.matches(rawPassword, user.getPassword())) {
             throw new CoreException(ErrorType.BAD_REQUEST, "비밀번호가 일치하지 않습니다.");
         }
+
+        authCacheService.cache(loginId, rawPassword, user.getId());
 
         return user;
     }

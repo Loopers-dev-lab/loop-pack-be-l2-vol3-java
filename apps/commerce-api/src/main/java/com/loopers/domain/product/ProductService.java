@@ -62,6 +62,18 @@ public class ProductService {
     }
 
     @Transactional
+    public void decrementStock(Long productId, int quantity) {
+        Product product = getProduct(productId);
+        product.decreaseStock(quantity);
+    }
+
+    @Transactional
+    public void incrementStock(Long productId, int quantity) {
+        Product product = getProduct(productId);
+        product.increaseStock(quantity);
+    }
+
+    @Transactional
     public void increaseLikes(Long productId) {
         Product product = getProduct(productId);
         product.increaseLikes();
