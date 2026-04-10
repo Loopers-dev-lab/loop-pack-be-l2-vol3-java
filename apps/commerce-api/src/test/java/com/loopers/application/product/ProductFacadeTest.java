@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -77,7 +78,7 @@ class ProductFacadeTest {
             when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
@@ -93,7 +94,7 @@ class ProductFacadeTest {
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
@@ -111,10 +112,10 @@ class ProductFacadeTest {
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
             when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
-            when(rankingQueryService.findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID)))
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
                     .thenReturn(OptionalLong.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isPresent();
             ProductDetailInfo info = result.get();
@@ -128,7 +129,7 @@ class ProductFacadeTest {
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
             verify(likeService).getLikeCountFromStats(PRODUCT_ID);
-            verify(rankingQueryService).findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID));
+            verify(rankingQueryService).findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty()));
             verify(productViewOutboxAsyncPublisher).scheduleRecordProductViewed(PRODUCT_ID);
         }
 
@@ -142,13 +143,35 @@ class ProductFacadeTest {
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
             when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
-            when(rankingQueryService.findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID)))
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
                     .thenReturn(OptionalLong.of(3L));
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isPresent();
             assertThat(result.get().rankingRank()).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("rankingSnapshotId가 있으면 findOneBasedRank에 그대로 넘긴다.")
+        void getProductDetail_whenRankingSnapshotIdPassed_shouldCallFindOneBasedRankWithSnapshot() {
+            String sid = UUID.randomUUID().toString();
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
+            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
+                    StockQuantity.of(STOCK_QUANTITY));
+            BrandModel brand = BrandModel.create(BRAND_NAME);
+            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
+            when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
+            when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.of(sid))))
+                    .thenReturn(OptionalLong.of(1L));
+
+            Optional<ProductDetailInfo> result =
+                    productFacade.getProductDetail(PRODUCT_ID, null, Optional.of(sid));
+
+            assertThat(result).isPresent();
+            assertThat(result.get().rankingRank()).isEqualTo(1L);
+            verify(rankingQueryService).findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.of(sid)));
         }
 
         @Test
@@ -157,10 +180,10 @@ class ProductFacadeTest {
             ProductDetailInfo cached = new ProductDetailInfo(
                     PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT, null);
             when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.of(cached));
-            when(rankingQueryService.findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID)))
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
                     .thenReturn(OptionalLong.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).contains(cached);
             verify(productService, never()).findByIdAndNotDeleted(PRODUCT_ID);
@@ -173,22 +196,22 @@ class ProductFacadeTest {
             ProductDetailInfo cached = new ProductDetailInfo(
                     PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT, null);
             when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.of(cached));
-            when(rankingQueryService.findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID)))
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
                     .thenReturn(OptionalLong.of(7L));
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isPresent();
             assertThat(result.get().rankingRank()).isEqualTo(7L);
             assertThat(result.get().stockQuantity()).isEqualTo(STOCK_QUANTITY);
-            verify(rankingQueryService).findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID));
+            verify(rankingQueryService).findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty()));
             verify(productService, never()).findByIdAndNotDeleted(PRODUCT_ID);
         }
 
         @Test
         @DisplayName("date 형식이 잘못되면 BAD_REQUEST")
         void getProductDetail_whenInvalidDate_shouldThrow() {
-            assertThatThrownBy(() -> productFacade.getProductDetail(PRODUCT_ID, "not-a-date"))
+            assertThatThrownBy(() -> productFacade.getProductDetail(PRODUCT_ID, "not-a-date", Optional.empty()))
                     .isInstanceOf(CoreException.class);
         }
     }

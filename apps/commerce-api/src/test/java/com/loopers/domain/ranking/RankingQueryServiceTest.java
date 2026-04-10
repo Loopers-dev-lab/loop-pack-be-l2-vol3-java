@@ -183,6 +183,40 @@ class RankingQueryServiceTest {
     }
 
     @Test
+    @DisplayName("findOneBasedRank: 스냅샷 id가 있고 키가 존재하면 스냅샷 ZSET에서 순위를 조회한다.")
+    void findOneBasedRank_withSnapshot_whenKeyExists_shouldQuerySnapshotKey() {
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        String sid = UUID.randomUUID().toString();
+        String snapKey = RankingKey.snapshot(date, sid);
+        when(rankingSnapshotRepository.exists(snapKey)).thenReturn(true);
+        when(rankingReadRepository.findOneBasedReverseRank(snapKey, "101")).thenReturn(OptionalLong.of(5L));
+
+        OptionalLong result = rankingQueryService.findOneBasedRank(date, 101L, Optional.of(sid));
+
+        assertThat(result).hasValue(5L);
+    }
+
+    @Test
+    @DisplayName("findOneBasedRank: 스냅샷 키가 없으면 NOT_FOUND")
+    void findOneBasedRank_withSnapshot_whenKeyMissing_shouldThrow() {
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        String sid = UUID.randomUUID().toString();
+        String snapKey = RankingKey.snapshot(date, sid);
+        when(rankingSnapshotRepository.exists(snapKey)).thenReturn(false);
+
+        assertThatThrownBy(() -> rankingQueryService.findOneBasedRank(date, 101L, Optional.of(sid)))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
+    @DisplayName("findOneBasedRank: 스냅샷 id가 UUID가 아니면 BAD_REQUEST")
+    void findOneBasedRank_withInvalidSnapshotUuid_shouldThrow() {
+        assertThatThrownBy(() -> rankingQueryService.findOneBasedRank(
+                        LocalDate.of(2026, 3, 26), 101L, Optional.of("not-uuid")))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
     @DisplayName("page=2일 때 ZSET 오프셋(start=size) 구간을 조회한다")
     void loadPage_whenPageTwo_shouldQuerySliceFromOffset() {
         LocalDate date = LocalDate.of(2026, 3, 26);

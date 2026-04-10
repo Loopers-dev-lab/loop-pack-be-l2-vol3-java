@@ -97,22 +97,26 @@ public class ProductFacade {
     /**
      * 상품 상세 조회
      * <p>
-     * 응답의 {@code rankingRank}는 이 요청 시점에 Redis ZSET에서 조회한 값이다. 랭킹 목록 API와 날짜가 같아도
-     * 호출 시점이 다르면 ZSET이 갱신되어 목록에 표시된 순위와 숫자가 어긋날 수 있다(오류가 아님).
+     * {@code rankingSnapshotId}를 주면 랭킹 목록 API와 동일한 스냅샷 ZSET에서 {@code rankingRank}를 조회한다.
+     * 생략 시 라이브 일간 ZSET만 보며, 목록과 호출 시점·데이터 소스가 다르면 숫자가 어긋날 수 있다.
      *
      * @param productId 상품 ID
      * @param dateYyyyMmDdOptional 랭킹 기준 일자 yyyyMMdd (생략 시 오늘, Asia/Seoul)
+     * @param rankingSnapshotIdOptional GET 랭킹 목록에 쓴 스냅샷 UUID (선택)
      * @return 상품 상세 정보
      */
     @Transactional(readOnly = true)
-    public Optional<ProductDetailInfo> getProductDetail(Long productId, String dateYyyyMmDdOptional) {
+    public Optional<ProductDetailInfo> getProductDetail(
+            Long productId,
+            String dateYyyyMmDdOptional,
+            Optional<String> rankingSnapshotIdOptional) {
         // 랭킹 기준 일자를 해석한다.
         LocalDate rankingDate = RankingRequestDate.resolveOptionalYyyyMmDd(dateYyyyMmDdOptional);
         // 캐시에서 상품 상세 정보를 조회한다.
         Optional<ProductDetailInfo> cached = productCacheService.getDetail(productId);
         if (cached.isPresent()) {
             productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
-            return Optional.of(withDailyRankingRank(cached.get(), rankingDate, productId));
+            return Optional.of(withDailyRankingRank(cached.get(), rankingDate, productId, rankingSnapshotIdOptional));
         }
         Optional<ProductModel> productOpt = productService.findByIdAndNotDeleted(productId);
         if (productOpt.isEmpty()) {
@@ -135,23 +139,25 @@ public class ProductFacade {
                 null);
         productCacheService.putDetail(productId, forCache);
         productViewOutboxAsyncPublisher.scheduleRecordProductViewed(productId);
-        return Optional.of(withDailyRankingRank(forCache, rankingDate, productId));
+        return Optional.of(withDailyRankingRank(forCache, rankingDate, productId, rankingSnapshotIdOptional));
     }
 
     /**
      * 상세 응답에 일간 랭킹 순위를 붙인다({@code ZREVRANK} 기준).
-     * <p>
-     * 목록 API와 같은 일자·전역 순위를 쓰지만, 각 API가 서로 다른 HTTP 요청에서 ZSET을 읽으므로
-     * 동일 스냅샷을 보장하지 않는다.
      *
      * @param base 기준 상품 상세 정보
      * @param rankingDate 랭킹 기준 일자
      * @param productId 상품 ID
+     * @param rankingSnapshotIdOptional 스냅샷이 있으면 목록과 동일 키에서 순위 조회
      * @return 랭킹 순위를 포함한 상품 상세 정보
      */
-    private ProductDetailInfo withDailyRankingRank(ProductDetailInfo base, LocalDate rankingDate, long productId) {
-        // 랭킹 순위를 조회한다.
-        OptionalLong rank = rankingQueryService.findOneBasedDailyRank(rankingDate, productId);
+    private ProductDetailInfo withDailyRankingRank(
+            ProductDetailInfo base,
+            LocalDate rankingDate,
+            long productId,
+            Optional<String> rankingSnapshotIdOptional) {
+        OptionalLong rank =
+                rankingQueryService.findOneBasedRank(rankingDate, productId, rankingSnapshotIdOptional);
         // 랭킹 순위를 박싱한다.
         Long rankBoxed = rank.isPresent() ? Long.valueOf(rank.getAsLong()) : null;
         return new ProductDetailInfo(

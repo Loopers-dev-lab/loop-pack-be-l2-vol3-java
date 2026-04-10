@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Optional;
+
 @RestController
 @RequestMapping("/api/v1/products")
 @Validated
@@ -68,9 +70,11 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     @Override
     public ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> getProductDetail(
         @PathVariable Long productId,
-        @RequestParam(required = false) String date
+        @RequestParam(required = false) String date,
+        @RequestParam(required = false) String rankingSnapshotId
     ) {
-        return productFacade.getProductDetail(productId, date)
+        Optional<String> snap = Optional.ofNullable(rankingSnapshotId).filter(s -> !s.isBlank());
+        return productFacade.getProductDetail(productId, date, snap)
             .map(info -> ResponseEntity.ok(ApiResponse.success(ProductV1Dto.DetailResponse.from(info))))
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다: " + productId));
     }

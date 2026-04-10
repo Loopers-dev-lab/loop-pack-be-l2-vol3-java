@@ -382,7 +382,7 @@ public class RankingQueryService {
     }
 
     /**
-     * 일간 랭킹 ZSET에서 상품의 전역 순위(1-based, 점수 내림차순)를 조회한다.
+     * 일간 라이브 ZSET에서 상품의 전역 순위(1-based, 점수 내림차순)를 조회한다.
      *
      * @param rankingDate 랭킹 일자
      * @param productId   상품 ID (양수)
@@ -390,19 +390,45 @@ public class RankingQueryService {
      * @throws CoreException {@code productId <= 0}
      */
     public OptionalLong findOneBasedDailyRank(LocalDate rankingDate, long productId) {
+        return findOneBasedRank(rankingDate, productId, Optional.empty());
+    }
+
+    /**
+     * 랭킹 목록과 동일한 ZSET 키에서 상품의 전역 순위(1-based)를 조회한다.
+     * {@code rankingSnapshotId}가 비어 있으면 라이브 일간 키, 있으면 해당 스냅샷 키(존재 검증)를 쓴다.
+     *
+     * @param rankingDate              랭킹 일자
+     * @param productId                상품 ID (양수)
+     * @param rankingSnapshotIdRaw     스냅샷 UUID(선택)
+     * @return 순위가 있으면 값, 해당 ZSET에 member 없으면 empty
+     * @throws CoreException {@code productId <= 0}, 잘못된 UUID, 스냅샷 키 없음·만료
+     */
+    public OptionalLong findOneBasedRank(
+            LocalDate rankingDate,
+            long productId,
+            Optional<String> rankingSnapshotIdRaw) {
         if (productId <= 0L) {
             throw new CoreException(ErrorType.BAD_REQUEST, "productId must be positive");
         }
-        String key = RankingKey.dailyAll(rankingDate);
+        final String key;
+        if (rankingSnapshotIdRaw.isEmpty() || rankingSnapshotIdRaw.get().isBlank()) {
+            key = RankingKey.dailyAll(rankingDate);
+        } else {
+            String sid = normalizeRankingSnapshotId(rankingSnapshotIdRaw.get());
+            key = RankingKey.snapshot(rankingDate, sid);
+            if (!rankingSnapshotRepository.exists(key)) {
+                throw new CoreException(ErrorType.NOT_FOUND, "rankingSnapshotId가 없거나 만료되었습니다.");
+            }
+        }
         String member = String.valueOf(productId);
         try {
             return rankingReadRepository.findOneBasedReverseRank(key, member);
         } catch (RedisConnectionFailureException | RedisSystemException ex) {
-            degradedCounter("findOneBasedDailyRank").increment();
+            degradedCounter("findOneBasedRank").increment();
             try {
                 MDC.put(MDC_RANKING_DEGRADED, "true");
-                MDC.put(MDC_RANKING_OPERATION, "findOneBasedDailyRank");
-                log.warn("ranking.degraded=true operation=findOneBasedDailyRank key={} member={} errorClass={} message={}",
+                MDC.put(MDC_RANKING_OPERATION, "findOneBasedRank");
+                log.warn("ranking.degraded=true operation=findOneBasedRank key={} member={} errorClass={} message={}",
                         key, member, ex.getClass().getSimpleName(), ex.getMessage());
             } finally {
                 MDC.remove(MDC_RANKING_DEGRADED);
