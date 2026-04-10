@@ -10,6 +10,7 @@ import com.loopers.domain.payment.Payment;
 import com.loopers.domain.payment.PaymentRepository;
 import com.loopers.domain.payment.PaymentStatus;
 import com.loopers.event.EventType;
+import com.loopers.event.payload.OrderedProduct;
 import com.loopers.event.payload.PaymentCompletedEventPayload;
 import com.loopers.infrastructure.client.PgDeclinedException;
 import com.loopers.infrastructure.client.PgPaymentDto;
@@ -131,13 +132,17 @@ public class PaymentFacade {
                 int affected = paymentRepository.completeIfPending(payment.getId());
                 if (affected > 0) {
                     orderService.markOrderPaid(payment.getOrderId());
-                    List<Long> productIds = orderService.getOrderItems(payment.getOrderId()).stream()
-                                                        .map(OrderItemInfo::productId)
-                                                        .toList();
+                    List<OrderItemInfo> orderItems = orderService.getOrderItems(payment.getOrderId());
+                    List<Long> productIds = orderItems.stream()
+                                                      .map(OrderItemInfo::productId)
+                                                      .toList();
+                    List<OrderedProduct> orderedProducts = orderItems.stream()
+                                                                     .map(item -> OrderedProduct.of(item.productId(), item.price(), item.quantity()))
+                                                                     .toList();
 
                     outboxEventPublisher.publish(
                             EventType.PAYMENT_COMPLETED,
-                            PaymentCompletedEventPayload.of(payment.getId(), payment.getOrderId(), null, productIds),
+                            PaymentCompletedEventPayload.of(payment.getId(), payment.getOrderId(), null, productIds, orderedProducts),
                             payment.getOrderId()
                     );
                 }
