@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -320,6 +321,58 @@ class RankingV1ApiE2ETest {
                 () -> assertThat(after.getBody().data().content()).hasSize(2),
                 () -> assertThat(before.getBody().data().content().get(0).productId())
                         .isNotEqualTo(after.getBody().data().content().get(0).productId())
+        );
+    }
+
+    @Test
+    @DisplayName("POST snapshots 후 rankingSnapshotId로 page2 조회 시 라이브 ZSET이 바뀌어도 스냅샷 순서 유지")
+    void getRankings_withSnapshot_shouldKeepOrderWhenLiveZsetChanges() {
+        BrandModel brand = brandService.registerBrand("스냅샷E2E");
+        ProductModel p1 = productService.registerProduct(brand.getId(), "s1", new BigDecimal("1000"), 5);
+        ProductModel p2 = productService.registerProduct(brand.getId(), "s2", new BigDecimal("2000"), 5);
+        ProductModel p3 = productService.registerProduct(brand.getId(), "s3", new BigDecimal("3000"), 5);
+        ProductModel p4 = productService.registerProduct(brand.getId(), "s4", new BigDecimal("4000"), 5);
+        ProductModel p5 = productService.registerProduct(brand.getId(), "s5", new BigDecimal("5000"), 5);
+        String key = "ranking:all:" + RANKING_DATE;
+        redisTemplate.opsForZSet().add(key, String.valueOf(p1.getId()), 0.9d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p2.getId()), 0.8d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p3.getId()), 0.7d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p4.getId()), 0.6d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(p5.getId()), 0.5d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.SnapshotCreateResponse>> snap = testRestTemplate.exchange(
+                ENDPOINT + "/snapshots?date=" + RANKING_DATE,
+                HttpMethod.POST,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(snap.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(snap.getBody()).isNotNull();
+        assertThat(snap.getBody().data().totalElements()).isEqualTo(5L);
+        String rankingSnapshotId = snap.getBody().data().rankingSnapshotId();
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> p2snap = testRestTemplate.exchange(
+                ENDPOINT + "?date=" + RANKING_DATE + "&page=2&size=2&rankingSnapshotId=" + rankingSnapshotId,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        redisTemplate.opsForZSet().add(key, String.valueOf(p5.getId()), 1.1d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> p2again = testRestTemplate.exchange(
+                ENDPOINT + "?date=" + RANKING_DATE + "&page=2&size=2&rankingSnapshotId=" + rankingSnapshotId,
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(p2snap.getBody()).isNotNull(),
+                () -> assertThat(p2snap.getBody().data().dataSource()).isEqualTo("REDIS_SNAPSHOT"),
+                () -> assertThat(p2snap.getBody().data().rankingSnapshotId()).isEqualTo(rankingSnapshotId),
+                () -> assertThat(p2snap.getBody().data().content().get(0).productId())
+                        .isEqualTo(p3.getId()),
+                () -> assertThat(p2again.getBody().data().content().get(0).productId())
+                        .isEqualTo(p3.getId())
         );
     }
 }

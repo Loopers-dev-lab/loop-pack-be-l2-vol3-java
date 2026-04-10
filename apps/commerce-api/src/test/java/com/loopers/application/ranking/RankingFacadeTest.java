@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,14 +44,15 @@ class RankingFacadeTest {
                 20,
                 1L,
                 1,
-                RankingListSource.REDIS_ZSET
+                RankingListSource.REDIS_ZSET,
+                null
         );
-        when(rankingQueryService.loadPage(eq(LocalDate.of(2026, 4, 8)), eq(1), eq(20)))
+        when(rankingQueryService.loadPage(eq(LocalDate.of(2026, 4, 8)), eq(1), eq(20), eq(Optional.empty())))
                 .thenReturn(domainPage);
 
         RankingListInfo out = rankingFacade.getRankings("20260408", 1, 20);
 
-        verify(rankingQueryService).loadPage(LocalDate.of(2026, 4, 8), 1, 20);
+        verify(rankingQueryService).loadPage(LocalDate.of(2026, 4, 8), 1, 20, Optional.empty());
         assertThat(out.totalElements()).isEqualTo(1L);
         assertThat(out.dataSource()).isEqualTo("REDIS");
         assertThat(out.items()).hasSize(1);

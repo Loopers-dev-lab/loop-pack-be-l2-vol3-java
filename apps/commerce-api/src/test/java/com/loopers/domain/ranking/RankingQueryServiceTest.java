@@ -20,15 +20,19 @@ import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.RedisSystemException;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -38,6 +42,9 @@ class RankingQueryServiceTest {
 
     @Mock
     private RankingReadRepository rankingReadRepository;
+
+    @Mock
+    private RankingSnapshotRepository rankingSnapshotRepository;
 
     @Mock
     private ProductRepository productRepository;
@@ -58,11 +65,13 @@ class RankingQueryServiceTest {
     private RankingQueryService newService(boolean fallbackOnRedisFailure) {
         return new RankingQueryService(
                 rankingReadRepository,
+                rankingSnapshotRepository,
                 productRepository,
                 brandService,
                 likeService,
                 new SimpleMeterRegistry(),
-                fallbackOnRedisFailure
+                fallbackOnRedisFailure,
+                600L
         );
     }
 
@@ -476,5 +485,88 @@ class RankingQueryServiceTest {
         assertThat(result.listSource()).isEqualTo(RankingListSource.FALLBACK_DB_LATEST);
         assertThat(result.rows()).hasSize(1);
         assertThat(result.rows().get(0).productId()).isEqualTo(55L);
+    }
+
+    @Test
+    @DisplayName("rankingSnapshotId가 UUID가 아니면 BAD_REQUEST")
+    void loadPage_withInvalidSnapshotUuid_shouldThrowBadRequest() {
+        assertThatThrownBy(() -> rankingQueryService.loadPage(
+                        LocalDate.of(2026, 3, 26), 1, 10, Optional.of("not-uuid")))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
+    @DisplayName("스냅샷 키가 없으면 NOT_FOUND")
+    void loadPage_withSnapshotId_whenSnapshotMissing_shouldThrowNotFound() {
+        UUID id = UUID.randomUUID();
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        when(rankingSnapshotRepository.exists("ranking:snap:20260326:" + id)).thenReturn(false);
+
+        assertThatThrownBy(() -> rankingQueryService.loadPage(date, 1, 10, Optional.of(id.toString())))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
+    @DisplayName("스냅샷 키가 있으면 해당 ZSET에서 조회하고 dataSource는 REDIS_ZSET_SNAPSHOT")
+    void loadPage_withSnapshotId_whenPresent_shouldReadSnapshotKey() {
+        UUID id = UUID.randomUUID();
+        String snapKey = "ranking:snap:20260326:" + id;
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        when(rankingSnapshotRepository.exists(snapKey)).thenReturn(true);
+        when(rankingReadRepository.count(snapKey)).thenReturn(1L);
+        when(rankingReadRepository.findReverseRangeWithScores(snapKey, 0L, 0L))
+                .thenReturn(List.of(new RankingZsetEntry("101", 1.0d)));
+
+        ProductModel p101 = mock(ProductModel.class);
+        when(p101.getBrandId()).thenReturn(1L);
+        when(p101.getName()).thenReturn("A");
+        when(p101.getPrice()).thenReturn(new BigDecimal("1000"));
+        when(p101.getStockQuantity()).thenReturn(1);
+        when(productRepository.findByIdInAndNotDeletedAsMap(anyCollection()))
+                .thenReturn(Map.of(101L, p101));
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getName()).thenReturn("브랜드");
+        when(brandService.findByIdAndNotDeletedIn(anyCollection())).thenReturn(Map.of(1L, brand));
+        when(likeService.getLikeCountByProductIdsFromStats(anyCollection())).thenReturn(Map.of());
+
+        RankingPage result = rankingQueryService.loadPage(date, 1, 10, Optional.of(id.toString()));
+
+        assertThat(result.listSource()).isEqualTo(RankingListSource.REDIS_ZSET_SNAPSHOT);
+        assertThat(result.rankingSnapshotId()).isEqualTo(id.toString());
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).productId()).isEqualTo(101L);
+    }
+
+    @Test
+    @DisplayName("createSnapshot: ZSET 복제 후 total·ttl·UUID를 반환한다")
+    void createSnapshot_shouldDelegateToRepository() {
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        when(rankingSnapshotRepository.materialize(
+                        eq("ranking:all:20260326"), anyString(), eq(Duration.ofSeconds(600L))))
+                .thenReturn(2L);
+
+        RankingSnapshotCreateResult r = rankingQueryService.createSnapshot(date);
+
+        assertThat(r.totalElements()).isEqualTo(2L);
+        assertThat(r.ttlSeconds()).isEqualTo(600L);
+        assertThat(r.snapshotId())
+                .matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+    }
+
+    @Test
+    @DisplayName("스냅샷 조회 중 Redis 장애 시 DB fallback 하지 않는다")
+    void loadPage_withSnapshot_whenRedisCountFails_shouldNotFallbackToDb() {
+        RankingQueryService svc = newService(true);
+        UUID id = UUID.randomUUID();
+        String snapKey = "ranking:snap:20260326:" + id;
+        LocalDate date = LocalDate.of(2026, 3, 26);
+        when(rankingSnapshotRepository.exists(snapKey)).thenReturn(true);
+        when(rankingReadRepository.count(snapKey))
+                .thenThrow(new RedisConnectionFailureException("down"));
+
+        RankingPage result = svc.loadPage(date, 1, 10, Optional.of(id.toString()));
+
+        assertThat(result.listSource()).isEqualTo(RankingListSource.DEGRADED_EMPTY);
+        assertThat(result.rows()).isEmpty();
     }
 }

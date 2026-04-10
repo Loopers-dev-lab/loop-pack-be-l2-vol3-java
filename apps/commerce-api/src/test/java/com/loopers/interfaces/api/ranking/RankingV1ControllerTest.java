@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -34,12 +35,13 @@ class RankingV1ControllerTest {
                 20,
                 0L,
                 0,
-                "FALLBACK_LATEST"
+                "FALLBACK_LATEST",
+                null
         );
-        when(rankingFacade.getRankings("20260408", 1, 20)).thenReturn(fallback);
+        when(rankingFacade.getRankings("20260408", 1, 20, Optional.empty())).thenReturn(fallback);
 
         ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response =
-                rankingV1Controller.getRankings("20260408", 1, 20);
+                rankingV1Controller.getRankings("20260408", 1, 20, null);
 
         assertThat(response.getHeaders().getFirst(RankingV1Controller.HEADER_RANKING_DATA_SOURCE))
                 .isEqualTo("FALLBACK_LATEST");
@@ -56,12 +58,13 @@ class RankingV1ControllerTest {
                 20,
                 0L,
                 0,
-                "DEGRADED"
+                "DEGRADED",
+                null
         );
-        when(rankingFacade.getRankings(null, 1, 20)).thenReturn(degraded);
+        when(rankingFacade.getRankings(null, 1, 20, Optional.empty())).thenReturn(degraded);
 
         ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response =
-                rankingV1Controller.getRankings(null, 1, 20);
+                rankingV1Controller.getRankings(null, 1, 20, null);
 
         assertThat(response.getHeaders().getFirst(RankingV1Controller.HEADER_RANKING_DATA_SOURCE))
                 .isEqualTo("DEGRADED");
