@@ -5,12 +5,15 @@ import com.loopers.domain.metrics.ProductViewMetric;
 import com.loopers.domain.metrics.ProductViewMetricRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -28,8 +31,8 @@ public class ViewBucketReconciler {
 
     @Scheduled(fixedDelay = 5 * 60 * 1000)
     public void reconcile() {
-        Set<String> keys = redisTemplate.keys(KEY_PREFIX + "*");
-        if (keys == null || keys.isEmpty()) return;
+        Set<String> keys = scanKeys(KEY_PREFIX + "*");
+        if (keys.isEmpty()) return;
 
         Instant cutoff = Instant.now().minus(WATERMARK);
 
@@ -57,5 +60,14 @@ public class ViewBucketReconciler {
                 log.error("View bucket reconcile 실패: key={}", key, e);
             }
         }
+    }
+
+    private Set<String> scanKeys(String pattern) {
+        Set<String> keys = new HashSet<>();
+        ScanOptions options = ScanOptions.scanOptions().match(pattern).count(100).build();
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            cursor.forEachRemaining(keys::add);
+        }
+        return keys;
     }
 }
