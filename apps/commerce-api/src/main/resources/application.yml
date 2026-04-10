@@ -107,6 +107,7 @@ cache:
   ttl-overrides:
     product:list: 180        # 상품 목록 캐시 TTL 3분 (좋아요 수 변경 허용 stale 범위)
     product:detail: 60       # 상품 상세 캐시 TTL 1분 (민감 정보는 이벤트로 즉시 무효화, TTL은 likeCount stale 허용 범위)
+    ranking: 30              # 랭킹 캐시 TTL 30초 (RankingSyncScheduler 5초 주기 대비 적절한 stale 허용 범위)
 
 ---
 spring:
