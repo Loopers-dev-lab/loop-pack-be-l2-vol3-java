@@ -8,6 +8,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,12 +35,13 @@ public class RankingV1Controller {
             @RequestParam(defaultValue = "DAILY") RankingPeriod period,
             @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestHeader(value = "X-Loopers-UserId", required = false) Long userId
     ) {
         LocalDate targetDate = parseDate(date);
         validatePaging(page, size);
 
-        RankingInfo result = rankingFacade.getRankings(period, targetDate, page, size);
+        RankingInfo result = rankingFacade.getRankings(period, targetDate, page, size, userId);
         return ApiResponse.success(RankingV1Dto.PageResponse.from(result));
     }
 

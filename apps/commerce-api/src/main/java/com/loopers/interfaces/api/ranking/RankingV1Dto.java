@@ -18,6 +18,7 @@ public class RankingV1Dto {
             int page,
             int size,
             long totalCount,
+            String experimentGroup,
             List<RankingItemResponse> items
     ) {
         public static PageResponse from(RankingInfo info) {
@@ -26,7 +27,7 @@ public class RankingV1Dto {
                     .toList();
             return new PageResponse(
                     info.period(), info.date(), info.page(), info.size(),
-                    info.totalCount(), items
+                    info.totalCount(), info.experimentGroup(), items
             );
         }
     }

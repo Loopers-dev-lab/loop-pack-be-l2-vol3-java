@@ -13,8 +13,8 @@ public class RankingKeyResolver {
     private static final DateTimeFormatter DAILY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter MONTHLY_FORMAT = DateTimeFormatter.ofPattern("yyyyMM");
 
-    public String resolve(RankingPeriod period, LocalDate date) {
-        return switch (period) {
+    public String resolve(RankingPeriod period, LocalDate date, String groupName) {
+        String base = switch (period) {
             case DAILY -> "ranking:daily:" + date.format(DAILY_FORMAT);
             case WEEKLY -> {
                 WeekFields iso = WeekFields.ISO;
@@ -24,5 +24,10 @@ public class RankingKeyResolver {
             }
             case MONTHLY -> "ranking:monthly:" + date.format(MONTHLY_FORMAT);
         };
+        return base + ":" + groupName;
+    }
+
+    public String resolve(RankingPeriod period, LocalDate date) {
+        return resolve(period, date, "control");
     }
 }

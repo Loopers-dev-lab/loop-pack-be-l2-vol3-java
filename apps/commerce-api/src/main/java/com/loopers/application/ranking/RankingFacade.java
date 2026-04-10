@@ -26,12 +26,13 @@ public class RankingFacade {
     // Query
 
     @Transactional(readOnly = true)
-    public RankingInfo getRankings(RankingPeriod period, LocalDate date, int page, int size) {
-        List<RankEntry> entries = rankingService.getRankEntries(period, date, page, size);
-        long totalCount = rankingService.getTotalCount(period, date);
+    public RankingInfo getRankings(RankingPeriod period, LocalDate date, int page, int size, Long userId) {
+        String group = rankingService.resolveGroup(userId);
+        List<RankEntry> entries = rankingService.getRankEntries(period, date, page, size, group);
+        long totalCount = rankingService.getTotalCount(period, date, group);
 
         if (entries.isEmpty()) {
-            return new RankingInfo(period, date, page, size, totalCount, List.of());
+            return new RankingInfo(period, date, page, size, totalCount, group, List.of());
         }
 
         Set<Long> productIds = entries.stream()
@@ -51,7 +52,7 @@ public class RankingFacade {
                 })
                 .toList();
 
-        return new RankingInfo(period, date, page, size, totalCount, items);
+        return new RankingInfo(period, date, page, size, totalCount, group, items);
     }
 
     private ProductInfo toSimpleInfo(Product product) {

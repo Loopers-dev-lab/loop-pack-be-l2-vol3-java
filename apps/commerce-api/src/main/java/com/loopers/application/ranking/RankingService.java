@@ -24,6 +24,7 @@ public class RankingService {
     private final RankingRedisRepository rankingRedisRepository;
     private final RankingKeyResolver keyResolver;
     private final RankingFallbackAggregator fallbackAggregator;
+    private final ExperimentGroupResolver experimentGroupResolver;
 
     private final Cache<String, List<RankEntry>> rankingCache = Caffeine.newBuilder()
             .expireAfterWrite(Duration.ofSeconds(30))
@@ -32,21 +33,27 @@ public class RankingService {
 
     public RankingService(RankingRedisRepository rankingRedisRepository,
                           RankingKeyResolver keyResolver,
-                          RankingFallbackAggregator fallbackAggregator) {
+                          RankingFallbackAggregator fallbackAggregator,
+                          ExperimentGroupResolver experimentGroupResolver) {
         this.rankingRedisRepository = rankingRedisRepository;
         this.keyResolver = keyResolver;
         this.fallbackAggregator = fallbackAggregator;
+        this.experimentGroupResolver = experimentGroupResolver;
     }
 
     // Query
 
-    public List<RankEntry> getRankEntries(RankingPeriod period, LocalDate date, int page, int size) {
-        String cacheKey = period + ":" + date + ":" + page + ":" + size;
-        return rankingCache.get(cacheKey, key -> loadRankEntries(period, date, page, size));
+    public String resolveGroup(Long userId) {
+        return experimentGroupResolver.resolve(userId);
     }
 
-    public long getTotalCount(RankingPeriod period, LocalDate date) {
-        String key = keyResolver.resolve(period, date);
+    public List<RankEntry> getRankEntries(RankingPeriod period, LocalDate date, int page, int size, String group) {
+        String cacheKey = period + ":" + date + ":" + page + ":" + size + ":" + group;
+        return rankingCache.get(cacheKey, key -> loadRankEntries(period, date, page, size, group));
+    }
+
+    public long getTotalCount(RankingPeriod period, LocalDate date, String group) {
+        String key = keyResolver.resolve(period, date, group);
         try {
             Long count = rankingRedisRepository.getTotalCount(key);
             return count == null ? 0 : count;
@@ -57,24 +64,22 @@ public class RankingService {
     }
 
     public Integer getProductRank(Long productId, RankingPeriod period, LocalDate date) {
-        String key = keyResolver.resolve(period, date);
+        String key = keyResolver.resolve(period, date, "control");
         return rankingRedisRepository.getRank(key, productId);
     }
 
-    private List<RankEntry> loadRankEntries(RankingPeriod period, LocalDate date, int page, int size) {
-        // 1차: Redis
+    private List<RankEntry> loadRankEntries(RankingPeriod period, LocalDate date, int page, int size, String group) {
         try {
-            String zsetKey = keyResolver.resolve(period, date);
+            String zsetKey = keyResolver.resolve(period, date, group);
             List<RankEntry> fromRedis = rankingRedisRepository.getRankings(zsetKey, page, size);
             if (!fromRedis.isEmpty()) {
                 return fromRedis;
             }
         } catch (Exception e) {
-            log.warn("Redis 랭킹 조회 실패, DB fallback. period={}, date={}: {}",
-                    period, date, e.getMessage());
+            log.warn("Redis 랭킹 조회 실패, DB fallback. period={}, date={}, group={}: {}",
+                    period, date, group, e.getMessage());
         }
 
-        // 2차: DB fallback
         return fallbackFromDb(period, date, page, size);
     }
 

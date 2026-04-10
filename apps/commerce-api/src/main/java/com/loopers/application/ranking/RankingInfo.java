@@ -12,6 +12,7 @@ public record RankingInfo(
         int page,
         int size,
         long totalCount,
+        String experimentGroup,
         List<RankingItem> items
 ) {
 
