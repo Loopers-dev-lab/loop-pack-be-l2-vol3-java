@@ -8,8 +8,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ProductOrderMetricJpaRepository extends JpaRepository<ProductOrderMetric, MetricId> {
+
+    @Query(value = """
+            SELECT product_id, SUM(quantity) AS total
+            FROM product_order_metrics
+            WHERE bucket_time >= :from AND bucket_time < :to
+            GROUP BY product_id
+            ORDER BY total DESC
+            LIMIT :lim
+            """, nativeQuery = true)
+    List<Object[]> sumQuantityByBucketTimeRange(@Param("from") LocalDateTime from,
+                                                 @Param("to") LocalDateTime to,
+                                                 @Param("lim") int lim);
 
     @Modifying
     @Query(value = """

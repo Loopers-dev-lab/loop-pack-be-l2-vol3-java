@@ -8,8 +8,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ProductViewMetricJpaRepository extends JpaRepository<ProductViewMetric, MetricId> {
+
+    @Query(value = """
+            SELECT product_id, SUM(view_count) AS total
+            FROM product_view_metrics
+            WHERE bucket_time >= :from AND bucket_time < :to
+            GROUP BY product_id
+            ORDER BY total DESC
+            LIMIT :lim
+            """, nativeQuery = true)
+    List<Object[]> sumByBucketTimeRange(@Param("from") LocalDateTime from,
+                                        @Param("to") LocalDateTime to,
+                                        @Param("lim") int lim);
 
     @Modifying
     @Query(value = """
