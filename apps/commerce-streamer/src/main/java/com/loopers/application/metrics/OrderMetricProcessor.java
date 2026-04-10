@@ -2,7 +2,6 @@ package com.loopers.application.metrics;
 
 import com.loopers.application.idempotent.IdempotencyChecker;
 import com.loopers.application.log.EventLogWriter;
-import com.loopers.domain.metrics.ProductOrderMetricRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,7 +14,7 @@ import java.util.List;
 public class OrderMetricProcessor {
 
     private final IdempotencyChecker idempotencyChecker;
-    private final ProductOrderMetricRepository orderMetricRepository;
+    private final OrderMetricWriter orderMetricWriter;
     private final EventLogWriter eventLogWriter;
     private final ConsumerMetrics consumerMetrics;
 
@@ -31,12 +30,7 @@ public class OrderMetricProcessor {
 
         try {
             LocalDateTime bucketTime = BucketTimeUtils.toLocalDateTime(BucketTimeUtils.truncate5min(occurredAt));
-            for (OrderItemMetric item : items) {
-                orderMetricRepository.upsert(
-                        item.productId(), bucketTime,
-                        1, item.quantity(), item.salesAmount()
-                );
-            }
+            orderMetricWriter.upsertAll(bucketTime, items);
 
             long durationMs = System.currentTimeMillis() - start;
             eventLogWriter.saveProcessed(eventId, eventType, topic, groupId, durationMs);
