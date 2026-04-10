@@ -5,10 +5,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.ZonedDateTime;
+import java.time.LocalDate;
 
 @Entity
-@Table(name = "product_metrics")
+@Table(name = "product_metrics", indexes = {
+    @Index(name = "idx_metric_date", columnList = "metric_date")
+})
+@IdClass(ProductMetricsId.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ProductMetrics {
@@ -17,11 +20,18 @@ public class ProductMetrics {
     @Column(name = "product_id")
     private Long productId;
 
-    @Column(name = "like_count", nullable = false)
-    private long likeCount;
+    @Id
+    @Column(name = "metric_date")
+    private LocalDate metricDate;
 
     @Column(name = "view_count", nullable = false)
     private long viewCount;
+
+    @Column(name = "like_count", nullable = false)
+    private long likeCount;
+
+    @Column(name = "unlike_count", nullable = false)
+    private long unlikeCount;
 
     @Column(name = "sales_count", nullable = false)
     private long salesCount;
@@ -29,12 +39,9 @@ public class ProductMetrics {
     @Column(name = "sales_amount", nullable = false)
     private long salesAmount;
 
-    @Column(name = "updated_at", nullable = false)
-    private ZonedDateTime updatedAt;
+    @Column(name = "cancel_count", nullable = false)
+    private long cancelCount;
 
-    @PrePersist
-    @PreUpdate
-    private void onPersist() {
-        this.updatedAt = ZonedDateTime.now();
-    }
+    @Column(name = "cancel_amount", nullable = false)
+    private long cancelAmount;
 }

@@ -1,5 +1,7 @@
 package com.loopers.interfaces.consumer;
 
+import com.loopers.application.ranking.MetricsDelta;
+import com.loopers.application.ranking.RankingScoreUpdater;
 import com.loopers.confg.kafka.KafkaConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -29,10 +31,13 @@ public class MetricsConsumer {
 
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate transactionTemplate;
+    private final RankingScoreUpdater rankingScoreUpdater;
 
-    public MetricsConsumer(JdbcTemplate jdbcTemplate, TransactionTemplate transactionTemplate) {
+    public MetricsConsumer(JdbcTemplate jdbcTemplate, TransactionTemplate transactionTemplate,
+                           RankingScoreUpdater rankingScoreUpdater) {
         this.jdbcTemplate = jdbcTemplate;
         this.transactionTemplate = transactionTemplate;
+        this.rankingScoreUpdater = rankingScoreUpdater;
     }
 
     @KafkaListener(
@@ -63,6 +68,15 @@ public class MetricsConsumer {
             });
         }
 
+        // Phase 3: Redis 랭킹 ZSET 갱신 (Redis 장애가 DB 커밋에 영향 주지 않도록 격리)
+        if (!deltaMap.isEmpty()) {
+            try {
+                rankingScoreUpdater.update(deltaMap);
+            } catch (Exception e) {
+                log.warn("랭킹 스코어 갱신 실패 (DB 메트릭스는 정상 반영됨): products={}", deltaMap.size(), e);
+            }
+        }
+
         ack.acknowledge();
         log.debug("메트릭스 배치 처리 완료: records={}, products={}", records.size(), deltaMap.size());
     }
@@ -90,9 +104,9 @@ public class MetricsConsumer {
                 // 새 이벤트만 집계
                 switch (eventType) {
                     case "LIKE_CREATED" -> deltaMap.merge(productId,
-                        MetricsDelta.ofLike(1), MetricsDelta::merge);
+                        MetricsDelta.ofLike(), MetricsDelta::merge);
                     case "LIKE_REMOVED" -> deltaMap.merge(productId,
-                        MetricsDelta.ofLike(-1), MetricsDelta::merge);
+                        MetricsDelta.ofUnlike(), MetricsDelta::merge);
                     case "PRODUCT_VIEWED" -> deltaMap.merge(productId,
                         MetricsDelta.ofView(), MetricsDelta::merge);
                     case "ORDER_CREATED" -> {
@@ -102,10 +116,10 @@ public class MetricsConsumer {
                             MetricsDelta.ofSales(salesCount, salesAmount), MetricsDelta::merge);
                     }
                     case "ORDER_CANCELLED" -> {
-                        int salesCount = parseIntField(record.value(), "salesCount", 1);
-                        long salesAmount = parseLongField(record.value(), "salesAmount", 0);
+                        int cancelCount = parseIntField(record.value(), "salesCount", 1);
+                        long cancelAmount = parseLongField(record.value(), "salesAmount", 0);
                         deltaMap.merge(productId,
-                            MetricsDelta.ofSales(-salesCount, -salesAmount), MetricsDelta::merge);
+                            MetricsDelta.ofCancel(cancelCount, cancelAmount), MetricsDelta::merge);
                     }
                     default -> log.warn("알 수 없는 이벤트 타입: {}", eventType);
                 }
@@ -115,14 +129,22 @@ public class MetricsConsumer {
 
     private void upsertProductMetrics(Long productId, MetricsDelta delta) {
         jdbcTemplate.update(
-            "INSERT INTO product_metrics (product_id, like_count, view_count, sales_count, sales_amount) " +
-            "VALUES (?, ?, ?, ?, ?) " +
+            "INSERT INTO product_metrics " +
+            "(product_id, metric_date, view_count, like_count, unlike_count, " +
+            " sales_count, sales_amount, cancel_count, cancel_amount) " +
+            "VALUES (?, CURDATE(), ?, ?, ?, ?, ?, ?, ?) " +
             "ON DUPLICATE KEY UPDATE " +
-            "like_count = like_count + VALUES(like_count), " +
-            "view_count = view_count + VALUES(view_count), " +
-            "sales_count = sales_count + VALUES(sales_count), " +
-            "sales_amount = sales_amount + VALUES(sales_amount)",
-            productId, delta.likeDelta, delta.viewDelta, delta.salesCountDelta, delta.salesAmountDelta
+            "view_count    = view_count    + VALUES(view_count), " +
+            "like_count    = like_count    + VALUES(like_count), " +
+            "unlike_count  = unlike_count  + VALUES(unlike_count), " +
+            "sales_count   = sales_count   + VALUES(sales_count), " +
+            "sales_amount  = sales_amount  + VALUES(sales_amount), " +
+            "cancel_count  = cancel_count  + VALUES(cancel_count), " +
+            "cancel_amount = cancel_amount + VALUES(cancel_amount)",
+            productId,
+            delta.getViewDelta(), delta.getLikeDelta(), delta.getUnlikeDelta(),
+            delta.getSalesCountDelta(), delta.getSalesAmountDelta(),
+            delta.getCancelCountDelta(), delta.getCancelAmountDelta()
         );
     }
 
@@ -173,38 +195,4 @@ public class MetricsConsumer {
         }
     }
 
-    private static class MetricsDelta {
-        int likeDelta = 0;
-        int viewDelta = 0;
-        int salesCountDelta = 0;
-        long salesAmountDelta = 0;
-
-        static MetricsDelta ofLike(int delta) {
-            MetricsDelta d = new MetricsDelta();
-            d.likeDelta = delta;
-            return d;
-        }
-
-        static MetricsDelta ofView() {
-            MetricsDelta d = new MetricsDelta();
-            d.viewDelta = 1;
-            return d;
-        }
-
-        static MetricsDelta ofSales(int count, long amount) {
-            MetricsDelta d = new MetricsDelta();
-            d.salesCountDelta = count;
-            d.salesAmountDelta = amount;
-            return d;
-        }
-
-        static MetricsDelta merge(MetricsDelta a, MetricsDelta b) {
-            MetricsDelta result = new MetricsDelta();
-            result.likeDelta = a.likeDelta + b.likeDelta;
-            result.viewDelta = a.viewDelta + b.viewDelta;
-            result.salesCountDelta = a.salesCountDelta + b.salesCountDelta;
-            result.salesAmountDelta = a.salesAmountDelta + b.salesAmountDelta;
-            return result;
-        }
-    }
 }
