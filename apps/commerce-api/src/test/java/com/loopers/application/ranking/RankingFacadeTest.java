@@ -18,6 +18,7 @@ import java.time.ZoneId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 
 class RankingFacadeTest {
@@ -140,5 +141,31 @@ class RankingFacadeTest {
 
         // assert
         assertThat(result).isNull();
+    }
+
+    @DisplayName("삭제된 상품이 랭킹에 남아있으면 해당 항목을 건너뛰고 나머지를 반환한다.")
+    @Test
+    void getRankings_skipsStaleEntry() {
+        // arrange
+        LocalDate date = FIXED_DATE;
+        String key = RankingKeyGenerator.keyOf(date);
+        long activeProductId = 1L;
+        long deletedProductId = 2L;
+
+        rankingRepository.addScore(key, deletedProductId, 500.0);
+        rankingRepository.addScore(key, activeProductId, 300.0);
+
+        given(productFacade.getActiveProduct(deletedProductId))
+                .willThrow(new com.loopers.support.error.CoreException(
+                        com.loopers.support.error.ErrorType.NOT_FOUND, "삭제된 상품"));
+        given(productFacade.getActiveProduct(activeProductId))
+                .willReturn(stubProduct(activeProductId, "활성상품", 10_000));
+
+        // act
+        RankingPageResult result = rankingFacade.getRankings(date, 1, 10);
+
+        // assert
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).productId()).isEqualTo(activeProductId);
     }
 }

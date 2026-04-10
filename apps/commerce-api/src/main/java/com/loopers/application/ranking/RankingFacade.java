@@ -6,13 +6,18 @@ import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingInfo;
 import com.loopers.event.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.support.error.CoreException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class RankingFacade {
@@ -26,13 +31,21 @@ public class RankingFacade {
         List<RankingEntry> entries = rankingRepository.getTopRankings(key, offset, size);
 
         List<RankingProductInfo> items = entries.stream()
-                .map(entry -> {
-                    ProductInfo product = productFacade.getActiveProduct(entry.productId());
-                    return RankingProductInfo.of(product, entry.rank() + 1, entry.score());
-                })
+                .map(entry -> toRankingProductInfo(entry).orElse(null))
+                .filter(Objects::nonNull)
                 .toList();
 
         return new RankingPageResult(items, page, size);
+    }
+
+    private Optional<RankingProductInfo> toRankingProductInfo(RankingEntry entry) {
+        try {
+            ProductInfo product = productFacade.getActiveProduct(entry.productId());
+            return Optional.of(RankingProductInfo.of(product, entry.rank() + 1, entry.score()));
+        } catch (CoreException e) {
+            log.warn("랭킹 조회 중 상품 조회 실패 [productId={}]: {}", entry.productId(), e.getMessage());
+            return Optional.empty();
+        }
     }
 
     public RankingInfo getProductRank(Long productId) {
