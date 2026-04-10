@@ -101,11 +101,11 @@ public class RankingService {
 
     private LocalDateTime calculateFrom(RankingPeriod period, LocalDate date) {
         return switch (period) {
-            case HOURLY -> {
+            case REALTIME -> {
                 long epochSecond = java.time.Instant.now().getEpochSecond();
-                long truncatedHour = epochSecond - (epochSecond % 3600);
+                long currentBucket = epochSecond - (epochSecond % 300);
                 yield LocalDateTime.ofInstant(
-                        java.time.Instant.ofEpochSecond(truncatedHour),
+                        java.time.Instant.ofEpochSecond(currentBucket - 3600 + 300),
                         java.time.ZoneOffset.UTC);
             }
             case DAILY -> RankingDateUtils.kstDateToUtcBoundary(date);

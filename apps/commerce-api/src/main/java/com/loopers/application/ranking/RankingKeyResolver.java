@@ -23,11 +23,7 @@ public class RankingKeyResolver {
 
     public String resolve(RankingPeriod period, LocalDate date, String groupName) {
         String base = switch (period) {
-            case HOURLY -> {
-                long epochSecond = clock.instant().getEpochSecond();
-                long truncatedHour = epochSecond - (epochSecond % 3600);
-                yield "ranking:hourly:" + truncatedHour;
-            }
+            case REALTIME -> "ranking:realtime";
             case DAILY -> "ranking:daily:" + date.format(DAILY_FORMAT);
             case WEEKLY -> {
                 WeekFields iso = WeekFields.ISO;
