@@ -114,10 +114,12 @@ public class KafkaConfig {
         consumerConfig.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 5 * 60 * 1000); // view는 buffer 패턴이므로 여유 확보
         consumerConfig.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
                 "org.apache.kafka.clients.consumer.CooperativeStickyAssignor");
+        consumerConfig.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        consumerConfig.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 5000);
 
         ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfig));
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH); // auto commit에 위임
         factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
         factory.setCommonErrorHandler(commonErrorHandler);
         factory.setConcurrency(12);

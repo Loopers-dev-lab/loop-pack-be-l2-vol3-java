@@ -5,10 +5,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.LongAdder;
 
 @Component
@@ -22,16 +20,11 @@ public class ViewBuffer {
         state.counts.computeIfAbsent(key, k -> new LongAdder()).increment();
     }
 
-    public void addPendingOffset(TopicPartition tp, long offset) {
-        partitionBuffers.computeIfAbsent(tp, k -> new BufferState())
-                .pendingOffsets.add(offset);
-    }
-
     public Map<TopicPartition, BufferSnapshot> drain() {
         Map<TopicPartition, BufferSnapshot> result = new HashMap<>();
         partitionBuffers.forEach((tp, state) -> {
             BufferState old = partitionBuffers.put(tp, new BufferState());
-            if (old != null && (!old.counts.isEmpty() || !old.pendingOffsets.isEmpty())) {
+            if (old != null && !old.counts.isEmpty()) {
                 result.put(tp, old.toSnapshot());
             }
         });
@@ -43,7 +36,6 @@ public class ViewBuffer {
             BufferState state = partitionBuffers.computeIfAbsent(tp, k -> new BufferState());
             snap.counts().forEach((key, count) ->
                     state.counts.computeIfAbsent(key, k -> new LongAdder()).add(count));
-            state.pendingOffsets.addAll(snap.offsets());
         });
     }
 
@@ -54,18 +46,17 @@ public class ViewBuffer {
 
     static class BufferState {
         final ConcurrentHashMap<BucketKey, LongAdder> counts = new ConcurrentHashMap<>();
-        final List<Long> pendingOffsets = new CopyOnWriteArrayList<>();
 
         BufferSnapshot toSnapshot() {
             Map<BucketKey, Long> snapshotCounts = new HashMap<>();
             counts.forEach((key, adder) -> snapshotCounts.put(key, adder.sum()));
-            return new BufferSnapshot(snapshotCounts, List.copyOf(pendingOffsets));
+            return new BufferSnapshot(snapshotCounts);
         }
     }
 
     public record BucketKey(Long productId, Instant bucket) {
     }
 
-    public record BufferSnapshot(Map<BucketKey, Long> counts, List<Long> offsets) {
+    public record BufferSnapshot(Map<BucketKey, Long> counts) {
     }
 }

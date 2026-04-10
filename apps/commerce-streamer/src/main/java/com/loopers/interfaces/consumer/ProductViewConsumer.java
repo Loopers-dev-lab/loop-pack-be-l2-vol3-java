@@ -13,7 +13,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -41,7 +40,7 @@ public class ProductViewConsumer {
             groupId = GROUP_ID,
             containerFactory = KafkaConfig.VIEW_BATCH_LISTENER
     )
-    public void consume(List<ConsumerRecord<String, byte[]>> records, Acknowledgment ack) {
+    public void consume(List<ConsumerRecord<String, byte[]>> records) {
         for (ConsumerRecord<String, byte[]> record : records) {
             try {
                 processRecord(record);
@@ -50,8 +49,6 @@ public class ProductViewConsumer {
                 consumerMetrics.recordFailed(TOPIC, GROUP_ID, "product.viewed");
             }
         }
-        // ack는 flush 성공 시점에 ViewBufferFlusher가 처리
-        // 여기서는 buffer에만 누적
     }
 
     private void processRecord(ConsumerRecord<String, byte[]> record) throws Exception {
@@ -68,10 +65,9 @@ public class ProductViewConsumer {
         Long added = redisTemplate.opsForSet().add(dedupKey, viewerId);
         redisTemplate.expire(dedupKey, Duration.ofMinutes(10));
 
-        TopicPartition tp = new TopicPartition(record.topic(), record.partition());
         if (added != null && added == 1) {
+            TopicPartition tp = new TopicPartition(record.topic(), record.partition());
             buffer.increment(tp, productId, bucket);
         }
-        buffer.addPendingOffset(tp, record.offset());
     }
 }
