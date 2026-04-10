@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.product.cache;
 
+import com.loopers.domain.product.vo.DisplayStatus;
+
 public record ProductCacheDto(
         Long id,
         String name,
@@ -7,6 +9,6 @@ public record ProductCacheDto(
         String brandName,
         int price,
         int stock,
-        String displayStatus
+        DisplayStatus displayStatus
 ) {
 }

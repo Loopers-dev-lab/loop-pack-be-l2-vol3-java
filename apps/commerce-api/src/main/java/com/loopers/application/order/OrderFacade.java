@@ -45,7 +45,12 @@ public class OrderFacade {
         OrderCommand.Create command = new OrderCommand.Create(member.getId(), orderProducts, discountAmount, dto.userCouponId());
         Orders savedOrder = orderService.createOrder(command);
 
-        eventPublisher.publishEvent(new OrderCreatedEvent(savedOrder.getId(), member.getId(), savedOrder.getTotalPrice().value()));
+        List<OrderCreatedEvent.OrderProductInfo> productInfos = orderProducts.stream()
+                .map(op -> new OrderCreatedEvent.OrderProductInfo(
+                        op.getProductId(), op.getPrice().value(), op.getQuantity().value()))
+                .toList();
+        eventPublisher.publishEvent(new OrderCreatedEvent(
+                savedOrder.getId(), member.getId(), savedOrder.getTotalPrice().value(), productInfos));
 
         return FindOrderResDto.from(savedOrder);
     }

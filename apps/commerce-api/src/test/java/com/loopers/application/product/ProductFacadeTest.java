@@ -10,9 +10,13 @@ import com.loopers.domain.member.model.Member;
 import com.loopers.domain.member.service.MemberService;
 import com.loopers.domain.product.model.ProductItem;
 import com.loopers.domain.product.service.ProductService;
+import com.loopers.domain.product.vo.DisplayStatus;
+import com.loopers.domain.ranking.repository.RankingRepository;
+import com.loopers.domain.ranking.service.RankingService;
 import com.loopers.support.enums.SortFilter;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -58,12 +62,18 @@ class ProductFacadeTest {
     @Mock
     private MemberService memberService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private RankingService rankingService;
+
     private static Member createTestMember() {
         return Member.reconstruct(1L, "testuser", "encodedPw", "홍길동", LocalDate.of(1990, 1, 1), "test@test.com");
     }
 
     private static ProductItem createTestProductItem(boolean isFavorite) {
-        return new ProductItem(1L, "상품A", 1L, "나이키", 10000, 100, "DISPLAYING", 5L, isFavorite);
+        return new ProductItem(1L, "상품A", 1L, "나이키", 10000, 100, DisplayStatus.DISPLAYING, 5L, isFavorite, null);
     }
 
     @DisplayName("상품 목록 조회")

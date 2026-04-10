@@ -42,7 +42,7 @@ public class OutboxRelay {
 
     private String resolveTopic(OutboxEventType eventType) {
         return switch (eventType) {
-            case FAVORITE_ADDED, FAVORITE_REMOVED -> "catalog-events";
+            case PRODUCT_VIEWED, FAVORITE_ADDED, FAVORITE_REMOVED -> "catalog-events";
             case ORDER_CREATED, PAYMENT_COMPLETED -> "order-events";
         };
     }

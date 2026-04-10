@@ -2,6 +2,7 @@ package com.loopers.infrastructure.product.cache;
 
 import com.loopers.domain.product.model.ProductItem;
 import com.loopers.domain.product.repository.ProductCacheRepository;
+import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.support.cache.RedisCacheManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -30,11 +31,11 @@ class ProductCacheRepositoryImplTest {
     private RedisCacheManager redisCacheManager;
 
     private static ProductCacheDto createTestCacheDto() {
-        return new ProductCacheDto(1L, "상품A", 1L, "나이키", 10000, 100, "DISPLAYING");
+        return new ProductCacheDto(1L, "상품A", 1L, "나이키", 10000, 100, DisplayStatus.DISPLAYING);
     }
 
     private static ProductItem createTestProductItem() {
-        return new ProductItem(1L, "상품A", 1L, "나이키", 10000, 100, "DISPLAYING", 5L, false);
+        return new ProductItem(1L, "상품A", 1L, "나이키", 10000, 100, DisplayStatus.DISPLAYING, 5L, false, null);
     }
 
     @DisplayName("상품 캐시 조회")

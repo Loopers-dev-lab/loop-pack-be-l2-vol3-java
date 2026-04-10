@@ -1,6 +1,7 @@
 package com.loopers.application.product.dto;
 
 import com.loopers.domain.product.model.ProductItem;
+import com.loopers.domain.product.vo.DisplayStatus;
 
 public record FindProductListResDto(
         Long id,
@@ -9,7 +10,7 @@ public record FindProductListResDto(
         String brandName,
         int price,
         int stock,
-        String displayStatus,
+        DisplayStatus displayStatus,
         long favoriteCnt,
         boolean isFavorite
 ) {

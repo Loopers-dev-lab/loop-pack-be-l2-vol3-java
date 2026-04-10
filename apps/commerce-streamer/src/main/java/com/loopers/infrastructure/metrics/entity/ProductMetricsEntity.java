@@ -58,6 +58,11 @@ public class ProductMetricsEntity {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void incrementViewCount() {
+        this.viewCount++;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void incrementOrderCount() {
         this.orderCount++;
         this.updatedAt = LocalDateTime.now();

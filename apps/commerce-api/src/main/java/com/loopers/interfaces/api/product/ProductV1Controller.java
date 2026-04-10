@@ -4,9 +4,11 @@ import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.dto.FindProductListReqDto;
 import com.loopers.application.product.dto.FindProductListResDto;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.product.dto.FindProductApiReqDto;
 import com.loopers.interfaces.api.product.dto.FindProductApiResDto;
 import com.loopers.interfaces.api.product.dto.FindProductListApiResDto;
 import com.loopers.support.enums.SortFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +44,8 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     @Override
     public ApiResponse<FindProductApiResDto> findProduct(@RequestHeader(value = HEADER_LOGIN_ID, required = false) String loginId,
                                                          @RequestHeader(value = HEADER_LOGIN_PW, required = false) String password,
-                                                         @PathVariable Long productId) {
-        return ApiResponse.success(FindProductApiResDto.from(productFacade.findProduct(loginId, password, productId)));
+                                                         @PathVariable Long productId,
+                                                         HttpServletRequest request) {
+        return ApiResponse.success(FindProductApiResDto.from(productFacade.findProduct(FindProductApiReqDto.of(loginId, password, productId, request))));
     }
 }
