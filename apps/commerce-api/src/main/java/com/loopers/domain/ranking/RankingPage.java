@@ -10,12 +10,14 @@ import java.util.List;
  * @param size 페이지 크기
  * @param totalElements 총 아이템 수
  * @param totalPages 총 페이지 수 (1부터)
+ * @param listSource 목록 생성 경로(Redis / DB fallback / degraded)
  */
 public record RankingPage(
         List<RankingRow> rows,
         int page,
         int size,
         long totalElements,
-        int totalPages
+        int totalPages,
+        RankingListSource listSource
 ) {
 }
