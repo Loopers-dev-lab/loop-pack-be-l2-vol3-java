@@ -30,6 +30,9 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+entry-token:
+  ttl-seconds: 300
+
 resilience4j:
   retry:
     instances:
@@ -54,6 +57,15 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+
+entry-token:
+  ttl-seconds: 1
 
 ---
 spring:

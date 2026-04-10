@@ -36,7 +36,7 @@ class CouponTemplateTest {
         @Test
         @DisplayName("쿠폰 템플릿 생성에 성공한다")
         void success_create_coupon_template() {
-            CouponTemplate template = CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, DEFAULT_EXPIRED_AT);
+            CouponTemplate template = CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, DEFAULT_EXPIRED_AT, null);
 
             assertThat(template.getId()).isNull();
             assertThat(template.getName().value()).isEqualTo(DEFAULT_NAME);
@@ -51,7 +51,7 @@ class CouponTemplateTest {
         @ValueSource(strings = {" ", "   "})
         void fail_when_name_is_blank(String name) {
             assertCoreException(
-                () -> CouponTemplate.create(name, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, DEFAULT_EXPIRED_AT),
+                () -> CouponTemplate.create(name, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, DEFAULT_EXPIRED_AT, null),
                 ErrorMessage.Name.NAME_REQUIRED
             );
         }
@@ -60,7 +60,7 @@ class CouponTemplateTest {
         @DisplayName("할인 유형이 null이면, 생성시 예외를 던진다")
         void fail_when_discount_type_is_null() {
             assertCoreException(
-                () -> CouponTemplate.create(DEFAULT_NAME, null, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, DEFAULT_EXPIRED_AT),
+                () -> CouponTemplate.create(DEFAULT_NAME, null, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, DEFAULT_EXPIRED_AT, null),
                 ErrorMessage.Coupon.DISCOUNT_TYPE_REQUIRED
             );
         }
@@ -71,7 +71,7 @@ class CouponTemplateTest {
         @ValueSource(ints = {-1, -1000})
         void fail_when_invalid_min_order_amount(Integer minOrderAmount) {
             assertCoreException(
-                () -> CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE,  minOrderAmount, DEFAULT_EXPIRED_AT),
+                () -> CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE,  minOrderAmount, DEFAULT_EXPIRED_AT, null),
                 ErrorMessage.Money.AMOUNT_INVALID
             );
         }
@@ -80,7 +80,7 @@ class CouponTemplateTest {
         @DisplayName("만료 일시가 null이면, 생성시 예외를 던진다")
         void fail_when_expired_at_is_null() {
             assertCoreException(
-                () -> CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE,  DEFAULT_MIN_ORDER_AMOUNT, null),
+                () -> CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE,  DEFAULT_MIN_ORDER_AMOUNT, null, null),
                 ErrorMessage.Coupon.EXPIRED_AT_REQUIRED
             );
         }
@@ -91,7 +91,7 @@ class CouponTemplateTest {
             ZonedDateTime pastExpiredAt = ZonedDateTime.now().minusDays(1);
 
             assertCoreException(
-                () -> CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, pastExpiredAt),
+                () -> CouponTemplate.create(DEFAULT_NAME, DEFAULT_DISCOUNT_TYPE, DEFAULT_DISCOUNT_VALUE, DEFAULT_MIN_ORDER_AMOUNT, pastExpiredAt, null),
                 ErrorMessage.Coupon.EXPIRED_AT_MUST_BE_FUTURE
             );
         }

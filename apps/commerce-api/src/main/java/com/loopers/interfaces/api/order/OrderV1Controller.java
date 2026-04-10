@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.order;
 import com.loopers.application.order.OrderCommand;
 import com.loopers.application.order.OrderFacade;
 import com.loopers.application.order.OrderInfo;
+import com.loopers.application.queue.QueueFacade;
 import com.loopers.application.user.AuthUserPrincipal;
 import com.loopers.domain.order.OrderRequestedEvent;
 import com.loopers.interfaces.api.ApiResponse;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,13 +23,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderV1Controller {
 
     private final OrderFacade orderFacade;
+    private final QueueFacade queueFacade;
     private final ApplicationEventPublisher eventPublisher;
 
     @PostMapping
     public ApiResponse<OrderV1Dto.CreateOrderResponse> createOrder(
         @AuthUser AuthUserPrincipal user,
+        @RequestHeader("X-Entry-Token") String entryToken,
         @Valid @RequestBody OrderV1Dto.CreateOrderRequest request
     ) {
+        queueFacade.validateAndConsumeToken(user.getId(), entryToken);
         eventPublisher.publishEvent(new OrderRequestedEvent(user.getId()));
         OrderCommand command = new OrderCommand(
             user.getId(),

@@ -154,6 +154,18 @@ public final class ErrorMessage {
     }
 
     /**
+     * Queue 도메인 관련 에러 메시지
+     */
+    public static final class Queue {
+        private Queue() {}
+
+        public static final String USER_ID_INVALID = "유저FK는 null이거나 0이하가 될 수 없습니다";
+        public static final String INVALID_ENTRY_TOKEN = "유효하지 않은 입장 토큰입니다";
+        public static final String NOT_IN_QUEUE = "대기열에 존재하지 않는 유저입니다";
+        public static final String QUEUE_UNAVAILABLE = "대기열 서비스가 일시적으로 중단되었습니다. 잠시 후 다시 시도해주세요.";
+    }
+
+    /**
      * Auth 관련 에러 메시지
      */
     public static final class Auth {

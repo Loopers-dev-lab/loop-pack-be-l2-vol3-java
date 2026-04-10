@@ -50,7 +50,7 @@ class ProductServiceTest {
             Long productId = 10101L;
             Integer decreaseStock = 100;
 
-            given(productRepository.findById(productId)).willReturn(Optional.empty());
+            given(productRepository.findByIdWithLock(productId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> productService.decreaseStock(productId, decreaseStock))
                 .isInstanceOf(CoreException.class)

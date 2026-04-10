@@ -16,7 +16,7 @@ class CouponTest {
 
     private static final Long DEFAULT_USER_ID = 1L;
     private static final CouponTemplate DEFAULT_TEMPLATE = CouponTemplate.restore(
-        10L, "신규 가입 쿠폰", DiscountType.FIXED, 10000, 1000, ZonedDateTime.now().plusDays(7)
+        10L, "신규 가입 쿠폰", DiscountType.FIXED, 10000, 1000, ZonedDateTime.now().plusDays(7), null, 0
     );
 
     private static void assertCoreException(Runnable runnable, String message) {

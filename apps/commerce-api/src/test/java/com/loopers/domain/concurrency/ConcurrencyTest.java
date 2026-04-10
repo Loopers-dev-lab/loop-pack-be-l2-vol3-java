@@ -179,7 +179,7 @@ class ConcurrencyTest {
             // Given
             Long userId = 1L;
             CouponTemplate template = couponTemplateService.create(
-                "테스트 쿠폰", DiscountType.FIXED, 1000, 5000, ZonedDateTime.now().plusDays(7)
+                "테스트 쿠폰", DiscountType.FIXED, 1000, 5000, ZonedDateTime.now().plusDays(7), null
             );
             Coupon coupon = couponService.issue(userId, template);
             Long couponId = coupon.getId();
