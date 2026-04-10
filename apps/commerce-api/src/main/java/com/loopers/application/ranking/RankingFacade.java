@@ -17,7 +17,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -65,7 +64,6 @@ public class RankingFacade {
                 .collect(Collectors.toSet());
         Map<Long, Product> productMap = productService.getProductsMapByIds(productIds);
 
-        AtomicInteger rank = new AtomicInteger(page * size + 1);
         List<RankingItem> items = entries.stream()
                 .filter(e -> productMap.containsKey(e.productId()))
                 .filter(e -> !productMap.get(e.productId()).isDeleted())
@@ -73,7 +71,7 @@ public class RankingFacade {
                 .map(e -> {
                     Product product = productMap.get(e.productId());
                     return new RankingItem(
-                            rank.getAndIncrement(),
+                            e.rank(),
                             e.score(),
                             toSimpleInfo(product)
                     );
