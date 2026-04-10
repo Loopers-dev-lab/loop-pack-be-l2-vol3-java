@@ -706,3 +706,158 @@ ON DUPLICATE KEY UPDATE
 
 **follow-up 필요:**
 - `MetricsReconcileTasklet`(commerce-batch)의 네이티브 SQL도 새 스키마에 맞게 수정 필요 — 이번 라운드에서는 설계 문서 범위(섹션 11.1) 외이므로 별도 작업으로 기록
+
+### Late-Arriving Fact 이중 기록 (commerce-streamer, commerce-api)
+
+**설계 근거:**
+ORDER_CANCELLED는 주문일과 다른 날짜에 발생한다 (예: 4/1 주문 → 4/5 취소).
+인식일(CURDATE) 기준으로만 기록하면 4/1의 순매출을 계산할 때 취소분이 4/5 행에만 존재하여 정합성이 깨진다.
+설계 문서 섹션 2.5 "설계 원칙 2" — 인식일 + 발생일 이중 기록으로 해결.
+
+**product_metrics 컬럼 변경:**
+```
+AS-IS:
+  cancel_count       INT NOT NULL DEFAULT 0
+  cancel_amount      BIGINT NOT NULL DEFAULT 0
+
+TO-BE:
+  cancel_count_by_event_date    INT NOT NULL DEFAULT 0    -- 인식일 기준
+  cancel_amount_by_event_date   BIGINT NOT NULL DEFAULT 0
+  cancel_count_by_order_date    INT NOT NULL DEFAULT 0    -- 발생일(원주문일) 기준
+  cancel_amount_by_order_date   BIGINT NOT NULL DEFAULT 0
+```
+
+**변경 파일:**
+- `domain/metrics/ProductMetrics.java` — 엔티티 컬럼 rename + 2개 추가
+- `application/order/OrderFacade.java` (commerce-api) — ORDER_CANCELLED 이벤트에 `originalOrderDate` 필드 추가
+- `interfaces/consumer/MetricsConsumer.java` — Phase 2 이중 UPSERT 구현
+
+**OrderFacade 변경:**
+- `cancelOrder()`에서 `order.getCreatedAt().toLocalDate().toString()`으로 원주문일 추출
+- 이벤트 payload Map에 `"originalOrderDate"` 필드 추가
+
+**MetricsConsumer 이중 UPSERT — 방법 B 채택:**
+
+방법 비교:
+| 방법 | 설명 | 장점 | 단점 |
+|------|------|------|------|
+| A | MetricsDelta에 originalOrderDate 필드 추가 | 단일 구조 | deltaMap.merge에서 날짜 충돌 |
+| **B** | **별도 LateArrivingCancel 리스트** | **deltaMap 구조 불변, 관심사 분리** | **추가 리스트 관리** |
+| C | Phase 2에서 원본 records 재순회 | 코드 변경 최소 | Phase 2에서 JSON 재파싱 필요 |
+
+**방법 B 채택 근거:**
+- MetricsDelta는 Semantic Definition(의미적 정의)이다. 필드명 `cancelCountDelta`는 "취소 delta"라는 의미이지, DB 컬럼명(`cancel_count_by_event_date`)과 1:1 대응이 아니다
+- Phase 2 UPSERT가 MetricsDelta의 의미를 DB 컬럼에 매핑하는 책임을 갖는다
+- MetricsDelta를 변경하지 않으므로 기존 Phase 3(Redis)에 영향 없음
+
+**구현 상세:**
+```
+Phase 1: processRecord() 내부
+  ORDER_CANCELLED 수신 시:
+    1. deltaMap.merge(productId, ofCancel(count, amount))  ← 기존과 동일
+    2. lateArrivingCancels.add(LateArrivingCancel(productId, orderDate, count, amount))  ← 추가
+
+Phase 2: transactionTemplate 내부
+  1. 인식일 UPSERT (기존 로직, 컬럼명만 변경):
+     INSERT INTO product_metrics (..., cancel_count_by_event_date, cancel_amount_by_event_date)
+     VALUES (?, CURDATE(), ...) ON DUPLICATE KEY UPDATE ...
+  2. 발생일 UPSERT (신규):
+     INSERT INTO product_metrics (product_id, metric_date, cancel_count_by_order_date, cancel_amount_by_order_date)
+     VALUES (?, ?, ?, ?)  -- metric_date = originalOrderDate
+     ON DUPLICATE KEY UPDATE cancel_count_by_order_date += ..., cancel_amount_by_order_date += ...
+```
+
+**하위 호환성:**
+- `originalOrderDate` 미포함 이벤트(구버전)는 인식일 UPSERT만 실행, 발생일 UPSERT 스킵
+- 파싱 실패 시 warn 로그 + 인식일 UPSERT는 정상 실행 (장애 격리)
+
+**정합성 검증 SQL:**
+```sql
+-- 충분히 긴 기간으로 합산하면 두 기준의 합계가 같아야 함
+SELECT SUM(cancel_count_by_order_date) AS by_order,
+       SUM(cancel_count_by_event_date) AS by_event
+FROM product_metrics WHERE product_id = ?;
+```
+
+**테스트 (`MetricsConsumerTest`) — 6개 전체 PASS:**
+
+| 테스트 | 검증 내용 |
+|--------|-----------|
+| cancelledEvent_dualUpsert | ORDER_CANCELLED 이벤트에 인식일+발생일 이중 UPSERT 실행 |
+| cancelledEvent_noOriginalOrderDate_singleUpsert | originalOrderDate 없으면 인식일만 실행 |
+| crossDateCancel_twoDistinctUpserts | 인식일 SQL은 CURDATE() 사용, 발생일 SQL은 파라미터 전달 |
+| invalidOriginalOrderDate_eventDateUpsertStillWorks | 파싱 실패 시 인식일 UPSERT 정상 실행 |
+| orderCreated_noByOrderDateUpsert | ORDER_CREATED는 발생일 UPSERT 미실행 |
+| productViewed_upsertContainsViewCount | PRODUCT_VIEWED는 view_count UPSERT 정상 실행 |
+
+### Lambda Architecture 배치 보정 잡 (commerce-batch)
+
+**설계 근거:**
+실시간 경로(Kafka → Redis)는 이벤트 유실, 처리 순서, 부동소수점 누적 오차 등으로 DB 원장과 드리프트가 발생할 수 있다.
+설계 문서 섹션 2.5 "설계 원칙 4" + 섹션 11.3 — Lambda Architecture의 배치 레이어가 1시간 주기로 DB 원장 기준 Redis를 덮어쓴다.
+
+**구현 파일:**
+- `batch/job/rankingcorrection/RankingCorrectionJobConfig.java` — chunk-oriented 배치 잡
+- `batch/job/rankingcorrection/RankingCorrectionProperties.java` — 가중치 설정 레코드
+- `application.yml` — `ranking.weights.*` 추가
+
+**chunk-oriented 처리 선택 이유:**
+기존 배치 잡은 모두 Tasklet 패턴이지만, 이 잡은 "DB 읽기 → Score 계산 → Redis 쓰기" 흐름이므로 chunk-oriented가 적합:
+- Reader: JdbcCursorItemReader — `idx_metric_date` 인덱스 활용, 메모리 효율적
+- Writer: Redis Pipeline으로 chunk(1,000건) 단위 일괄 적재
+- 상품 수가 증가해도 메모리 사용량이 chunk 크기에 비례하여 안정적
+
+**DB 원장 조회 SQL:**
+```sql
+SELECT product_id, view_count,
+  (like_count - unlike_count) AS net_like,
+  sales_count,
+  (sales_amount - cancel_amount_by_event_date) AS net_sales_amount
+FROM product_metrics
+WHERE metric_date = CURDATE()
+```
+- `net_like = like_count - unlike_count` → DB에서 net 계산
+- `net_sales_amount = sales_amount - cancel_amount_by_event_date` → 인식일 기준 취소 반영
+
+**Redis 덮어쓰기 (Pipeline):**
+```
+chunk 단위 Pipeline:
+  productId마다:
+    DEL ranking:metrics:{date}:{pid}          -- 기존 Hash 삭제 (stale 필드 방지)
+    HSET ranking:metrics:{date}:{pid} viewCount ... likeCount ... salesCount ... salesAmount ...
+    ZADD ranking:all:{date} {score} {pid}     -- score 덮어쓰기
+    EXPIRE ranking:metrics:{date}:{pid} 172800
+  마지막:
+    EXPIRE ranking:all:{date} 172800
+```
+
+**Score 수식 — RankingScoreUpdater와 동일 (Semantic Definition):**
+```
+score = W(view) × log₁₀(viewCount + 1)
+      + W(like) × log₁₀(netLike + 1)
+      + W(order) × log₁₀(netSalesAmount + 1)
+      + productId × 1e-10
+```
+- 가중치: `ranking.weights.*` yml 설정에서 읽음 (streamer와 동일 값)
+- 키 prefix, TTL, date format: RankingScoreUpdater의 상수와 동일 값을 배치 잡에서 재정의
+- `max(0, value)` 음수 클램핑 동일 적용
+
+**실행 방식:**
+```bash
+java -jar commerce-batch.jar --spring.batch.job.name=rankingCorrectionJob
+```
+- 외부 스케줄러(Kubernetes CronJob 등)로 1시간 주기 실행
+- `@ConditionalOnProperty` 패턴으로 기존 배치 잡과 동일한 구조
+
+**Race Condition 안전성:**
+- 배치 실행 중 실시간 이벤트가 Redis에 HINCRBY→ZADD로 기록될 수 있음
+- 배치의 ZADD는 DB 원장 기준 score를 "덮어쓰기"하므로, 실시간 이벤트의 미세한 delta가 유실될 수 있음
+- 허용 범위: 최대 1 chunk(1,000건) 처리 시간 동안의 이벤트 delta. 다음 실시간 이벤트에서 HINCRBY→ZADD로 복구됨
+
+**테스트 (`RankingCorrectionScoreTest`) — 7개 전체 PASS:**
+
+| 카테고리 | 테스트 수 | 검증 내용 |
+|----------|-----------|-----------|
+| Score 수식 일치 | 5 | 모든 메트릭 0, view/like/order 단독, 복합 score — RankingScoreUpdater와 동일 결과 |
+| 음수 방어 | 2 | netLike/netSalesAmount 음수 → 0 클램핑 |
+| 타이브레이커 | 1 | 동점 시 높은 productId 상위 |
