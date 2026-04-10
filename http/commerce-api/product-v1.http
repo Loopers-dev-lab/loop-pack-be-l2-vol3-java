@@ -7,5 +7,8 @@ GET http://localhost:8080/api/v1/products/1
 ### 상품 상세 — 특정 일자 랭킹 순위(yyyyMMdd)
 GET http://localhost:8080/api/v1/products/1?date=20260408
 
+### 상품 상세 — 목록과 동일 스냅샷 순위(POST /api/v1/rankings/snapshots 로 받은 UUID)
+GET http://localhost:8080/api/v1/products/1?date=20260408&rankingSnapshotId={{rankingSnapshotId}}
+
 ### 잘못된 date → 400
 GET http://localhost:8080/api/v1/products/1?date=not-a-date
