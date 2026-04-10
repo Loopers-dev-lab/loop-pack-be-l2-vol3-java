@@ -33,6 +33,10 @@ public class RankingCommandConsumer {
             try {
                 RankingCommandPayload payload = parse(record);
                 if (RankingCommandPayload.RECALCULATE.equals(payload.commandType())) {
+                    if (payload.date() == null) {
+                        throw new IllegalArgumentException(
+                                "RankingCommandPayload.date is null for commandType=" + payload.commandType());
+                    }
                     long count = rankingRecalculationApp.recalculate(payload.date());
                     log.info("[RANKING_COMMAND] RECALCULATE date={}, products={}", payload.date(), count);
                 } else {

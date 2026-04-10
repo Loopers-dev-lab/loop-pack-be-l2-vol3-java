@@ -40,6 +40,10 @@ spring:
   config:
     activate:
       on-profile: local, test
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-shedlock.sql
 
 ---
 spring:
