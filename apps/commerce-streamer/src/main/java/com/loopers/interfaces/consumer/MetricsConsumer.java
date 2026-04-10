@@ -11,6 +11,8 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +26,8 @@ import java.util.Map;
  * <p>3,000건 poll, 인기 상품 100개에 이벤트 집중 시:
  * [기존] 건별 UPSERT: event_handled 3,000회 + product_metrics 3,000회 = ~6,000회
  * [개선] 집계 UPSERT: event_handled 3,000회 + product_metrics ~100회 = ~3,100회 (48% 감소)</p>
+ *
+ * <p>Late-Arriving Fact: ORDER_CANCELLED 이벤트는 인식일(CURDATE) + 발생일(원주문일) 이중 UPSERT.</p>
  */
 @Slf4j
 @Component
@@ -46,24 +50,26 @@ public class MetricsConsumer {
     )
     public void consume(List<ConsumerRecord<String, String>> records, Acknowledgment ack) {
         Map<Long, MetricsDelta> deltaMap = new HashMap<>();
+        List<LateArrivingCancel> lateArrivingCancels = new ArrayList<>();
 
         // Phase 1: 멱등성 체크 + 메모리 집계
         for (ConsumerRecord<String, String> record : records) {
             try {
-                processRecord(record, deltaMap);
+                processRecord(record, deltaMap, lateArrivingCancels);
             } catch (Exception e) {
                 log.error("이벤트 처리 실패: topic={}, offset={}, value={}",
                     record.topic(), record.offset(), record.value(), e);
             }
         }
 
-        // Phase 2: productId별 1회 UPSERT
-        if (!deltaMap.isEmpty()) {
+        // Phase 2: productId별 인식일 UPSERT + 발생일(원주문일) UPSERT
+        if (!deltaMap.isEmpty() || !lateArrivingCancels.isEmpty()) {
             transactionTemplate.executeWithoutResult(status -> {
                 for (Map.Entry<Long, MetricsDelta> entry : deltaMap.entrySet()) {
-                    Long productId = entry.getKey();
-                    MetricsDelta delta = entry.getValue();
-                    upsertProductMetrics(productId, delta);
+                    upsertProductMetrics(entry.getKey(), entry.getValue());
+                }
+                for (LateArrivingCancel cancel : lateArrivingCancels) {
+                    upsertCancelByOrderDate(cancel);
                 }
             });
         }
@@ -78,10 +84,13 @@ public class MetricsConsumer {
         }
 
         ack.acknowledge();
-        log.debug("메트릭스 배치 처리 완료: records={}, products={}", records.size(), deltaMap.size());
+        log.debug("메트릭스 배치 처리 완료: records={}, products={}, lateArrivals={}",
+            records.size(), deltaMap.size(), lateArrivingCancels.size());
     }
 
-    private void processRecord(ConsumerRecord<String, String> record, Map<Long, MetricsDelta> deltaMap) {
+    private void processRecord(ConsumerRecord<String, String> record,
+                               Map<Long, MetricsDelta> deltaMap,
+                               List<LateArrivingCancel> lateArrivingCancels) {
         String eventId = extractField(record.value(), "eventId");
         String eventType = extractField(record.value(), "eventType");
         String productIdStr = extractField(record.value(), "productId");
@@ -120,6 +129,19 @@ public class MetricsConsumer {
                         long cancelAmount = parseLongField(record.value(), "salesAmount", 0);
                         deltaMap.merge(productId,
                             MetricsDelta.ofCancel(cancelCount, cancelAmount), MetricsDelta::merge);
+
+                        // Late-Arriving Fact: 발생일(원주문일) 기준 별도 수집
+                        String originalOrderDateStr = extractField(record.value(), "originalOrderDate");
+                        if (originalOrderDateStr != null) {
+                            try {
+                                LocalDate orderDate = LocalDate.parse(originalOrderDateStr);
+                                lateArrivingCancels.add(
+                                    new LateArrivingCancel(productId, orderDate, cancelCount, cancelAmount));
+                            } catch (Exception e) {
+                                log.warn("originalOrderDate 파싱 실패: productId={}, value={}",
+                                    productId, originalOrderDateStr, e);
+                            }
+                        }
                     }
                     default -> log.warn("알 수 없는 이벤트 타입: {}", eventType);
                 }
@@ -131,20 +153,32 @@ public class MetricsConsumer {
         jdbcTemplate.update(
             "INSERT INTO product_metrics " +
             "(product_id, metric_date, view_count, like_count, unlike_count, " +
-            " sales_count, sales_amount, cancel_count, cancel_amount) " +
+            " sales_count, sales_amount, cancel_count_by_event_date, cancel_amount_by_event_date) " +
             "VALUES (?, CURDATE(), ?, ?, ?, ?, ?, ?, ?) " +
             "ON DUPLICATE KEY UPDATE " +
-            "view_count    = view_count    + VALUES(view_count), " +
-            "like_count    = like_count    + VALUES(like_count), " +
-            "unlike_count  = unlike_count  + VALUES(unlike_count), " +
-            "sales_count   = sales_count   + VALUES(sales_count), " +
-            "sales_amount  = sales_amount  + VALUES(sales_amount), " +
-            "cancel_count  = cancel_count  + VALUES(cancel_count), " +
-            "cancel_amount = cancel_amount + VALUES(cancel_amount)",
+            "view_count                  = view_count                  + VALUES(view_count), " +
+            "like_count                  = like_count                  + VALUES(like_count), " +
+            "unlike_count               = unlike_count               + VALUES(unlike_count), " +
+            "sales_count                = sales_count                + VALUES(sales_count), " +
+            "sales_amount               = sales_amount               + VALUES(sales_amount), " +
+            "cancel_count_by_event_date = cancel_count_by_event_date + VALUES(cancel_count_by_event_date), " +
+            "cancel_amount_by_event_date = cancel_amount_by_event_date + VALUES(cancel_amount_by_event_date)",
             productId,
             delta.getViewDelta(), delta.getLikeDelta(), delta.getUnlikeDelta(),
             delta.getSalesCountDelta(), delta.getSalesAmountDelta(),
             delta.getCancelCountDelta(), delta.getCancelAmountDelta()
+        );
+    }
+
+    private void upsertCancelByOrderDate(LateArrivingCancel cancel) {
+        jdbcTemplate.update(
+            "INSERT INTO product_metrics " +
+            "(product_id, metric_date, cancel_count_by_order_date, cancel_amount_by_order_date) " +
+            "VALUES (?, ?, ?, ?) " +
+            "ON DUPLICATE KEY UPDATE " +
+            "cancel_count_by_order_date  = cancel_count_by_order_date  + VALUES(cancel_count_by_order_date), " +
+            "cancel_amount_by_order_date = cancel_amount_by_order_date + VALUES(cancel_amount_by_order_date)",
+            cancel.productId, cancel.orderDate, cancel.count, cancel.amount
         );
     }
 
@@ -195,4 +229,5 @@ public class MetricsConsumer {
         }
     }
 
+    private record LateArrivingCancel(Long productId, LocalDate orderDate, int count, long amount) {}
 }

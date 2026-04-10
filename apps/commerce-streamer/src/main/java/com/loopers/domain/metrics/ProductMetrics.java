@@ -39,9 +39,15 @@ public class ProductMetrics {
     @Column(name = "sales_amount", nullable = false)
     private long salesAmount;
 
-    @Column(name = "cancel_count", nullable = false)
-    private long cancelCount;
+    @Column(name = "cancel_count_by_event_date", nullable = false)
+    private long cancelCountByEventDate;
 
-    @Column(name = "cancel_amount", nullable = false)
-    private long cancelAmount;
+    @Column(name = "cancel_amount_by_event_date", nullable = false)
+    private long cancelAmountByEventDate;
+
+    @Column(name = "cancel_count_by_order_date", nullable = false)
+    private long cancelCountByOrderDate;
+
+    @Column(name = "cancel_amount_by_order_date", nullable = false)
+    private long cancelAmountByOrderDate;
 }
