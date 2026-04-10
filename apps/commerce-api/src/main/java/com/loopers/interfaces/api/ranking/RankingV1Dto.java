@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.ranking;
 
 import com.loopers.application.ranking.RankingItemInfo;
 import com.loopers.application.ranking.RankingListInfo;
+import com.loopers.domain.ranking.RankingSnapshotCreateResult;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
@@ -56,7 +57,7 @@ public class RankingV1Dto {
     /**
      * 랭킹 목록 응답 DTO (오프셋 페이징 메타 포함, design §4.2.6).
      */
-    @Schema(description = "오프셋 페이징 결과. 실시간 ZSET 갱신으로 동일 요청 파라미터라도 `content`가 달라질 수 있음.")
+    @Schema(description = "오프셋 페이징 결과. `rankingSnapshotId`로 조회 시 순서가 스냅샷 시점에 고정됨.")
     public record ListResponse(
             @Schema(description = "현재 페이지 행 목록(빈 배열 가능: 요청 page가 범위를 벗어난 경우 등)")
             List<ItemResponse> content,
@@ -68,8 +69,10 @@ public class RankingV1Dto {
             long totalElements,
             @Schema(description = "총 페이지 수(ceil(totalElements/size), totalElements=0이면 0)")
             int totalPages,
-            @Schema(description = "REDIS=일간 ZSET, FALLBACK_LATEST=Redis 장애 시 DB 최신순, DEGRADED=복구 불가 빈 목록")
-            String dataSource
+            @Schema(description = "REDIS·REDIS_SNAPSHOT·FALLBACK_LATEST·DEGRADED")
+            String dataSource,
+            @Schema(description = "스냅샷 조회 시 echo, 라이브 조회면 null")
+            String rankingSnapshotId
     ) {
         /**
          * 랭킹 목록 결과를 응답 DTO로 변환한다.
@@ -92,8 +95,22 @@ public class RankingV1Dto {
                     result.size(),
                     result.totalElements(),
                     result.totalPages(),
-                    result.dataSource()
+                    result.dataSource(),
+                    result.rankingSnapshotId()
             );
+        }
+    }
+
+    @Schema(description = "POST /rankings/snapshots 응답")
+    public record SnapshotCreateResponse(
+            @Schema(description = "이후 GET ?rankingSnapshotId= 에 사용")
+            String rankingSnapshotId,
+            long totalElements,
+            long ttlSeconds
+    ) {
+        public static SnapshotCreateResponse from(RankingSnapshotCreateResult result) {
+            return new SnapshotCreateResponse(
+                    result.snapshotId(), result.totalElements(), result.ttlSeconds());
         }
     }
 }

@@ -28,4 +28,21 @@ public final class RankingKey {
         }
         return "ranking:all:" + DATE.format(localDate);
     }
+
+    /**
+     * 일간 랭킹 ZSET의 읽기 전용 스냅샷 키 ({@code ranking:snap:{yyyyMMdd}:{uuid}}).
+     *
+     * @param localDate    일자
+     * @param snapshotUuid {@link java.util.UUID} 정규 문자열(이미 검증된 값)
+     * @return 스냅샷 ZSET 키
+     */
+    public static String snapshot(LocalDate localDate, String snapshotUuid) {
+        if (localDate == null) {
+            throw new IllegalArgumentException("localDate must not be null");
+        }
+        if (snapshotUuid == null || snapshotUuid.isBlank()) {
+            throw new IllegalArgumentException("snapshotUuid must not be blank");
+        }
+        return "ranking:snap:" + DATE.format(localDate) + ":" + snapshotUuid;
+    }
 }

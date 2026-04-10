@@ -3,10 +3,12 @@ package com.loopers.application.ranking;
 import com.loopers.domain.ranking.RankingPage;
 import com.loopers.domain.ranking.RankingQueryService;
 import com.loopers.domain.ranking.RankingRequestDate;
+import com.loopers.domain.ranking.RankingSnapshotCreateResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Optional;
 
 /**
  * 랭킹 유스케이스 조율: 요청 문자열을 도메인 날짜로 변환하고 {@link RankingQueryService}에 위임한다.
@@ -33,8 +35,25 @@ public class RankingFacade {
      */
     @Transactional(readOnly = true)
     public RankingListInfo getRankings(String dateYyyyMmDdOptional, int page, int size) {
+        return getRankings(dateYyyyMmDdOptional, page, size, Optional.empty());
+    }
+
+    /**
+     * {@code rankingSnapshotId}가 있으면 해당 스냅샷 ZSET에서 오프셋 페이징한다.
+     */
+    @Transactional(readOnly = true)
+    public RankingListInfo getRankings(
+            String dateYyyyMmDdOptional, int page, int size, Optional<String> rankingSnapshotId) {
         LocalDate date = RankingRequestDate.resolveOptionalYyyyMmDd(dateYyyyMmDdOptional);
-        RankingPage pageResult = rankingQueryService.loadPage(date, page, size);
+        RankingPage pageResult = rankingQueryService.loadPage(date, page, size, rankingSnapshotId);
         return RankingListInfo.from(pageResult);
+    }
+
+    /**
+     * 일간 ZSET의 Redis 스냅샷을 만들고 식별자를 반환한다.
+     */
+    public RankingSnapshotCreateResult createRankingSnapshot(String dateYyyyMmDdOptional) {
+        LocalDate date = RankingRequestDate.resolveOptionalYyyyMmDd(dateYyyyMmDdOptional);
+        return rankingQueryService.createSnapshot(date);
     }
 }
