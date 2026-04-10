@@ -1,19 +1,17 @@
 package com.loopers.application.metrics;
 
-import com.loopers.application.idempotent.IdempotencyChecker;
 import com.loopers.application.log.EventLogWriter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class OrderMetricProcessor {
 
-    private final IdempotencyChecker idempotencyChecker;
     private final OrderMetricWriter orderMetricWriter;
     private final EventLogWriter eventLogWriter;
     private final ConsumerMetrics consumerMetrics;
@@ -22,19 +20,20 @@ public class OrderMetricProcessor {
                         Instant occurredAt, List<OrderItemMetric> items) {
         long start = System.currentTimeMillis();
 
-        if (!idempotencyChecker.tryMark(eventId, eventType)) {
+        try {
+            boolean processed = orderMetricWriter.write(eventId, eventType, occurredAt, items);
+
+            if (processed) {
+                long durationMs = System.currentTimeMillis() - start;
+                eventLogWriter.saveProcessed(eventId, eventType, topic, groupId, durationMs);
+                consumerMetrics.recordProcessed(topic, groupId, eventType, durationMs);
+            } else {
+                eventLogWriter.saveSkipped(eventId, eventType, topic, groupId);
+                consumerMetrics.recordSkipped(topic, groupId, eventType);
+            }
+        } catch (DataIntegrityViolationException e) {
             eventLogWriter.saveSkipped(eventId, eventType, topic, groupId);
             consumerMetrics.recordSkipped(topic, groupId, eventType);
-            return;
-        }
-
-        try {
-            LocalDateTime bucketTime = BucketTimeUtils.toLocalDateTime(BucketTimeUtils.truncate5min(occurredAt));
-            orderMetricWriter.upsertAll(bucketTime, items);
-
-            long durationMs = System.currentTimeMillis() - start;
-            eventLogWriter.saveProcessed(eventId, eventType, topic, groupId, durationMs);
-            consumerMetrics.recordProcessed(topic, groupId, eventType, durationMs);
         } catch (Exception e) {
             long durationMs = System.currentTimeMillis() - start;
             eventLogWriter.saveFailed(eventId, eventType, topic, groupId, e.getMessage(), durationMs);
