@@ -44,8 +44,9 @@ public class RankingSnapshotScheduler {
      */
     @Scheduled(fixedRate = SNAPSHOT_INTERVAL_MS)
     public void takeSnapshot() {
-        String currentHourKey = RankingKeyConstants.currentHourKey();
-        LocalDateTime scoreHour = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime scoreHour = now.truncatedTo(ChronoUnit.HOURS);
+        String currentHourKey = RankingKeyConstants.hourlyKey(now);
 
         List<RankingScore> topScores = rankingRepository.readTopScores(currentHourKey, TOP_N);
         if (topScores.isEmpty()) {

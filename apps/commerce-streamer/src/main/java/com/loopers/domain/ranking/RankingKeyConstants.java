@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
  * 랭킹 Redis Sorted Set 키 상수 및 유틸리티.
  *
  * <p>일간 키 형식: {@code ranking:v1:daily:{yyyyMMdd}}, TTL 2일</p>
- * <p>시간 키 형식: {@code ranking:v1:hourly:{yyyyMMddHH}}, TTL 3시간</p>
+ * <p>시간 키 형식: {@code ranking:v1:hourly:{yyyyMMddHH}}, TTL 2시간</p>
  */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class RankingKeyConstants {
@@ -50,7 +50,17 @@ public final class RankingKeyConstants {
      * @return 현재 시간의 ZSET 키 (예: {@code ranking:v1:hourly:2026040913})
      */
     public static String currentHourKey() {
-        return HOURLY_KEY_PREFIX + LocalDateTime.now().truncatedTo(ChronoUnit.HOURS).format(HOUR_FORMAT);
+        return hourlyKey(LocalDateTime.now());
+    }
+
+    /**
+     * 주어진 시각 기준 hourly 키를 반환한다.
+     *
+     * @param dateTime 기준 시각
+     * @return 해당 시간의 ZSET 키 (예: {@code ranking:v1:hourly:2026040913})
+     */
+    public static String hourlyKey(LocalDateTime dateTime) {
+        return HOURLY_KEY_PREFIX + dateTime.truncatedTo(ChronoUnit.HOURS).format(HOUR_FORMAT);
     }
 
     /**

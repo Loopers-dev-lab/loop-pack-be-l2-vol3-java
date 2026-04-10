@@ -55,13 +55,13 @@ class RankingKeyConstantsTest {
     @Nested
     class CalculateHourlyTtlSeconds {
 
-        @DisplayName("키 시간 + 3시간까지의 초를 반환한다.")
+        @DisplayName("키 시간 + 2시간까지의 초를 반환한다.")
         @Test
         void returnsTtlUntilAnchorHour() {
             // arrange
             LocalDateTime currentHour = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
             String key = RankingKeyConstants.HOURLY_KEY_PREFIX + currentHour.format(HOUR_FORMAT);
-            LocalDateTime expectedExpireAt = currentHour.plusHours(3);
+            LocalDateTime expectedExpireAt = currentHour.plusHours(2);
 
             // act
             long ttl = RankingKeyConstants.calculateTtlSeconds(key);
