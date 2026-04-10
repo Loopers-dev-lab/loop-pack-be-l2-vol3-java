@@ -27,4 +27,16 @@ public class ProductMetricsService {
         ProductMetrics metrics = findOrCreateByProductId(productId);
         metrics.decreaseLikes();
     }
+
+    @Transactional
+    public void increaseViews(Long productId) {
+        ProductMetrics metrics = findOrCreateByProductId(productId);
+        metrics.increaseViews();
+    }
+
+    @Transactional
+    public void increaseOrders(Long productId, int count) {
+        ProductMetrics metrics = findOrCreateByProductId(productId);
+        metrics.increaseOrders(count);
+    }
 }

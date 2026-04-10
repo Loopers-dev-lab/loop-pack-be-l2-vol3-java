@@ -59,6 +59,14 @@ public class ProductMetrics {
         }
     }
 
+    public void increaseViews() {
+        this.viewCount++;
+    }
+
+    public void increaseOrders(int count) {
+        this.orderCount += count;
+    }
+
     @PrePersist
     private void prePersist() {
         this.createdAt = ZonedDateTime.now();
