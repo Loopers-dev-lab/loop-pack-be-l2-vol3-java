@@ -23,6 +23,7 @@ import com.loopers.interfaces.api.user.UserV1Dto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -30,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -57,6 +59,12 @@ public class E2ETestFixture {
 
     @Autowired
     private StockService stockService;
+
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Autowired
+    private Clock clock;
 
     // Auth
 
@@ -212,6 +220,32 @@ public class E2ETestFixture {
                 tossBaseUrl + "/v1/payments/confirm",
                 new HttpEntity<>(body, headers),
                 String.class
+        );
+    }
+
+    // Ranking
+
+    private static final String WEIGHT_CONFIG_ENDPOINT = "/api-admin/v1/ranking/weights";
+
+    public void createWeightConfig(String groupName, double wView, double wLike, double wOrder, int trafficPct) {
+        Map<String, Object> request = Map.of(
+                "groupName", groupName,
+                "wView", wView,
+                "wLike", wLike,
+                "wOrder", wOrder,
+                "trafficPct", trafficPct
+        );
+        restTemplate.exchange(
+                WEIGHT_CONFIG_ENDPOINT, HttpMethod.POST,
+                new HttpEntity<>(request, adminHeaders()),
+                new ParameterizedTypeReference<ApiResponse<Object>>() {}
+        );
+    }
+
+    public void seedRankingData(Long productId, double score) {
+        redisTemplate.opsForZSet().add(
+                "ranking:daily:" + LocalDate.now(clock).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")) + ":control",
+                String.valueOf(productId), score
         );
     }
 
