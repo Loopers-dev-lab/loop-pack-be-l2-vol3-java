@@ -62,25 +62,14 @@ public class ProductService {
     }
 
     @Transactional
-    public void increaseLikesCount(Long id) {
-        productRepository.incrementLikesCount(id);
+    public void increaseLikes(Long productId) {
+        Product product = getProduct(productId);
+        product.increaseLikes();
     }
 
     @Transactional
-    public void decreaseLikesCount(Long id) {
-        productRepository.decrementLikesCount(id);
-    }
-
-    @Transactional
-    public void decrementStock(Long id, int quantity) {
-        int updated = productRepository.decrementStock(id, quantity);
-        if (updated == 0) {
-            throw new CoreException(ErrorType.BAD_REQUEST, "재고가 부족합니다.");
-        }
-    }
-
-    @Transactional
-    public void incrementStock(Long id, int quantity) {
-        productRepository.incrementStock(id, quantity);
+    public void decreaseLikes(Long productId) {
+        Product product = getProduct(productId);
+        product.decreaseLikes();
     }
 }

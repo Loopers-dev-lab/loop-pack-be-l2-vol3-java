@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
 import com.loopers.application.coupon.CouponFacade;
+import com.loopers.application.coupon.CouponIssueInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,35 +11,30 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/coupons")
 public class CouponV1Controller {
 
     private final CouponFacade couponFacade;
 
-    @PostMapping("/coupons/{couponId}/issue")
-    public ApiResponse<CouponV1Dto.IssuedCouponResponse> issueCoupon(
+    @PostMapping("/{couponId}/issue")
+    public ApiResponse<CouponV1Dto.IssueResponse> requestIssue(
         @RequestHeader("X-Loopers-LoginId") String loginId,
         @RequestHeader("X-Loopers-LoginPw") String rawPassword,
         @PathVariable Long couponId
     ) {
-        return ApiResponse.success(
-            CouponV1Dto.IssuedCouponResponse.from(couponFacade.issueCoupon(loginId, rawPassword, couponId))
-        );
+        CouponIssueInfo info = couponFacade.requestIssue(loginId, rawPassword, couponId);
+        return ApiResponse.success(CouponV1Dto.IssueResponse.from(info));
     }
 
-    @GetMapping("/users/me/coupons")
-    public ApiResponse<List<CouponV1Dto.IssuedCouponResponse>> getMyCoupons(
+    @GetMapping("/issue/{requestId}")
+    public ApiResponse<CouponV1Dto.IssueResponse> getIssueResult(
         @RequestHeader("X-Loopers-LoginId") String loginId,
-        @RequestHeader("X-Loopers-LoginPw") String rawPassword
+        @RequestHeader("X-Loopers-LoginPw") String rawPassword,
+        @PathVariable Long requestId
     ) {
-        return ApiResponse.success(
-            couponFacade.getMyCoupons(loginId, rawPassword).stream()
-                .map(CouponV1Dto.IssuedCouponResponse::from)
-                .toList()
-        );
+        CouponIssueInfo info = couponFacade.getIssueResult(loginId, rawPassword, requestId);
+        return ApiResponse.success(CouponV1Dto.IssueResponse.from(info));
     }
 }

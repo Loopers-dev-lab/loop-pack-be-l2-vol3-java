@@ -1,10 +1,14 @@
 package com.loopers.application.order;
 
+import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.coupon.CouponTemplateRepository;
 import com.loopers.domain.coupon.IssuedCouponRepository;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderCreatedEvent;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.outbox.OutboxEventPublisher;
+import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserService;
@@ -18,12 +22,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class OrderFacadeTest {
@@ -41,19 +48,49 @@ class OrderFacadeTest {
     private BrandService brandService;
 
     @Mock
-    private CouponTemplateRepository couponTemplateRepository;
+    private ApplicationEventPublisher eventPublisher;
 
     @Mock
-    private IssuedCouponRepository issuedCouponRepository;
-
-    @Mock
-    private PreOrderCacheService preOrderCacheService;
+    private OutboxEventPublisher outboxEventPublisher;
 
     private OrderFacade orderFacade;
 
     @BeforeEach
     void setUp() {
-        orderFacade = new OrderFacade(orderService, productService, userService, brandService, couponTemplateRepository, issuedCouponRepository, preOrderCacheService);
+        orderFacade = new OrderFacade(orderService, productService, userService, brandService, eventPublisher, outboxEventPublisher);
+    }
+
+    @DisplayName("주문 생성")
+    @Nested
+    class CreateOrder {
+
+        @DisplayName("주문 생성 시 OrderCreatedEvent가 발행된다.")
+        @Test
+        void publishesOrderCreatedEvent_whenOrderCreated() {
+            // Arrange
+            String loginId = "testuser";
+            String rawPassword = "Test1234!";
+            User user = new User(loginId, "encrypted", "홍길동", "19900101", "test@example.com");
+            user.restoreBalance(100000L);
+            Product product = new Product(0L, "테스트상품", 10000, 100, "설명", "img.jpg");
+            Brand brand = new Brand("테스트브랜드", "설명");
+            Order order = new Order(user.getId(), "ORD-20240101-TEST", 10000L);
+            List<OrderRequest.OrderItemRequest> items = List.of(new OrderRequest.OrderItemRequest(1L, 1));
+
+            given(userService.authenticate(loginId, rawPassword)).willReturn(user);
+            given(productService.getProduct(1L)).willReturn(product);
+            given(brandService.getBrandsByIds(any())).willReturn(List.of(brand));
+            given(orderService.generateOrderNumber()).willReturn("ORD-20240101-TEST");
+            given(orderService.createOrder(any(), any(), any())).willReturn(order);
+            given(orderService.createOrderItem(any(), any(), any(), any(), any(), any(), any())).willReturn(null);
+            given(orderService.getOrderItems(any())).willReturn(List.of());
+
+            // Act
+            orderFacade.createOrder(loginId, rawPassword, items);
+
+            // Assert
+            verify(eventPublisher).publishEvent(any(OrderCreatedEvent.class));
+        }
     }
 
     @DisplayName("주문 상세 조회")

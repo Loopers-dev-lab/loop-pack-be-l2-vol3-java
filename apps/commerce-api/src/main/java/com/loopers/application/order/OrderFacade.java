@@ -1,15 +1,10 @@
 package com.loopers.application.order;
 
+import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
-import com.loopers.domain.coupon.CouponTemplate;
-import com.loopers.domain.coupon.CouponTemplateRepository;
-import com.loopers.domain.coupon.IssuedCoupon;
-import com.loopers.domain.coupon.IssuedCouponRepository;
-import com.loopers.infrastructure.preorder.PreOrder;
-import com.loopers.infrastructure.preorder.PreOrderCacheService;
-import com.loopers.infrastructure.preorder.PreOrderItem;
-import com.loopers.infrastructure.preorder.PreOrderStatus;
+import com.loopers.domain.order.OrderCreatedEvent;
+import com.loopers.domain.outbox.OutboxEventPublisher;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import com.loopers.domain.order.Order;
@@ -20,12 +15,13 @@ import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import java.util.Map;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -42,9 +38,8 @@ public class OrderFacade {
     private final ProductService productService;
     private final UserService userService;
     private final BrandService brandService;
-    private final CouponTemplateRepository couponTemplateRepository;
-    private final IssuedCouponRepository issuedCouponRepository;
-    private final PreOrderCacheService preOrderCacheService;
+    private final ApplicationEventPublisher eventPublisher;
+    private final OutboxEventPublisher outboxEventPublisher;
 
     @Transactional
     public OrderInfo createOrder(String loginId, String rawPassword,
@@ -115,6 +110,13 @@ public class OrderFacade {
         }
 
         List<OrderItem> orderItems = orderService.getOrderItems(order.getId());
+        outboxEventPublisher.publish(
+            KafkaTopics.ORDER_EVENTS,
+            order.getId().toString(),
+            "ORDER_CREATED",
+            Map.of("orderId", order.getId(), "userId", order.getUserId(), "totalAmount", order.getTotalAmount())
+        );
+        eventPublisher.publishEvent(OrderCreatedEvent.from(order));
         return OrderInfo.from(order, orderItems.stream().map(OrderItemInfo::from).toList());
     }
 
