@@ -1,7 +1,5 @@
 package com.loopers.application.ranking;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.loopers.domain.ranking.RankEntry;
 import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.infrastructure.ranking.RankingRedisRepository;
@@ -9,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.DayOfWeek;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
@@ -25,11 +22,6 @@ public class RankingService {
     private final RankingKeyResolver keyResolver;
     private final RankingFallbackAggregator fallbackAggregator;
     private final ExperimentGroupResolver experimentGroupResolver;
-
-    private final Cache<String, List<RankEntry>> rankingCache = Caffeine.newBuilder()
-            .expireAfterWrite(Duration.ofSeconds(30))
-            .maximumSize(200)
-            .build();
 
     public RankingService(RankingRedisRepository rankingRedisRepository,
                           RankingKeyResolver keyResolver,
@@ -48,8 +40,7 @@ public class RankingService {
     }
 
     public List<RankEntry> getRankEntries(RankingPeriod period, LocalDate date, int page, int size, String group) {
-        String cacheKey = period + ":" + date + ":" + page + ":" + size + ":" + group;
-        return rankingCache.get(cacheKey, key -> loadRankEntries(period, date, page, size, group));
+        return loadRankEntries(period, date, page, size, group);
     }
 
     public long getTotalCount(RankingPeriod period, LocalDate date, String group) {

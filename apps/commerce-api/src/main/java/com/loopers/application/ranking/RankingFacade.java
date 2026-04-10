@@ -1,5 +1,7 @@
 package com.loopers.application.ranking;
 
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductService;
 import com.loopers.application.ranking.RankingInfo.RankingItem;
@@ -7,27 +9,46 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.ranking.RankEntry;
 import com.loopers.domain.ranking.RankingPeriod;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
-@RequiredArgsConstructor
 public class RankingFacade {
 
     private final RankingService rankingService;
     private final ProductService productService;
+
+    private final Cache<String, RankingInfo> rankingResultCache = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofSeconds(30))
+            .maximumSize(200)
+            .build();
+
+    public RankingFacade(RankingService rankingService, ProductService productService) {
+        this.rankingService = rankingService;
+        this.productService = productService;
+    }
 
     // Query
 
     @Transactional(readOnly = true)
     public RankingInfo getRankings(RankingPeriod period, LocalDate date, int page, int size, Long userId) {
         String group = rankingService.resolveGroup(userId);
+        String cacheKey = period + ":" + date + ":" + page + ":" + size + ":" + group;
+
+        return rankingResultCache.get(cacheKey, key ->
+                loadRankings(period, date, page, size, group));
+    }
+
+    private RankingInfo loadRankings(RankingPeriod period, LocalDate date, int page, int size, String group) {
         List<RankEntry> entries = rankingService.getRankEntries(period, date, page, size, group);
         long totalCount = rankingService.getTotalCount(period, date, group);
 
