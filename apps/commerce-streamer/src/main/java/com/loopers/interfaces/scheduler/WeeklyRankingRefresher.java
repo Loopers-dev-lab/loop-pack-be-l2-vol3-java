@@ -1,5 +1,6 @@
 package com.loopers.interfaces.scheduler;
 
+import com.loopers.application.metrics.BucketTimeUtils;
 import com.loopers.application.ranking.RankingAggregator;
 import com.loopers.infrastructure.ranking.RankingZSetRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +13,6 @@ import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.time.temporal.WeekFields;
 import java.util.Map;
@@ -22,7 +22,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class WeeklyRankingRefresher {
 
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final Duration TTL = Duration.ofDays(8);
 
     private final RankingAggregator aggregator;
@@ -31,10 +30,11 @@ public class WeeklyRankingRefresher {
 
     @Scheduled(fixedDelay = 5 * 60 * 1000)
     public void refresh() {
-        LocalDate today = LocalDate.now(clock.withZone(KST));
+        LocalDate today = LocalDate.now(clock);
+        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
-        LocalDateTime from = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay();
-        LocalDateTime to = today.plusDays(1).atStartOfDay();
+        LocalDateTime from = BucketTimeUtils.kstDateToUtcBoundary(monday);
+        LocalDateTime to = BucketTimeUtils.kstDateToUtcBoundary(today.plusDays(1));
 
         Map<Long, Double> scores = aggregator.aggregate(from, to);
 
