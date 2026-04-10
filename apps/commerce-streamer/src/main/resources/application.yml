@@ -1,4 +1,5 @@
 server:
+  port: 8090  # commerce-api(8080)와 충돌 방지
   shutdown: graceful
   tomcat:
     threads:
@@ -34,6 +35,10 @@ spring:
   config:
     activate:
       on-profile: local, test
+
+management:
+  server:
+    port: 8091  # monitoring.yml(8081) 오버라이드 — commerce-api management port와 충돌 방지
 
 ---
 spring:
