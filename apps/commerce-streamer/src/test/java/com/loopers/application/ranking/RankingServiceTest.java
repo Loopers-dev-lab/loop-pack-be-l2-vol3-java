@@ -123,8 +123,8 @@ class RankingServiceTest {
         @Test
         void skipsDuplicateEvents() {
             // arrange
-            given(eventHandledRepository.markIfAbsent("e1")).willReturn(true);
-            given(eventHandledRepository.markIfAbsent("e2")).willReturn(false);
+            given(eventHandledRepository.markIfAbsent("daily:e1")).willReturn(true);
+            given(eventHandledRepository.markIfAbsent("daily:e2")).willReturn(false);
             RankingEvent.View view1 = new RankingEvent.View("e1", 1L);
             given(scoreCalculator.calculate(view1)).willReturn(new RankingScore(1L, 0.1));
 
@@ -176,7 +176,7 @@ class RankingServiceTest {
         @DisplayName("멱등성 체크 후 오늘과 내일 키에서 해당 상품을 제거한다.")
         @Test
         void removesProductFromTodayAndTomorrowKey() {
-            given(eventHandledRepository.markIfAbsent("e1")).willReturn(true);
+            given(eventHandledRepository.markIfAbsent("daily:e1")).willReturn(true);
             rankingService.removeDailyProducts(List.of(new RankingEvent.Delete("e1", 5L)));
             then(rankingRepository).should().removeMembers(eq(TODAY_KEY), eq(List.of(5L)));
             then(rankingRepository).should().removeMembers(eq(TOMORROW_KEY), eq(List.of(5L)));
@@ -185,7 +185,7 @@ class RankingServiceTest {
         @DisplayName("모든 이벤트가 중복이면, Repository를 호출하지 않는다.")
         @Test
         void removesNothing_whenAllDuplicate() {
-            given(eventHandledRepository.markIfAbsent("e1")).willReturn(false);
+            given(eventHandledRepository.markIfAbsent("daily:e1")).willReturn(false);
             rankingService.removeDailyProducts(List.of(new RankingEvent.Delete("e1", 5L)));
             then(rankingRepository).should(never()).removeMembers(anyString(), anyList());
         }
@@ -251,8 +251,8 @@ class RankingServiceTest {
         @DisplayName("중복 이벤트는 skip한다.")
         @Test
         void skipsDuplicateEvents() {
-            given(eventHandledRepository.markIfAbsent("e1")).willReturn(true);
-            given(eventHandledRepository.markIfAbsent("e2")).willReturn(false);
+            given(eventHandledRepository.markIfAbsent("hourly:e1")).willReturn(true);
+            given(eventHandledRepository.markIfAbsent("hourly:e2")).willReturn(false);
             RankingEvent.View view1 = new RankingEvent.View("e1", 1L);
             given(scoreCalculator.calculate(view1)).willReturn(new RankingScore(1L, 0.1));
 
@@ -271,7 +271,7 @@ class RankingServiceTest {
         @DisplayName("현재 시간 키와 다음 시간 키에서 해당 상품을 제거한다.")
         @Test
         void removesProductFromCurrentAndNextHourKey() {
-            given(eventHandledRepository.markIfAbsent("e1")).willReturn(true);
+            given(eventHandledRepository.markIfAbsent("hourly:e1")).willReturn(true);
             rankingService.removeHourlyProducts(List.of(new RankingEvent.Delete("e1", 5L)));
             then(rankingRepository).should().removeMembers(eq(CURRENT_HOUR_KEY), eq(List.of(5L)));
             then(rankingRepository).should().removeMembers(eq(NEXT_HOUR_KEY), eq(List.of(5L)));

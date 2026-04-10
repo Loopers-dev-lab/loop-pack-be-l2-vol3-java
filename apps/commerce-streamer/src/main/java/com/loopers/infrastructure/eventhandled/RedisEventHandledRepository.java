@@ -36,12 +36,12 @@ public class RedisEventHandledRepository implements EventHandledRepository {
     }
 
     @Override
-    public boolean markIfAbsent(String eventId) {
+    public boolean markIfAbsent(String key) {
         try {
-            Boolean result = redisTemplate.opsForValue().setIfAbsent(KEY_PREFIX + eventId, "1", TTL);
+            Boolean result = redisTemplate.opsForValue().setIfAbsent(KEY_PREFIX + key, "1", TTL);
             return Boolean.TRUE.equals(result);
         } catch (Exception e) {
-            log.warn("[EventHandled] Redis 장애로 중복 필터링 skip: eventId={}", eventId, e);
+            log.warn("[EventHandled] Redis 장애로 중복 필터링 skip: key={}", key, e);
             return true;
         }
     }

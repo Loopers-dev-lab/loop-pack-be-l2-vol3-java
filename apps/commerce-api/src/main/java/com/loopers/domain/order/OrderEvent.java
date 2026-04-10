@@ -86,7 +86,7 @@ public class OrderEvent {
     }
 
     /**
-     * 주문 항목의 ��냅샷.
+     * 주문 항목의 스냅샷.
      *
      * @param productId 상품 ID
      * @param quantity  수량

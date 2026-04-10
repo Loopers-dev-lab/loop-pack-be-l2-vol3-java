@@ -1,18 +1,19 @@
 package com.loopers.application.ranking;
 
-import static com.loopers.domain.ranking.RankingKeyConstants.DATE_FORMAT;
 import static com.loopers.domain.ranking.RankingKeyConstants.DAILY_KEY_PREFIX;
+import static com.loopers.domain.ranking.RankingKeyConstants.DATE_FORMAT;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 
 import com.loopers.domain.eventhandled.EventHandledRepository;
+import com.loopers.domain.ranking.RankingEvent;
 import com.loopers.domain.ranking.RankingKeyConstants;
 import com.loopers.domain.ranking.RankingRepository;
-import com.loopers.domain.ranking.RankingEvent;
 import com.loopers.domain.ranking.RankingScore;
 import com.loopers.domain.ranking.RankingScoreCalculator;
 
@@ -30,6 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RankingService {
 
+    private static final String DAILY_PREFIX = "daily:";
+    private static final String HOURLY_PREFIX = "hourly:";
+
     private final EventHandledRepository eventHandledRepository;
     private final RankingScoreCalculator scoreCalculator;
     private final RankingRepository rankingRepository;
@@ -40,7 +44,7 @@ public class RankingService {
      * @param events 랭킹 이벤트 목록
      */
     public void processDailyBatch(List<RankingEvent> events) {
-        List<RankingScore> merged = calculateScores(events);
+        List<RankingScore> merged = calculateScores(events, DAILY_PREFIX);
         if (!merged.isEmpty()) {
             rankingRepository.incrementScores(todayKey(), merged);
         }
@@ -52,7 +56,7 @@ public class RankingService {
      * @param events 랭킹 이벤트 목록
      */
     public void processHourlyBatch(List<RankingEvent> events) {
-        List<RankingScore> merged = calculateScores(events);
+        List<RankingScore> merged = calculateScores(events, HOURLY_PREFIX);
         if (!merged.isEmpty()) {
             rankingRepository.incrementScores(RankingKeyConstants.currentHourKey(), merged);
         }
@@ -64,7 +68,7 @@ public class RankingService {
      * @param events 삭제 이벤트 목록
      */
     public void removeDailyProducts(List<RankingEvent.Delete> events) {
-        List<Long> productIds = filterDeleteEvents(events);
+        List<Long> productIds = filterDeleteEvents(events, DAILY_PREFIX);
         if (productIds.isEmpty()) {
             return;
         }
@@ -78,7 +82,7 @@ public class RankingService {
      * @param events 삭제 이벤트 목록
      */
     public void removeHourlyProducts(List<RankingEvent.Delete> events) {
-        List<Long> productIds = filterDeleteEvents(events);
+        List<Long> productIds = filterDeleteEvents(events, HOURLY_PREFIX);
         if (productIds.isEmpty()) {
             return;
         }
@@ -86,36 +90,37 @@ public class RankingService {
         rankingRepository.removeMembers(RankingKeyConstants.nextHourKey(), productIds);
     }
 
-    private List<RankingScore> calculateScores(List<RankingEvent> events) {
+    private List<RankingScore> calculateScores(List<RankingEvent> events, String consumerPrefix) {
         if (events.isEmpty()) {
-            return List.of();
+            return Collections.emptyList();
         }
 
         List<RankingScore> scores = new ArrayList<>();
-        for (RankingEvent event : filterDuplicates(events)) {
+        for (RankingEvent event : filterDuplicates(events, consumerPrefix)) {
             switch (event) {
                 case RankingEvent.View view -> scores.add(scoreCalculator.calculate(view));
                 case RankingEvent.Like like -> scores.add(scoreCalculator.calculate(like));
                 case RankingEvent.Order order -> scores.addAll(scoreCalculator.calculate(order));
-                case RankingEvent.Delete ignored -> { }
+                case RankingEvent.Delete ignored -> {
+                }
             }
         }
         return RankingScore.mergeAll(scores);
     }
 
-    private List<Long> filterDeleteEvents(List<RankingEvent.Delete> events) {
+    private List<Long> filterDeleteEvents(List<RankingEvent.Delete> events, String consumerPrefix) {
         if (events.isEmpty()) {
-            return List.of();
+            return Collections.emptyList();
         }
-        return filterDuplicates(events).stream()
+        return filterDuplicates(events, consumerPrefix).stream()
                 .map(RankingEvent.Delete::productId)
                 .toList();
     }
 
-    private <T extends RankingEvent> List<T> filterDuplicates(List<T> events) {
+    private <T extends RankingEvent> List<T> filterDuplicates(List<T> events, String consumerPrefix) {
         List<T> filtered = new ArrayList<>();
         for (T event : events) {
-            if (!eventHandledRepository.markIfAbsent(event.eventId())) {
+            if (!eventHandledRepository.markIfAbsent(consumerPrefix + event.eventId())) {
                 log.debug("[Ranking] 중복 이벤트 skip: eventId={}", event.eventId());
                 continue;
             }
