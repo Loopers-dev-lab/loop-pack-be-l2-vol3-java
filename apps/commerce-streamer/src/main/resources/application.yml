@@ -61,6 +61,12 @@ collector:
   product:
     topic-name: product-events
     dlq-suffix: .DLQ
+    view-contribution:
+      daily-cap-per-partition-product: 0 # 0이면 비활성. >0 이면 (partitionKey, productId, day)별 조회 기여 상한.
+      key-ttl-days: 2
+    sold-contribution:
+      daily-cap-quantity-per-partition-product: 0 # 0이면 비활성. >0 이면 (partitionKey, productId, day)별 판매 수량 누적 상한.
+      key-ttl-days: 2
   order:
     topic-name: order-events
   user:

@@ -40,24 +40,34 @@ public class ProductEventCollectorDatabaseService {
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
     private final RankingMetricsRedisSyncService rankingMetricsRedisSyncService;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final ProductViewContributionLimiter productViewContributionLimiter;
+    private final ProductSoldContributionLimiter productSoldContributionLimiter;
     private final String dlqSuffix;
     private final Counter processedCounter;
     private final Counter duplicateCounter;
+    private final Counter viewCappedCounter;
+    private final Counter soldCappedCounter;
 
     public ProductEventCollectorDatabaseService(
             EventHandledJpaRepository eventHandledJpaRepository,
             ProductMetricsJpaRepository productMetricsJpaRepository,
             RankingMetricsRedisSyncService rankingMetricsRedisSyncService,
             KafkaTemplate<Object, Object> kafkaTemplate,
+            ProductViewContributionLimiter productViewContributionLimiter,
+            ProductSoldContributionLimiter productSoldContributionLimiter,
             MeterRegistry meterRegistry,
             @Value("${collector.product.dlq-suffix:.DLQ}") String dlqSuffix) {
         this.eventHandledJpaRepository = eventHandledJpaRepository;
         this.productMetricsJpaRepository = productMetricsJpaRepository;
         this.rankingMetricsRedisSyncService = rankingMetricsRedisSyncService;
         this.kafkaTemplate = kafkaTemplate;
+        this.productViewContributionLimiter = productViewContributionLimiter;
+        this.productSoldContributionLimiter = productSoldContributionLimiter;
         this.dlqSuffix = dlqSuffix;
         this.processedCounter = meterRegistry.counter("kafka.collector.events.processed");
         this.duplicateCounter = meterRegistry.counter("kafka.collector.events.duplicate");
+        this.viewCappedCounter = meterRegistry.counter("kafka.collector.events.view_capped");
+        this.soldCappedCounter = meterRegistry.counter("kafka.collector.events.sold_capped");
     }
 
     /**
@@ -103,6 +113,11 @@ public class ProductEventCollectorDatabaseService {
         }
         if (PRODUCT_VIEWED.equals(eventType)) {
             long productId = envelope.data().path("productId").asLong();
+            // 조회 기여의 최소값 초과 시 차단
+            if (!productViewContributionLimiter.allowContribution(envelope.partitionKey(), productId, occurredAt)) {
+                viewCappedCounter.increment();
+                return;
+            }
             productMetricsJpaRepository.applyViewDeltaIfNewer(productId, 1L, occurredAt);
             rankingProductIds.add(productId);
             processedCounter.increment();
@@ -111,15 +126,30 @@ public class ProductEventCollectorDatabaseService {
         }
         if (PAYMENT_COMPLETED.equals(eventType)) {
             var lines = envelope.data().path("lines");
+            boolean anyPositiveQtyLine = false;
+            boolean anySoldApplied = false;
             if (lines.isArray()) {
+                String pk = envelope.partitionKey();
                 for (var line : lines) {
                     long productId = line.path("productId").asLong();
                     long qty = line.path("quantity").asLong();
+                    // 수량이 0 이하면 처리하지 않음
+                    if (qty <= 0L) {
+                        continue;
+                    }
+                    anyPositiveQtyLine = true;
+                    if (!productSoldContributionLimiter.allowContribution(pk, productId, qty, occurredAt)) {
+                        soldCappedCounter.increment();
+                        continue;
+                    }
                     productMetricsJpaRepository.applySoldDeltaIfNewer(productId, qty, occurredAt);
                     rankingProductIds.add(productId);
+                    anySoldApplied = true;
                 }
             }
-            processedCounter.increment();
+            if (!anyPositiveQtyLine || anySoldApplied) {
+                processedCounter.increment();
+            }
             scheduleRankingSyncAfterCommit(record, envelope, rankingProductIds, occurredAt);
         }
     }

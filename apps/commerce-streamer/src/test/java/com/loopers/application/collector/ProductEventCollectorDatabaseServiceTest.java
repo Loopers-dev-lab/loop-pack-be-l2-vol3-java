@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -45,6 +46,12 @@ class ProductEventCollectorDatabaseServiceTest {
     @Mock
     private KafkaTemplate<Object, Object> kafkaTemplate;
 
+    @Mock
+    private ProductViewContributionLimiter productViewContributionLimiter;
+
+    @Mock
+    private ProductSoldContributionLimiter productSoldContributionLimiter;
+
     private SimpleMeterRegistry meterRegistry;
     private ProductEventCollectorDatabaseService databaseService;
 
@@ -65,6 +72,8 @@ class ProductEventCollectorDatabaseServiceTest {
                 productMetricsJpaRepository,
                 rankingSync,
                 kafkaTemplate,
+                productViewContributionLimiter,
+                productSoldContributionLimiter,
                 meterRegistry,
                 ".DLQ"
         );
@@ -126,6 +135,7 @@ class ProductEventCollectorDatabaseServiceTest {
     @Test
     @DisplayName("PRODUCT_VIEWED는 view_count를 반영한다.")
     void processDb_whenProductViewed_shouldApplyViewDelta() {
+        when(productViewContributionLimiter.allowContribution(any(), anyLong(), any())).thenReturn(true);
         ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
                 "product-events",
                 0,
@@ -144,8 +154,27 @@ class ProductEventCollectorDatabaseServiceTest {
     }
 
     @Test
+    @DisplayName("PRODUCT_VIEWED 상한 초과면 view_count를 반영하지 않는다.")
+    void processDb_whenProductViewedOverCap_shouldSkipViewDelta() {
+        when(productViewContributionLimiter.allowContribution(eq("viewer-1"), eq(201L), any())).thenReturn(false);
+        ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
+                "product-events",
+                0,
+                2L,
+                "201",
+                envelopeJsonView("evt-view-cap", "2026-03-26T00:00:00Z", 201L, "viewer-1").getBytes()
+        );
+
+        databaseService.processDb(record, parse(record.value()));
+
+        verify(productMetricsJpaRepository, never()).applyViewDeltaIfNewer(any(), any(Long.class), any());
+        verify(rankingWriteRepository, never()).upsertScore(any(), any(), any(Double.class), any());
+    }
+
+    @Test
     @DisplayName("PAYMENT_COMPLETED는 주문 라인별 판매 수량을 반영한다.")
     void processDb_whenPaymentCompleted_shouldApplySoldDeltaPerLine() {
+        when(productSoldContributionLimiter.allowContribution(eq("99"), anyLong(), anyLong(), any())).thenReturn(true);
         String json = "{\"eventId\":\"evt-pay-1\",\"eventType\":\"PAYMENT_COMPLETED\","
                 + "\"occurredAt\":\"2026-03-26T00:00:00Z\",\"partitionKey\":\"99\","
                 + "\"data\":{\"orderId\":99,\"lines\":[{\"productId\":301,\"quantity\":2},{\"productId\":302,\"quantity\":1}]}}";
@@ -161,6 +190,29 @@ class ProductEventCollectorDatabaseServiceTest {
 
         verify(productMetricsJpaRepository).applySoldDeltaIfNewer(
                 eq(301L), eq(2L), eq(Instant.parse("2026-03-26T00:00:00Z")));
+        verify(productMetricsJpaRepository).applySoldDeltaIfNewer(
+                eq(302L), eq(1L), eq(Instant.parse("2026-03-26T00:00:00Z")));
+    }
+
+    @Test
+    @DisplayName("PAYMENT_COMPLETED 라인이 판매 기여 상한에 걸리면 해당 라인만 스킵한다.")
+    void processDb_whenPaymentLineSoldCapped_shouldSkipThatLineOnly() {
+        when(productSoldContributionLimiter.allowContribution(eq("buyer-1"), eq(301L), eq(2L), any())).thenReturn(false);
+        when(productSoldContributionLimiter.allowContribution(eq("buyer-1"), eq(302L), eq(1L), any())).thenReturn(true);
+        String json = "{\"eventId\":\"evt-pay-cap\",\"eventType\":\"PAYMENT_COMPLETED\","
+                + "\"occurredAt\":\"2026-03-26T00:00:00Z\",\"partitionKey\":\"buyer-1\","
+                + "\"data\":{\"orderId\":1,\"lines\":[{\"productId\":301,\"quantity\":2},{\"productId\":302,\"quantity\":1}]}}";
+        ConsumerRecord<Object, Object> record = new ConsumerRecord<>(
+                "order-events",
+                0,
+                3L,
+                "buyer-1",
+                json.getBytes()
+        );
+
+        databaseService.processDb(record, parse(record.value()));
+
+        verify(productMetricsJpaRepository, never()).applySoldDeltaIfNewer(eq(301L), any(Long.class), any());
         verify(productMetricsJpaRepository).applySoldDeltaIfNewer(
                 eq(302L), eq(1L), eq(Instant.parse("2026-03-26T00:00:00Z")));
     }
@@ -187,6 +239,14 @@ class ProductEventCollectorDatabaseServiceTest {
 
         databaseService.processDb(record, parse(record.value()));
 
+        // E-LAG: DB 메트릭은 반영됐지만 Redis upsert 실패로 랭킹 반영이 지연/불일치될 수 있다.
+        verify(eventHandledJpaRepository).saveAndFlush(any());
+        verify(productMetricsJpaRepository).applyLikeDeltaIfNewer(
+                eq(101L),
+                eq(1L),
+                eq(Instant.parse("2026-03-26T00:00:00Z"))
+        );
+        verify(rankingWriteRepository).upsertScore(any(), any(), any(Double.class), any());
         verify(kafkaTemplate).send(eq("product-events.DLQ"), any());
     }
 
@@ -213,11 +273,15 @@ class ProductEventCollectorDatabaseServiceTest {
     }
 
     private static String envelopeJsonView(String eventId, String occurredAt, Long productId) {
+        return envelopeJsonView(eventId, occurredAt, productId, String.valueOf(productId));
+    }
+
+    private static String envelopeJsonView(String eventId, String occurredAt, Long productId, String partitionKey) {
         return "{"
                 + "\"eventId\":\"" + eventId + "\","
                 + "\"eventType\":\"PRODUCT_VIEWED\","
                 + "\"occurredAt\":\"" + occurredAt + "\","
-                + "\"partitionKey\":\"" + productId + "\","
+                + "\"partitionKey\":\"" + partitionKey + "\","
                 + "\"data\":{\"productId\":" + productId + "}"
                 + "}";
     }
