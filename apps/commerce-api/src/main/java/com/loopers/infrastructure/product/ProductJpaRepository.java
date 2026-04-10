@@ -87,4 +87,22 @@ public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> 
     @Query("UPDATE ProductModel p SET p.likeCount = GREATEST(p.likeCount - 1, 0) WHERE p.productId = :productId")
     void decrementLikeCount(@Param("productId") Long productId);
 
+    /**
+     * 상품의 like_count와 likes 테이블의 실제 좋아요 수가 불일치하는 상품 목록을 조회한다.
+     *
+     * @return [productId, currentCount, actualCount] 쌍 목록
+     */
+    @Query(value = "SELECT p.product_id, p.like_count AS currentCount, COUNT(l.product_id) AS actualCount " +
+            "FROM products p " +
+            "LEFT JOIN likes l ON p.product_id = l.product_id AND l.del_yn = 'N' " +
+            "WHERE p.del_yn = 'N' " +
+            "GROUP BY p.product_id, p.like_count " +
+            "HAVING p.like_count != COUNT(l.product_id)",
+            nativeQuery = true)
+    List<Object[]> findLikeCountMismatchesRaw();
+
+    @Modifying
+    @Query("UPDATE ProductModel p SET p.likeCount = :likeCount WHERE p.productId = :productId")
+    void updateLikeCount(@Param("productId") Long productId, @Param("likeCount") long likeCount);
+
 }

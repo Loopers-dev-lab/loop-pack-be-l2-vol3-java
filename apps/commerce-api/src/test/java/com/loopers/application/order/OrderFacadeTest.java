@@ -11,7 +11,9 @@ import com.loopers.domain.order.OrderItemCommand;
 import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.coupon.CouponPendingActionService;
 import com.loopers.domain.payment.PaymentService;
+import com.loopers.domain.outbox.OutboxEventService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.StockService;
@@ -19,6 +21,7 @@ import com.loopers.support.enums.DiscountType;
 import com.loopers.support.enums.OrderType;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -50,7 +54,11 @@ class OrderFacadeTest {
     @Mock StockService stockService;
     @Mock CartService cartService;
     @Mock CouponService couponService;
+    @Mock CouponPendingActionService couponPendingActionService;
     @Mock PaymentService paymentService;
+    @Mock OutboxEventService outboxEventService;
+    @Mock ObjectMapper objectMapper;
+    @Mock ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     OrderFacade orderFacade;
@@ -180,7 +188,8 @@ class OrderFacadeTest {
                     List.of(new OrderItemCommand(1L, 1)), USER_COUPON_ID);
 
             assertThat(result.getTotalAmount()).isEqualByComparingTo(BigDecimal.valueOf(8000));
-            verify(couponService).markCouponAsUsed(userCoupon.getUserCouponId(), savedOrder.getOrderId());
+            verify(couponService).reserveCoupon(userCoupon.getUserCouponId());
+            verify(couponPendingActionService).saveConfirm(userCoupon.getUserCouponId(), savedOrder.getOrderId());
         }
 
         @Test

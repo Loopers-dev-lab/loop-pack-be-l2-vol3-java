@@ -2,6 +2,7 @@ package com.loopers.interfaces.config;
 
 import com.loopers.interfaces.api.AuthUserArgumentResolver;
 import com.loopers.interfaces.api.CustomerAuthInterceptor;
+import com.loopers.interfaces.api.EntryTokenInterceptor;
 import com.loopers.interfaces.apiadmin.AdminAuthInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final AdminAuthInterceptor adminAuthInterceptor;
     private final CustomerAuthInterceptor customerAuthInterceptor;
     private final AuthUserArgumentResolver authUserArgumentResolver;
+    private final EntryTokenInterceptor entryTokenInterceptor;
 
     /**
      * 인터셉터를 등록한다.
@@ -45,7 +47,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .addPathPatterns("/api/v1/orders/**")
                 .addPathPatterns("/api/v1/coupons/**")
                 .addPathPatterns("/api/v1/payments/**")
+                .addPathPatterns("/api/v1/queue/**")
                 .excludePathPatterns("/api/v1/payments/callback");
+
+        // 3. 입장 토큰 검증 — 인증 후 실행 (등록 순서 = 실행 순서)
+        registry.addInterceptor(entryTokenInterceptor)
+                .addPathPatterns("/api/v1/orders/**")
+                .excludePathPatterns("/api/v1/orders/*/cancel");
     }
 
     /**

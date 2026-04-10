@@ -63,8 +63,7 @@ public class PaymentPollingScheduler {
      */
     @Scheduled(fixedDelay = 60000)
     public void pollPendingPayments() {
-        LocalDateTime before = LocalDateTime.now().minusMinutes(1);
-        List<PaymentModel> pendingPayments = paymentService.findRequestedBefore(before);
+        List<PaymentModel> pendingPayments = paymentService.findRequestedBeforeMinutesAgo(1);
 
         if (pendingPayments.isEmpty()) {
             return;

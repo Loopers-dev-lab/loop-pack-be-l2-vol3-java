@@ -4,6 +4,7 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import java.util.TimeZone;
 
@@ -12,6 +13,7 @@ import java.util.TimeZone;
  * REST API 서버를 기동하며, 타임존을 Asia/Seoul로 설정하고 스케줄링을 활성화한다.
  */
 @ConfigurationPropertiesScan
+@EnableAsync
 @EnableScheduling
 @SpringBootApplication
 public class CommerceApiApplication {

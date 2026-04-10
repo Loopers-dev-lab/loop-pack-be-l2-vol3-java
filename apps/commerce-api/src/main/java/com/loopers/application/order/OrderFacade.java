@@ -4,6 +4,7 @@ import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.cart.CartService;
 import com.loopers.domain.coupon.CouponModel;
+import com.loopers.domain.coupon.CouponPendingActionService;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.coupon.UserCouponModel;
 import com.loopers.domain.order.OrderCartRestoreModel;
@@ -12,6 +13,10 @@ import com.loopers.domain.order.OrderItemModel;
 import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.domain.order.OrderModel;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.order.event.OrderCancelledEvent;
+import com.loopers.domain.order.event.OrderCreatedEvent;
+import com.loopers.domain.order.event.OrderExpiredEvent;
+import com.loopers.domain.outbox.OutboxEventService;
 import com.loopers.domain.payment.PaymentService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
@@ -21,7 +26,9 @@ import com.loopers.support.enums.RestoreReason;
 import com.loopers.support.enums.RestoreTriggerSource;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,7 +71,11 @@ public class OrderFacade {
     private final StockService stockService;
     private final CartService cartService;
     private final CouponService couponService;
+    private final CouponPendingActionService couponPendingActionService;
     private final PaymentService paymentService;
+    private final OutboxEventService outboxEventService;
+    private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 직접 주문을 생성한다.
@@ -148,6 +159,11 @@ public class OrderFacade {
         CouponModel coupon = userCoupon != null
                 ? couponService.findByIdForAdmin(userCoupon.getCouponId()) : null;
 
+        // 쿠폰 CAS 선점 (AVAILABLE → RESERVED)
+        if (userCoupon != null) {
+            couponService.reserveCoupon(userCoupon.getUserCouponId());
+        }
+
         List<OrderItemSnapshot> snapshots = buildSnapshots(merged);
         BigDecimal totalOriginal = sumOriginalAmounts(snapshots);
 
@@ -168,10 +184,25 @@ public class OrderFacade {
                 totalOriginal.subtract(totalDiscount), finalSnapshots);
 
         if (userCoupon != null) {
-            couponService.markCouponAsUsed(userCoupon.getUserCouponId(), order.getOrderId());
+            couponPendingActionService.saveConfirm(userCoupon.getUserCouponId(), order.getOrderId());
         }
 
-        return OrderInfo.from(order, orderService.findOrderItems(order.getOrderId()));
+        List<OrderItemModel> orderItems = orderService.findOrderItems(order.getOrderId());
+        OrderInfo info = OrderInfo.from(order, orderItems);
+
+        // Step 2: Outbox 기록 (같은 TX — 주문과 원자적 저장)
+        OrderCreatedEvent createdEvent = OrderCreatedEvent.from(order, orderItems);
+        outboxEventService.save(
+            "ORDER", String.valueOf(info.getOrderId()),
+            "ORDER_CREATED", "order-events",
+            String.valueOf(info.getOrderId()),
+            toJson(createdEvent)
+        );
+
+        // 이벤트 발행
+        eventPublisher.publishEvent(createdEvent);
+
+        return info;
     }
 
     /**
@@ -235,7 +266,21 @@ public class OrderFacade {
                     "결제가 진행 중인 주문은 취소할 수 없습니다");
         }
         Optional<OrderModel> order = orderService.cancelOrder(userId, orderId);
-        order.ifPresent(o -> restoreOrderResources(o, RestoreReason.USER_CANCELLED, RestoreTriggerSource.CANCEL_API));
+        order.ifPresent(o -> {
+            restoreOrderResources(o, RestoreReason.USER_CANCELLED, RestoreTriggerSource.CANCEL_API);
+
+            OrderCancelledEvent cancelledEvent = new OrderCancelledEvent(o.getOrderId(), userId);
+
+            // Step 2: Outbox 기록
+            outboxEventService.save(
+                "ORDER", String.valueOf(o.getOrderId()),
+                "ORDER_CANCELLED", "order-events",
+                String.valueOf(o.getOrderId()),
+                toJson(cancelledEvent)
+            );
+
+            eventPublisher.publishEvent(cancelledEvent);
+        });
     }
 
     /**
@@ -260,7 +305,29 @@ public class OrderFacade {
     @Transactional
     public void expireOrder(Long orderId, RestoreReason reason, RestoreTriggerSource triggerSource) {
         Optional<OrderModel> order = orderService.expireOrder(orderId);
-        order.ifPresent(o -> restoreOrderResources(o, reason, triggerSource));
+        order.ifPresent(o -> {
+            restoreOrderResources(o, reason, triggerSource);
+
+            OrderExpiredEvent expiredEvent = new OrderExpiredEvent(o.getOrderId(), o.getUserId());
+
+            // Step 2: Outbox 기록
+            outboxEventService.save(
+                "ORDER", String.valueOf(o.getOrderId()),
+                "ORDER_EXPIRED", "order-events",
+                String.valueOf(o.getOrderId()),
+                toJson(expiredEvent)
+            );
+
+            eventPublisher.publishEvent(expiredEvent);
+        });
+    }
+
+    private String toJson(Object obj) {
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            throw new RuntimeException("JSON 직렬화 실패", e);
+        }
     }
 
     /**

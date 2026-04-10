@@ -118,4 +118,14 @@ public class OrderRepositoryImpl implements OrderRepository {
     public List<OrderModel> findExpiredPendingOrders() {
         return jpaRepository.findExpiredPendingOrders();
     }
+
+    /**
+     * DIRECT 주문 중 취소/만료 상태이고 장바구니 복원이 아직 수행되지 않은 주문 목록을 조회한다.
+     *
+     * @return 미복원 DIRECT 주문 목록
+     */
+    @Override
+    public List<OrderModel> findUnrestoredDirectOrders() {
+        return jpaRepository.findUnrestoredDirectOrders();
+    }
 }

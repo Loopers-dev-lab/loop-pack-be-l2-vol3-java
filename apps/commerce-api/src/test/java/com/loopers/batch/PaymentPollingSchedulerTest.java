@@ -53,7 +53,7 @@ class PaymentPollingSchedulerTest {
         @DisplayName("콜백 유실 후 폴링으로 상태를 복구한다")
         void pollPendingPayments_WithLostCallback_ShouldRecoverStatus() {
             PaymentModel payment = createPaymentWithTransactionKey("TXN-001");
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(payment));
             given(paymentGateway.getPaymentStatus("TXN-001"))
                     .willReturn(new GatewayPaymentResult("TXN-001", true, "SUCCESS", null));
@@ -68,7 +68,7 @@ class PaymentPollingSchedulerTest {
         void pollPendingPayments_WithPgQueryFailure_ShouldContinueOthers() {
             PaymentModel failPayment = createPaymentWithTransactionKey("TXN-FAIL");
             PaymentModel okPayment = createPaymentWithTransactionKey("TXN-OK");
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(failPayment, okPayment));
             given(paymentGateway.getPaymentStatus("TXN-FAIL"))
                     .willThrow(new RuntimeException("PG 연결 실패"));
@@ -85,7 +85,7 @@ class PaymentPollingSchedulerTest {
         @DisplayName("PG 상태가 PENDING이면 상태 반영하지 않는다")
         void pollPendingPayments_WithPendingStatus_ShouldNotUpdate() {
             PaymentModel payment = createPaymentWithTransactionKey("TXN-PENDING");
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(payment));
             given(paymentGateway.getPaymentStatus("TXN-PENDING"))
                     .willReturn(new GatewayPaymentResult("TXN-PENDING", false, "PENDING", null));
@@ -104,7 +104,7 @@ class PaymentPollingSchedulerTest {
         @DisplayName("PG에 결제가 있으면 transactionKey를 매핑하고 콜백을 처리한다")
         void pollOrphan_WithPgPaymentExists_ShouldRecoverWithTransactionKey() {
             PaymentModel orphan = createOrphanPayment(100L);
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(orphan));
             given(paymentGateway.getPaymentsByOrderId(100L))
                     .willReturn(List.of(
@@ -121,7 +121,7 @@ class PaymentPollingSchedulerTest {
         @DisplayName("PG에 결제가 없으면 안전하게 FAILED 처리한다")
         void pollOrphan_WithNoPgPayment_ShouldMarkFailed() {
             PaymentModel orphan = createOrphanPayment(200L);
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(orphan));
             given(paymentGateway.getPaymentsByOrderId(200L))
                     .willReturn(List.of());
@@ -136,7 +136,7 @@ class PaymentPollingSchedulerTest {
         @DisplayName("PG에 PENDING만 있으면 다음 폴링에서 재시도한다")
         void pollOrphan_WithPgPending_ShouldSkipForNextPoll() {
             PaymentModel orphan = createOrphanPayment(300L);
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(orphan));
             given(paymentGateway.getPaymentsByOrderId(300L))
                     .willReturn(List.of(
@@ -154,7 +154,7 @@ class PaymentPollingSchedulerTest {
         @DisplayName("PG에 여러 건 중 완료된 건을 찾아 복구한다")
         void pollOrphan_WithMultiplePgResults_ShouldRecoverCompleted() {
             PaymentModel orphan = createOrphanPayment(400L);
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(orphan));
             given(paymentGateway.getPaymentsByOrderId(400L))
                     .willReturn(List.of(
@@ -174,7 +174,7 @@ class PaymentPollingSchedulerTest {
         void pollOrphan_WithPgQueryFailure_ShouldContinueOthers() {
             PaymentModel orphan = createOrphanPayment(500L);
             PaymentModel normal = createPaymentWithTransactionKey("TXN-NORMAL");
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(orphan, normal));
             // orderId 조회가 빈 리스트 반환 (PgHttpClient에서 예외 catch → List.of())
             given(paymentGateway.getPaymentsByOrderId(500L)).willReturn(List.of());
@@ -199,7 +199,7 @@ class PaymentPollingSchedulerTest {
             PaymentModel first = createPaymentWithTransactionKey("TXN-CB1");
             PaymentModel second = createPaymentWithTransactionKey("TXN-CB2");
             PaymentModel third = createPaymentWithTransactionKey("TXN-CB3");
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(first, second, third));
             given(paymentGateway.getPaymentStatus("TXN-CB1"))
                     .willThrow(new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE));
@@ -217,7 +217,7 @@ class PaymentPollingSchedulerTest {
         void pollPendingPayments_WhenCbOpenOnOrphan_ShouldTerminateImmediately() {
             PaymentModel orphan = createOrphanPayment(600L);
             PaymentModel normal = createPaymentWithTransactionKey("TXN-AFTER");
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(orphan, normal));
             given(paymentGateway.getPaymentsByOrderId(600L))
                     .willThrow(new CoreException(ErrorType.PAYMENT_SERVICE_UNAVAILABLE));
@@ -236,7 +236,7 @@ class PaymentPollingSchedulerTest {
             PaymentModel p1 = createPaymentWithTransactionKey("TXN-F1");
             PaymentModel p2 = createPaymentWithTransactionKey("TXN-CB");
             PaymentModel p3 = createPaymentWithTransactionKey("TXN-OK");
-            given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+            given(paymentService.findRequestedBeforeMinutesAgo(1))
                     .willReturn(List.of(p1, p2, p3));
             // 1건째: 일반 실패 (consecutiveFailures = 1, 계속 진행)
             given(paymentGateway.getPaymentStatus("TXN-F1"))
@@ -256,7 +256,7 @@ class PaymentPollingSchedulerTest {
     @Test
     @DisplayName("REQUESTED 결제가 없으면 아무 작업도 하지 않는다")
     void pollPendingPayments_WithNoRequested_ShouldDoNothing() {
-        given(paymentService.findRequestedBefore(any(LocalDateTime.class)))
+        given(paymentService.findRequestedBeforeMinutesAgo(1))
                 .willReturn(List.of());
 
         scheduler.pollPendingPayments();

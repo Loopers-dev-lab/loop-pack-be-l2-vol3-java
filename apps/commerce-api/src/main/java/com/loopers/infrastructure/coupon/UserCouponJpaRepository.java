@@ -1,9 +1,11 @@
 package com.loopers.infrastructure.coupon;
 
 import com.loopers.domain.coupon.UserCouponModel;
+import com.loopers.support.enums.UserCouponStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -37,4 +39,11 @@ public interface UserCouponJpaRepository extends JpaRepository<UserCouponModel, 
     Page<UserCouponModel> findAllByCouponId(Long couponId, Pageable pageable);
 
     Optional<UserCouponModel> findByOrderId(Long orderId);
+
+    @Modifying
+    @Query("UPDATE UserCouponModel u SET u.status = :newStatus " +
+           "WHERE u.userCouponId = :userCouponId AND u.status = :expectedStatus")
+    int updateStatusCas(@Param("userCouponId") Long userCouponId,
+                        @Param("expectedStatus") UserCouponStatus expectedStatus,
+                        @Param("newStatus") UserCouponStatus newStatus);
 }

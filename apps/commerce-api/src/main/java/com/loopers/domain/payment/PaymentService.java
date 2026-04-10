@@ -102,12 +102,12 @@ public class PaymentService {
     }
 
     /**
-     * 지정 시간 이전에 생성된 REQUESTED 상태 결제 목록을 조회한다.
+     * 지정 분(minutes) 이전에 생성된 REQUESTED 상태 결제 목록을 조회한다.
      *
-     * @param before 기준 시간
+     * @param minutesAgo 기준 분 수
      * @return REQUESTED 상태 결제 목록
      */
-    public List<PaymentModel> findRequestedBefore(LocalDateTime before) {
-        return paymentRepository.findAllRequestedBefore(before);
+    public List<PaymentModel> findRequestedBeforeMinutesAgo(int minutesAgo) {
+        return paymentRepository.findAllRequestedBeforeMinutesAgo(minutesAgo);
     }
 }

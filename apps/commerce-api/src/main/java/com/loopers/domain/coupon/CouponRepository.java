@@ -23,4 +23,12 @@ public interface CouponRepository {
     List<CouponModel> findAllByIdIn(Collection<Long> ids);
 
     PagedResult<CouponModel> findAllPaged(PageQuery query);
+
+    /**
+     * CAS 기반 발급 카운트 증가.
+     * issued_count < max_quantity 조건에서만 +1 한다.
+     *
+     * @return 업데이트된 행 수 (0이면 실패)
+     */
+    int incrementIssuedCountWithCas(Long couponId);
 }

@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.coupon;
 
+import com.loopers.domain.coupon.CouponIssueResultModel;
+import com.loopers.domain.coupon.CouponIssueStatus;
 import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.coupon.UserCouponModel;
 import com.loopers.support.enums.DiscountType;
@@ -49,6 +51,44 @@ public class CouponV1Dto {
                     .status(userCoupon.getStatus())
                     .issuedAt(userCoupon.getIssuedAt())
                     .usedAt(userCoupon.getUsedAt())
+                    .build();
+        }
+    }
+
+    /**
+     * 선착순 쿠폰 발급 요청 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    public static class RushIssueResponse {
+        private String requestId;
+    }
+
+    /**
+     * 선착순 쿠폰 발급 결과 응답 DTO.
+     */
+    @Getter
+    @AllArgsConstructor
+    @Builder
+    public static class IssueResultResponse {
+        private String requestId;
+        private Long userId;
+        private Long couponId;
+        private CouponIssueStatus status;
+        private String reason;
+        private LocalDateTime createdAt;
+
+        /**
+         * CouponIssueResultModel로부터 응답 DTO를 생성한다.
+         */
+        public static IssueResultResponse from(CouponIssueResultModel model) {
+            return IssueResultResponse.builder()
+                    .requestId(model.getRequestId())
+                    .userId(model.getUserId())
+                    .couponId(model.getCouponId())
+                    .status(model.getStatus())
+                    .reason(model.getReason())
+                    .createdAt(model.getCreatedAt())
                     .build();
         }
     }

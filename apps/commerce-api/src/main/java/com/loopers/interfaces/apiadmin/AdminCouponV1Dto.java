@@ -42,6 +42,8 @@ public class AdminCouponV1Dto {
 
         @NotNull(message = "만료 일시는 필수입니다")
         private LocalDateTime expiredAt;
+
+        private Integer maxQuantity;
     }
 
     /**
@@ -57,6 +59,8 @@ public class AdminCouponV1Dto {
         private BigDecimal discountValue;
         private BigDecimal minOrderAmount;
         private LocalDateTime expiredAt;
+        private Integer maxQuantity;
+        private int issuedCount;
         private String delYn;
         private LocalDateTime deletedAt;
 
@@ -68,6 +72,8 @@ public class AdminCouponV1Dto {
                     .discountValue(coupon.getDiscountValue())
                     .minOrderAmount(coupon.getMinOrderAmount())
                     .expiredAt(coupon.getExpiredAt())
+                    .maxQuantity(coupon.getMaxQuantity())
+                    .issuedCount(coupon.getIssuedCount())
                     .delYn(coupon.getDelYn())
                     .deletedAt(coupon.getDeletedAt() != null ? coupon.getDeletedAt().toLocalDateTime() : null)
                     .build();

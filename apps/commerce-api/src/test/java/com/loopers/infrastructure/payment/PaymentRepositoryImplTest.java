@@ -168,15 +168,14 @@ class PaymentRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("findAllRequestedBefore — 기준 시각 이전의 REQUESTED 결제 조회")
-    void findAllRequestedBefore_ShouldReturnOldRequested() {
+    @DisplayName("findAllRequestedBeforeMinutesAgo — 기준 시각 이전의 REQUESTED 결제 조회")
+    void findAllRequestedBeforeMinutesAgo_ShouldReturnOldRequested() {
         paymentRepository.save(createPayment(1L, 100L));
         entityManager.flush();
         entityManager.clear();
 
-        // 현재 시각 + 1분 이후를 기준으로 조회하면 방금 생성한 건이 조회되어야 함
-        List<PaymentModel> payments = paymentRepository.findAllRequestedBefore(
-                java.time.LocalDateTime.now().plusMinutes(1));
+        // minutesAgo=0이면 UTC_TIMESTAMP() 기준 현재 이전, 방금 생성한 건이 조회되어야 함
+        List<PaymentModel> payments = paymentRepository.findAllRequestedBeforeMinutesAgo(0);
 
         assertThat(payments).hasSize(1);
         assertThat(payments.get(0).getStatus()).isEqualTo(PaymentStatus.REQUESTED);

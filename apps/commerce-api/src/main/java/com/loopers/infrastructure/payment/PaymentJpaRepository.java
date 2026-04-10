@@ -42,10 +42,15 @@ public interface PaymentJpaRepository extends JpaRepository<PaymentModel, Long> 
 
     /**
      * REQUESTED 상태이고 생성 시각이 지정 시각 이전인 결제 목록을 조회한다 (폴링용).
+     * 네이티브 쿼리 사용: NORMALIZE_UTC 설정에서 JPQL LocalDateTime 파라미터 타입 불일치 회피.
      *
      * @param before 기준 시각
      * @return 조회된 결제 목록
      */
-    @Query("SELECT p FROM PaymentModel p WHERE p.status = 'REQUESTED' AND p.createdAt < :before")
-    List<PaymentModel> findAllRequestedBefore(@Param("before") LocalDateTime before);
+    @Query(value = """
+        SELECT * FROM payment
+        WHERE status = 'REQUESTED'
+          AND created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL :minutesAgo MINUTE)
+        """, nativeQuery = true)
+    List<PaymentModel> findAllRequestedBeforeMinutesAgo(@Param("minutesAgo") int minutesAgo);
 }

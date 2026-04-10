@@ -27,5 +27,5 @@ public interface PaymentRepository {
 
     int casUpdateStatus(Long paymentId, PaymentStatus from, PaymentStatus to, String failureReason);
 
-    List<PaymentModel> findAllRequestedBefore(LocalDateTime before);
+    List<PaymentModel> findAllRequestedBeforeMinutesAgo(int minutesAgo);
 }

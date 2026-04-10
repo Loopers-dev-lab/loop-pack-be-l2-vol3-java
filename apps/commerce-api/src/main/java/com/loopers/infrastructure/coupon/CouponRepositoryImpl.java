@@ -49,6 +49,11 @@ public class CouponRepositoryImpl implements CouponRepository {
     }
 
     @Override
+    public int incrementIssuedCountWithCas(Long couponId) {
+        return couponJpaRepository.incrementIssuedCountWithCas(couponId);
+    }
+
+    @Override
     public PagedResult<CouponModel> findAllPaged(PageQuery query) {
         Sort sort = query.ascending()
                 ? Sort.by(Sort.Direction.ASC, query.sortField())

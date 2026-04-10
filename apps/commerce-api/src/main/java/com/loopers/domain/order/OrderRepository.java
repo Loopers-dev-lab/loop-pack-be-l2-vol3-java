@@ -91,4 +91,12 @@ public interface OrderRepository {
      * @return 만료 대상 주문 목록
      */
     List<OrderModel> findExpiredPendingOrders();
+
+    /**
+     * DIRECT 주문 중 취소/만료 상태이고 장바구니 복원이 아직 수행되지 않은 주문 목록을 조회한다.
+     * 장바구니 복원 재시도 배치에서 사용한다.
+     *
+     * @return 미복원 DIRECT 주문 목록
+     */
+    List<OrderModel> findUnrestoredDirectOrders();
 }

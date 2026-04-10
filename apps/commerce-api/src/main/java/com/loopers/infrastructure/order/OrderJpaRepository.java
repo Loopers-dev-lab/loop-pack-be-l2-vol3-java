@@ -99,4 +99,14 @@ public interface OrderJpaRepository extends JpaRepository<OrderModel, Long> {
     @Query("SELECT o FROM OrderModel o " +
            "WHERE o.status = 'PENDING_PAYMENT' AND o.delYn = 'N' AND o.expiresAt < CURRENT_TIMESTAMP")
     List<OrderModel> findExpiredPendingOrders();
+
+    @Query(value = """
+        SELECT o.* FROM orders o
+        WHERE o.order_type = 'DIRECT'
+          AND o.status IN ('CANCELLED', 'EXPIRED')
+          AND NOT EXISTS (
+              SELECT 1 FROM order_cart_restore r WHERE r.order_id = o.order_id
+          )
+        """, nativeQuery = true)
+    List<OrderModel> findUnrestoredDirectOrders();
 }
