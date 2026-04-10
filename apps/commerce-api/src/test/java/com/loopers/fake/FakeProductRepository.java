@@ -50,6 +50,16 @@ public class FakeProductRepository implements ProductRepository {
     }
 
     @Override
+    public List<ProductWithBrand> findAllByIds(List<Long> ids) {
+        return ids.stream()
+            .distinct()
+            .map(store::get)
+            .filter(p -> p != null && p.getDeletedAt() == null)
+            .map(p -> new ProductWithBrand(p, resolveBrandName(p.getBrandId()), p.getLikeCount()))
+            .toList();
+    }
+
+    @Override
     public List<Product> findAll() {
         return store.values().stream()
                 .filter(product -> product.getDeletedAt() == null)

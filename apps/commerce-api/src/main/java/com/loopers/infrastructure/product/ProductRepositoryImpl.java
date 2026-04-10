@@ -35,6 +35,14 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<ProductWithBrand> findAllByIds(List<Long> ids) {
+        if (ids.isEmpty()) return List.of();
+        return productJpaRepository.findAllByIds(ids).stream()
+            .map(this::toProductWithBrand)
+            .toList();
+    }
+
+    @Override
     public List<Product> findAll() {
         return productJpaRepository.findAllByDeletedAtIsNull();
     }
