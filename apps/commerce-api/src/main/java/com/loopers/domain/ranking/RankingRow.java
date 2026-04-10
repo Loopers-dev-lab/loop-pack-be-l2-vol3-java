@@ -13,7 +13,7 @@ import java.math.BigDecimal;
  * @param brandId 브랜드 ID
  * @param brandName 브랜드 이름
  * @param likeCount 좋아요 수
- * @param stockQuantity 재고 수량(품절 UI 표시용; 랭킹 필터는 하지 않음)
+ * @param stockQuantity 재고 수량(품절 UI 표시용)
  */
 public record RankingRow(
         int rank,
