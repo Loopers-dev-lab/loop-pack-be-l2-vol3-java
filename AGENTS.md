@@ -39,7 +39,7 @@ This is a **multi-module Gradle project** with three primary categories:
 - `**commerce-api`**: Main REST API application
   - Layers: `interfaces` (Controllers) → `application` (Facades) → `domain` (Services, Models, Repositories) → `infrastructure` (JPA Implementations)
   - Dependencies: jpa, redis, jackson, logging, monitoring modules
-- `**commerce-batch**`: Spring Batch jobs
+- `**commerce-batch`**: Spring Batch jobs
   - Job configurations, tasklets, listeners
 - `**commerce-streamer**`: Kafka consumer application
   - Stream processing, Kafka listeners
@@ -174,6 +174,27 @@ Example: signUp_withDuplicateId_shouldFail()
   - Ensure `.codeguide/`, `README.md`, and this `AGENTS.md` stay synchronized
   - **유비쿼터스 언어**: 도메인 용어는 `.docs/design/00-ubiquitous-language.md`를 기준으로 하며, 코드·API·문서에 동일한 단어를 사용한다.
 
+## YAGNI, KISS & DRY
+
+**Purpose**: Avoid raising complexity through generalization outside current requirements. These rules **do not replace** §1 **Layered Architecture, DIP, or Repository contracts**; they curb *extra* patterns beyond what is needed.
+
+
+| Principle                            | Guidance                                                                                                                                                                                                                                                              |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **YAGNI (You Aren’t Gonna Need It)** | Implement only what the current requirements demand. Do not introduce interfaces, abstract classes, or design patterns (Factory, Strategy, etc.) “just in case.”                                                                                                      |
+| **Minimize classes**                 | Unless stateful behavior is required, prefer **pure functions** and **basic structures** (records, DTOs, maps, etc.) over new classes.                                                                                                                                |
+| **KISS (Keep It Simple, Stupid)**    | Prefer a straightforward **Service / Facade** shape over deep layering (Service–Repository–Store, etc.). If logic is simple, keep it in one place.                                                                                                                    |
+| **DRY (Don’t Repeat Yourself)**      | Do not duplicate rules, validation, or mapping logic. **Single source of truth** and reuse. Extracting for “future reuse” alone increases abstraction and conflicts with YAGNI; **group only after real repetition** (e.g. two or more times) at a sensible boundary. |
+| **Direct, practical code**           | Prefer runnable, readable code over metaphors or heavy architecture narratives.                                                                                                                                                                                       |
+| **Constraints**                      | Prefer **language and platform basics**; keep dependencies and configuration minimal.                                                                                                                                                                                 |
+
+
+**How this fits**:
+
+- **Repository interfaces (domain) + implementations (infrastructure)** and **Facade orchestration** are required by §1 and are **not** YAGNI violations.
+- Extra abstractions (multiple strategy implementations, generic builders, etc.) are allowed only when justified by **actual requirements and tests**.
+- **DRY** means defining once in the **right layer** (domain helpers, shared value objects, etc.). Do not force-merge **accidental similarity** (code that looks alike but is not the same rule) if it hurts readability.
+
 ### Branch & PR Strategy
 
 **Branch Naming Format**: `{type}/{context-detail}`
@@ -269,7 +290,7 @@ The following structures are **locked** and require explicit approval to change:
 
 1. `**modules/jpa/src/main/java/com/loopers/domain/BaseEntity.java`**
   - ID generation strategy, audit fields, lifecycle hooks
-2. `**apps/commerce-api/.../interfaces/api/ApiResponse.java**`
+2. `**apps/commerce-api/.../interfaces/api/ApiResponse.java`**
   - Response envelope format: `{ meta: { result, errorCode, message }, data }`
 3. `**apps/commerce-api/.../support/error/ErrorType.java**`
   - Standard error codes and HTTP status mappings
@@ -394,7 +415,7 @@ Each feature MUST have three test levels:
 
 - Use **Instancio** for generating test data (avoid randomness for reproducibility)
 - Use `**DatabaseCleanUp`** utility (from `jpa` module testFixtures) to clean DB between tests
-- Use `**RedisCleanUp**` utility (from `redis` module testFixtures) to clean Redis between tests
+- Use `**RedisCleanUp`** utility (from `redis` module testFixtures) to clean Redis between tests
 
 ### Test Configuration
 
