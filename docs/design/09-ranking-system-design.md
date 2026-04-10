@@ -499,6 +499,25 @@ product_metrics 행 크기:
 
 > 과제 문서에서는 order 가중치를 0.6으로 제시하나, 시니어 관점에서 주문의 비즈니스 가치를 더 반영하여 0.7로 상향. 나머지를 view 0.1 + like 0.2로 배분.
 
+#### 가중치 결정 근거와 검증 계획
+
+**1) order 0.7 — 업계 표준과의 정합성**
+
+Shopify는 상품 검색 랭킹에서 "We prioritize products with actual sales, not just clicks. A product with thousands of orders outranks one with lots of views but few buyers"라고 명시한다 ([shopify.engineering](https://shopify.engineering/world-class-product-search)). **구매 전환이 클릭보다 우선**이라는 원칙은 이커머스 랭킹의 업계 공통 방향이며, order에 0.7을 부여한 근거와 일치한다.
+
+**2) 고정 가중치의 한계 — 향후 데이터 기반 보정**
+
+Amazon의 MORO(Multi-Objective Ranking Optimization) 연구에서는 고정 가중치보다 확률적 레이블 집계(stochastic label aggregation)가 우수함을 입증했다 ([amazon.science](https://www.amazon.science/publications/multi-objective-ranking-optimization-for-product-search-using-stochastic-label-aggregation)). 이는 카테고리/시즌에 따라 최적 가중치가 달라질 수 있음을 의미한다.
+
+현재 전 카테고리 동일 가중치(MVP)이며, 향후 보정을 위해 `RankingProperties.Weights`로 외부화 완료:
+
+| 단계 | 방법 | 전제 조건 |
+|------|------|----------|
+| 현재 (MVP) | 도메인 직관 기반 고정값 (0.1/0.2/0.7) | — |
+| 1단계 | 클릭→구매 전환률 역산 — 실제 데이터로 view/like의 구매 예측력 측정 | 행동 데이터 2주+ 축적 |
+| 2단계 | A/B 테스트 — ZSET 키를 `ranking:all:A:{date}` / `ranking:all:B:{date}`로 분리, 가중치 세트 비교 | 트래픽 충분 시 |
+| 3단계 | 카테고리별 가중치 분리 — 패션(like 중요) vs 생필품(order 지배) | 카테고리 분류 체계 확립 후 |
+
 ### 3.2 스케일 문제와 정규화
 
 **salesAmount에만 log를 적용하면 스케일 불균형이 발생한다.**
@@ -538,28 +557,101 @@ B = 0.1×log₁₀(101) + 0.2×log₁₀(11) + 0.7×log₁₀(1000001) = 0.1×2.
 
 **결정: 전 지표에 log₁₀ 정규화를 적용한다.**
 
-- 모든 입력이 log₁₀ 스케일(0~6 범위)로 통일되어 가중치가 의도대로 작동
+- 모든 입력이 log₁₀ 스케일로 통일되어 가중치가 의도대로 작동
 - `+1`은 값이 0일 때 `log₁₀(0) = -∞` 방지
 
-### 3.3 최종 수식
+#### 정규화 함수 선택 근거 — 왜 log₁₀인가
+
+"전 지표에 정규화를 적용한다"는 결정 이후, **어떤 정규화 함수**를 쓸 것인가의 선택이 남는다. 실시간 스트리밍 환경에서의 적합성을 기준으로 비교한다.
+
+| 함수 | 수식 | 글로벌 통계 필요 | 실시간 스트리밍 적합성 |
+|------|------|:-:|:-:|
+| **min-max** | `(x - min) / (max - min)` | O (전체 min/max 유지) | 낮음 |
+| **z-score** | `(x - μ) / σ` | O (평균/표준편차 유지) | 낮음 |
+| **log₁₀(x+1)** | `log₁₀(x + 1)` | X | 높음 |
+
+**왜 min-max가 아닌가**:
+- 전체 상품의 최대/최소값을 알아야 하므로, 매 이벤트마다 글로벌 통계를 조회하거나 유지해야 한다
+- 새 최대값이 등장하면 기존 전 상품의 정규화 값이 무효화 → ZSET 전체 재계산 필요
+- 이상치(바이럴 상품)가 하나만 등장해도 나머지 상품의 score가 0 부근으로 압축됨
+
+**왜 z-score가 아닌가**:
+- 평균과 표준편차를 유지해야 하므로 min-max와 동일한 글로벌 통계 문제
+- OpenSearch 벤치마크에서 z-score는 min-max 대비 NDCG@10이 2.08% 향상되었으나, 레이턴시가 증가한다 ([opensearch.org](https://opensearch.org/blog/introducing-the-z-score-normalization-technique-for-hybrid-search/))
+- 실시간 스트리밍에서 "정밀한 정규화"보다 "글로벌 통계 없이 독립 계산 가능"이 우선
+
+**log₁₀의 3가지 장점**:
+
+1. **개별 이벤트 시점에 독립 계산**: `log₁₀(viewCount + 1)`은 해당 상품의 현재 값만으로 계산. 다른 상품의 상태를 알 필요 없음
+2. **글로벌 통계 불필요**: min/max/평균/표준편차를 유지하는 인프라(Redis 키, 갱신 로직)가 불필요 → 시스템 복잡도 감소
+3. **right-skewed 분포 압축**: 이커머스 데이터는 전형적 멱법칙 분포 — 소수 상품이 대부분의 조회/매출을 차지한다. log 변환은 이 꼬리를 압축하여 바이럴 상품의 랭킹 독점을 방지한다 ([geeksforgeeks.org](https://www.geeksforgeeks.org/data-analysis/log-normalization-for-outliers-convert-skewed-data-to-normal-distribution/))
+
+**수치 예시 — log₁₀의 스케일 압축 효과**:
 
 ```
-score(p) = 0.1 × log₁₀(viewCount + 1)
-         + 0.2 × log₁₀(likeCount + 1)
-         + 0.7 × log₁₀(salesAmount + 1)
-         + productId × 1e-10              ← 동점 시 신상품 우선 (섹션 9 참조)
+log₁₀(1 + 1)     = 0.301    — 최소 활동
+log₁₀(100 + 1)   = 2.004    — 일반 상품
+log₁₀(10000 + 1) = 4.000    — 인기 상품
+log₁₀(1000000+1) = 6.000    — 바이럴 상품
+
+→ 조회수가 100배 증가해도 log값은 약 2배만 증가
+→ 바이럴 상품(100만)과 인기 상품(1만)의 차이가 6.0 vs 4.0 = 1.5배로 압축
 ```
+
+**Wilson Score와의 관계**: Wilson Score는 이항(binary) 데이터(좋다/싫다, 별 5개 중 4개)에 대해 신뢰구간 하한을 제공하는 방식이다. 카운트 데이터(조회 수, 매출액)에는 log가 더 적합하다. 향후 별점을 랭킹에 반영할 때 Wilson Score를 고려한다 ([evanmiller.org](https://www.evanmiller.org/how-not-to-sort-by-average-rating.html)).
+
+#### 0~1 범위 정규화 (MAX_LOG)
+
+log₁₀ 적용만으로는 score가 0~6 범위를 가진다. **MAX_LOG로 나누어 0~1로 정규화**하면 score가 직관적이고, tiebreaker와 자릿수 분리가 깨끗해진다.
+
+```
+MAX_LOG = 7   (log₁₀(10,000,001) ≈ 7 — 천만 단위까지 커버)
+
+viewNorm  = log₁₀(viewCount + 1) / MAX_LOG    → 0 ~ 1
+likeNorm  = log₁₀(likeCount + 1) / MAX_LOG    → 0 ~ 1
+orderNorm = log₁₀(salesAmount + 1) / MAX_LOG  → 0 ~ 1
+```
+
+score = 0~1 범위이므로 **소수 6자리가 주 score, 7자리 이하가 tiebreaker** — IEEE 754 double(유효 15자리)에서 깨끗하게 분리된다.
+
+### 3.3 최종 수식 — Composite Score
+
+score를 **자릿수 기반으로 관심사 분리**한다:
+
+```
+score(p) = [categoryPriority]              ← 정수부: 카테고리 우선순위 (0~9)
+         + [baseScore]                      ← 소수 1~6자리: 주 score (0~1)
+         + [tiebreaker]                     ← 소수 7~15자리: 동점 해소
+
+baseScore = W(view) × log₁₀(viewCount + 1) / MAX_LOG
+          + W(like) × log₁₀(likeCount + 1) / MAX_LOG
+          + W(order) × log₁₀(salesAmount + 1) / MAX_LOG
+
+tiebreaker = lastEventEpochSeconds × 1e-16   ← 최근 활동 상품 우선
+```
+
+**자릿수 구조 예시** (`categoryPriority=3`, 매출 20만원 상품, 마지막 이벤트 2026-04-10 14:00):
+
+```
+score = 3         + 0.611400   + 0.0000001712952000
+        ^           ^^^^^^^^     ^^^^^^^^^^^^^^^^^^
+        정수부       소수 1~6     소수 7~16
+        카테고리     주 score     tiebreaker (epochSec)
+```
+
+**categoryPriority 미사용 시** (현재 MVP): 정수부 0으로 고정, baseScore + tiebreaker만 사용.
 
 #### 검증 — 가중치 의도대로 동작하는가?
 
-| 상품 | view | like | salesAmount | score | 순위 |
-|------|------|------|-------------|-------|------|
-| C (조회만 많음) | 5,000 | 10 | 50,000 | 0.1×3.7 + 0.2×1.04 + 0.7×4.7 = **3.87** | 3위 |
-| A (균형) | 500 | 30 | 200,000 | 0.1×2.7 + 0.2×1.49 + 0.7×5.3 = **4.28** | 2위 |
-| B (매출 집중) | 100 | 10 | 1,000,000 | 0.1×2.0 + 0.2×1.04 + 0.7×6.0 = **4.61** | 1위 |
+| 상품 | view | like | salesAmount | baseScore | 순위 |
+|------|------|------|-------------|-----------|------|
+| C (조회만 많음) | 5,000 | 10 | 50,000 | 0.1×(3.7/7) + 0.2×(1.04/7) + 0.7×(4.7/7) = **0.553** | 3위 |
+| A (균형) | 500 | 30 | 200,000 | 0.1×(2.7/7) + 0.2×(1.49/7) + 0.7×(5.3/7) = **0.611** | 2위 |
+| B (매출 집중) | 100 | 10 | 1,000,000 | 0.1×(2.0/7) + 0.2×(1.04/7) + 0.7×(6.0/7) = **0.659** | 1위 |
 
 - B(매출 최고) > A(균형) > C(조회만 많음) → **order 가중치 0.7이 지배적으로 작동**
 - 조회 수가 50배 차이(C vs B)나도 매출이 높은 B가 상위 → 의도대로 동작
+- 전 score가 0~1 범위이므로 "0.659는 이론적 최고의 66%"와 같이 직관적으로 해석 가능
 
 ### 3.4 음수 이벤트 처리 (LIKE_REMOVED, ORDER_CANCELLED)
 
@@ -704,8 +796,10 @@ String dateKey = today.format(DateTimeFormatter.BASIC_ISO_DATE); // "20260410"
 
 | 키 | TTL | 산정 근거 |
 |----|-----|----------|
-| `ranking:all:{date}` | **2일 (172,800초)** | 오늘 + 어제 랭킹 조회 보장. 그저께부터 만료 |
-| `ranking:metrics:{date}:{pid}` | **2일 (172,800초)** | ZSET과 동일 생명주기. Hash가 먼저 만료되면 score 재계산 불가 |
+| `ranking:all:{date}` | **8일 (691,200초)** | 주간 랭킹 합산에 최근 7일분 필요 + 1일 여유 (섹션 4.7.1) |
+| `ranking:metrics:{date}:{pid}` | **2일 (172,800초)** | Hash는 당일 score 재계산에만 사용. 주간/월간 합산은 ZSET score를 직접 활용 |
+| `ranking:weekly:{date}` | **2일 (172,800초)** | 오늘 + 어제 주간 랭킹 조회 보장 |
+| `ranking:monthly:{date}` | **2일 (172,800초)** | 오늘 + 어제 월간 랭킹 조회 보장 + rolling carry-over 입력으로 사용 |
 
 **TTL 설정 시점**: Pipeline에서 HINCRBY/ZADD와 함께 EXPIRE를 전송한다.
 
@@ -714,17 +808,17 @@ Pipeline 1:
   HINCRBY ranking:metrics:20260410:101 viewCount 5
   HINCRBY ranking:metrics:20260410:101 likeCount 1
   ...
-  EXPIRE  ranking:metrics:20260410:101 172800    ← 매 배치마다 갱신
+  EXPIRE  ranking:metrics:20260410:101 172800    ← Hash: 2일
 Pipeline 2:
   ZADD    ranking:all:20260410 4.61 101
   ...
-  EXPIRE  ranking:all:20260410 172800             ← 매 배치마다 갱신
+  EXPIRE  ranking:all:20260410 691200             ← ZSET: 8일
 ```
 
 **매 배치마다 EXPIRE를 재설정하는 이유**:
 
 - EXPIRE는 O(1)이며 Pipeline에 포함되므로 추가 왕복 없음
-- "마지막 쓰기 + 2일 후" 만료 → 날짜 전환 후에도 어제 데이터가 충분히 유지됨
+- "마지막 쓰기 + TTL" 만료 → 날짜 전환 후에도 데이터가 충분히 유지됨
 - 키 생성 여부를 확인(`EXISTS`)하는 것보다 단순하고 안전
 
 ### 4.5 Nice-to-Have: 시간 단위 키 확장
@@ -738,6 +832,179 @@ ranking:metrics:hourly:{yyyyMMddHH}:{productId}  TTL: 3시간
 ```
 
 RankingScoreUpdater에 키 생성 전략을 주입하면 daily/hourly를 동시에 지원할 수 있다. 현재 구현에서는 daily만 구현하고, 구조만 확장 가능하게 설계한다.
+
+### 4.6 일별 키 vs 연속적 시간 감쇠 — 트레이드오프
+
+"오늘의 인기 상품"을 구현하려면 **시간에 따른 점수 감쇠(decay)**가 필요하다. 두 가지 접근이 있다:
+
+**1) 연속적 시간 감쇠 (Continuous Decay)**
+
+Hacker News의 `(P-1)/(T+2)^1.8` 수식이 대표적이다 ([medium.com](https://medium.com/hacking-and-gonzo/how-hacker-news-ranking-algorithm-works-1d9b0cf2c08d)). 매 이벤트마다 경과 시간에 따라 점수가 매끄럽게 감소한다.
+
+Exponential decay 변형(`score(t) = e^(-λ*dt) × score(t-dt) + new_events`)은 현재 score 하나만 유지하면 되는 장점이 있으나, 매 갱신마다 기존 score를 읽고 decay를 적용한 뒤 다시 쓰는 **read-then-write 원자성**이 필요하다 ([julesjacobs.com](https://julesjacobs.com/2015/05/06/exponentially-decaying-likes.html)). Redis에서는 Lua 스크립트로 해결해야 한다.
+
+**2) 이산적 시간 감쇠 (Discrete Decay = 일별 키)**
+
+날짜별 키(`ranking:all:{yyyyMMdd}`)로 분리하고, 자정에 새 키가 시작되면 전일 키의 carry-over(10%)로 연결한다.
+
+Forward Decay(ICDE 2009)에서는 랜드마크 시점 기준으로 나이를 순방향 측정하며, 한 번 관측된 가중치가 고정되는 것이 특징이다 ([dimacs.rutgers.edu](https://dimacs.rutgers.edu/~graham/pubs/papers/fwddecay.pdf)). **일별 키 전략은 Forward Decay의 이산적 구현**이다 — 자정이 랜드마크, 일간 누적이 순방향 측정에 해당한다.
+
+**비교**:
+
+| 기준 | 연속적 Decay | 일별 키 (현재) |
+|------|:---:|:---:|
+| 정밀도 | 초 단위 감쇠 — 매끄러운 곡선 | 일 단위 — 자정에 cliff effect |
+| Redis 연산 | read-then-write (Lua 필수) | HINCRBY + ZADD (원자적, Lua 불필요) |
+| 구현 복잡도 | Lua 스크립트 + decay 파라미터 튜닝 | 키 분리 + ZUNIONSTORE carry-over |
+| 디버깅 | score 안에 시간 감쇠가 내재되어 역추적 어려움 | Hash 조회로 오늘 메트릭 그대로 확인 |
+| 집계 단위 명확성 | 없음 — 연속 값이므로 "오늘 일어난 일"을 분리 불가 | "오늘 키 = 오늘 데이터" — 명확 |
+| 키 만료 | score 감쇠로 자연 소멸하나 키 정리 별도 필요 | TTL 2일 → 자동 정리 |
+
+**결정: 일별 키**. 이유:
+
+1. HINCRBY + ZADD가 Lua 없이 원자적으로 동작하여 Pipeline에 자연스럽게 포함됨
+2. "오늘의 메트릭"이 키 단위로 명확히 분리되어 디버깅, 배치 보정, 재집계가 단순
+3. carry-over(ZUNIONSTORE × 0.1)가 cliff effect를 충분히 완화
+4. 현재 요구사항이 "일간 랭킹"이므로 초 단위 감쇠의 정밀도가 불필요
+
+### 4.7 주간/월간 랭킹 확장 설계
+
+일별 키 인프라를 재활용하여 **주간(7일)/월간(30일) 랭킹**을 추가한다. 핵심 원칙: **per-event 추가 비용 0** — 기존 daily ZSET에만 이벤트를 쓰고, 주간/월간은 자정 배치(carry-over 스케줄러)에서 생성한다.
+
+#### 4.7.1 키 패턴
+
+| 용도 | 키 패턴 | 타입 | TTL | 생성 시점 |
+|------|---------|------|-----|----------|
+| 일간 랭킹 | `ranking:all:{yyyyMMdd}` | ZSET | **8일** | 이벤트 유입 시 |
+| 주간 랭킹 | `ranking:weekly:{yyyyMMdd}` | ZSET | 2일 | 23:50 스케줄러 |
+| 월간 랭킹 | `ranking:monthly:{yyyyMMdd}` | ZSET | 2일 | 23:50 스케줄러 |
+| 상품별 일간 메트릭 | `ranking:metrics:{yyyyMMdd}:{productId}` | Hash | 2일 (변경 없음) | 이벤트 유입 시 |
+
+**일간 ZSET TTL 변경: 2일 → 8일**. 주간 합산에 최근 7일분 daily ZSET이 필요하므로 최소 8일(7일 + 1일 여유) 보존해야 한다. Hash TTL은 변경 없음 — Hash는 당일 score 재계산에만 사용되고, 주간/월간 합산에서는 ZSET score를 직접 활용한다.
+
+#### 4.7.2 주간 랭킹 — ZUNIONSTORE × 7일
+
+23:50 스케줄러에서 최근 7일 daily ZSET을 **동일 가중치로 합산**한다:
+
+```
+ZUNIONSTORE ranking:weekly:{tomorrow} 7
+  ranking:all:{today}   ranking:all:{today-1}  ranking:all:{today-2}
+  ranking:all:{today-3} ranking:all:{today-4}  ranking:all:{today-5}
+  ranking:all:{today-6}
+  WEIGHTS 1.0 1.0 1.0 1.0 1.0 1.0 1.0
+  AGGREGATE SUM
+EXPIRE ranking:weekly:{tomorrow} 172800
+```
+
+**왜 동일 가중치인가**:
+- 주간 랭킹의 의미는 "이번 주 인기 상품" — 7일간의 누적 인기를 반영한다
+- 각 daily ZSET에는 이미 carry-over(10%)가 포함되어 있으므로 최근 일자에 자연스러운 가중이 존재한다
+- 별도의 감쇠 가중치를 적용하면 carry-over와 이중으로 감쇠가 걸려 과도한 최근 편향이 발생한다
+- 향후 A/B 테스트로 감쇠 가중치(예: `1.0, 0.9, 0.8, ...`)의 효과를 비교할 수 있다
+
+**ZUNIONSTORE 비용 산정**:
+
+```
+시간복잡도: O(N × K × log(N × K))  (N=원소 수, K=입력 키 수)
+10만 상품 × 7키 = 700,000 원소 합산 후 정렬
+
+벤치마크 추정:
+  단일 스레드 Redis, 10만 원소 ZUNIONSTORE 1키 ≈ 50~200ms
+  7키 합산 ≈ 200~500ms (한 번에 처리, 중간 결과 없음)
+
+→ 23:50에 1회 실행, Redis 블로킹 최대 ~500ms
+→ 저점 시간대이므로 수용 가능
+```
+
+#### 4.7.3 월간 랭킹 — Rolling Carry-Over
+
+30일분 ZUNIONSTORE(30개 키)는 비용이 과대하다. 대신 **일간 carry-over 패턴을 재활용**한다:
+
+```
+ZUNIONSTORE ranking:monthly:{tomorrow} 2
+  ranking:monthly:{today}  ranking:all:{today}
+  WEIGHTS 0.97             1.0
+  AGGREGATE SUM
+EXPIRE ranking:monthly:{tomorrow} 172800
+```
+
+**감쇠율 0.97의 근거**:
+
+```
+0.97^7  ≈ 0.81  → 1주 전 데이터: 81% 보존 (주간 트렌드 유지)
+0.97^14 ≈ 0.65  → 2주 전 데이터: 65% 보존
+0.97^30 ≈ 0.40  → 1달 전 데이터: 40%로 감쇠 (자연스러운 페이드아웃)
+0.97^60 ≈ 0.16  → 2달 전 데이터: 16% → 사실상 소멸
+
+→ 30일 반감기: 0.97^n = 0.5 → n ≈ 23일
+→ "최근 3~4주가 지배적, 한 달 이전 데이터는 자연 퇴장"
+```
+
+**왜 0.97인가 — 대안 비교**:
+
+| 감쇠율 | 30일 후 잔존 | 반감기 | 특성 |
+|--------|:---:|:---:|------|
+| 0.90 | 4% | ~7일 | 너무 공격적 — 사실상 주간 랭킹과 동일 |
+| 0.95 | 21% | ~14일 | 2주 반감 — 짧은 월간 |
+| **0.97** | **40%** | **~23일** | **3~4주 지배 — 자연스러운 월간 특성** |
+| 0.99 | 74% | ~69일 | 너무 완만 — 오래된 데이터가 고착 |
+
+**ZUNIONSTORE 비용**: 2개 키 합산이므로 일간 carry-over와 동일 — 10만 상품 기준 ~50ms.
+
+**월간 ZSET 초기화 문제**: 서비스 최초 배포 시 `ranking:monthly:{today}`가 존재하지 않는다. ZUNIONSTORE에서 존재하지 않는 키는 빈 ZSET으로 취급되므로, 첫날에는 `ranking:monthly:{tomorrow}` = `ranking:all:{today} × 1.0`이 되어 **자연스럽게 부트스트랩**된다.
+
+#### 4.7.4 스케줄러 확장
+
+기존 `RankingCarryOverScheduler`의 23:50 스케줄에 주간/월간 생성을 추가한다:
+
+```
+23:50 KST 실행 순서:
+  1. 일간 carry-over     → ranking:all:{tomorrow} = ranking:all:{today} × 0.1
+  2. 주간 랭킹 생성       → ranking:weekly:{tomorrow} = ZUNIONSTORE(7일분 daily)
+  3. 월간 랭킹 생성       → ranking:monthly:{tomorrow} = monthly:{today} × 0.97 + daily:{today} × 1.0
+```
+
+**실행 순서 중요**: 일간 carry-over가 먼저 실행되어야 한다. 주간/월간 합산에는 carry-over 전의 daily ZSET을 사용하므로, carry-over로 생성된 내일의 daily ZSET은 주간/월간에 영향을 주지 않는다 (내일 daily는 아직 이벤트가 없으므로 합산 대상이 아님).
+
+#### 4.7.5 API 확장
+
+```
+GET /api/v1/rankings?scope=daily&date=20260410&page=0&size=20     (기본값: daily)
+GET /api/v1/rankings?scope=weekly&page=0&size=20
+GET /api/v1/rankings?scope=monthly&page=0&size=20
+```
+
+| scope | ZSET prefix | 의미 |
+|-------|------------|------|
+| `daily` (기본값) | `ranking:all:` | 오늘의 인기 상품 |
+| `weekly` | `ranking:weekly:` | 이번 주 인기 상품 (7일 누적) |
+| `monthly` | `ranking:monthly:` | 이번 달 인기 상품 (30일 감쇠 누적) |
+
+기존 `RankingRedisRepository`는 이미 `prefix` 파라미터를 지원하므로 (`getTopN(String prefix, String date, ...)`) 변경 최소. `RankingFacade`에서 scope → prefix 매핑만 추가한다.
+
+#### 4.7.6 메모리 영향
+
+상품 10만 개 기준:
+
+```
+변경 전:
+  Daily ZSET × 2일         = 100,000 × 68B × 2  = ~13 MB
+  Daily Hash × 2일         = 100,000 × 160B × 2 = ~31 MB
+  합계: ~44 MB
+
+변경 후:
+  Daily ZSET × 8일         = 100,000 × 68B × 8  = ~52 MB   (+39 MB)
+  Daily Hash × 2일         = 100,000 × 160B × 2 = ~31 MB   (변경 없음)
+  Weekly ZSET × 2일        = 100,000 × 68B × 2  = ~13 MB   (신규)
+  Monthly ZSET × 2일       = 100,000 × 68B × 2  = ~13 MB   (신규)
+  합계: ~109 MB
+
+증가분: ~65 MB (+148%)
+```
+
+**65MB 증가가 수용 가능한가**: 1GB Redis 기준 10.9%, 16GB 기준 0.7%. daily ZSET TTL 8일이 대부분(39MB)을 차지한다. 이 중 6일분은 주간 합산 참조용으로만 존재하며, 읽기 부하를 발생시키지 않는다.
+
+**피크 메모리 (23:50 carry-over 시점)**: 일간/주간/월간 각각의 내일 키가 동시 생성되므로 기존 대비 ZSET 3개 추가. ~109MB + ~20MB(피크) = ~129MB.
 
 ---
 
@@ -783,7 +1050,7 @@ in-memory Score 계산
 
 Pipeline 2 — ZSET 갱신 + TTL
   ZADD ranking:all:{date} {score} {productId}  (× productId 수)
-  EXPIRE ranking:all:{date} 172800
+  EXPIRE ranking:all:{date} 691200              ← ZSET: 8일 (주간 합산용)
   명령 수: productId 수 + 1
 ```
 
@@ -859,8 +1126,8 @@ member 1개 = skiplist 노드(~40bytes) + SDS(productId 문자열, ~20bytes) + s
 | 중규모 서비스 | 10,000개 | ~664 KB | 여유 |
 | 대규모 서비스 | 100,000개 | ~6.5 MB | 충분히 수용 가능 |
 
-일간 키 2개(오늘 + 어제)가 동시에 존재하므로 × 2:
-- 상품 10만 개 기준: **~13 MB** → Redis 메모리 용량 대비 무시 가능
+Daily ZSET은 TTL 8일이므로 최대 8개가 동시에 존재한다:
+- 상품 10만 개 기준: **~52 MB** (= 6.5MB × 8일)
 
 ### 6.2 Hash 메모리
 
@@ -880,75 +1147,230 @@ Hash 1개 = 키 오버헤드(~60bytes) + 필드 4개 × (필드명 ~15bytes + �
 
 ### 6.3 총 메모리 (ZSET + Hash)
 
-일간 키 2개분(오늘 + 어제), 상품 10만 개 기준:
+상품 10만 개 기준, 주간/월간 랭킹 포함:
 
 ```
-ZSET: 100,000 × 68 bytes × 2일 = ~13 MB
-Hash: 100,000 × 160 bytes × 2일 = ~31 MB
-합계: ~44 MB
+Daily ZSET × 8일           = 100,000 × 68B × 8  = ~52 MB
+Daily Hash × 2일           = 100,000 × 160B × 2 = ~31 MB
+Weekly ZSET × 2일          = 100,000 × 68B × 2  = ~13 MB
+Monthly ZSET × 2일         = 100,000 × 68B × 2  = ~13 MB
+합계: ~109 MB
 ```
 
-Redis 인스턴스가 보통 1~16 GB 메모리를 할당받는 점을 감안하면, **전체 용량의 0.3~4.4%** 수준이다.
+Redis 인스턴스가 보통 1~16 GB 메모리를 할당받는 점을 감안하면, **전체 용량의 0.7~10.9%** 수준이다. Daily ZSET TTL 8일(주간 합산용)이 52MB로 가장 크지만, 이 중 6일분은 주간 합산 참조용으로만 존재하며 읽기 부하를 발생시키지 않는다.
 
 ### 6.4 Carry-Over 시점 피크 메모리
 
-23:50에 carry-over가 실행되면 오늘(D) + 내일(D+1) ZSET이 동시에 존재한다. 어제(D-1)의 TTL이 아직 만료되지 않았으므로, **최대 3일분 ZSET이 동시에 존재**한다.
+23:50에 일간/주간/월간 carry-over가 모두 실행되면, 각각의 내일 키가 동시에 생성된다.
 
 ```
-시간대별 존재 키:
-  23:49 (carry-over 직전): D-1, D          → ZSET 2개
-  23:50 (carry-over 실행): D-1, D, D+1     → ZSET 3개 (피크)
-  ~D+1 00:00 이후:         D-1 TTL 만료 시작 → ZSET 2개로 복귀
+23:50 carry-over 실행 시 추가 키:
+  ranking:all:{tomorrow}      → Daily carry-over (1개 추가)
+  ranking:weekly:{tomorrow}   → 주간 랭킹 (1개 추가)
+  ranking:monthly:{tomorrow}  → 월간 랭킹 (1개 추가)
+  → ZSET 3개 추가 = 100,000 × 68B × 3 = ~20 MB
 ```
-
-Hash는 ZSET과 동일 TTL이므로 같은 패턴이다. 단, carry-over는 Hash를 복사하지 않으므로 D+1의 Hash는 이벤트가 들어올 때만 생성된다.
 
 ```
 피크 메모리 (상품 10만 개 기준):
-  ZSET: 100,000 × 68 bytes × 3일 = ~19.5 MB
-  Hash: 100,000 × 160 bytes × 2일 = ~31 MB   (D+1 Hash는 아직 거의 없음)
-  합계: ~50.5 MB (피크)
-
-정상 시: ~44 MB → 피크 시: ~50.5 MB → +15% 증가
+  정상 시: ~109 MB
+  피크 시: ~129 MB (+20 MB, +18%)
 ```
 
-**피크 메모리가 Redis 용량에 미치는 영향은 무시 가능하다.** 1GB Redis 기준 5%, 16GB 기준 0.3%.
+**피크 메모리가 Redis 용량에 미치는 영향은 수용 가능하다.** 1GB Redis 기준 12.9%, 16GB 기준 0.8%.
 
-### 6.5 Capped ZSET 필요 여부
+### 6.5 ZSET 크기 관리 전략
 
-| 전략 | 설명 | 적합 여부 |
-|------|------|----------|
-| 전체 유지 | 모든 상품을 ZSET에 유지 | 10만 개까지 13MB → **현재 충분** |
-| Top N 유지 | `ZREMRANGEBYRANK` 로 하위 항목 주기적 제거 | 상품 100만 개 이상 시 고려 |
+#### 6.5.1 문제 — Carry-Over에 의한 ZSET 크기 누적
 
-**결정: Capped ZSET은 현재 불필요.**
-
-- 목표가 Top 100 표시이지만, ZSET 전체를 유지해도 메모리 부담이 없다
-- 하위 항목을 제거하면 "상품 상세에서 해당 상품 순위 조회" (ZREVRANK)가 불가능해진다
-- 일간 활성 상품(하루 동안 이벤트가 1건 이상 발생한 상품)이 100만 개를 넘어가는 시점에 재검토한다
-
-단, Hash는 ZSET에 존재하는 상품만 유지하면 되므로, 만약 Capped ZSET을 도입한다면 제거된 상품의 Hash도 함께 삭제해야 한다.
-
-#### Capped ZSET 도입 시 트레이드오프
-
-만약 일간 활성 상품이 100만 개를 넘어 Capped ZSET을 도입해야 하는 경우:
+ZSET의 member 수는 "오늘 이벤트가 발생한 상품 수"가 아니다. **Carry-over가 전체 ZSET을 복사**하므로, 한 번이라도 이벤트가 발생한 상품은 score가 `0.1^N`으로 감쇠될 뿐 ZSET에서 영원히 사라지지 않는다.
 
 ```
-ZREMRANGEBYRANK ranking:all:{date} 0 -(N+1)
-→ 상위 N개만 남기고 하위 항목 제거
+Day 1: 이벤트 발생 상품 10만 → ZSET member 10만
+Day 2: carry-over(10만) + 신규 이벤트 상품 → ZSET member ~11만
+Day 7: carry-over 누적 + 신규 → ZSET member ~15만
+...
+Day 90: 서비스 시작 이후 이벤트가 1건이라도 있었던 전체 상품으로 수렴
 ```
 
-| 관점 | Capped 전 (전체 유지) | Capped 후 (Top N 유지) |
-|------|---------------------|----------------------|
-| 메모리 | 상품 수에 비례 증가 | N으로 고정 |
-| ZREVRANK (개별 순위) | 모든 상품 조회 가능 | **하위 상품 조회 불가** — "순위권 밖" 표시 필요 |
-| ZADD 경합 | 없음 | ZREMRANGEBYRANK 실행 사이에 ZADD된 하위 상품이 남을 수 있음 |
-| Hash 동기화 | 불필요 | 제거된 상품의 Hash도 삭제 필요 → 추가 DEL 명령 |
-| 실행 시점 | — | 스케줄러(1분 주기) 또는 ZADD 직후 (ZADD 직후는 latency 증가) |
+장기 운영 시 ZSET member 수 ≈ **이벤트가 발생한 적 있는 전체 상품 수**. "일간 활성 상품 수"가 아닌 "누적 활성 상품 수"가 메모리를 결정한다.
 
-**도입 시 주의사항**:
-- `ZREMRANGEBYRANK`는 O(log(N)+M) (M=제거 수)이므로, 대량 제거 시 Redis 블로킹 가능. 한 번에 제거하지 말고 분할 제거 권장
-- 제거된 상품에 새 이벤트가 들어오면 다시 ZADD되므로, 최하위 상품이 반복적으로 추가/제거되는 "thrashing" 가능. Cap을 Top 100이 아닌 Top 1,000~10,000으로 여유 있게 설정하여 방지
+#### 6.5.2 규모별 영향 분석
+
+| 규모 | 누적 활성 상품 | 단일 ZSET | 8일분 Daily | Weekly+Monthly | Hash(2일) | **총합** |
+|------|:---:|-------:|-------:|-------:|-------:|-------:|
+| 소규모 | ~1만 | ~660KB | ~5MB | ~1.3MB | ~3MB | **~9MB** |
+| 중규모 | ~10만 | ~6.5MB | ~52MB | ~13MB | ~31MB | **~96MB** |
+| 대규모 (쿠팡급) | ~300만 | ~195MB | ~1.5GB | ~390MB | ~610MB | **~2.5GB** |
+| 초대규모 | ~1000만 | ~650MB | ~5.2GB | ~1.3GB | ~1.5GB | **~8GB** |
+
+*(Hash는 carry-over로 복사되지 않으므로 일간 활성 상품 기준으로 산정)*
+
+**소~중규모에서는 전체 유지가 합리적**이다. 100MB 이하로 Redis 용량 대비 무시 가능하며, Trim의 복잡성이 메모리 절감보다 비용이 크다.
+
+**대규모 이상에서는 ZSET 크기 관리가 필수**이다. 2.5GB는 16GB Redis 기준 16% — 운영 여유를 감안하면 부담이 된다. 또한 주간 ZUNIONSTORE(300만 × 7키)가 수 초 블로킹을 유발할 수 있다.
+
+#### 6.5.3 전략 1 — Carry-Over 후 Trim (핵심)
+
+문제의 근원인 carry-over 시점에서 ZSET 크기를 제한한다. carry-over 직후 `ZREMRANGEBYRANK`로 **상위 N개만 유지**한다.
+
+```
+23:50 carry-over 흐름 (변경 후):
+  1. ZUNIONSTORE ranking:all:{tomorrow} 1 ranking:all:{today} WEIGHTS 0.1
+  2. ZREMRANGEBYRANK ranking:all:{tomorrow} 0 -(N+1)    ← Trim 추가
+  3. EXPIRE ranking:all:{tomorrow} 691200
+```
+
+**N의 결정**:
+
+| N | 용도 | 메모리 (단일 ZSET) | 비고 |
+|---|------|-------:|------|
+| 100 | API 노출 범위만 | ~6.6KB | ZREVRANK 사실상 불가 — "순위" 기능 상실 |
+| 1,000 | 최소 여유 | ~66KB | thrashing 가능 (경계 상품 반복 추가/제거) |
+| **10,000** | **권장** | **~660KB** | Top 100 + ZREVRANK 여유 + thrashing 방지. 300만 → 1만으로 99.7% 감소 |
+| 50,000 | 보수적 | ~3.3MB | 넓은 순위 범위 지원 |
+
+**N=10,000 권장 근거**:
+- API는 Top 100만 노출하지만, 상품 상세에서 "이 상품은 현재 2,847위"를 보여주려면 ZREVRANK가 필요
+- 10,000위 밖의 상품은 "순위권 밖"으로 표시 — 실질적으로 2,847위든 50,000위든 유저에게 의미 없음
+- 경계 근처 상품의 thrashing 방지: 10,000위 근처의 score 차이는 매우 작으므로 이벤트 1건으로 순위가 크게 변동. N=100이면 심각하지만 N=10,000이면 경계가 넓어 완화됨
+
+**Trim 후 메모리 효과** (대규모 기준):
+
+```
+변경 전: 300만 상품 × 68B × 8일 = ~1.5 GB
+변경 후: 1만 상품 × 68B × 8일   = ~5.2 MB
+
+절감: 99.7% (1.5 GB → 5.2 MB)
+```
+
+**Trim과 일간 이벤트의 관계**:
+
+Trim은 carry-over 시점에만 실행한다. 일간 이벤트로 ZADD되는 상품은 trim 대상이 아니다. 하루 동안 이벤트가 발생한 상품이 10,000개를 초과하면 ZSET이 일시적으로 커지지만, 다음 carry-over에서 다시 trim된다.
+
+```
+23:50 carry-over: ZSET = 10,000 (trim 후)
+00:00~23:49: 이벤트 유입으로 ZSET 증가 → 예: 15만 (일간 활성)
+23:50 carry-over: ZUNIONSTORE + Trim → ZSET = 10,000
+```
+
+이 패턴에서 **일간 중 ZSET 크기가 일시적으로 커지는 것은 허용**한다. carry-over만 trim하면 장기 누적이 방지되므로 충분하다.
+
+#### 6.5.4 왜 per-event Cap이 아닌 Carry-Over Trim인가
+
+Capped ZSET을 구현하는 방식은 크게 두 가지다. 어느 시점에 cap을 적용하느냐가 핵심 차이다.
+
+**방식 A — per-event Cap**: ZADD마다 크기 확인 → N 초과 시 즉시 trim
+
+```
+이벤트 발생 시마다:
+  1. ZADD ranking:all:{date} score productId
+  2. ZCARD ranking:all:{date}                ← 추가
+  3. if (size > N) ZREMRANGEBYRANK 0 -(N+1)  ← 추가
+```
+
+**방식 B — Carry-Over Trim**: 낮 동안은 전체 유지, 23:50 carry-over 시점에만 trim
+
+```
+이벤트 발생 시: ZADD만 (기존과 동일, 추가 비용 0)
+23:50 carry-over: ZUNIONSTORE → ZREMRANGEBYRANK
+```
+
+**Carry-Over Trim을 선택한 근거:**
+
+| 관점 | per-event Cap | Carry-Over Trim (선택) |
+|------|:-:|:-:|
+| per-event 추가 비용 | ZCARD + ZREMRANGEBYRANK (매번) | **없음** |
+| 일간 데이터 정확성 | 활성 상품 > N이면 점수 누락 | **전체 정확** |
+| 경계 thrashing | 발생 (경계 상품 반복 추가/제거) | **없음** |
+| Trim 비용 발생 시점 | 실시간 (피크 포함) | **오프피크 1회 (23:50)** |
+| 메모리 일시 초과 | 없음 | 낮 동안 N 초과 가능 (허용) |
+
+**per-event Cap의 구체적 문제:**
+
+1. **쓰기 경로 비용 증가**: 초당 1,000 이벤트 기준, ZCARD + conditional ZREMRANGEBYRANK = 초당 Redis 커맨드 2,000개 추가. 이벤트 처리 레이턴시가 증가하고, Redis 단일 스레드 부하가 올라간다.
+
+2. **일간 데이터 누락**: 오늘 이벤트가 발생한 상품이 15,000개이고 N=10,000이면, 5,000개 활성 상품의 점수가 ZSET에서 빠진다. 이 중 하나가 바이럴을 타도 정확한 순위에 즉시 반영되지 못한다.
+
+3. **경계 thrashing**: N=10,000 경계의 상품이 이벤트를 받으면 ZADD → 진입 → 기존 10,000위 밀림 → 그 상품이 다시 이벤트 → 복귀 → 반복. 불필요한 ZREMRANGEBYRANK가 반복 실행된다.
+
+**Carry-Over Trim의 핵심 이점**: 쓰기 경로(per-event)의 성능을 보호하면서, carry-over라는 **이미 존재하는 배치 시점**에 trim을 끼워넣는다. 추가 복잡도가 `ZREMRANGEBYRANK` 1줄이며, 일간 데이터 정확성을 유지한다.
+
+#### 6.5.5 전략 2 — 카테고리별 ZSET 분리 (향후 확장)
+
+전략 1이 "크기 제한"이라면, 전략 2는 "수평 분산"이다. 전체 상품을 하나의 ZSET에 넣는 대신, 카테고리별로 ZSET을 분리한다.
+
+```
+현재: ranking:all:{date}                     ← 전체 상품 1개 ZSET
+확장: ranking:category:{categoryId}:{date}   ← 카테고리당 1개 ZSET
+```
+
+| 관점 | 단일 ZSET (현재) | 카테고리별 ZSET |
+|------|:-:|:-:|
+| 전체 랭킹 | ZREVRANGE 1회 | ZUNIONSTORE 후 ZREVRANGE 또는 앱 레벨 병합 |
+| 카테고리 랭킹 | 불가 (전체에서 필터링 필요) | ZREVRANGE 1회 — **핵심 장점** |
+| 메모리 | 전체 상품 × 1 | 전체 상품 × 1 (총량 동일, 분산됨) |
+| ZUNIONSTORE 비용 | 대규모 ZSET 1개 | 소규모 ZSET 여러 개 (병렬 가능) |
+| 운영 복잡도 | 낮음 | 카테고리 추가/변경 시 키 관리 필요 |
+
+**전략 1과 독립적으로 적용 가능**하다. 카테고리별 분리 후에도 각 ZSET에 carry-over 후 trim을 적용할 수 있다.
+
+**도입 시점**: "카테고리별 인기 상품" 요구사항이 발생했을 때. 단순히 메모리 절감을 위해 도입하는 것은 복잡도 대비 이점이 작다 — 전략 1(Trim)이 메모리 문제를 이미 해결하기 때문.
+
+#### 6.5.6 결정
+
+**Carry-Over 후 Trim(N=10,000)을 규모와 무관하게 기본 적용한다.**
+
+| 결정 | 근거 |
+|------|------|
+| Trim을 기본 적용 | Carry-over가 ZSET을 무한히 키우는 구조적 부산물 → 규모와 무관한 위생 조치 |
+| N=10,000 | API Top 100 + ZREVRANK 여유 + thrashing 방지 (6.5.3 참고) |
+| Carry-Over 시점에만 | per-event 비용 0 유지, 오프피크 처리 (6.5.4 참고) |
+| 카테고리별 ZSET 분리는 향후 | 메모리 문제는 Trim으로 해결, 카테고리 요구사항 발생 시 도입 (6.5.5 참고) |
+
+Trim은 "대규모에서만 필요한 최적화"가 아니라, **carry-over 구조의 본질적 부산물(무한 member 누적)을 관리하는 위생 조치**다. 구현 비용이 `ZREMRANGEBYRANK` 1줄이므로, 규모가 작더라도 적용하지 않을 이유가 없다.
+
+**적용 대상**:
+
+| Carry-Over 유형 | Trim 적용 | 이유 |
+|------|:-:|------|
+| Daily carry-over | **적용** | carry-over 누적의 주요 원인 |
+| Monthly carry-over | **적용** | 동일한 carry-over 구조 (monthly × 0.97 + daily) |
+| Weekly ZUNIONSTORE | 미적용 | carry-over가 아닌 7일 합산 재생성 — 누적 없음 |
+
+**코드 변경**:
+
+`RankingCarryOverScheduler`의 daily carry-over와 monthly carry-over에 Trim 추가:
+
+```java
+private static final int CARRY_OVER_CAP = 10_000;
+
+private void doCarryOverDaily(LocalDate today, LocalDate tomorrow, double rate) {
+    // ... ZUNIONSTORE (기존)
+
+    // Trim: 상위 N개만 유지 (carry-over에 의한 ZSET 크기 누적 방지)
+    Long zsetSize = writeTemplate.opsForZSet().zCard(tomorrowKey);
+    if (zsetSize != null && zsetSize > CARRY_OVER_CAP) {
+        writeTemplate.opsForZSet().removeRange(tomorrowKey, 0, -(CARRY_OVER_CAP + 1));
+        log.info("Carry-over trim: {} → {} members", zsetSize, CARRY_OVER_CAP);
+    }
+
+    // ... EXPIRE (기존)
+}
+
+private void buildMonthlyRanking(LocalDate today, LocalDate tomorrow) {
+    // ... ZUNIONSTORE (기존)
+
+    // Trim: 월간도 동일하게 적용
+    Long size = writeTemplate.opsForZSet().zCard(tomorrowMonthlyKey);
+    if (size != null && size > CARRY_OVER_CAP) {
+        writeTemplate.opsForZSet().removeRange(tomorrowMonthlyKey, 0, -(CARRY_OVER_CAP + 1));
+        log.info("Monthly trim: {} → {} members", size, CARRY_OVER_CAP);
+    }
+
+    // ... EXPIRE (기존)
+}
+```
 
 ---
 
@@ -1130,16 +1552,28 @@ ZREVRANGE 자체가 O(log N + M)으로 충분히 빠르고, Replica에서 읽으
 **결정: Top-N 캐싱은 현재 불필요.**
 
 근거:
-- ZREVRANGE가 이미 O(log N + M)으로 충분히 빠르다
+- ZREVRANGE가 이미 O(log N + M)으로 충분히 빠르다 — ZSET이 300만 member여도 Top 20 조회는 O(log₂(300만) + 20) ≈ O(42), 서브밀리초
 - "실시간 랭킹"을 표방하면서 10초 TTL 캐시를 두면 실시간성이 퇴색된다
 - 병목은 Redis 조회가 아니라 DB IN 쿼리(상품 정보 조합) — 이는 상품 캐시(기존 Round 6 구현)로 이미 대응 중
-- TPS가 수천 이상으로 늘어나 Replica 부하가 문제되면 그때 도입
+- **캐싱 도입 기준은 ZSET 크기가 아니라 QPS** — ZREVRANGE 자체는 빠르지만, Redis Replica 처리량(~10만 cmd/sec)에 접근하는 QPS에서 캐싱이 의미를 가진다
+
+#### 캐싱 도입 기준 — QPS 기반
+
+| 랭킹 페이지 QPS | Redis Replica 부하 | 판단 |
+|---|---|---|
+| ~1,000 | ~1% | 여유 |
+| ~10,000 | ~10% | 충분 |
+| 50,000+ | 50%+ | **캐싱 검토 시점** |
+
+ZSET은 "항상 최신 상태의 정렬된 캐시" 역할을 이미 하고 있다. 그 위에 별도 캐시를 올리는 것은 ZREVRANGE가 느려서가 아니라, **Redis에 요청이 너무 많이 몰릴 때** Redis 요청 자체를 줄이기 위함이다.
 
 **도입 시 설계 방향** (향후 참고):
+- 캐시 기술: **Caffeine 로컬 캐시** 우선 — 기존 `CaffeineProductCacheAdapter` 패턴 재사용 가능, 레이턴시 ~0.01ms
 - 캐시 대상: 상품 정보가 조합된 최종 응답 (Redis 조회 + DB 조회 결과를 함께 캐싱)
 - TTL: 5~10초 (실시간성과 캐시 효율의 균형)
 - 캐시 키: `ranking:cache:{date}:{page}:{size}`
 - 무효화: TTL 기반 자연 만료 (이벤트 기반 무효화는 실시간 랭킹에서 너무 잦아 무의미)
+- Redis String 캐시는 멀티 인스턴스 일관성이 필요할 때 검토 (Caffeine은 인스턴스별 독립 캐시)
 
 ---
 
@@ -1195,13 +1629,81 @@ EXPIRE ranking:all:20260411 172800
 
 ZUNIONSTORE WEIGHTS를 이용한 score carry-over는 다음과 같은 업계 사례에서 검증된 패턴이다:
 
-| 사례 | 방식 | 비율/감쇠 |
-|------|------|----------|
-| Reddit Hot Ranking | 시간 감쇠 함수(gravity)로 오래된 게시물 score 자연 감소 | 시간 경과에 따라 지수적 감쇠 |
-| Hacker News | `score / (T+2)^gravity` — 경과 시간에 비례한 감쇠 | gravity=1.8 |
-| **ZUNIONSTORE WEIGHTS 패턴** | 전날 ZSET을 가중치 곱하여 새 키에 이월 | 0.1~0.3이 일반적 |
+| 사례 | 방식 | 비율/감쇠 | 출처 |
+|------|------|----------|------|
+| Reddit Hot Ranking | 시간 감쇠 함수(gravity)로 오래된 게시물 score 자연 감소 | 시간 경과에 따라 지수적 감쇠 | [medium.com](https://medium.com/hacking-and-gonzo/how-reddit-ranking-algorithms-work-ef111e33d0d9) |
+| Hacker News | `score / (T+2)^gravity` — 경과 시간에 비례한 감쇠 | gravity=1.8 | [medium.com](https://medium.com/hacking-and-gonzo/how-hacker-news-ranking-algorithm-works-1d9b0cf2c08d) |
+| **ZUNIONSTORE WEIGHTS 패턴** | 전날 ZSET을 가중치 곱하여 새 키에 이월 | 0.1~0.3이 일반적 | [redis.io](https://redis.io/docs/latest/develop/data-types/sorted-sets/) |
 
 우리의 carry-over는 Reddit/HN의 시간 감쇠를 **이산적(일 단위)**으로 구현한 것이다. 연속적 감쇠(매 요청마다 score를 시간 함수로 재계산)는 Redis ZSET 구조에서 비효율적이고(모든 member의 score를 갱신해야 함), 일 단위 감쇠가 랭킹 특성에 적합하다.
+
+#### 콜드 스타트 레퍼런스 — 시간 윈도우 분리와 이월의 근거
+
+초기 조사에서는 주요 레퍼런스 3건 모두 콜드 스타트를 직접 다루지 않았으나, 추가 조사로 이 공백이 해소되었다:
+
+| 레퍼런스 | 콜드 스타트 관련 인사이트 | 출처 |
+|---------|------------------------|------|
+| systemdesign.one | 시간 윈도우별 별도 ZSET이 표준. "A new sorted set for the leaderboard can be created for different time ranges." 시간 윈도우 분리 자체가 롱테일 방지이며, ZUNIONSTORE + WEIGHTS로 이전 기간 점수를 감쇠 반영하는 것은 자연스러운 확장 | [systemdesign.one](https://systemdesign.one/leaderboard-system-design/) |
+| 엠넷플러스 (AWS) | MAU 2,000만 규모에서 실시간(ElastiCache) + 원장(DynamoDB) 이중 집계 운용. 원장 기반 재집계로 정합성 복구 가능 → 배치 보정으로 cold start 누적 오차도 함께 교정 | [aws.amazon.com](https://aws.amazon.com/ko/blogs/tech/mnetplus-real-time-global-voting-system-architecture-improvement/) |
+| Amazon Dataset Transfer | 데이터가 풍부한 소스에서 학습한 모델을 신규 마켓에 transfer. 자체 데이터 약 2주치가 쌓일 때까지 transfer가 유의미 → carry-over는 이 "dataset transfer"의 단순화 버전 | [amazon.science](https://www.amazon.science/publications/addressing-cold-start-with-dataset-transfer-in-e-commerce-learning-to-rank) |
+
+**결론**: ZUNIONSTORE carry-over는 업계에서 검증된 시간 감쇠 + 시간 윈도우 이월 패턴이다. 10% 비율은 "빈 랭킹 방지"와 "당일 데이터 빠른 역전"의 균형점이며, 향후 A/B 테스트로 최적화 가능하다.
+
+#### 아이템 레벨 콜드 스타트 — 신규 상품 노출 전략
+
+콜드 스타트는 두 가지 레벨로 구분된다:
+
+| 레벨 | 문제 | 해결 |
+|------|------|------|
+| **시스템 레벨** | 일간 키 전환 시 ZSET이 비어있음 | carry-over (위 8.2절) |
+| **아이템 레벨** | 신규 상품이 ZSET에 없음 → 랭킹 미노출 → 이벤트 없음 → 순환 | 아래 분석 |
+
+현재 신규 상품의 랭킹 진입 경로:
+
+```
+상품 등록 (ProductFacade.createProduct)
+  → Kafka 이벤트 없음, 캐시 무효화만 → ZSET에 미존재
+
+누군가 상품 상세 페이지 방문
+  → PRODUCT_VIEWED → Kafka → MetricsConsumer → ZADD
+  → score = 0.1×log₁₀(2) = 0.0301 — 기존 인기 상품 대비 매우 낮음, Top 100 진입 불가
+```
+
+**검토한 방안 4가지:**
+
+| 방안 | 설명 | ZSET 순수성 | 실질 노출 효과 | 구현 복잡도 |
+|------|------|:-----------:|:------------:|:-----------:|
+| **1. 별도 신상품 API** | `GET /api/v1/products/new` — 인기 랭킹과 분리 | **유지** | 별도 영역 노출 | 낮음 |
+| 2. API 블렌딩 | Top-N 중 K개를 신상품으로 대체 | 유지 | 혼합 노출 | 중간 |
+| 3. 이벤트+주입 | PRODUCT_CREATED → ZADD(score=0) | 오염 | score 0이면 Top 100 미포함 | 낮음 |
+| 4. Boosting | score에 시간 기반 가산점 | 약간 훼손 | 자연 진입 | 높음 |
+
+**선택하지 않은 방안과 이유:**
+
+- **방안 2 (블렌딩)**: "인기 랭킹 Top 20" 중 3개가 인기 없는 신상품이면 순위 의미 훼손. 유저가 "왜 이 상품이 17위 다음에?"라고 혼란
+- **방안 3 (이벤트+주입)**: score 0이면 MAX_RANKING_SIZE(100) 안에 안 들어서 실질 효과 없음. 배치 보정 Job에서 DB에 metrics 없는 상품 처리 문제도 발생
+- **방안 4 (Boosting)**: score 공식 복잡도 증가, 상품 등록일을 MetricsConsumer가 알아야 하므로 PRODUCT_CREATED 이벤트 + createdAt 필드 필요. 배치 보정과 동일 공식 유지 부담
+
+**결정: 방안 1 — 별도 신상품 API.**
+
+Amazon, 쿠팡, Shopify 모두 "베스트셀러"와 "신상품"을 분리한다. "인기 랭킹"에 인기 없는 상품을 넣는 것은 정의에 반한다. ZSET 데이터 순수성을 유지하면서, 신상품은 독립된 API로 제공한다.
+
+```
+GET /api/v1/products/new?hours=48&size=20
+
+구현:
+  Product 테이블에서 created_at >= now - 48h 조회
+  등록 순(최신 먼저) 정렬
+  기존 ProductFacade에 메서드 추가, 신규 컨트롤러 엔드포인트 1개
+```
+
+**향후 고도화 (현재 범위 밖):**
+
+| 전략 | 설명 | 적용 시점 |
+|------|------|----------|
+| 카테고리 중위값 초기 점수 | 해당 카테고리 ZSET 중위값을 신규 상품 초기 score로 부여 | 카테고리별 랭킹 도입 시 |
+| Dynamic Prior Thompson Sampling | 기존 승자 성능 분포 기반으로 신규 아이템 탐색 확률 제어 ([arXiv:2602.00943](https://arxiv.org/abs/2602.00943)) | 개인화 랭킹 도입 시 |
+| Contextual-Bandit UCB | 데이터가 적은 아이템에 "탐색 보너스" 부여 ([ResearchGate](https://www.researchgate.net/publication/262732636)) | 노출 공정성 최적화 시 |
 
 ### 8.3 Hash Carry-Over는?
 
@@ -1263,119 +1765,239 @@ ZADD는 **기존 score를 무조건 덮어쓴다.** Carry-over로 생성된 scor
 
 ---
 
-## 9. 동점 처리
+## 9. 동점 처리 — Composite Score 구조
 
 ### 9.1 동점이 발생하는 경우
 
-score 수식이 `0.1×log₁₀(viewCount+1) + 0.2×log₁₀(likeCount+1) + 0.7×log₁₀(salesAmount+1)`이므로, 동일한 메트릭 조합을 가진 상품이 존재하면 동점이 된다.
-
-실제 발생 가능성:
+baseScore가 `W×log₁₀/MAX_LOG` 기반이므로, 유사한 메트릭 조합은 **실질적 동점권**(score 차이 < 0.001)을 형성한다.
 
 | 시나리오 | 가능성 | 설명 |
 |---------|--------|------|
-| 초기 (이벤트 적음) | **높음** | 조회 1회, 좋아요 0건, 주문 0건인 상품이 다수 → 모두 score = 0.1×log₁₀(2) ≈ 0.030 |
+| 초기 (이벤트 적음) | **높음** | 조회 1회, 좋아요 0건, 주문 0건인 상품 다수 → 모두 baseScore ≈ 0.004 |
 | carry-over 직후 | **높음** | 전날 동점이었던 상품들이 동일 비율로 이월 → 동점 유지 |
-| 일과 시간 | **낮음** | 이벤트가 누적될수록 메트릭 조합이 분화, log 스케일이 미세 차이를 보존 |
+| 일과 시간 | **낮음** | 이벤트가 누적될수록 메트릭 조합이 분화 |
 
-### 9.2 Redis ZSET의 동점 기본 동작
+### 9.2 Composite Score — 자릿수 기반 관심사 분리
 
-score가 동일하면 Redis는 **member의 사전식(lexicographic) 순서**로 정렬한다.
+score를 IEEE 754 double의 유효 15자리 안에서 **세 구간으로 분리**한다:
 
 ```
-member: "101", score: 0.030
-member: "202", score: 0.030
-member: "99",  score: 0.030
-
-→ 사전식 순서: "101" < "202" < "99" (문자열 비교)
-→ ZREVRANGE 시: "99", "202", "101" 순서
+score = [categoryPriority] + [baseScore] + [tiebreaker]
+        ← 정수부 (0~9) →   ← 소수 1~6 → ← 소수 7~15 →
 ```
 
-productId가 숫자이므로 사전식 순서는 비즈니스 의미가 없다 (99 > 202 > 101).
+| 구간 | 자릿수 | 값 범위 | 의미 |
+|------|--------|---------|------|
+| 정수부 | 1자리 | 0~9 | 카테고리 우선순위 (높을수록 상위) |
+| 소수 1~6자리 | 6자리 | 0.000000~0.999999 | 주 score (가중치 × 정규화 메트릭) |
+| 소수 7~15자리 | 9자리 | ~1e-7 | tiebreaker (최근 활동 우선) |
 
-### 9.3 타이브레이커 — 신상품 우선 (productId 기반)
+**구간 간 간섭 불가**: categoryPriority 차이(1.0)는 baseScore 최대값(1.0)과 같은 크기이지만 정수부에 위치하므로 역전 불가. tiebreaker(~1e-7)는 baseScore 최소 유의미 차이(~0.004)의 0.0025%에 불과하여 역전 불가.
+
+### 9.3 Tiebreaker — 최근 활동 우선 (timestamp 기반)
 
 | 대안 | 구현 | 장점 | 단점 |
 |------|------|------|------|
-| 아무것도 안 함 (ZSET 기본) | 변경 없음 | 단순 | 동점 시 순서가 자의적 (사전식) |
-| 타임스탬프 인코딩 | `score = baseScore + (1 - ts/10¹⁰)` | 먼저 달성한 상품 우선 | score에 두 가지 의미 혼합, 디버깅 어려움 |
-| salesCount 인코딩 | `score = baseScore + salesCount × ε` | 비즈니스 의미 있음 | salesAmount가 이미 주 score에 반영 → **같은 시그널의 이중 반영** |
-| **productId 인코딩** | `score = baseScore + productId × ε` | **신상품에 노출 기회 부여**, 주 score와 다른 차원의 보정 | productId가 auto-increment가 아닌 경우 무의미 |
+| 아무것도 안 함 (ZSET 기본) | 변경 없음 | 단순 | 사전식 순서 — 비즈니스 의미 없음 |
+| productId × ε | `score += productId × 1e-10` | 신상품 우선, 결정론적 | **비즈니스 의미 약함** — 등록 순서가 인기와 무관 |
+| **lastEventAt × ε** | `score += epochSeconds × 1e-16` | **최근 활동 상품 우선**, 비즈니스 의미 명확 | Hash에 lastEventAt 필드 추가 필요 |
+| salesCount × ε | `score += salesCount × 1e-8` | 매출 기반 | 주 score와 같은 시그널 이중 반영 |
 
-**결정: productId를 score에 인코딩하여 ZSET 레벨에서 동점을 해소한다.**
+**결정: lastEventAt(마지막 이벤트 epoch seconds)를 tiebreaker로 사용한다.**
 
 근거:
-- salesCount는 이미 salesAmount를 통해 주 score에 반영되고 있다. 타이브레이커에 다시 쓰면 "매출" 시그널을 이중으로 반영하는 셈이다
-- 동점인 상품 중 **최근 등록된 신상품이 상위**에 오면, 아직 이벤트가 충분히 쌓이지 않은 신상품에 노출 기회를 준다 → **미시적 콜드 스타트 완화**
-- productId는 auto-increment이므로 높을수록 최근 등록. Phase 3에서 이미 보유하고 있어 추가 조회 불필요
-- 주 score(조회/좋아요/매출)와 **완전히 다른 차원**의 보정이라 정보가 중복되지 않는다
+- 같은 인기도(baseScore)라면 **최근까지 활발한 상품**이 상위에 오는 것이 자연스럽다
+- productId 기반은 "등록 순서"일 뿐, "활동 수준"과 무관하다
+- lastEventAt는 주 score(조회/좋아요/매출)와 **다른 차원**의 보정이라 정보가 중복되지 않는다
+- Hash에 `lastEventAt` 필드 1개 추가 — 기존 HINCRBY pipeline에 HSET 1건 추가, 성능 영향 무시 가능
 
-### 9.4 ε(엡실론) 산정
+**Hash 필드 확장**:
 
-productId를 score의 소수점 아래에 인코딩하되, **주 score에 영향을 주지 않을 만큼 작아야** 한다.
+```
+ranking:metrics:{date}:{productId}
+  viewCount:    "150"
+  likeCount:    "30"
+  salesCount:   "5"
+  salesAmount:  "200000"
+  lastEventAt:  "1712952000"     ← 신규: epoch seconds
+```
 
-**주 score의 최소 유의미 차이**:
+### 9.4 Tiebreaker 스케일 산정
+
+**주 score의 최소 유의미 차이** (0~1 정규화 후):
 
 ```
 가장 작은 변화: viewCount 0→1
-기여 변화: 0.1 × (log₁₀(2) - log₁₀(1)) = 0.1 × 0.301 = 0.0301
+기여 변화: 0.1 × log₁₀(2) / 7 = 0.1 × 0.301 / 7 = 0.0043
 ```
 
-**productId의 현실적 범위**: 1~10,000,000 (천만, 대규모 서비스 상한)
+**epoch seconds의 현실적 범위**: ~1,700,000,000 (10자리)
 
-**ε 후보 검증**:
+**스케일 검증**:
 
-| ε | productId=10,000,000일 때 보정값 | 주 score 최소 차이(0.0301) 대비 | 안전성 |
-|---|-------------------------------|-------------------------------|--------|
-| 1e-9 | 0.01 | 33% | 위험 — 주 score를 역전시킬 수 있음 |
-| **1e-10** | **0.001** | **3.3%** | **안전** — 주 score 차이의 30분의 1 |
-| 1e-11 | 0.0001 | 0.3% | 과잉 안전 |
+| scale | epochSec=1,712,952,000일 때 | 주 score 최소 차이(0.0043) 대비 | 안전성 |
+|-------|---------------------------|-------------------------------|--------|
+| 1e-14 | 0.01713 | 398% | **위험** — 주 score 역전 가능 |
+| 1e-15 | 0.001713 | 39.8% | 위험 |
+| **1e-16** | **0.0001713** | **3.98%** | **안전** — 주 score 차이의 25분의 1 |
+| 1e-17 | 0.00001713 | 0.4% | 과잉 안전, 정밀도 낭비 |
 
-**결정: ε = 1e-10**
+**결정: scale = 1e-16**
 
-- productId 1,000만이어도 보정값 0.001 → 주 score 차이(0.03)의 3.3%
-- Redis double(64bit IEEE 754)은 유효 자릿수 15~16자리 → score 범위 0~6에서 1e-10은 충분히 표현 가능
-- 현재 과제 상품은 5개(ID 1~5)이므로 보정값은 극히 미미하지만, 동점 해소에는 충분
+- epoch seconds × 1e-16은 소수 7~16자리에 위치 → 주 score(소수 1~6자리)와 간섭 없음
+- 1초 차이(1e-16) < 주 score 최소 차이(0.004)이므로 tiebreaker가 주 score를 역전 불가
+- IEEE 754 double 유효 15자리 안에 categoryPriority(1) + baseScore(6) + tiebreaker(8) = 15자리 적합
 
-### 9.5 최종 수식 (타이브레이커 포함)
+### 9.5 Category Priority — 카테고리 우선순위 인코딩
 
-```
-score(p) = 0.1 × log₁₀(viewCount + 1)
-         + 0.2 × log₁₀(likeCount + 1)
-         + 0.7 × log₁₀(salesAmount + 1)
-         + productId × 1e-10
-```
-
-**검증 — 동점 시 신상품 우선**:
+score의 정수부에 카테고리 우선순위를 배치하여, **같은 ZSET 안에서 카테고리별 자연 그룹화**를 달성한다.
 
 ```
-Product 101 (구상품): view=1, like=0, salesAmount=0
-  주 score = 0.1×log₁₀(2) = 0.0301
-  tiebreaker = 101 × 1e-10 = 0.0000000101
-  최종: 0.0301000101
+score = categoryPriority + baseScore + tiebreaker
 
-Product 505 (신상품): view=1, like=0, salesAmount=0
-  주 score = 0.1×log₁₀(2) = 0.0301
-  tiebreaker = 505 × 1e-10 = 0.0000000505
-  최종: 0.0301000505
+// 패션(priority=3) 상품 A:  3 + 0.611400 + tiebreaker = 3.611400...
+// 전자(priority=2) 상품 B:  2 + 0.750000 + tiebreaker = 2.750000...
 
-→ 505(신상품) > 101(구상품) ✓
+→ 패션 A(3.611) > 전자 B(2.750) — 카테고리 우선순위가 지배
 ```
 
-**검증 — 주 score를 역전시키지 않는가?**:
+**전제 조건**: Product 엔티티에 `categoryId` 추가, 카테고리별 우선순위 매핑 설정.
+
+**카테고리 우선순위 매핑 (설정 기반)**:
+
+```yaml
+ranking:
+  category-priority:
+    1: 3    # 패션 → priority 3 (최상위)
+    2: 2    # 전자제품 → priority 2
+    3: 1    # 생필품 → priority 1
+    default: 0  # 미분류 → priority 0
+```
+
+**트레이드오프**:
+
+| 기준 | Priority 인코딩 (현재 설계) | 카테고리별 별도 ZSET |
+|------|:------------------------:|:-------------------:|
+| 글로벌 랭킹 | 자연스러움 (단일 ZSET) | ZUNIONSTORE 필요 |
+| 카테고리별 랭킹 | ZRANGEBYSCORE로 범위 조회 | 자연스러움 (별도 ZSET) |
+| 카테고리별 가중치 | 불가 (단일 공식) | **가능** (ZSET마다 다른 공식) |
+| 메모리 | 1배 | 카테고리 수 × N배 |
+
+**결정**: 현재는 priority 인코딩으로 단일 ZSET 유지. 카테고리별 가중치가 필요한 시점에 별도 ZSET 확장.
+
+### 9.6 최종 Composite Score 수식
 
 ```
-Product 101: view=2, like=0, salesAmount=0
-  최종: 0.1×log₁₀(3) + 101×1e-10 = 0.0477000101
+MAX_LOG = 7
+TIEBREAKER_SCALE = 1e-16
 
-Product 999999 (신상품): view=1, like=0, salesAmount=0
-  최종: 0.1×log₁₀(2) + 999999×1e-10 = 0.0301001000
+score(p) = categoryPriority
+         + W(view) × log₁₀(viewCount + 1) / MAX_LOG
+         + W(like) × log₁₀(likeCount + 1) / MAX_LOG
+         + W(order) × log₁₀(salesAmount + 1) / MAX_LOG
+         + lastEventEpochSeconds × TIEBREAKER_SCALE
+```
 
-→ 101(0.0477) > 999999(0.0301) ✓ — productId가 1만배 차이나도 주 score가 높은 쪽이 상위
+**검증 — 동점 시 최근 활동 우선**:
+
+```
+Product 101: view=1, like=0, salesAmount=0, lastEventAt=1712952000 (14:00)
+  baseScore = 0.1 × log₁₀(2)/7 = 0.0043
+  tiebreaker = 1712952000 × 1e-16 = 0.0000001713
+  최종: 0.0043001713
+
+Product 202: view=1, like=0, salesAmount=0, lastEventAt=1712955600 (15:00)
+  baseScore = 0.1 × log₁₀(2)/7 = 0.0043
+  tiebreaker = 1712955600 × 1e-16 = 0.0000001713
+  최종: 0.0043001713
+
+→ 202(15:00 활동) > 101(14:00 활동) — 최근 활동 상품 우선 ✓
+```
+
+**검증 — tiebreaker가 주 score를 역전시키지 않는가?**:
+
+```
+Product 101: view=2, like=0, salesAmount=0, lastEventAt=1712900000 (오래전)
+  최종: 0.0068 + 0.0000001713 = 0.0068001713
+
+Product 202: view=1, like=0, salesAmount=0, lastEventAt=1712999999 (최근)
+  최종: 0.0043 + 0.0000001713 = 0.0043001713
+
+→ 101(0.0068) > 202(0.0043) ✓ — 최근 활동이어도 주 score가 높은 쪽이 상위
 ```
 
 ---
 
-## 10. 장애 시나리오
+## 10. A/B 테스트 — 가중치 실험
+
+### 10.1 목적
+
+현재 가중치(view 0.1, like 0.2, order 0.7)는 도메인 직관 기반이다. 실제로 어떤 가중치가 더 높은 구매 전환률을 내는지 **데이터로 검증**하기 위해, 서로 다른 가중치 세트를 적용한 랭킹 2개를 동시 운영하고 결과를 비교한다.
+
+### 10.2 구조
+
+```
+[MetricsConsumer — 동일 이벤트를 2개 ZSET에 이중 쓰기]
+
+이벤트 수신 → deltaMap 집계 (기존 동일)
+  ├── Pipeline A: ranking:exp:A:{date} — 가중치 A (0.1/0.2/0.7)
+  └── Pipeline B: ranking:exp:B:{date} — 가중치 B (0.2/0.3/0.5)
+
+[RankingFacade — 유저 그룹별 라우팅]
+
+유저 요청 → memberId % 2 == 0 → ranking:exp:A:{date} 조회
+                          == 1 → ranking:exp:B:{date} 조회
+```
+
+### 10.3 설정
+
+```yaml
+ranking:
+  experiment:
+    enabled: false                    # 기본 비활성
+    variants:
+      A:
+        weights: { view: 0.1, like: 0.2, order: 0.7 }
+        zset-prefix: "ranking:exp:A:"
+      B:
+        weights: { view: 0.2, like: 0.3, order: 0.5 }
+        zset-prefix: "ranking:exp:B:"
+```
+
+`experiment.enabled=false`이면 기존 단일 ZSET(`ranking:all:{date}`) 동작 — **기존 로직 영향 없음**.
+
+### 10.4 비교 지표
+
+2주 운영 후 그룹 A vs B를 비교한다:
+
+| 지표 | 측정 방법 | 의미 |
+|------|----------|------|
+| 랭킹 → 상품 상세 CTR | 랭킹 페이지 조회 수 대비 상품 클릭 수 | 랭킹이 유저 관심을 얼마나 반영하나 |
+| 랭킹 → 구매 전환률 | 랭킹 경유 상품 상세 → 주문 완료 비율 | 랭킹이 매출에 기여하는 정도 |
+| 랭킹 다양성 | Top 10 내 고유 브랜드/카테고리 수 | 랭킹의 편향도 |
+
+### 10.5 비용과 전제 조건
+
+| 항목 | 비용 |
+|------|------|
+| Redis 메모리 | ZSET + Hash가 2배 (실험 기간 동안) |
+| MetricsConsumer 쓰기 | Pipeline 2회 → 처리 시간 ~2배 |
+| 구현 복잡도 | RankingScoreUpdater 분기, RankingFacade 라우팅 |
+
+**전제 조건**: 유의미한 통계 차이 검출을 위해 그룹별 최소 1,000명 이상의 랭킹 조회 필요.
+
+### 10.6 향후: 카테고리별 가중치 A/B 테스트
+
+카테고리 체계 확립 후, 카테고리별 ZSET을 분리하여 카테고리마다 다른 가중치를 실험할 수 있다:
+
+```
+ranking:category:fashion:A:{date}   — like 가중치 높은 실험군
+ranking:category:fashion:B:{date}   — order 가중치 높은 대조군
+```
+
+---
+
+## 11. 장애 시나리오
 
 ### 10.1 장애 분류
 
@@ -1492,7 +2114,7 @@ try {
 
 ---
 
-## 11. 클래스 설계
+## 12. 클래스 설계
 
 ### 11.1 전체 구조
 
@@ -1702,7 +2324,7 @@ commerce-streamer가 쓰는 키와 commerce-api가 읽는 키가 일치해야 �
 
 ---
 
-## 12. 체크리스트
+## 13. 체크리스트
 
 과제 요구사항(`docs/requirements/09-ranking-system-quests.md`) 기준으로 설계 커버리지를 정리한다.
 
@@ -1720,9 +2342,9 @@ commerce-streamer가 쓰는 키와 commerce-api가 읽는 키가 일치해야 �
 
 | # | 항목 | 설계 섹션 | 구현 상태 |
 |---|------|----------|----------|
-| 4 | 랭킹 Page 조회 시 정상적으로 랭킹 정보 반환 | 섹션 7.1 (페이지네이션) | **미구현** — RankingController, RankingFacade |
-| 5 | 상품 ID가 아닌 상품 정보가 Aggregation되어 제공 | 섹션 7.1 (Aggregation 흐름) | **미구현** — RankingFacade 내 DB IN 쿼리 |
-| 6 | 상품 상세 조회 시 해당 상품 순위 반환 (없으면 null) | 섹션 7.2 (상품 상세 랭킹) | **미구현** — ProductFacade 수정 |
+| 4 | 랭킹 Page 조회 시 정상적으로 랭킹 정보 반환 | 섹션 7.1 (페이지네이션) | **구현 완료** — `RankingController`, `RankingFacade` |
+| 5 | 상품 ID가 아닌 상품 정보가 Aggregation되어 제공 | 섹션 7.1 (Aggregation 흐름) | **구현 완료** — `RankingFacade` 내 DB IN 쿼리 |
+| 6 | 상품 상세 조회 시 해당 상품 순위 반환 (없으면 null) | 섹션 7.2 (상품 상세 랭킹) | **구현 완료** — `ProductFacade.lookupRanking()` |
 
 #### 검증
 
@@ -1737,51 +2359,78 @@ commerce-streamer가 쓰는 키와 commerce-api가 읽는 키가 일치해야 �
 | # | 항목 | 설계 섹션 | 구현 상태 |
 |---|------|----------|----------|
 | 10 | 시간 단위(초 실시간) 랭킹 | 섹션 4.5 (hourly 키 확장) | 설계만 — 키 패턴 확장으로 대응 가능 |
-| 11 | 콜드 스타트 문제 해결 | 섹션 8 (carry-over) | `RankingCarryOverScheduler` 구현 완료 |
+| 11 | 콜드 스타트 — 시스템 레벨 (carry-over) | 섹션 8.2 | `RankingCarryOverScheduler` 구현 완료 |
+| 11-2 | 콜드 스타트 — 아이템 레벨 (신상품 API) | 섹션 8.2 (아이템 레벨) | **구현 완료** — `GET /api/v1/products/new` (commit a1a4e896) |
 | 12 | 카프카 배치 리스너 | 섹션 2.2 (MetricsConsumer 확장) | 기존 BATCH_LISTENER 활용 (이미 3,000건 배치) |
 
 ### Additionals
 
 | # | 항목 | 설계 섹션 | 구현 상태 |
 |---|------|----------|----------|
-| 13 | 실시간 Weight 조절 | 섹션 11.2 (RankingProperties) | `@ConfigurationProperties` 구현 완료, actuator refresh로 런타임 변경 가능 |
+| 13 | 실시간 Weight 조절 | 섹션 12.2 (RankingProperties) | `@ConfigurationProperties` 구현 완료, actuator refresh로 런타임 변경 가능 |
 | 14 | 1시간 단위 랭킹 | 섹션 4.5 | 미구현 — hourly 키 전략 설계 완료 |
 | 15 | 콜드 스타트 Scheduler (23:50) | 섹션 8.4 | `RankingCarryOverScheduler` 구현 완료 |
+
+### Composite Score 리팩토링
+
+| # | 항목 | 설계 섹션 | 구현 상태 |
+|---|------|----------|----------|
+| 22 | Score 0~1 정규화 (MAX_LOG=7) | 섹션 3.3 | **구현 완료** — `MAX_LOG=7`로 나누어 score를 0~1 범위로 정규화. RankingScoreUpdater + RankingCorrectionJobConfig 수식 동일하게 변경, 테스트 전면 수정 |
+| 23 | Tiebreaker: productId → lastEventAt (timestamp) | 섹션 9.3~9.4 | **구현 완료** — `TIEBREAKER_SCALE=1e-16`, MetricsDelta에 `lastEventEpochSeconds` 필드 추가, Kafka `record.timestamp()/1000`으로 설정, Pipeline 1에 HSET lastEventAt 추가 |
+| 24 | Product 엔티티에 categoryId 추가 | 섹션 9.5 | **구현 완료** — `Product.categoryId` (nullable Long) 필드 + 5파라미터 생성자 추가, ProductDto/ProductFacade/ProductAdminController 연동 |
+| 25 | Category Priority score 인코딩 | 섹션 9.5 | **구현 완료** — `categoryPriority` 정수부 인코딩, RankingProperties에 `categoryPriority` 매핑 + `defaultCategoryPriority` 추가, MVP는 0 고정 |
+| 26 | A/B 테스트 dual ZSET 실험 | 섹션 10 | **구현 완료** — `experiment.enabled` 설정 기반 dual ZSET 이중 쓰기, variant별 가중치/prefix 분리, memberId % variantCount 라우팅, CarryOver 양쪽 지원 |
+
+### 주간/월간 랭킹 확장
+
+| # | 항목 | 설계 섹션 | 구현 상태 |
+|---|------|----------|----------|
+| 27 | Daily ZSET TTL 8일로 변경 | 섹션 4.7.1 | **구현 완료** — `RANKING_ZSET_TTL_SECONDS=691,200` (8일), `RANKING_HASH_TTL_SECONDS=172,800` (2일), `RANKING_AGGREGATED_TTL_SECONDS=172,800` (2일)로 분리. RankingScoreUpdater + RankingCorrectionJobConfig 동일 적용 |
+| 28 | 주간 랭킹 ZUNIONSTORE (7일 합산) | 섹션 4.7.2 | **구현 완료** — `RankingCarryOverScheduler.buildWeeklyRanking()`: 최근 7일 daily ZSET을 동일 가중치(1.0×7)로 ZUNIONSTORE → `ranking:weekly:{tomorrow}`, TTL 2일 |
+| 29 | 월간 랭킹 Rolling Carry-Over (감쇠율 0.97) | 섹션 4.7.3 | **구현 완료** — `RankingCarryOverScheduler.buildMonthlyRanking()`: `monthly:{today}×0.97 + daily:{today}×1.0` → `ranking:monthly:{tomorrow}`, 초기화 시 자연 부트스트랩, TTL 2일 |
+| 30 | Ranking API scope 파라미터 추가 | 섹션 4.7.5 | **구현 완료** — `RankingController` scope 파라미터(daily/weekly/monthly, default=daily), `RankingFacade.resolveZsetPrefix()` scope별 prefix 분기, A/B 테스트는 daily에만 적용 |
+
+### ZSET Carry-Over Trim
+
+| # | 항목 | 설계 섹션 | 구현 상태 |
+|---|------|----------|----------|
+| 31 | Daily carry-over 후 Trim (N=10,000) | 섹션 6.5.3, 6.5.6 | **구현 완료** — `doCarryOverDaily()` 내 ZUNIONSTORE 직후 `trimZset()` 호출, A/B variant에도 동일 적용 |
+| 32 | Monthly carry-over 후 Trim (N=10,000) | 섹션 6.5.6 | **구현 완료** — `buildMonthlyRanking()` 내 ZUNIONSTORE 직후 `trimZset()` 호출. Weekly는 합산 재생성이므로 미적용 |
+| 33 | CARRY_OVER_CAP 설정 외부화 (RankingProperties) | 섹션 6.5.6 | **구현 완료** — `RankingProperties.carryOverCap()` (기본값 10,000), `application.yml`에 `carry-over-cap: 10000` |
 
 ### 과제 범위 초과 — 메트릭 설계 심화
 
 | # | 항목 | 설계 섹션 | 구현 상태 |
 |---|------|----------|----------|
-| 16 | product_metrics 그레인 재설계 (daily × product) | 섹션 2.5 (TO-BE) | **미구현** — 스키마 마이그레이션 + Phase 2 수정 |
-| 17 | Additive Measure + 취소 분리 | 섹션 2.5 (설계 원칙 1) | **미구현** — unlike_count, cancel 컬럼 분리 |
-| 18 | Late-Arriving Fact 이중 기록 | 섹션 2.5 (설계 원칙 2) | **미구현** — cancel_by_event_date + cancel_by_order_date |
-| 19 | Lambda Architecture 배치 보정 잡 | 섹션 2.5 (설계 원칙 4), 섹션 11.3 | **미구현** — commerce-batch RankingCorrectionJobConfig |
-| 20 | Semantic Definition 중앙화 | 섹션 2.5 (설계 원칙 3) | **부분 완료** — MetricsDelta 추출 완료, 파생 메트릭 정의는 구현 시 반영 |
-| 21 | ORDER_CANCELLED 이벤트에 originalOrderDate 추가 | 섹션 2.5 | **미구현** — commerce-api 이벤트 발행 수정 |
+| 16 | product_metrics 그레인 재설계 (daily × product) | 섹션 2.5 (TO-BE) | **구현 완료** — `ProductMetrics` 엔티티 PK `(product_id, metric_date)` + Phase 2 수정 |
+| 17 | Additive Measure + 취소 분리 | 섹션 2.5 (설계 원칙 1) | **구현 완료** — `unlike_count`, `cancel_*_by_event_date`, `cancel_*_by_order_date` 컬럼 분리 |
+| 18 | Late-Arriving Fact 이중 기록 | 섹션 2.5 (설계 원칙 2) | **구현 완료** — MetricsConsumer 이중 UPSERT (인식일 + 발생일) + 테스트 4개 시나리오 |
+| 19 | Lambda Architecture 배치 보정 잡 | 섹션 2.5 (설계 원칙 4), 섹션 12.3 | **구현 완료** — `RankingCorrectionJobConfig` + `RankingCorrectionScoreTest` (8 시나리오) |
+| 20 | Semantic Definition 중앙화 | 섹션 2.5 (설계 원칙 3) | **구현 완료** — MetricsDelta 팩토리 메서드, RankingProperties 가중치 외부화, 배치 잡 수식 일치 |
+| 21 | ORDER_CANCELLED 이벤트에 originalOrderDate 추가 | 섹션 2.5 | **구현 완료** — `OrderFacade.cancelOrder()`에서 `originalOrderDate` 포함, MetricsConsumer 파싱 + 파싱 실패 테스트 |
 
 ### 구현 우선순위
 
 ```
-1순위 (Must-Have, 미구현):
-  → product_metrics 스키마 변경 (metric_date 추가, 취소 분리, Late-Arriving Fact) + MetricsConsumer Phase 2 수정
-  → ORDER_CANCELLED 이벤트에 originalOrderDate 필드 추가 (commerce-api)
-  → RankingRedisRepository
-  → RankingFacade + RankingController + RankingDto
-  → ProductFacade / ProductDto 수정
-
-2순위 (검증):
+검증 (미완료):
   → E2E 흐름 테스트 (이벤트 발행 → Redis → API)
   → 일자 변경 테스트
   → 가중치 순서 검증 테스트
   → product_metrics 일별 적재 + 취소 분리 + Late-Arriving Fact 검증
   → 정합성 검증: SUM(cancel_by_order_date) = SUM(cancel_by_event_date)
-
-3순위 (Lambda Architecture):
-  → commerce-batch RankingCorrectionJobConfig 구현
   → 배치 보정 전후 Redis 데이터 정합성 검증
   → 배치 + 실시간 동시 실행 시 race condition 검증
 
-4순위 (이미 완료 확인):
-  → streamer 쪽 단위 테스트 확인
-  → MetricsConsumer → RankingScoreUpdater 연동 확인
+구현 완료:
+  → product_metrics 스키마 변경 (Grain + 취소 분리 + Late-Arriving Fact)
+  → MetricsConsumer Phase 2 이중 UPSERT
+  → ORDER_CANCELLED 이벤트에 originalOrderDate 포함
+  → Lambda Architecture 배치 보정 잡 (RankingCorrectionJobConfig)
+  → RankingRedisRepository + RankingFacade + RankingController
+  → ProductFacade / ProductDto 랭킹 조합
+  → RankingScoreUpdater + RankingCarryOverScheduler
+  → MetricsDelta Semantic Definition + RankingProperties 가중치 외부화
+  → Score 0~1 정규화 (MAX_LOG=7) + Tiebreaker lastEventAt 변경
+  → Product categoryId + Category Priority score 인코딩
+  → A/B 테스트 dual ZSET (experiment 설정 + 이중 쓰기 + memberId 라우팅)
 ```
