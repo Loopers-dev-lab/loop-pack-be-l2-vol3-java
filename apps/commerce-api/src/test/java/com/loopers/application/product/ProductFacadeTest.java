@@ -168,6 +168,24 @@ class ProductFacadeTest {
         }
 
         @Test
+        @DisplayName("캐시 히트 시에도 Redis 순위 조회로 rankingRank를 응답에 합성한다 (E-CACHE-DETAIL / R5).")
+        void getProductDetail_whenCached_shouldMergeRankingRankFromQueryService() {
+            ProductDetailInfo cached = new ProductDetailInfo(
+                    PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT, null);
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.of(cached));
+            when(rankingQueryService.findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID)))
+                    .thenReturn(OptionalLong.of(7L));
+
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null);
+
+            assertThat(result).isPresent();
+            assertThat(result.get().rankingRank()).isEqualTo(7L);
+            assertThat(result.get().stockQuantity()).isEqualTo(STOCK_QUANTITY);
+            verify(rankingQueryService).findOneBasedDailyRank(any(LocalDate.class), eq(PRODUCT_ID));
+            verify(productService, never()).findByIdAndNotDeleted(PRODUCT_ID);
+        }
+
+        @Test
         @DisplayName("date 형식이 잘못되면 BAD_REQUEST")
         void getProductDetail_whenInvalidDate_shouldThrow() {
             assertThatThrownBy(() -> productFacade.getProductDetail(PRODUCT_ID, "not-a-date"))
@@ -216,6 +234,18 @@ class ProductFacadeTest {
 
             assertThat(result.getContent()).isEmpty();
             verify(productService).findNotDeletedForList(ProductSortOrder.LATEST, BRAND_ID, 0, 20);
+        }
+
+        @Test
+        @DisplayName("getNewArrivals는 브랜드 없이 최신순으로 getProductList와 동일하게 조회한다.")
+        void getNewArrivals_shouldDelegateToLatestListWithoutBrand() {
+            when(productCacheService.getList(null, "latest", 20)).thenReturn(Optional.empty());
+            when(productService.findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20))
+                    .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+            productFacade.getNewArrivals(0, 20);
+
+            verify(productService).findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20);
         }
     }
 }

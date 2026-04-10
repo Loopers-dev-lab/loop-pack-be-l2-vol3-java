@@ -7,6 +7,7 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.*;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.ranking.RankingV1Dto;
 import com.loopers.interfaces.api.user.UserV1Dto;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
@@ -246,5 +247,61 @@ class ProductV1ApiE2ETest {
             new ParameterizedTypeReference<>() {});
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products/new-arrivals — 등록 최신순 신상 전용 목록")
+    void getNewArrivals_shouldReturnLatestOrderedList() {
+        ProductModel newer = productService.registerProduct(brandId, "더새상품", new BigDecimal("9000"), 2);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "/new-arrivals?page=0&size=20",
+            HttpMethod.GET,
+            new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
+                () -> assertThat(response.getBody().data().content().get(0).id()).isEqualTo(newer.getId())
+        );
+    }
+
+    @Test
+    @DisplayName("목록 조회 직후 ZSET 변경이 있으면 상세 rankingRank가 목록 rank와 다를 수 있다 (E-RANK-MISMATCH)")
+    void getProductDetail_whenRankingChangesAfterList_shouldAllowRankMismatch() {
+        BrandModel brand = brandService.registerBrand("순위불일치E2E");
+        ProductModel first = productService.registerProduct(brand.getId(), "first", new BigDecimal("1000"), 5);
+        ProductModel second = productService.registerProduct(brand.getId(), "second", new BigDecimal("2000"), 5);
+        String date = "20260408";
+        String key = "ranking:all:" + date;
+        redisTemplate.opsForZSet().add(key, String.valueOf(first.getId()), 0.9d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(second.getId()), 0.8d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> listResponse = testRestTemplate.exchange(
+                "/api/v1/rankings?date=" + date + "&page=1&size=10",
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(listResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listResponse.getBody()).isNotNull();
+        assertThat(listResponse.getBody().data().content().get(0).productId()).isEqualTo(first.getId());
+        assertThat(listResponse.getBody().data().content().get(0).rank()).isEqualTo(1);
+
+        redisTemplate.opsForZSet().add(key, String.valueOf(second.getId()), 1.0d);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> detailResponse = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "/" + first.getId() + "?date=" + date,
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(detailResponse.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(detailResponse.getBody()).isNotNull(),
+                () -> assertThat(detailResponse.getBody().data().rankingRank()).isEqualTo(2L)
+        );
     }
 }

@@ -15,6 +15,8 @@ public interface RankingV1ApiSpec {
         summary = "랭킹 목록 조회",
         description = "지정 일자의 일간 랭킹을 page·size 오프셋으로 조회합니다. Redis ZSET(ranking:all:{yyyyMMdd}) 점수 내림차순이며, "
             + "date 생략 시 오늘(Asia/Seoul)입니다. 실시간 갱신으로 재요청 시 항목이 달라질 수 있고, 목록의 rank와 상품 상세 rankingRank는 요청 시점이 달라 완전 일치를 보장하지 않습니다. "
+            + "응답 `dataSource`는 REDIS(정상 ZSET)·FALLBACK_LATEST(Redis 장애 시 DB 최신순)·DEGRADED(복구 불가 빈 목록)를 구분합니다."
+            + "동일 값을 헤더 `X-Loopers-Ranking-Data-Source`로도 내려 클라이언트가 빠르게 degraded UI를 적용할 수 있습니다. "
             + "페이징·동점·원천 데이터 등 운영 고지는 design 문서 09-ranking-redis-zset-design.md를 참고합니다."
     )
     ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> getRankings(

@@ -1,3 +1,6 @@
+### 신상품 목록 (등록 최신순, 인기 랭킹과 분리)
+GET http://localhost:8080/api/v1/products/new-arrivals?page=0&size=20
+
 ### 상품 상세 (랭킹 일자 생략 → 오늘 Asia/Seoul 기준, ZSET 미등록 시 rankingRank null)
 GET http://localhost:8080/api/v1/products/1
 

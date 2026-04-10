@@ -166,6 +166,17 @@ public class ProductFacade {
     }
 
     /**
+     * 신상품 목록: 등록 최신순만. 인기 랭킹과 분리된 전용 노출(09-ranking-user-scenarios §4.1).
+     *
+     * @param page 페이지 (0부터)
+     * @param size 페이지 크기
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductListItemInfo> getNewArrivals(int page, int size) {
+        return getProductList(null, "latest", page, size);
+    }
+
+    /**
      * 상품 목록 조회
      * @param brandId 브랜드 ID
      * @param sortParam 정렬 기준
