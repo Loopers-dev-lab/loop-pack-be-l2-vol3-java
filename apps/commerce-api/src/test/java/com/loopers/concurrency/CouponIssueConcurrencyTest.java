@@ -75,16 +75,13 @@ class CouponIssueConcurrencyTest {
     }
 
     private ConcurrencyResult buildResult(AtomicInteger successCount, AtomicInteger failCount) {
-        CouponModel coupon = couponJpaRepository.findById(couponId).orElseThrow();
-        int actualOwned = ownedCouponJpaRepository.findAll().size();
+        int actualOwned = (int) ownedCouponJpaRepository.countByCouponId(couponId);
         return new ConcurrencyResult(
-                successCount.get(), failCount.get(),
-                coupon.getIssuedQuantity(), actualOwned);
+                successCount.get(), failCount.get(), actualOwned);
     }
 
     private record ConcurrencyResult(
-            int success, int fail,
-            int issuedQuantity, int actualOwned) {
+            int success, int fail, int actualOwned) {
 
         void printReport(String label) {
             System.out.println("\n========== " + label + " ==========");
@@ -92,18 +89,12 @@ class CouponIssueConcurrencyTest {
             System.out.println("  요청 수(threadCount)   : " + THREAD_COUNT);
             System.out.println("  성공 카운트            : " + success);
             System.out.println("  실패 카운트            : " + fail);
-            System.out.println("  issuedQuantity        : " + issuedQuantity);
             System.out.println("  실제 OwnedCoupon       : " + actualOwned);
-            System.out.println("  수량 일치 여부          : " + (issuedQuantity == actualOwned ? "OK" : "MISMATCH"));
             System.out.println("  초과 발급 여부          : " + (actualOwned > TOTAL_QUANTITY ? "OVER-ISSUED" : "OK"));
             System.out.println("==========================================\n");
         }
 
         void assertCorrectness() {
-            assertThat(issuedQuantity)
-                    .as("issuedQuantity(%d)와 실제 OwnedCoupon 수(%d)가 일치해야 한다",
-                            issuedQuantity, actualOwned)
-                    .isEqualTo(actualOwned);
             assertThat(actualOwned)
                     .as("실제 발급 수(%d)가 totalQuantity(%d)를 초과하면 안 된다",
                             actualOwned, TOTAL_QUANTITY)

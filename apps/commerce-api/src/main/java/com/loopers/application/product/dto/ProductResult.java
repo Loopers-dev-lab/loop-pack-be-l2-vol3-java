@@ -23,6 +23,10 @@ public record ProductResult(
     ZonedDateTime deletedAt
 ) {
     public static ProductResult of(ProductModel model, String brandName) {
+        return of(model, brandName, 0L);
+    }
+
+    public static ProductResult of(ProductModel model, String brandName, long likeCount) {
         return new ProductResult(
                 model.getId(),
                 model.getBrandId(),
@@ -30,7 +34,7 @@ public record ProductResult(
                 model.getName(),
                 model.getPrice(),
                 model.getStock(),
-                model.getLikeCount(),
+                likeCount,
                 model.getThumbnailUrl(),
                 model.getCreatedAt(),
                 model.getUpdatedAt(),
@@ -38,11 +42,15 @@ public record ProductResult(
     }
 
     public static List<ProductResult> fromWithActiveBrand(
-            List<ProductModel> products, Map<Long, String> brandNameMap) {
+            List<ProductModel> products,
+            Map<Long, String> brandNameMap,
+            Map<Long, Long> likeCountMap) {
         return products.stream()
                 .filter(product -> brandNameMap.containsKey(product.getBrandId()))
                 .map(product -> ProductResult.of(
-                        product, brandNameMap.get(product.getBrandId())))
+                        product,
+                        brandNameMap.get(product.getBrandId()),
+                        likeCountMap.getOrDefault(product.getId(), 0L)))
                 .toList();
     }
 
@@ -70,7 +78,8 @@ public record ProductResult(
     public record DetailWithImages(
         ProductResult product,
         List<ImageResult> mainImages,
-        List<ImageResult> detailImages
+        List<ImageResult> detailImages,
+        Long rank
     ) {
     }
 }

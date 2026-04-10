@@ -52,7 +52,7 @@ public class AdminCouponV1Dto {
         long discountValue,
         Long minOrderAmount,
         int totalQuantity,
-        int issuedQuantity,
+        long issuedQuantity,
         ZonedDateTime expiredAt,
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
@@ -72,7 +72,7 @@ public class AdminCouponV1Dto {
         String discountType,
         long discountValue,
         int totalQuantity,
-        int issuedQuantity,
+        long issuedQuantity,
         ZonedDateTime expiredAt,
         ZonedDateTime createdAt
     ) {

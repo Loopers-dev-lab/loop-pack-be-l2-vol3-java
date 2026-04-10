@@ -3,7 +3,7 @@ package com.loopers.concurrency;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.AdminOrderService;
 import com.loopers.application.order.dto.OrderCriteria;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.product.ProductModel;
@@ -32,7 +32,7 @@ class StockDeductionConcurrencyTest {
     private static final int THREAD_COUNT = 10;
 
     @Autowired
-    private OrderFacade orderFacade;
+    private AdminOrderService adminOrderService;
 
     @Autowired
     private UserJpaRepository userJpaRepository;
@@ -88,7 +88,7 @@ class StockDeductionConcurrencyTest {
                 try {
                     readyLatch.countDown();
                     startLatch.await();
-                    orderFacade.createOrder(user.getId(),
+                    adminOrderService.createOrder(user.getId(),
                             new OrderCriteria.Create(List.of(
                                     new OrderCriteria.Create.CreateItem(
                                             product.getId(), 1, 10000))));

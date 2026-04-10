@@ -2,6 +2,7 @@ dependencies {
     // add-ons
     implementation(project(":modules:jpa"))
     implementation(project(":modules:redis"))
+    implementation(project(":modules:kafka"))
     implementation(project(":supports:jackson"))
     implementation(project(":supports:logging"))
     implementation(project(":supports:monitoring"))
@@ -24,6 +25,9 @@ dependencies {
 
     // security
     implementation("org.springframework.security:spring-security-crypto")
+
+    // mail
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // querydsl
     annotationProcessor("com.querydsl:querydsl-apt::jakarta")

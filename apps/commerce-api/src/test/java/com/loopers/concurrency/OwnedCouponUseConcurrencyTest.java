@@ -3,7 +3,7 @@ package com.loopers.concurrency;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.AdminOrderService;
 import com.loopers.application.order.dto.OrderCriteria;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.coupon.CouponDiscountType;
@@ -37,7 +37,7 @@ class OwnedCouponUseConcurrencyTest {
     private static final int THREAD_COUNT = 10;
 
     @Autowired
-    private OrderFacade orderFacade;
+    private AdminOrderService adminOrderService;
 
     @Autowired
     private UserJpaRepository userJpaRepository;
@@ -74,8 +74,6 @@ class OwnedCouponUseConcurrencyTest {
         CouponModel coupon = couponJpaRepository.save(
                 CouponModel.create("테스트 쿠폰", CouponDiscountType.FIXED, 5000,
                         null, 100, ZonedDateTime.now().plusMonths(3)));
-        coupon.issue();
-        couponJpaRepository.save(coupon);
         return ownedCouponJpaRepository.save(OwnedCouponModel.create(coupon, userId));
     }
 
@@ -108,7 +106,7 @@ class OwnedCouponUseConcurrencyTest {
                 try {
                     readyLatch.countDown();
                     startLatch.await();
-                    orderFacade.createOrder(firstUser.getId(),
+                    adminOrderService.createOrder(firstUser.getId(),
                             new OrderCriteria.Create(List.of(
                                     new OrderCriteria.Create.CreateItem(
                                             product.getId(), 1, 10000)),

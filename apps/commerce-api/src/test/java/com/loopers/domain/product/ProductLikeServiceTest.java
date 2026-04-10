@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.loopers.support.error.CoreException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -15,11 +17,14 @@ class ProductLikeServiceTest {
 
     private ProductLikeService productLikeService;
     private FakeProductLikeRepository productLikeRepository;
+    private List<Object> publishedEvents;
 
     @BeforeEach
     void setUp() {
         productLikeRepository = new FakeProductLikeRepository();
-        productLikeService = new ProductLikeService(productLikeRepository);
+        publishedEvents = new ArrayList<>();
+        ApplicationEventPublisher publisher = publishedEvents::add;
+        productLikeService = new ProductLikeService(publisher, productLikeRepository);
     }
 
     @DisplayName("좋아요를 등록할 때, ")

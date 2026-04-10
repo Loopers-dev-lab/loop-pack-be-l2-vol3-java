@@ -50,9 +50,13 @@ class OrderCouponV1ApiE2ETest {
     private final OwnedCouponJpaRepository ownedCouponJpaRepository;
     private final UserJpaRepository userJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
+    private final com.loopers.domain.waitingroom.WaitingQueue waitingQueue;
+    private final com.loopers.domain.waitingroom.EntryGate entryGate;
+    private final com.loopers.utils.RedisCleanUp redisCleanUp;
 
     private Long userId;
     private Long productId;
+    private String entryToken;
 
     @Autowired
     public OrderCouponV1ApiE2ETest(
@@ -62,7 +66,10 @@ class OrderCouponV1ApiE2ETest {
         CouponJpaRepository couponJpaRepository,
         OwnedCouponJpaRepository ownedCouponJpaRepository,
         UserJpaRepository userJpaRepository,
-        DatabaseCleanUp databaseCleanUp
+        DatabaseCleanUp databaseCleanUp,
+        com.loopers.domain.waitingroom.WaitingQueue waitingQueue,
+        com.loopers.domain.waitingroom.EntryGate entryGate,
+        com.loopers.utils.RedisCleanUp redisCleanUp
     ) {
         this.testRestTemplate = testRestTemplate;
         this.brandJpaRepository = brandJpaRepository;
@@ -71,6 +78,9 @@ class OrderCouponV1ApiE2ETest {
         this.ownedCouponJpaRepository = ownedCouponJpaRepository;
         this.userJpaRepository = userJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
+        this.waitingQueue = waitingQueue;
+        this.entryGate = entryGate;
+        this.redisCleanUp = redisCleanUp;
     }
 
     @BeforeEach
@@ -95,11 +105,15 @@ class OrderCouponV1ApiE2ETest {
         ProductModel product = productJpaRepository.save(
                 ProductModel.create(brand.getId(), "오버사이즈 코트", 50000, 100));
         productId = product.getId();
+
+        // 토큰 직접 발급 (스케줄러 간섭 방지)
+        entryToken = entryGate.issueToken(userId);
     }
 
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     private HttpHeaders authHeaders() {
@@ -109,13 +123,19 @@ class OrderCouponV1ApiE2ETest {
         return headers;
     }
 
+    private HttpHeaders orderHeaders() {
+        // 스케줄러 간섭 없이 토큰 직접 발급 (enter 불필요)
+        String token = entryGate.issueToken(userId);
+        HttpHeaders headers = authHeaders();
+        headers.set("X-Entry-Token", token);
+        return headers;
+    }
+
     private OwnedCouponModel issueOwnedCoupon(CouponDiscountType type, long value,
                                                Long minOrderAmount) {
         CouponModel coupon = couponJpaRepository.save(
                 CouponModel.create("테스트 쿠폰", type, value, minOrderAmount, 100,
                         ZonedDateTime.now().plusMonths(3)));
-        coupon.issue();
-        couponJpaRepository.save(coupon);
         return ownedCouponJpaRepository.save(OwnedCouponModel.create(coupon, userId));
     }
 
@@ -139,7 +159,7 @@ class OrderCouponV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderResponse.OrderSummary>> response =
                     testRestTemplate.exchange(
                             ORDER_ENDPOINT, HttpMethod.POST,
-                            new HttpEntity<>(orderRequest(owned.getId()), authHeaders()),
+                            new HttpEntity<>(orderRequest(owned.getId()), orderHeaders()),
                             new ParameterizedTypeReference<>() {});
 
             // assert — 50000 * 2 = 100000, 할인 5000 → totalPrice 95000
@@ -160,7 +180,7 @@ class OrderCouponV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderResponse.OrderSummary>> response =
                     testRestTemplate.exchange(
                             ORDER_ENDPOINT, HttpMethod.POST,
-                            new HttpEntity<>(orderRequest(owned.getId()), authHeaders()),
+                            new HttpEntity<>(orderRequest(owned.getId()), orderHeaders()),
                             new ParameterizedTypeReference<>() {});
 
             // assert — 100000 * 10% = 10000 할인 → totalPrice 90000
@@ -183,7 +203,7 @@ class OrderCouponV1ApiE2ETest {
             ResponseEntity<ApiResponse<Object>> response =
                     testRestTemplate.exchange(
                             ORDER_ENDPOINT, HttpMethod.POST,
-                            new HttpEntity<>(orderRequest(owned.getId()), authHeaders()),
+                            new HttpEntity<>(orderRequest(owned.getId()), orderHeaders()),
                             new ParameterizedTypeReference<>() {});
 
             // assert
@@ -197,7 +217,7 @@ class OrderCouponV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderResponse.OrderSummary>> response =
                     testRestTemplate.exchange(
                             ORDER_ENDPOINT, HttpMethod.POST,
-                            new HttpEntity<>(orderRequest(null), authHeaders()),
+                            new HttpEntity<>(orderRequest(null), orderHeaders()),
                             new ParameterizedTypeReference<>() {});
 
             // assert
@@ -217,7 +237,7 @@ class OrderCouponV1ApiE2ETest {
             ResponseEntity<ApiResponse<Object>> response =
                     testRestTemplate.exchange(
                             ORDER_ENDPOINT, HttpMethod.POST,
-                            new HttpEntity<>(orderRequest(owned.getId()), authHeaders()),
+                            new HttpEntity<>(orderRequest(owned.getId()), orderHeaders()),
                             new ParameterizedTypeReference<>() {});
 
             // assert
@@ -233,7 +253,7 @@ class OrderCouponV1ApiE2ETest {
             // act
             testRestTemplate.exchange(
                     ORDER_ENDPOINT, HttpMethod.POST,
-                    new HttpEntity<>(orderRequest(owned.getId()), authHeaders()),
+                    new HttpEntity<>(orderRequest(owned.getId()), orderHeaders()),
                     new ParameterizedTypeReference<ApiResponse<OrderResponse.OrderSummary>>() {});
 
             // assert
@@ -255,7 +275,7 @@ class OrderCouponV1ApiE2ETest {
             ResponseEntity<ApiResponse<OrderResponse.OrderSummary>> orderResponse =
                     testRestTemplate.exchange(
                             ORDER_ENDPOINT, HttpMethod.POST,
-                            new HttpEntity<>(orderRequest(owned.getId()), authHeaders()),
+                            new HttpEntity<>(orderRequest(owned.getId()), orderHeaders()),
                             new ParameterizedTypeReference<>() {});
             Long orderId = orderResponse.getBody().data().orderId();
 

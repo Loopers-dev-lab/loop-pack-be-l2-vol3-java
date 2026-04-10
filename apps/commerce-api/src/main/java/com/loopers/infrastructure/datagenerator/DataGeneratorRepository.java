@@ -72,6 +72,12 @@ public class DataGeneratorRepository {
         return jdbcTemplate.queryForList("SELECT id FROM users", Long.class);
     }
 
+    public List<Long> findUserIdsByPrefix(String prefix, int limit) {
+        return jdbcTemplate.queryForList(
+                "SELECT id FROM users WHERE login_id LIKE ? AND deleted_at IS NULL ORDER BY id LIMIT ?",
+                Long.class, prefix + "%", limit);
+    }
+
     public List<Map<String, Object>> findRandomProducts(int limit) {
         return jdbcTemplate.queryForList(
                 "SELECT id, price, stock FROM products WHERE deleted_at IS NULL AND stock > 0 ORDER BY RAND() LIMIT ?",
@@ -138,8 +144,8 @@ public class DataGeneratorRepository {
 
     public int batchInsertProducts(List<Object[]> products) {
         if (products.isEmpty()) return 0;
-        String sql = "INSERT INTO products (brand_id, name, price, stock, like_count, thumbnail_url, version, created_at, updated_at) "
-                + "VALUES (?, ?, ?, ?, 0, ?, 0, NOW(), NOW())";
+        String sql = "INSERT INTO products (brand_id, name, price, stock, thumbnail_url, version, created_at, updated_at) "
+                + "VALUES (?, ?, ?, ?, ?, 0, NOW(), NOW())";
         jdbcTemplate.batchUpdate(sql, products, 1000,
                 (PreparedStatement ps, Object[] p) -> {
                     ps.setLong(1, (Long) p[0]);
@@ -271,18 +277,32 @@ public class DataGeneratorRepository {
 
     public List<Long> findActiveProductIdsWithLikes(int limit) {
         return jdbcTemplate.queryForList(
-                "SELECT id FROM products WHERE deleted_at IS NULL AND like_count > 0 "
-                        + "ORDER BY like_count ASC LIMIT ?",
+                "SELECT DISTINCT l.product_id FROM likes l"
+                        + " JOIN products p ON l.product_id = p.id"
+                        + " WHERE p.deleted_at IS NULL LIMIT ?",
                 Long.class,
                 limit);
     }
 
-    public void syncLikeCounts() {
-        jdbcTemplate.update(
-                "UPDATE products p LEFT JOIN ("
-                        + "SELECT product_id, COUNT(*) AS cnt FROM likes GROUP BY product_id"
-                        + ") lc ON p.id = lc.product_id "
-                        + "SET p.like_count = COALESCE(lc.cnt, 0)");
+    public long countRankingScoresByDate(LocalDate date) {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM product_ranking_scores WHERE ranking_date = ?",
+                Long.class, date);
+        return count != null ? count : 0L;
+    }
+
+    public int batchInsertRankingScores(List<Object[]> scores) {
+        if (scores.isEmpty()) return 0;
+        String sql = "INSERT IGNORE INTO product_ranking_scores "
+                + "(product_id, ranking_date, score, created_at, updated_at) "
+                + "VALUES (?, ?, ?, NOW(), NOW())";
+        jdbcTemplate.batchUpdate(sql, scores, 1000,
+                (PreparedStatement ps, Object[] s) -> {
+                    ps.setLong(1, (Long) s[0]);
+                    ps.setObject(2, s[1]);
+                    ps.setDouble(3, (double) s[2]);
+                });
+        return scores.size();
     }
 
     private long countTable(String tableName, boolean hasSoftDelete) {

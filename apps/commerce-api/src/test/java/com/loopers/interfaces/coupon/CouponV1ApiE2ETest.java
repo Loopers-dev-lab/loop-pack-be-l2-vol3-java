@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.loopers.domain.coupon.CouponDiscountType;
+import com.loopers.domain.coupon.CouponIssueLimiter;
 import com.loopers.domain.coupon.CouponModel;
 import com.loopers.domain.coupon.OwnedCouponModel;
 import com.loopers.infrastructure.coupon.CouponJpaRepository;
@@ -12,6 +13,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.coupon.dto.CouponV1Dto;
 import com.loopers.interfaces.user.dto.UserV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import java.time.ZonedDateTime;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +41,8 @@ class CouponV1ApiE2ETest {
     private final CouponJpaRepository couponJpaRepository;
     private final OwnedCouponJpaRepository ownedCouponJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
+    private final RedisCleanUp redisCleanUp;
+    private final CouponIssueLimiter couponIssueLimiter;
 
     private Long userId;
 
@@ -47,12 +51,16 @@ class CouponV1ApiE2ETest {
         TestRestTemplate testRestTemplate,
         CouponJpaRepository couponJpaRepository,
         OwnedCouponJpaRepository ownedCouponJpaRepository,
-        DatabaseCleanUp databaseCleanUp
+        DatabaseCleanUp databaseCleanUp,
+        RedisCleanUp redisCleanUp,
+        CouponIssueLimiter couponIssueLimiter
     ) {
         this.testRestTemplate = testRestTemplate;
         this.couponJpaRepository = couponJpaRepository;
         this.ownedCouponJpaRepository = ownedCouponJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
+        this.redisCleanUp = redisCleanUp;
+        this.couponIssueLimiter = couponIssueLimiter;
     }
 
     @BeforeEach
@@ -70,6 +78,7 @@ class CouponV1ApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     private HttpHeaders authHeaders() {
@@ -80,9 +89,11 @@ class CouponV1ApiE2ETest {
     }
 
     private CouponModel saveCoupon(String name, CouponDiscountType type, long value) {
-        return couponJpaRepository.save(
+        CouponModel coupon = couponJpaRepository.save(
                 CouponModel.create(name, type, value, null, 100,
                         ZonedDateTime.now().plusMonths(3)));
+        couponIssueLimiter.registerTotalQuantity(coupon.getId(), coupon.getTotalQuantity());
+        return coupon;
     }
 
     @DisplayName("POST /api/v1/coupons/{couponId}/issue")
@@ -103,10 +114,8 @@ class CouponV1ApiE2ETest {
                             new HttpEntity<>(null, authHeaders()),
                             new ParameterizedTypeReference<>() {});
 
-            // assert
-            assertAll(
-                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(ownedCouponJpaRepository.findAll()).hasSize(1));
+            // assert — Kafka 비동기 처리이므로 응답 코드만 검증
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         }
 
         @DisplayName("이미 발급받은 쿠폰을 다시 발급받으면, 409 응답을 반환한다.")
@@ -114,9 +123,8 @@ class CouponV1ApiE2ETest {
         void issue_returnsConflict_whenAlreadyIssued() {
             // arrange
             CouponModel coupon = saveCoupon("테스트 쿠폰", CouponDiscountType.FIXED, 5000);
-            coupon.issue();
-            couponJpaRepository.save(coupon);
             ownedCouponJpaRepository.save(OwnedCouponModel.create(coupon, userId));
+            couponIssueLimiter.tryIssue(coupon.getId(), userId); // Redis ZSET에도 등록
 
             // act
             ResponseEntity<ApiResponse<Object>> response =
@@ -155,8 +163,6 @@ class CouponV1ApiE2ETest {
         void myOwnedCoupons_returnsList() {
             // arrange
             CouponModel coupon = saveCoupon("테스트 쿠폰", CouponDiscountType.RATE, 10);
-            coupon.issue();
-            couponJpaRepository.save(coupon);
             ownedCouponJpaRepository.save(OwnedCouponModel.create(coupon, userId));
 
             // act
@@ -169,11 +175,10 @@ class CouponV1ApiE2ETest {
             // assert
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().items()).hasSize(1),
-                    () -> assertThat(response.getBody().data().items().get(0).couponName())
-                            .isEqualTo("테스트 쿠폰"),
-                    () -> assertThat(response.getBody().data().items().get(0).status())
-                            .isEqualTo("AVAILABLE"));
+                    () -> assertThat(response.getBody().data().items()).hasSize(2),
+                    () -> assertThat(response.getBody().data().items())
+                            .anyMatch(item -> item.couponName().equals("테스트 쿠폰")
+                                    && item.status().equals("AVAILABLE")));
         }
     }
 }

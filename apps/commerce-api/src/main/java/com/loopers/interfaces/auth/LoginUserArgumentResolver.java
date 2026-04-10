@@ -17,8 +17,11 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
 
     @Override
     public boolean supportsParameter(MethodParameter parameter) {
+        if (!LoginUser.class.isAssignableFrom(parameter.getParameterType())) {
+            return false;
+        }
         return parameter.hasParameterAnnotation(Login.class)
-            && LoginUser.class.isAssignableFrom(parameter.getParameterType());
+                || parameter.hasParameterAnnotation(OptionalLogin.class);
     }
 
     @Override
@@ -29,7 +32,7 @@ public class LoginUserArgumentResolver implements HandlerMethodArgumentResolver 
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
         LoginUser loginUser = (LoginUser) request.getAttribute("loginUser");
 
-        if (loginUser == null) {
+        if (loginUser == null && parameter.hasParameterAnnotation(Login.class)) {
             throw new CoreException(ErrorType.UNAUTHORIZED);
         }
 

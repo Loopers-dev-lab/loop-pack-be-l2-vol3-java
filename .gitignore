@@ -52,3 +52,4 @@ claude/*
 docs/*
 !docs/design/
 docker/pg-simulator/*.jar
+k6/*

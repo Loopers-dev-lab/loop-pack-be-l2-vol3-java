@@ -2,6 +2,8 @@ package com.loopers.interfaces.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.auth.LoginUser;
+import com.loopers.interfaces.auth.OptionalLogin;
 import com.loopers.interfaces.product.dto.ProductV1Dto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -36,9 +38,12 @@ public class ProductV1Controller implements ProductV1ApiSpec {
     @GetMapping("/{productId}")
     @Override
     public ApiResponse<ProductV1Dto.DetailResponse> getById(
-        @PathVariable Long productId
+        @PathVariable Long productId,
+        @OptionalLogin LoginUser loginUser
     ) {
         return ApiResponse.success(
-                ProductV1Dto.DetailResponse.from(productFacade.getProductDetail(productId)));
+                ProductV1Dto.DetailResponse.from(
+                        productFacade.getProductDetail(productId,
+                                loginUser != null ? loginUser.id() : null)));
     }
 }

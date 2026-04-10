@@ -1,6 +1,7 @@
 package com.loopers.application.product;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
 import com.loopers.application.product.dto.ProductResult;
@@ -37,6 +38,9 @@ class ProductFacadeTest {
     @Mock
     private ProductImageService productImageService;
 
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private ProductFacade productFacade;
 
@@ -49,11 +53,9 @@ class ProductFacadeTest {
         void getProduct_returnsResultWithLikeCount() {
             // arrange
             ProductModel product = ProductModel.create(1L, "에어맥스", 150000, 100);
-            for (int i = 0; i < 5; i++) {
-                product.addLikeCount();
-            }
             when(productService.getById(1L)).thenReturn(product);
             when(brandService.getById(1L)).thenReturn(BrandModel.create("나이키"));
+            when(productService.getLikeCountByProductId(1L)).thenReturn(5L);
 
             // act
             ProductResult result = productFacade.getProduct(1L);
@@ -74,6 +76,7 @@ class ProductFacadeTest {
             ProductModel product = ProductModel.create(1L, "에어맥스", 150000, 100);
             when(productService.getById(1L)).thenReturn(product);
             when(brandService.getById(1L)).thenReturn(BrandModel.create("나이키"));
+            when(productService.getLikeCountByProductId(1L)).thenReturn(0L);
             when(productImageService.getImagesByProductIdAndType(1L, ImageType.MAIN))
                     .thenReturn(List.of(
                             ProductImageModel.create(1L, "https://img.com/main1.jpg", ImageType.MAIN, 0),
@@ -83,7 +86,7 @@ class ProductFacadeTest {
                             ProductImageModel.create(1L, "https://img.com/detail1.jpg", ImageType.DETAIL, 0)));
 
             // act
-            ProductResult.DetailWithImages result = productFacade.getProductDetail(1L);
+            ProductResult.DetailWithImages result = productFacade.getProductDetail(1L, null);
 
             // assert
             assertThat(result.product().name()).isEqualTo("에어맥스");
@@ -104,9 +107,6 @@ class ProductFacadeTest {
         void getProductsWithActiveBrand_returnsResultsWithLikeCount() {
             // arrange
             ProductModel product1 = ProductModel.create(1L, "에어맥스", 150000, 100);
-            for (int i = 0; i < 3; i++) {
-                product1.addLikeCount();
-            }
             ProductModel product2 = ProductModel.create(1L, "에어포스", 120000, 50);
             PageRequest pageable = PageRequest.of(0, 20);
 
@@ -114,6 +114,8 @@ class ProductFacadeTest {
                     .thenReturn(new PageImpl<>(List.of(product1, product2), pageable, 2));
             when(brandService.getActiveNameMapByIds(List.of(1L)))
                     .thenReturn(Map.of(1L, "나이키"));
+            when(productService.getLikeCountsByProductIds(anyList()))
+                    .thenReturn(Map.of(0L, 3L));
 
             // act
             Page<ProductResult> result = productFacade.getProductsWithActiveBrand(pageable);
@@ -181,15 +183,14 @@ class ProductFacadeTest {
         void getProductsWithActiveBrandByBrandId_activeBrand_returnsResults() {
             // arrange
             ProductModel product = ProductModel.create(1L, "에어맥스", 150000, 100);
-            for (int i = 0; i < 10; i++) {
-                product.addLikeCount();
-            }
             PageRequest pageable = PageRequest.of(0, 20);
 
             when(productService.getAllByBrandId(1L, pageable))
                     .thenReturn(new PageImpl<>(List.of(product), pageable, 1));
             when(brandService.getActiveNameMapByIds(List.of(1L)))
                     .thenReturn(Map.of(1L, "나이키"));
+            when(productService.getLikeCountsByProductIds(anyList()))
+                    .thenReturn(Map.of(product.getId(), 10L));
 
             // act
             Page<ProductResult> result =

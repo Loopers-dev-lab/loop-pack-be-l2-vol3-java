@@ -1,6 +1,7 @@
 package com.loopers.domain.product;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,7 +25,13 @@ public interface ProductRepository {
 
     Page<ProductModel> findAllByBrandIdSortedByLikeCountDesc(Long brandId, Pageable pageable);
 
-    void incrementLikeCount(Long id);
+    Map<Long, Long> findLikeCountsByProductIds(List<Long> productIds);
 
-    void decrementLikeCount(Long id);
+    long findLikeCountByProductId(Long productId);
+
+    int decreaseStock(Long id, int quantity);
+
+    int increaseStock(Long id, int quantity);
+
+    List<ProductModel> findByIdModulo(int divisor, int remainder);
 }

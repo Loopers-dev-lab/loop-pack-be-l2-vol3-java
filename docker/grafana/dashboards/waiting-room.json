@@ -1,0 +1,338 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "title": "현재 대기열 인원",
+      "description": "지금 줄 서서 기다리고 있는 유저 수",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1000 },
+              { "color": "red", "value": 10000 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "queue_waiting_size",
+          "legendFormat": "대기열 인원",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "스케줄러 실행 횟수 (1분)",
+      "description": "1분간 0이면 스케줄러 장애",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(queue_scheduler_run_total[1m])",
+          "legendFormat": "실행 횟수/분",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "현재 참여열 인원",
+      "description": "토큰을 받고 쇼핑/주문 중인 유저 수",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 36 },
+              { "color": "red", "value": 48 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "queue_entry_gate_active",
+          "legendFormat": "참여열 인원",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "입장 TPS",
+      "description": "초당 참여열로 이동한 유저 수",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          },
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(queue_admit_total[1m])",
+          "legendFormat": "입장/초",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "대기열 인원 추이",
+      "description": "시간에 따른 대기열 크기 변화",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 20,
+            "lineWidth": 2
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "queue_waiting_size",
+          "legendFormat": "대기열 인원",
+          "instant": false
+        },
+        {
+          "expr": "queue_entry_gate_active",
+          "legendFormat": "참여열 인원",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "title": "진입 vs 입장 vs 취소 TPS",
+      "description": "적체 여부 판단: 진입 > 입장이면 대기열이 쌓이는 중",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "unit": "reqps"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(queue_enter_total[1m])",
+          "legendFormat": "진입/초",
+          "instant": false
+        },
+        {
+          "expr": "rate(queue_admit_total[1m])",
+          "legendFormat": "입장/초",
+          "instant": false
+        },
+        {
+          "expr": "rate(queue_cancel_total[1m])",
+          "legendFormat": "취소/초",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "title": "스케줄러 평균 실행 시간",
+      "description": "processQueue() 평균 실행 시간. 급증하면 Redis 지연 의심",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.5 }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(queue_scheduler_duration_seconds_sum[1m]) / rate(queue_scheduler_duration_seconds_count[1m])",
+          "legendFormat": "평균 실행 시간",
+          "instant": false
+        },
+        {
+          "expr": "queue_scheduler_duration_seconds_max",
+          "legendFormat": "최대 실행 시간",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "title": "배치 크기 분포",
+      "description": "스케줄러 1회 실행당 처리한 평균·최대 입장 인원",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "queue_admit_batch_size_mean",
+          "legendFormat": "평균 배치 크기",
+          "instant": false
+        },
+        {
+          "expr": "queue_admit_batch_size_max",
+          "legendFormat": "최대 배치 크기",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "title": "누적 카운터",
+      "description": "총 진입 / 총 입장 / 총 취소",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 0,
+            "lineWidth": 2
+          },
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "expr": "queue_enter_total",
+          "legendFormat": "총 진입",
+          "instant": false
+        },
+        {
+          "expr": "queue_admit_total",
+          "legendFormat": "총 입장",
+          "instant": false
+        },
+        {
+          "expr": "queue_cancel_total",
+          "legendFormat": "총 취소",
+          "instant": false
+        }
+      ]
+    },
+    {
+      "title": "예상 대기 시간",
+      "description": "대기열 크기 / 입장 TPS = 지금 줄 서면 예상 대기 시간",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 30 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "red", "value": 300 }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "targets": [
+        {
+          "expr": "queue_waiting_size / clamp_min(rate(queue_admit_total[1m]), 0.001)",
+          "legendFormat": "예상 대기 시간",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "title": "취소율",
+      "description": "취소 / 진입 비율. 30% 넘으면 대기 시간이 너무 긴 신호",
+      "type": "gauge",
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 30 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 15 },
+              { "color": "red", "value": 30 }
+            ]
+          },
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        }
+      },
+      "targets": [
+        {
+          "expr": "rate(queue_cancel_total[5m]) / clamp_min(rate(queue_enter_total[5m]), 0.001) * 100",
+          "legendFormat": "취소율",
+          "instant": true
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["waiting-room", "queue"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30m", "to": "now" },
+  "title": "Waiting Room Dashboard",
+  "uid": "waiting-room-dashboard"
+}

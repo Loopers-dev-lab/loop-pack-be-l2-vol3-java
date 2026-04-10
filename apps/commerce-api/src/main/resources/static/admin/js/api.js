@@ -61,6 +61,38 @@ export const UserApi = {
     addPointAll: (amount) => request('POST', '/api-admin/v1/users/point', { amount }),
 };
 
+// === Queue (유저측 API — 인증 헤더 직접 전달) ===
+export const QueueApi = {
+    signup: (loginId, password, name, email) =>
+        fetch('/api/v1/users/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ loginId, password, name, birthDate: '20000101', email }),
+        }).then(r => r.json()).then(j => {
+            if (j.meta.result !== 'SUCCESS') throw new Error(j.meta.message);
+            return j.data;
+        }),
+    enter: (loginId, password) => {
+        const opts = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Loopers-LoginId': loginId,
+                'X-Loopers-LoginPw': password,
+            },
+        };
+        return fetch('/api/v1/queue/enter', opts).then(r => r.json()).then(j => {
+            if (j.meta.result !== 'SUCCESS') throw new Error(j.meta.message);
+            return j.data;
+        });
+    },
+    position: (loginId, password) => {
+        return fetch('/api/v1/queue/position', {
+            headers: { 'X-Loopers-LoginId': loginId, 'X-Loopers-LoginPw': password },
+        }).then(r => r.json()).then(j => j.data);
+    },
+};
+
 // === Data Generator ===
 export const DataGenApi = {
     stats: () => request('GET', '/api-admin/v1/data-generator/stats'),
@@ -73,4 +105,6 @@ export const DataGenApi = {
         request('POST', '/api-admin/v1/data-generator/orders', data),
     generateCoupons: (data) =>
         request('POST', '/api-admin/v1/data-generator/coupons', data),
+    bulkQueueEnter: (prefix, count) =>
+        request('POST', '/api-admin/v1/data-generator/queue-enter', { prefix, count }),
 };

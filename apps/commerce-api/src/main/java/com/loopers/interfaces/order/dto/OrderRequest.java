@@ -31,7 +31,9 @@ public class OrderRequest {
                             .map(item -> new OrderCriteria.Create.CreateItem(
                                     item.productId(), item.quantity(), item.expectedPrice()))
                             .toList(),
-                    couponId);
+                    couponId,
+                    null,
+                    null);
         }
     }
 

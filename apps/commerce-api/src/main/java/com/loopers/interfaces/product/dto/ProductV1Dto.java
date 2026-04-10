@@ -16,7 +16,8 @@ public class ProductV1Dto {
         long likeCount,
         String thumbnailUrl,
         List<ImageResponse> mainImages,
-        List<ImageResponse> detailImages
+        List<ImageResponse> detailImages,
+        Long rank
     ) {
         public static DetailResponse from(ProductResult.DetailWithImages detail) {
             ProductResult product = detail.product();
@@ -30,7 +31,8 @@ public class ProductV1Dto {
                     product.likeCount(),
                     product.thumbnailUrl(),
                     detail.mainImages().stream().map(ImageResponse::from).toList(),
-                    detail.detailImages().stream().map(ImageResponse::from).toList());
+                    detail.detailImages().stream().map(ImageResponse::from).toList(),
+                    detail.rank());
         }
     }
 

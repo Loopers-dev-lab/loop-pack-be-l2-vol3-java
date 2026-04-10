@@ -65,4 +65,16 @@ public class FakeUserRepository implements UserRepository {
             .filter(user -> user.getDeletedAt() == null)
             .toList();
     }
+
+    @Override
+    public int deductPoint(Long id, long amount) {
+        return Optional.ofNullable(storeById.get(id))
+                .filter(user -> user.getDeletedAt() == null)
+                .filter(user -> user.getPoint() >= amount)
+                .map(user -> {
+                    user.deductPoint(amount);
+                    return 1;
+                })
+                .orElse(0);
+    }
 }

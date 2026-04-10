@@ -3,11 +3,12 @@ package com.loopers.interfaces.datagenerator;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.application.coupon.dto.CouponCriteria;
 import com.loopers.application.coupon.dto.CouponResult;
-import com.loopers.application.order.OrderFacade;
+import com.loopers.application.order.AdminOrderService;
 import com.loopers.application.order.dto.OrderCriteria;
 import com.loopers.domain.coupon.CouponDiscountType;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductModel;
+import com.loopers.domain.waitingroom.WaitingQueue;
 import com.loopers.domain.user.PasswordEncoder;
 import com.loopers.domain.user.UserService;
 import com.loopers.infrastructure.datagenerator.BulkDataGeneratorService;
@@ -37,8 +38,9 @@ public class AdminDataGeneratorV1Controller {
     private final PasswordEncoder passwordEncoder;
     private final UserService userService;
     private final ProductService productService;
-    private final OrderFacade orderFacade;
+    private final AdminOrderService adminOrderService;
     private final CouponFacade couponFacade;
+    private final WaitingQueue waitingQueue;
 
     @PostMapping("/bulk-init")
     public ApiResponse<Map<String, String>> bulkInit() {
@@ -140,7 +142,7 @@ public class AdminDataGeneratorV1Controller {
 
                 userService.addPoint(userId, totalCost + 1000L);
 
-                orderFacade.createOrder(userId, new OrderCriteria.Create(orderItems));
+                adminOrderService.createOrder(userId, new OrderCriteria.Create(orderItems));
                 created++;
             } catch (Exception e) {
                 log.warn("주문 생성 실패 (userId={}): {}", userId, e.getMessage());
@@ -195,6 +197,26 @@ public class AdminDataGeneratorV1Controller {
         return ApiResponse.success(new AdminDataGeneratorV1Dto.GenerateCouponsResponse(
                 couponsCreated, totalIssued,
                 couponsCreated + "개 쿠폰 생성, " + totalIssued + "개 발급 완료"));
+    }
+
+    @PostMapping("/queue-enter")
+    public ApiResponse<Map<String, Object>> bulkQueueEnter(
+        @RequestBody AdminDataGeneratorV1Dto.BulkQueueEnterRequest request
+    ) {
+        String prefix = request.prefix() != null ? request.prefix() : "qu";
+        int count = request.count() != null ? request.count() : 200;
+
+        List<Long> userIds = dataGeneratorRepository.findUserIdsByPrefix(prefix, count);
+
+        int entered = 0;
+        for (Long userId : userIds) {
+            waitingQueue.enter(userId);
+            entered++;
+        }
+
+        return ApiResponse.success(Map.of(
+                "entered", entered,
+                "message", entered + "명이 대기열에 입장했습니다."));
     }
 
     private List<OrderCriteria.Create.CreateItem> pickRandomItems(

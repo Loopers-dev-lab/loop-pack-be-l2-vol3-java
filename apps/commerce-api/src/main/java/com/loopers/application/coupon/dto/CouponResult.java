@@ -14,12 +14,12 @@ public class CouponResult {
         long discountValue,
         Long minOrderAmount,
         int totalQuantity,
-        int issuedQuantity,
+        long issuedQuantity,
         ZonedDateTime expiredAt,
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
     ) {
-        public static Detail from(CouponModel model) {
+        public static Detail from(CouponModel model, long issuedQuantity) {
             return new Detail(
                     model.getId(),
                     model.getName(),
@@ -27,7 +27,7 @@ public class CouponResult {
                     model.getDiscountValue(),
                     model.getMinOrderAmount(),
                     model.getTotalQuantity(),
-                    model.getIssuedQuantity(),
+                    issuedQuantity,
                     model.getExpiredAt(),
                     model.getCreatedAt(),
                     model.getUpdatedAt());
@@ -48,6 +48,10 @@ public class CouponResult {
                     model.getStatus(),
                     model.getUsedAt(),
                     model.getCreatedAt());
+        }
+
+        public static IssuedDetail pending(Long couponId, Long userId) {
+            return new IssuedDetail(null, userId, "PENDING", null, null);
         }
     }
 

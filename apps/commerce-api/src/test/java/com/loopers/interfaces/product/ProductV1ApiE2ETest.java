@@ -10,6 +10,7 @@ import com.loopers.domain.product.ProductImageModel;
 import com.loopers.domain.product.ProductLikeModel;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
+import com.loopers.infrastructure.metrics.ProductMetricsReadJpaRepository;
 import com.loopers.infrastructure.product.ProductImageJpaRepository;
 import com.loopers.infrastructure.product.ProductLikeJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
@@ -40,6 +41,7 @@ class ProductV1ApiE2ETest {
     private final ProductJpaRepository productJpaRepository;
     private final ProductLikeJpaRepository productLikeJpaRepository;
     private final ProductImageJpaRepository productImageJpaRepository;
+    private final ProductMetricsReadJpaRepository metricsRepository;
     private final DatabaseCleanUp databaseCleanUp;
     private final CacheManager cacheManager;
 
@@ -52,6 +54,7 @@ class ProductV1ApiE2ETest {
         ProductJpaRepository productJpaRepository,
         ProductLikeJpaRepository productLikeJpaRepository,
         ProductImageJpaRepository productImageJpaRepository,
+        ProductMetricsReadJpaRepository metricsRepository,
         DatabaseCleanUp databaseCleanUp,
         CacheManager cacheManager
     ) {
@@ -60,12 +63,14 @@ class ProductV1ApiE2ETest {
         this.productJpaRepository = productJpaRepository;
         this.productLikeJpaRepository = productLikeJpaRepository;
         this.productImageJpaRepository = productImageJpaRepository;
+        this.metricsRepository = metricsRepository;
         this.databaseCleanUp = databaseCleanUp;
         this.cacheManager = cacheManager;
     }
 
     @BeforeEach
     void setUp() {
+        databaseCleanUp.truncateAllTables();
         brandJpaRepository.save(BrandModel.create("나이키"));
         savedBrand = brandJpaRepository.findByNameAndDeletedAtIsNull("나이키").get();
     }
@@ -83,9 +88,8 @@ class ProductV1ApiE2ETest {
 
     private void saveLike(Long userId, Long productId) {
         productLikeJpaRepository.save(ProductLikeModel.create(userId, productId));
-        ProductModel product = productJpaRepository.findById(productId).get();
-        product.addLikeCount();
-        productJpaRepository.save(product);
+        long count = productLikeJpaRepository.countByProductId(productId);
+        metricsRepository.upsertLikeCount(productId, count);
     }
 
     @DisplayName("GET /api/v1/products")

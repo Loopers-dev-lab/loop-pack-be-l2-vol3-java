@@ -63,4 +63,13 @@ public class FakeProductLikeRepository implements ProductLikeRepository {
         productIds.forEach(id -> countMap.putIfAbsent(id, 0L));
         return countMap;
     }
+
+    @Override
+    public Map<Long, Long> countByProductIdsWithModulo(int divisor, int remainder) {
+        return store.values().stream()
+                .filter(like -> like.getProductId() % divisor == remainder)
+                .collect(Collectors.groupingBy(
+                        ProductLikeModel::getProductId,
+                        Collectors.counting()));
+    }
 }
