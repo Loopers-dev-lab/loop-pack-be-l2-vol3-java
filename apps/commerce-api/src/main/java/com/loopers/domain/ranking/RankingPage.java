@@ -11,6 +11,7 @@ import java.util.List;
  * @param totalElements 총 아이템 수
  * @param totalPages 총 페이지 수 (1부터)
  * @param listSource 목록 생성 경로(Redis / DB fallback / degraded)
+ * @param rankingSnapshotId 스냅샷 조회 시 발급·요청한 UUID, 라이브 조회면 null
  */
 public record RankingPage(
         List<RankingRow> rows,
@@ -18,6 +19,7 @@ public record RankingPage(
         int size,
         long totalElements,
         int totalPages,
-        RankingListSource listSource
+        RankingListSource listSource,
+        String rankingSnapshotId
 ) {
 }

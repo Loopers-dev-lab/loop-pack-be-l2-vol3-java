@@ -19,3 +19,9 @@ GET http://localhost:8080/api/v1/rankings?date=20260408&page=1&size=101
 
 ### page < 1 (400 기대)
 GET http://localhost:8080/api/v1/rankings?date=20260408&page=0&size=20
+
+### 스냅샷 생성 (201, data.rankingSnapshotId·totalElements·ttlSeconds)
+POST http://localhost:8080/api/v1/rankings/snapshots?date=20260408
+
+### 스냅샷으로 페이징 (위에서 받은 UUID로 교체)
+GET http://localhost:8080/api/v1/rankings?date=20260408&page=1&size=20&rankingSnapshotId=00000000-0000-0000-0000-000000000000

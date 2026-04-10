@@ -10,6 +10,9 @@ public enum RankingListSource {
     /** 일간 Redis ZSET 기준 인기 랭킹 */
     REDIS_ZSET,
 
+    /** {@link RankingKey#snapshot} ZSET 복제본 기준(페이지 넘김 동안 순서 고정) */
+    REDIS_ZSET_SNAPSHOT,
+
     /** Redis 실패 시 DB 최신 등록순 대체 목록(§4.2 fallback) */
     FALLBACK_DB_LATEST,
 
