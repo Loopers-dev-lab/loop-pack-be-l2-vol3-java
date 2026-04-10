@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.lang.reflect.Field;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -29,6 +30,10 @@ public class FakeProductRepository implements ProductRepository {
         if (product.getId() == null || product.getId() == 0L) {
             long id = sequence++;
             setBaseEntityId(product, id);
+        }
+        if (product.getCreatedAt() == null) {
+            setFieldValue(product, BaseEntity.class, "createdAt", ZonedDateTime.now());
+            setFieldValue(product, BaseEntity.class, "updatedAt", ZonedDateTime.now());
         }
         store.put(product.getId(), product);
         return product;
@@ -108,6 +113,17 @@ public class FakeProductRepository implements ProductRepository {
     }
 
     @Override
+    public Page<ProductWithBrand> findNewProducts(ZonedDateTime since, Pageable pageable) {
+        List<ProductWithBrand> all = store.values().stream()
+            .filter(p -> p.getDeletedAt() == null)
+            .filter(p -> p.getCreatedAt() != null && !p.getCreatedAt().isBefore(since))
+            .sorted(Comparator.comparing(Product::getCreatedAt).reversed())
+            .map(p -> new ProductWithBrand(p, resolveBrandName(p.getBrandId()), p.getLikeCount()))
+            .toList();
+        return toPage(all, pageable);
+    }
+
+    @Override
     public Page<ProductWithBrand> findAllByBrandIdWithBrand(Long brandId, String sort, Pageable pageable) {
         Comparator<Product> comparator = toComparator(sort);
         List<ProductWithBrand> all = store.values().stream()
@@ -165,14 +181,15 @@ public class FakeProductRepository implements ProductRepository {
         return new PageImpl<>(pageContent, pageable, all.size());
     }
 
-    private void setBaseEntityId(Object entity, long id) {
-        try {
-            Field idField = BaseEntity.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    public void setCreatedAt(Long productId, ZonedDateTime createdAt) {
+        Product product = store.get(productId);
+        if (product != null) {
+            setFieldValue(product, BaseEntity.class, "createdAt", createdAt);
         }
+    }
+
+    private void setBaseEntityId(Object entity, long id) {
+        setFieldValue(entity, BaseEntity.class, "id", id);
     }
 
     private void setLikeCount(Product product, int count) {
@@ -180,6 +197,16 @@ public class FakeProductRepository implements ProductRepository {
             Field likeCountField = Product.class.getDeclaredField("likeCount");
             likeCountField.setAccessible(true);
             likeCountField.setInt(product, count);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void setFieldValue(Object entity, Class<?> clazz, String fieldName, Object value) {
+        try {
+            Field field = clazz.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            field.set(entity, value);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

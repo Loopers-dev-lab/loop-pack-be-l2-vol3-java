@@ -2,9 +2,13 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductFacade;
 import com.loopers.interfaces.api.ApiResponse;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/products")
@@ -21,6 +25,15 @@ public class ProductController {
     ) {
         ProductDto.PagedProductResponse response = productFacade.getAllProductsCached(brandId, sort, page, size);
         return ApiResponse.success(response);
+    }
+
+    @GetMapping("/new")
+    public ApiResponse<ProductDto.PagedProductResponse> getNewProducts(
+        @RequestParam(defaultValue = "48") @Min(1) @Max(168) int hours,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
+    ) {
+        return ApiResponse.success(productFacade.getNewProducts(hours, page, size));
     }
 
     @GetMapping("/{productId}")

@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
@@ -114,6 +115,15 @@ public class ProductFacade {
         ProductDto.PagedProductResponse response = ProductDto.PagedProductResponse.from(result);
         productCachePort.putProductList(brandId, sort, page, size, response);
         return response;
+    }
+
+    // ── 신상품 조회 ──
+
+    public ProductDto.PagedProductResponse getNewProducts(int hours, int page, int size) {
+        ZonedDateTime since = ZonedDateTime.now(KST).minusHours(hours);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ProductWithBrand> result = productRepository.findNewProducts(since, pageable);
+        return ProductDto.PagedProductResponse.from(result);
     }
 
     // ── 기존 List 반환 메서드 (하위 호환 + 벤치마크용) ──

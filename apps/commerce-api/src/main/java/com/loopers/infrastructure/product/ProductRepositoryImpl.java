@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -84,6 +85,12 @@ public class ProductRepositoryImpl implements ProductRepository {
     public Page<ProductWithBrand> findAllByBrandIdWithBrand(Long brandId, String sort, Pageable pageable) {
         Pageable sortedPageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), toSort(sort));
         return productJpaRepository.findAllByBrandIdWithBrandPaged(brandId, sortedPageable)
+            .map(this::toProductWithBrand);
+    }
+
+    @Override
+    public Page<ProductWithBrand> findNewProducts(ZonedDateTime since, Pageable pageable) {
+        return productJpaRepository.findNewProducts(since, pageable)
             .map(this::toProductWithBrand);
     }
 

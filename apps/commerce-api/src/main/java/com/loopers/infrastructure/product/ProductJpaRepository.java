@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -50,6 +51,12 @@ public interface ProductJpaRepository extends JpaRepository<Product, Long> {
         + " WHERE p.brandId = :brandId AND p.deletedAt IS NULL AND (b.deletedAt IS NULL OR b.id IS NULL)",
         countQuery = "SELECT COUNT(p) FROM Product p WHERE p.brandId = :brandId AND p.deletedAt IS NULL")
     Page<Object[]> findAllByBrandIdWithBrandPaged(@Param("brandId") Long brandId, Pageable pageable);
+
+    @Query(value = "SELECT p, b.name FROM Product p LEFT JOIN Brand b ON b.id = p.brandId"
+        + " WHERE p.createdAt >= :since AND p.deletedAt IS NULL AND (b.deletedAt IS NULL OR b.id IS NULL)"
+        + " ORDER BY p.createdAt DESC",
+        countQuery = "SELECT COUNT(p) FROM Product p WHERE p.createdAt >= :since AND p.deletedAt IS NULL")
+    Page<Object[]> findNewProducts(@Param("since") ZonedDateTime since, Pageable pageable);
 
     // likeCount atomic 증감 — 엔티티 로딩 없이 단일 UPDATE 문으로 실행
     @Modifying
