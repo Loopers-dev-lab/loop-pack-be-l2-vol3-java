@@ -1,7 +1,7 @@
 package com.loopers.interfaces.api.ranking;
 
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.application.ranking.RankingInfo;
-import com.loopers.application.ranking.RankingService;
 import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.CoreException;
@@ -24,7 +24,7 @@ public class RankingV1Controller {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    private final RankingService rankingService;
+    private final RankingFacade rankingFacade;
     private final Clock clock;
 
     // Query
@@ -39,7 +39,7 @@ public class RankingV1Controller {
         LocalDate targetDate = parseDate(date);
         validatePaging(page, size);
 
-        RankingInfo result = rankingService.getRankings(period, targetDate, page, size);
+        RankingInfo result = rankingFacade.getRankings(period, targetDate, page, size);
         return ApiResponse.success(RankingV1Dto.PageResponse.from(result));
     }
 
