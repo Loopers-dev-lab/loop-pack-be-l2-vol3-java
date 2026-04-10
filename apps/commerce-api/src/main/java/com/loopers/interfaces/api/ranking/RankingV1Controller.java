@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -20,6 +21,7 @@ import java.util.List;
 public class RankingV1Controller {
 
     private final RankingFacade rankingFacade;
+    private final Clock clock;
 
     @GetMapping
     public ApiResponse<List<RankingV1Dto.RankingResponse>> getRankings(
@@ -27,7 +29,7 @@ public class RankingV1Controller {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "1") int page
     ) {
-        LocalDate targetDate = (date != null) ? date : LocalDate.now();
+        LocalDate targetDate = (date != null) ? date : LocalDate.now(clock);
         RankingPageResult result = rankingFacade.getRankings(targetDate, page, size);
 
         List<RankingV1Dto.RankingResponse> responses = result.items().stream()

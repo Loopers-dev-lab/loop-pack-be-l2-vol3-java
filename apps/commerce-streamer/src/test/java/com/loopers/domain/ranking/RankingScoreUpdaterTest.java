@@ -1,6 +1,7 @@
 package com.loopers.domain.ranking;
 
 import com.loopers.config.redis.RedisConfig;
+import com.loopers.event.ranking.RankingKeyGenerator;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.BeforeEach;
@@ -12,6 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.test.context.ActiveProfiles;
+
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,7 +45,7 @@ class RankingScoreUpdaterTest {
         rankingScoreUpdater.incrementView(1L);
 
         // assert
-        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.todayKey(), "1");
+        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.keyOf(LocalDate.now()), "1");
         assertThat(score).isEqualTo(0.1);
     }
 
@@ -53,7 +56,7 @@ class RankingScoreUpdaterTest {
         rankingScoreUpdater.incrementLike(1L);
 
         // assert
-        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.todayKey(), "1");
+        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.keyOf(LocalDate.now()), "1");
         assertThat(score).isEqualTo(0.2);
     }
 
@@ -68,7 +71,7 @@ class RankingScoreUpdaterTest {
         rankingScoreUpdater.decrementLike(1L);
 
         // assert
-        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.todayKey(), "1");
+        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.keyOf(LocalDate.now()), "1");
         assertThat(score).isEqualTo(0.2);
     }
 
@@ -79,7 +82,7 @@ class RankingScoreUpdaterTest {
         rankingScoreUpdater.incrementOrder(1L, 10000L, 2);
 
         // assert
-        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.todayKey(), "1");
+        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.keyOf(LocalDate.now()), "1");
         assertThat(score).isEqualTo(0.7 * 10000 * 2);
     }
 
@@ -92,7 +95,7 @@ class RankingScoreUpdaterTest {
         rankingScoreUpdater.incrementOrder(1L, 5000L, 1);  // 0.7 * 5000
 
         // assert
-        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.todayKey(), "1");
+        Double score = redisTemplate.opsForZSet().score(RankingKeyGenerator.keyOf(LocalDate.now()), "1");
         assertThat(score).isEqualTo(0.1 + 0.2 + 0.7 * 5000);
     }
 
@@ -103,7 +106,7 @@ class RankingScoreUpdaterTest {
         rankingScoreUpdater.incrementView(1L);
 
         // assert
-        Long ttl = redisTemplate.getExpire(RankingKeyGenerator.todayKey());
+        Long ttl = redisTemplate.getExpire(RankingKeyGenerator.keyOf(LocalDate.now()));
         assertThat(ttl).isGreaterThan(86400L); // 1일(86400초) 초과
         assertThat(ttl).isLessThanOrEqualTo(172800L); // 2일(172800초) 이하
     }

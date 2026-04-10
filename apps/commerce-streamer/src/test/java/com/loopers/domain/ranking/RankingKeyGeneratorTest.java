@@ -1,25 +1,14 @@
 package com.loopers.domain.ranking;
 
+import com.loopers.event.ranking.RankingKeyGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RankingKeyGeneratorTest {
-
-    @DisplayName("todayKey()는 오늘 날짜 기반 랭킹 키를 반환한다.")
-    @Test
-    void todayKey_returnsKeyWithTodayDate() {
-        // act
-        String key = RankingKeyGenerator.todayKey();
-
-        // assert
-        String expected = "ranking:all:" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-        assertThat(key).isEqualTo(expected);
-    }
 
     @DisplayName("keyOf()는 지정된 날짜 기반 랭킹 키를 반환한다.")
     @Test

@@ -5,12 +5,15 @@ import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.ranking.InMemoryRankingRepository;
 import com.loopers.domain.ranking.RankingInfo;
-import com.loopers.domain.ranking.RankingKeyGenerator;
+import com.loopers.event.ranking.RankingKeyGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
@@ -18,6 +21,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 class RankingFacadeTest {
+
+    private static final LocalDate FIXED_DATE = LocalDate.of(2025, 4, 9);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_DATE.atStartOfDay(ZoneId.of("Asia/Seoul")).toInstant(),
+            ZoneId.of("Asia/Seoul")
+    );
 
     private InMemoryRankingRepository rankingRepository;
     private ProductFacade productFacade;
@@ -27,7 +36,7 @@ class RankingFacadeTest {
     void setUp() {
         rankingRepository = new InMemoryRankingRepository();
         productFacade = mock(ProductFacade.class);
-        rankingFacade = new RankingFacade(rankingRepository, productFacade);
+        rankingFacade = new RankingFacade(rankingRepository, productFacade, FIXED_CLOCK);
     }
 
     private ProductInfo stubProduct(Long id, String name, int price) {
@@ -99,7 +108,7 @@ class RankingFacadeTest {
     @Test
     void getProductRank_returns1BasedRank() {
         // arrange
-        String key = RankingKeyGenerator.todayKey();
+        String key = RankingKeyGenerator.keyOf(FIXED_DATE);
         long topRankedProductId = 1L;
         long targetProductId = 3L;
         long lowerRankedProductId = 2L;
@@ -123,7 +132,7 @@ class RankingFacadeTest {
     @Test
     void getProductRank_returnsNullWhenNotRanked() {
         // arrange
-        String key = RankingKeyGenerator.todayKey();
+        String key = RankingKeyGenerator.keyOf(FIXED_DATE);
         rankingRepository.addScore(key, 1L, 300.0);
 
         // act

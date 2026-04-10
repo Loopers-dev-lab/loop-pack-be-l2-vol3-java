@@ -4,11 +4,12 @@ import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingInfo;
-import com.loopers.domain.ranking.RankingKeyGenerator;
+import com.loopers.event.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -17,6 +18,7 @@ import java.util.List;
 public class RankingFacade {
     private final RankingRepository rankingRepository;
     private final ProductFacade productFacade;
+    private final Clock clock;
 
     public RankingPageResult getRankings(LocalDate date, int page, int size) {
         String key = RankingKeyGenerator.keyOf(date);
@@ -34,7 +36,8 @@ public class RankingFacade {
     }
 
     public RankingInfo getProductRank(Long productId) {
-        String key = RankingKeyGenerator.todayKey();
+        LocalDate today = LocalDate.now(clock);
+        String key = RankingKeyGenerator.keyOf(today);
         Long rank = rankingRepository.getRank(key, productId);
         if (rank == null) {
             return null;
