@@ -1,12 +1,17 @@
 package com.loopers.application.product;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandService;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.RegisterProductCommand;
 import com.loopers.domain.product.UpdateProductCommand;
 import com.loopers.domain.productlike.ProductLikeService;
+import com.loopers.domain.ranking.RankingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -15,6 +20,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -26,6 +33,11 @@ public class ProductFacade {
     private final ProductService productService;
     private final ProductLikeService productLikeService;
     private final BrandService brandService;
+    private final OutboxEventService outboxEventService;
+    private final ObjectMapper objectMapper;
+    private final RankingRepository rankingRepository;
+
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     @CacheEvict(value = {"products", "products:brand"}, allEntries = true)
     @Transactional
@@ -35,10 +47,29 @@ public class ProductFacade {
         return ProductInfo.from(product, brand);
     }
 
+    @Transactional
     public ProductInfo getProduct(Long id) {
         Product product = productService.getById(id);
         Brand brand = brandService.getBrand(product.getBrandId());
-        return ProductInfo.from(product, brand);
+        saveViewEvent(id);
+
+        String today = LocalDate.now().format(DATE_FORMAT);
+        Long rawRank = rankingRepository.findRank(today, id);
+        Long rank = rawRank != null ? rawRank + 1 : null;
+
+        return ProductInfo.from(product, brand, rank);
+    }
+
+    private void saveViewEvent(Long productId) {
+        try {
+            String payload = objectMapper.writeValueAsString(Map.of("productId", productId));
+            OutboxEvent outboxEvent = OutboxEvent.create(
+                    "catalog-events", "PRODUCT_VIEWED", String.valueOf(productId), payload
+            );
+            outboxEventService.save(outboxEvent);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Outbox 이벤트 직렬화 실패", e);
+        }
     }
 
     @Cacheable(value = "products", key = "#pageable.pageNumber + '_' + #pageable.pageSize + '_' + #pageable.sort.toString()")
