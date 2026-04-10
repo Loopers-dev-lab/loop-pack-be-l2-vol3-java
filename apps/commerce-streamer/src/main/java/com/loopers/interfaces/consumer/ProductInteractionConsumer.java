@@ -30,6 +30,7 @@ public class ProductInteractionConsumer {
     private final ConsumerMetrics consumerMetrics;
 
     @KafkaListener(
+            id = "productInteractionConsumer",
             topics = KafkaTopics.PRODUCT_INTERACTION_EVENTS,
             groupId = GROUP_ID,
             containerFactory = KafkaConfig.BATCH_LISTENER

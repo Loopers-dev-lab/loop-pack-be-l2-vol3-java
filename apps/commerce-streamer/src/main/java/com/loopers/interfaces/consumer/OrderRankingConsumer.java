@@ -32,6 +32,7 @@ public class OrderRankingConsumer {
     private final ConsumerMetrics consumerMetrics;
 
     @KafkaListener(
+            id = "orderRankingConsumer",
             topics = KafkaTopics.ORDER_EVENTS,
             groupId = GROUP_ID,
             containerFactory = KafkaConfig.BATCH_LISTENER
