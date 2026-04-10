@@ -88,8 +88,14 @@ public class OrderFacade {
 
         List<OrderItemModel> savedItems = orderService.saveAllItems(items);
 
+        List<OrderPlacedEvent.OrderItemEvent> orderItemEvents = snapshots.stream()
+            .map(s -> new OrderPlacedEvent.OrderItemEvent(
+                s.productId(), (long) s.productPrice().value(), s.quantity()
+            ))
+            .toList();
+
         eventPublisher.publishEvent(new OrderPlacedEvent(
-            order.getId(), userId, (long) totalAmount.value()
+            order.getId(), userId, (long) totalAmount.value(), orderItemEvents
         ));
 
         return OrderResult.of(order, savedItems);

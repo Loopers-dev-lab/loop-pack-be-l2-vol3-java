@@ -9,6 +9,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 @ExtendWith(MockitoExtension.class)
@@ -21,7 +23,7 @@ class UserActivityEventListenerTest {
     @Test
     void logsOrderPlacedEvent() {
         assertThatNoException().isThrownBy(() ->
-            listener.handleOrderPlaced(new OrderPlacedEvent(1L, 1L, 50000L))
+            listener.handleOrderPlaced(new OrderPlacedEvent(1L, 1L, 50000L, List.of()))
         );
     }
 

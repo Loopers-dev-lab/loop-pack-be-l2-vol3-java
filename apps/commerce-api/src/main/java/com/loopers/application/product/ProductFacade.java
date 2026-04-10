@@ -8,6 +8,7 @@ import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.stock.StockModel;
 import com.loopers.domain.stock.StockStatus;
 import com.loopers.application.stock.StockService;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.domain.product.event.ProductViewedEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -28,6 +29,7 @@ public class ProductFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final StockService stockService;
+    private final RankingFacade rankingFacade;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -46,8 +48,9 @@ public class ProductFacade {
         ProductModel product = productService.getById(productId);
         String brandName = getBrandName(product.getBrandId());
         StockModel stock = stockService.getByProductId(productId);
+        Long rank = rankingFacade.getProductRank(productId);
         eventPublisher.publishEvent(new ProductViewedEvent(productId, null));
-        return ProductDetail.ofCustomer(product, brandName, StockStatus.from(stock.getQuantity()));
+        return ProductDetail.ofCustomer(product, brandName, StockStatus.from(stock.getQuantity()), rank);
     }
 
     @Transactional(readOnly = true)

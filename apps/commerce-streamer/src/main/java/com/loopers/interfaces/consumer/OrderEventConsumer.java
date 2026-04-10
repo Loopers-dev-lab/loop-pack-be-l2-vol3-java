@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.idempotency.EventHandled;
+import com.loopers.domain.ranking.RankingKeyGenerator;
+import com.loopers.domain.ranking.RankingScoreCalculator;
 import com.loopers.infrastructure.idempotency.EventHandledJpaRepository;
+import com.loopers.infrastructure.ranking.RankingRedisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -29,6 +32,8 @@ public class OrderEventConsumer {
     private final EventHandledJpaRepository eventHandledRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final RankingScoreCalculator rankingScoreCalculator;
+    private final RankingRedisRepository rankingRedisRepository;
 
     @KafkaListener(
         topics = "order-events",
@@ -81,6 +86,19 @@ public class OrderEventConsumer {
         Long userId = data.get("userId").asLong();
         Long totalAmount = data.get("totalAmountValue").asLong();
         log.info("주문 이벤트 수신: orderId={}, userId={}, totalAmount={}", orderId, userId, totalAmount);
+
+        JsonNode items = data.get("items");
+        if (items != null && items.isArray()) {
+            String rankingKey = RankingKeyGenerator.todayKey();
+            for (JsonNode item : items) {
+                Long productId = item.get("productId").asLong();
+                long price = item.get("price").asLong();
+                int quantity = item.get("quantity").asInt();
+                double score = rankingScoreCalculator.orderScore(price, quantity);
+                rankingRedisRepository.incrementScore(rankingKey, productId, score);
+                log.info("주문 랭킹 반영: productId={}, score={}", productId, score);
+            }
+        }
     }
 
     private void handlePaymentCompleted(JsonNode data) {

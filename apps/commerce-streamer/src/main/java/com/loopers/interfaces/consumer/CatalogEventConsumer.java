@@ -7,6 +7,9 @@ import com.loopers.domain.idempotency.EventHandled;
 import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.infrastructure.idempotency.EventHandledJpaRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsJpaRepository;
+import com.loopers.domain.ranking.RankingKeyGenerator;
+import com.loopers.domain.ranking.RankingScoreCalculator;
+import com.loopers.infrastructure.ranking.RankingRedisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -34,6 +37,8 @@ public class CatalogEventConsumer {
     private final EventHandledJpaRepository eventHandledRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
+    private final RankingScoreCalculator rankingScoreCalculator;
+    private final RankingRedisRepository rankingRedisRepository;
 
     @KafkaListener(
         topics = "catalog-events",
@@ -106,7 +111,10 @@ public class CatalogEventConsumer {
         ProductMetrics metrics = getOrCreateMetrics(productId);
         metrics.incrementLikeCount();
         productMetricsRepository.save(metrics);
-        log.info("좋아요 집계: productId={}", productId);
+
+        String rankingKey = RankingKeyGenerator.todayKey();
+        rankingRedisRepository.incrementScore(rankingKey, productId, rankingScoreCalculator.likeScore());
+        log.info("좋아요 집계 + 랭킹 반영: productId={}", productId);
     }
 
     private void handleUnliked(JsonNode data) {
@@ -122,7 +130,10 @@ public class CatalogEventConsumer {
         ProductMetrics metrics = getOrCreateMetrics(productId);
         metrics.incrementViewCount();
         productMetricsRepository.save(metrics);
-        log.debug("조회수 집계: productId={}", productId);
+
+        String rankingKey = RankingKeyGenerator.todayKey();
+        rankingRedisRepository.incrementScore(rankingKey, productId, rankingScoreCalculator.viewScore());
+        log.debug("조회수 집계 + 랭킹 반영: productId={}", productId);
     }
 
     private ProductMetrics getOrCreateMetrics(Long productId) {

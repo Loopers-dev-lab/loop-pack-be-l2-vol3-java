@@ -2,6 +2,7 @@ package com.loopers.application.product;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.application.brand.BrandService;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.stock.StockModel;
@@ -40,13 +41,16 @@ class ProductFacadeTest {
     private StockService stockService;
 
     @Mock
+    private RankingFacade rankingFacade;
+
+    @Mock
     private ApplicationEventPublisher eventPublisher;
 
     private ProductFacade productFacade;
 
     @BeforeEach
     void setUp() {
-        productFacade = new ProductFacade(productService, brandService, stockService, eventPublisher);
+        productFacade = new ProductFacade(productService, brandService, stockService, rankingFacade, eventPublisher);
     }
 
     @DisplayName("상품 등록")

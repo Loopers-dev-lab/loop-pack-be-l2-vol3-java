@@ -18,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
@@ -100,7 +102,7 @@ class OutboxEventListenerTest {
         given(outboxRepository.save(any())).willAnswer(inv -> inv.getArgument(0));
 
         // when
-        listener.handleOrderPlaced(new OrderPlacedEvent(10L, 1L, 50000L));
+        listener.handleOrderPlaced(new OrderPlacedEvent(10L, 1L, 50000L, List.of()));
 
         // then
         ArgumentCaptor<OutboxEvent> captor = ArgumentCaptor.forClass(OutboxEvent.class);
