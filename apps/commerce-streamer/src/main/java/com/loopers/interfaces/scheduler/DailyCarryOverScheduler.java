@@ -2,6 +2,8 @@ package com.loopers.interfaces.scheduler;
 
 import com.loopers.application.metrics.BucketTimeUtils;
 import com.loopers.application.ranking.RankingAggregator;
+import com.loopers.domain.ranking.WeightConfig;
+import com.loopers.domain.ranking.WeightConfigRepository;
 import com.loopers.infrastructure.ranking.RankingZSetRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,15 +15,10 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * 자정 직후 빈 ZSET 문제 완화.
- * 전날 상위 상품의 점수를 10%만 가져와서 다음 날 ZSET 초기값으로 적재.
- * DailyRankingRefresher가 5분 뒤에 실시간 데이터로 덮어쓰므로
- * carry-over 데이터는 새벽 5분간만 서빙됨.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -33,6 +30,7 @@ public class DailyCarryOverScheduler {
 
     private final RankingAggregator aggregator;
     private final RankingZSetRepository zSetRepository;
+    private final WeightConfigRepository weightConfigRepository;
     private final Clock clock;
 
     @Scheduled(cron = "0 50 23 * * *")
@@ -43,22 +41,25 @@ public class DailyCarryOverScheduler {
         LocalDateTime from = BucketTimeUtils.kstDateToUtcBoundary(today);
         LocalDateTime to = BucketTimeUtils.kstDateToUtcBoundary(tomorrow);
 
-        Map<Long, Double> todayScores = aggregator.aggregate(from, to);
-
-        if (todayScores.isEmpty()) {
-            log.warn("CarryOver: 오늘 데이터 없음, 스킵");
-            return;
+        List<WeightConfig> configs = weightConfigRepository.findAllByActiveTrue();
+        if (configs.isEmpty()) {
+            configs = List.of(WeightConfig.defaultConfig());
         }
 
-        Map<Long, Double> carryOverScores = todayScores.entrySet().stream()
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> e.getValue() * DECAY
-                ));
+        for (WeightConfig config : configs) {
+            Map<Long, Double> todayScores = aggregator.aggregate(from, to, config);
 
-        String tomorrowKey = "ranking:daily:" + tomorrow.format(KEY_FORMAT);
-        zSetRepository.rebuildZSet(tomorrowKey, carryOverScores, TTL);
+            if (todayScores.isEmpty()) {
+                continue;
+            }
 
-        log.info("CarryOver 완료: today={}, tomorrow={}, products={}", today, tomorrow, carryOverScores.size());
+            Map<Long, Double> carryOverScores = todayScores.entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue() * DECAY));
+
+            String tomorrowKey = "ranking:daily:" + tomorrow.format(KEY_FORMAT) + ":" + config.getGroupName();
+            zSetRepository.rebuildZSet(tomorrowKey, carryOverScores, TTL);
+        }
+
+        log.info("CarryOver 완료: today={}, tomorrow={}, groups={}", today, tomorrow, configs.size());
     }
 }

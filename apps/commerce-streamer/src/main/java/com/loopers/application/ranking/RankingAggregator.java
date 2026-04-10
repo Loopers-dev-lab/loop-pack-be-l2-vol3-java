@@ -3,11 +3,11 @@ package com.loopers.application.ranking;
 import com.loopers.domain.metrics.ProductLikeMetricRepository;
 import com.loopers.domain.metrics.ProductOrderMetricRepository;
 import com.loopers.domain.metrics.ProductViewMetricRepository;
+import com.loopers.domain.ranking.WeightConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -27,7 +27,7 @@ public class RankingAggregator {
     private final ProductOrderMetricRepository orderMetricRepository;
     private final RankingScorer scorer;
 
-    public Map<Long, Double> aggregate(LocalDateTime from, LocalDateTime to) {
+    public Map<Long, Double> aggregate(LocalDateTime from, LocalDateTime to, WeightConfig config) {
         Map<Long, Long> viewCounts = viewMetricRepository.sumByBucketTimeRange(from, to, QUERY_LIMIT);
         Map<Long, Long> likeCounts = likeMetricRepository.sumByBucketTimeRange(from, to, QUERY_LIMIT);
         Map<Long, Long> orderQty = orderMetricRepository.sumQuantityByBucketTimeRange(from, to, QUERY_LIMIT);
@@ -42,7 +42,8 @@ public class RankingAggregator {
             double s = scorer.score(
                     viewCounts.getOrDefault(pid, 0L),
                     likeCounts.getOrDefault(pid, 0L),
-                    orderQty.getOrDefault(pid, 0L)
+                    orderQty.getOrDefault(pid, 0L),
+                    config
             );
             if (s > 0) {
                 scores.put(pid, s);
@@ -58,5 +59,9 @@ public class RankingAggregator {
                         (a, b) -> a,
                         LinkedHashMap::new
                 ));
+    }
+
+    public Map<Long, Double> aggregate(LocalDateTime from, LocalDateTime to) {
+        return aggregate(from, to, WeightConfig.defaultConfig());
     }
 }

@@ -2,6 +2,8 @@ package com.loopers.interfaces.scheduler;
 
 import com.loopers.application.metrics.BucketTimeUtils;
 import com.loopers.application.ranking.RankingAggregator;
+import com.loopers.domain.ranking.WeightConfig;
+import com.loopers.domain.ranking.WeightConfigRepository;
 import com.loopers.infrastructure.ranking.RankingZSetRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +15,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -25,6 +28,7 @@ public class MonthlyRankingRefresher {
 
     private final RankingAggregator aggregator;
     private final RankingZSetRepository zSetRepository;
+    private final WeightConfigRepository weightConfigRepository;
     private final Clock clock;
 
     @Scheduled(fixedDelay = 30 * 60 * 1000)
@@ -35,11 +39,17 @@ public class MonthlyRankingRefresher {
         LocalDateTime from = BucketTimeUtils.kstDateToUtcBoundary(firstOfMonth);
         LocalDateTime to = BucketTimeUtils.kstDateToUtcBoundary(today.plusDays(1));
 
-        Map<Long, Double> scores = aggregator.aggregate(from, to);
+        List<WeightConfig> configs = weightConfigRepository.findAllByActiveTrue();
+        if (configs.isEmpty()) {
+            configs = List.of(WeightConfig.defaultConfig());
+        }
 
-        String key = "ranking:monthly:" + today.format(KEY_FORMAT);
-        zSetRepository.rebuildZSet(key, scores, TTL);
+        for (WeightConfig config : configs) {
+            Map<Long, Double> scores = aggregator.aggregate(from, to, config);
+            String key = "ranking:monthly:" + today.format(KEY_FORMAT) + ":" + config.getGroupName();
+            zSetRepository.rebuildZSet(key, scores, TTL);
+        }
 
-        log.info("Monthly ranking 갱신 완료: month={}, size={}", today.format(KEY_FORMAT), scores.size());
+        log.info("Monthly ranking 갱신 완료: month={}, groups={}", today.format(KEY_FORMAT), configs.size());
     }
 }
