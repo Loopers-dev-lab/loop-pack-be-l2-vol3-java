@@ -45,7 +45,7 @@ class ProductRankingSyncApplicationServiceTest {
                 new RankingProperties(
                         new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
                         new RankingProperties.CarryOver(true, 0.1d, "0 50 23 * * *"),
-                        new RankingProperties.Sync(true, 60000L)
+                        new RankingProperties.Sync(true, 60000L, true)
                 ),
                 clock
         );
@@ -78,7 +78,7 @@ class ProductRankingSyncApplicationServiceTest {
                 new RankingProperties(
                         new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
                         new RankingProperties.CarryOver(true, 0.1d, "0 50 23 * * *"),
-                        new RankingProperties.Sync(true, 60000L)
+                        new RankingProperties.Sync(true, 60000L, true)
                 ),
                 clock
         );
@@ -108,7 +108,7 @@ class ProductRankingSyncApplicationServiceTest {
                 new RankingProperties(
                         new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
                         new RankingProperties.CarryOver(true, 0.1d, "0 50 23 * * *"),
-                        new RankingProperties.Sync(true, 60000L)
+                        new RankingProperties.Sync(true, 60000L, true)
                 ),
                 clock
         );
@@ -130,7 +130,7 @@ class ProductRankingSyncApplicationServiceTest {
                 new RankingProperties(
                         new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
                         new RankingProperties.CarryOver(true, 0.1d, "0 50 23 * * *"),
-                        new RankingProperties.Sync(true, 60000L)
+                        new RankingProperties.Sync(true, 60000L, true)
                 ),
                 clock
         );
@@ -152,7 +152,7 @@ class ProductRankingSyncApplicationServiceTest {
                 new RankingProperties(
                         new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
                         new RankingProperties.CarryOver(false, 0.1d, "0 50 23 * * *"),
-                        new RankingProperties.Sync(true, 60000L)
+                        new RankingProperties.Sync(true, 60000L, true)
                 ),
                 clock
         );

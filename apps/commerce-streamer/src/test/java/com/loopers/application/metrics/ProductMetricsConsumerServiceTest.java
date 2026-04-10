@@ -37,7 +37,7 @@ class ProductMetricsConsumerServiceTest {
     private static final RankingProperties RANKING_PROPERTIES = new RankingProperties(
             new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
             new RankingProperties.CarryOver(true, 0.1d, "0 50 23 * * *"),
-            new RankingProperties.Sync(true, 60000L)
+            new RankingProperties.Sync(true, 60000L, true)
     );
 
     @Test
@@ -81,6 +81,54 @@ class ProductMetricsConsumerServiceTest {
         verify(productMetricsHourlyRepository, times(1)).upsert(message);
         verify(redisProductRankingRepository, times(1)).incrementDailyRanking(LocalDate.of(2025, 9, 7), "product-1", 700.3d);
         verify(redisProductRankingRepository, times(1)).incrementHourlyRanking(LocalDateTime.of(2025, 9, 7, 9, 0), "product-1", 700.3d);
+        verify(productMetricsAckPublisher, times(1)).publish(message.eventId(), "collector");
+    }
+
+    @Test
+    @DisplayName("즉시 increment가 비활성화면 metrics만 적재하고 Redis 랭킹 누적은 하지 않는다")
+    void consume_whenImmediateIncrementDisabled_skipsRankingIncrement() {
+        EventHandledRepository eventHandledRepository = mock(EventHandledRepository.class);
+        ProductMetricsRepository productMetricsRepository = mock(ProductMetricsRepository.class);
+        ProductMetricsDailyRepository productMetricsDailyRepository = mock(ProductMetricsDailyRepository.class);
+        ProductMetricsHourlyRepository productMetricsHourlyRepository = mock(ProductMetricsHourlyRepository.class);
+        RedisProductRankingRepository redisProductRankingRepository = mock(RedisProductRankingRepository.class);
+        ProductMetricsAckPublisher productMetricsAckPublisher = mock(ProductMetricsAckPublisher.class);
+        ProductMetricsConsumerService productMetricsConsumerService =
+                new ProductMetricsConsumerService(
+                        eventHandledRepository,
+                        productMetricsRepository,
+                        productMetricsDailyRepository,
+                        productMetricsHourlyRepository,
+                        redisProductRankingRepository,
+                        new RankingProperties(
+                                new RankingProperties.Weight(0.1d, 0.2d, 0.7d),
+                                new RankingProperties.CarryOver(true, 0.1d, "0 50 23 * * *"),
+                                new RankingProperties.Sync(true, 60000L, false)
+                        ),
+                        productMetricsAckPublisher
+                );
+
+        ProductMetricsEventMessage message = new ProductMetricsEventMessage(
+                UUID.randomUUID(),
+                "ORDER_COMPLETED",
+                "product-1",
+                0,
+                1,
+                1000,
+                0,
+                1,
+                Instant.parse("2025-09-07T00:15:00Z")
+        );
+
+        when(eventHandledRepository.markHandledIfAbsent("collector", message.eventId())).thenReturn(true);
+
+        productMetricsConsumerService.consume("collector", message);
+
+        verify(productMetricsRepository, times(1)).upsert(message);
+        verify(productMetricsDailyRepository, times(1)).upsert(message);
+        verify(productMetricsHourlyRepository, times(1)).upsert(message);
+        verify(redisProductRankingRepository, never()).incrementDailyRanking(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble());
+        verify(redisProductRankingRepository, never()).incrementHourlyRanking(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble());
         verify(productMetricsAckPublisher, times(1)).publish(message.eventId(), "collector");
     }
 

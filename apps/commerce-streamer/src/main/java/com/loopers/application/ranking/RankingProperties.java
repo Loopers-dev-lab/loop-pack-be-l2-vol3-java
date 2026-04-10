@@ -25,7 +25,8 @@ public record RankingProperties(
 
     public record Sync(
             @DefaultValue("true") boolean enabled,
-            @DefaultValue("60000") long fixedDelayMs
+            @DefaultValue("60000") long fixedDelayMs,
+            @DefaultValue("true") boolean immediateIncrementEnabled
     ) {
     }
 }

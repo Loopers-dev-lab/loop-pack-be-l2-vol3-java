@@ -60,7 +60,7 @@ public class ProductMetricsConsumerService {
         double scoreDelta = message.deltaView() * rankingProperties.weight().view()
                 + message.deltaLike() * rankingProperties.weight().like()
                 + message.deltaRevenue() * rankingProperties.weight().sales();
-        if (scoreDelta != 0D) {
+        if (scoreDelta != 0D && rankingProperties.sync().immediateIncrementEnabled()) {
             LocalDate metricDate = message.updatedAt().atZone(KOREA_ZONE).toLocalDate();
             LocalDateTime metricHour = message.updatedAt().atZone(KOREA_ZONE).toLocalDateTime()
                     .withMinute(0)

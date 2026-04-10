@@ -43,6 +43,7 @@ loopers:
     sync:
       enabled: true
       fixed-delay-ms: 60000
+      immediate-increment-enabled: true
     carry-over:
       enabled: true
       ratio: 0.1
