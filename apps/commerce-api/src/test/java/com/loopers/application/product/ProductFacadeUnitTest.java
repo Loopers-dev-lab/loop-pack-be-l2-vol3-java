@@ -5,6 +5,7 @@ import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.like.ProductLikeService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.ranking.RankingService;
 import com.loopers.infrastructure.product.ProductCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -48,6 +49,9 @@ class ProductFacadeUnitTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private RankingService rankingService;
 
     @InjectMocks
     private ProductFacade productFacade;
@@ -101,7 +105,7 @@ class ProductFacadeUnitTest {
         void getByIdCacheHit() {
             // given
             ProductDetailInfo cached = new ProductDetailInfo(1L, "에어맥스", "러닝화", 129000, 100,
-                    "https://example.com/nike.png", "나이키", 5L);
+                    "https://example.com/nike.png", "나이키", 5L, null);
             when(productCacheService.getProductDetail(1L)).thenReturn(Optional.of(cached));
 
             // when

@@ -14,6 +14,7 @@ import java.util.Optional;
 
 public interface ProductJpaRepository extends JpaRepository<ProductModel, Long> {
     List<ProductModel> findAllByBrandId(Long brandId);
+    List<ProductModel> findAllByIdIn(List<Long> ids);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM ProductModel p WHERE p.id = :id")

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.order.event.OrderCreatedEvent;
 import com.loopers.domain.outbox.OutboxEvent;
 import com.loopers.domain.outbox.OutboxEventRepository;
+import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ class OrderEventHandlerUnitTest {
         @Test
         void saveToOutboxSuccess() throws Exception {
             // given
-            OrderCreatedEvent event = new OrderCreatedEvent(100L, 1L, 258000, 2);
+            OrderCreatedEvent event = new OrderCreatedEvent(100L, 1L, 258000, 2, List.of());
             when(objectMapper.writeValueAsString(event))
                     .thenReturn("{\"orderId\":100,\"memberId\":1,\"totalAmount\":258000,\"itemCount\":2}");
 
@@ -65,7 +66,7 @@ class OrderEventHandlerUnitTest {
         @Test
         void handleOrderCreatedLogsSuccessfully() {
             // given
-            OrderCreatedEvent event = new OrderCreatedEvent(100L, 1L, 258000, 2);
+            OrderCreatedEvent event = new OrderCreatedEvent(100L, 1L, 258000, 2, List.of());
 
             // when & then - 예외 없이 실행됨
             handler.handleOrderCreated(event);

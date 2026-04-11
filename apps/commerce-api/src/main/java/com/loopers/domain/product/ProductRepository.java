@@ -9,6 +9,7 @@ public interface ProductRepository {
     ProductModel save(ProductModel product);
     Optional<ProductModel> findById(Long id);
     Optional<ProductModel> findByIdWithLock(Long id);  // 비관적 락 추가
+    List<ProductModel> findAllByIdIn(List<Long> ids);
     List<ProductModel> findAllByBrandId(Long brandId);
     List<ProductModel> findAll();
     void increaseLikeCount(Long id);
