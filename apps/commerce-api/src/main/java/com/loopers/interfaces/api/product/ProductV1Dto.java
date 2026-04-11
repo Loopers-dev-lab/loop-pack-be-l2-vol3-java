@@ -17,12 +17,17 @@ public class ProductV1Dto {
         String brandName,
         String name,
         int price,
-        int likeCount
+        int likeCount,
+        Long rank
     ) {
         public static ProductResponse from(ProductReadModel product, Brand brand) {
+            return from(product, brand, null);
+        }
+
+        public static ProductResponse from(ProductReadModel product, Brand brand, Long rank) {
             return new ProductResponse(
                 product.id(), product.brandId(), brand.getName(), product.name(),
-                product.price(), product.likeCount()
+                product.price(), product.likeCount(), rank
             );
         }
     }

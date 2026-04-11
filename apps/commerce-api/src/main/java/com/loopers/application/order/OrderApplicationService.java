@@ -225,7 +225,7 @@ public class OrderApplicationService {
 
     private void publishOrderCreatedEvent(Order order) {
         List<OrderItemSnapshot> itemSnapshots = order.getItems().stream()
-            .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity().value()))
+            .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity().value(), item.getProductPrice().amount()))
             .toList();
         eventPublisher.publishEvent(new OrderCreatedEvent(
             order.getId(), order.getUserId(), itemSnapshots, ZonedDateTime.now()));
