@@ -19,12 +19,15 @@ class OrderItemModelTest {
         BigDecimal price = new BigDecimal("10000");
         int quantity = 3;
 
+        Long refProductId = 1L;
+
         // when
-        OrderItemModel item = OrderItemModel.create(productId, productName, price, quantity);
+        OrderItemModel item = OrderItemModel.create(refProductId, productId, productName, price, quantity);
 
         // then
         assertThat(item).isNotNull();
         assertThat(item.getOrderItemId()).isNotNull();
+        assertThat(item.getRefProductId()).isEqualTo(refProductId);
         assertThat(item.getProductId()).isEqualTo(productId);
         assertThat(item.getProductName()).isEqualTo(productName);
         assertThat(item.getPrice()).isEqualByComparingTo(price);
@@ -36,6 +39,7 @@ class OrderItemModelTest {
     void getTotalPrice() {
         // given
         OrderItemModel item = OrderItemModel.create(
+                1L,
                 "prod1",
                 "Test Product",
                 new BigDecimal("10000"),

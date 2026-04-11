@@ -202,4 +202,5 @@ B: [방법명] — 방식 / 장점 / 단점
 - `/requirements-analysis` — 요구사항 설계
 - `/pr-creation` — PR 작성
 - `/commit-plan` — 현재 브랜치 구현 방향·진행 상태를 docs/plan/{주차}/{브랜치명}-plan.md 로 정리
+- `/technical-writing` — 실험 기반 테크니컬 블로그 글 작성 (가설→실험→반전 서사, Mermaid, 표 중심)
 - `/analyze-external-integration` — 외부 시스템 연동 설계 리뷰 (트랜잭션 경계·상태 불일치·장애 시나리오·Observability)

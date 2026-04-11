@@ -2,6 +2,7 @@ package com.loopers.interfaces.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.metrics.ProductMetricsApp;
+import com.loopers.application.ranking.RankingApp;
 import com.loopers.infrastructure.kafka.StreamerKafkaConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,9 +21,10 @@ public class CatalogEventConsumer {
     private static final String TOPIC = "catalog-events";
 
     private final ProductMetricsApp productMetricsApp;
+    private final RankingApp rankingApp;
     private final ObjectMapper objectMapper;
 
-    private static final java.util.Set<String> SUPPORTED_EVENT_TYPES =
+    private static final java.util.Set<String> LIKE_EVENT_TYPES =
             java.util.Set.of("LikedEvent", "LikeRemovedEvent");
 
     @KafkaListener(
@@ -35,17 +37,28 @@ public class CatalogEventConsumer {
             ConsumerRecord<Object, Object> record = records.get(i);
             try {
                 CatalogEventPayload payload = parse(record);
-                if (!SUPPORTED_EVENT_TYPES.contains(payload.eventType())) {
+                if (LIKE_EVENT_TYPES.contains(payload.eventType())) {
+                    boolean processed = productMetricsApp.applyLikeDelta(
+                            payload.eventId(),
+                            payload.productDbId(),
+                            payload.delta(),
+                            payload.likedAt()
+                    );
+                    if (processed) {
+                        try {
+                            rankingApp.applyLikeDelta(
+                                    payload.productDbId(),
+                                    payload.delta(),
+                                    payload.likedAt().toLocalDate()
+                            );
+                        } catch (Exception e) {
+                            log.warn("[RANKING_BEST_EFFORT] Like 랭킹 반영 실패 — productDbId={}", payload.productDbId(), e);
+                        }
+                    }
+                } else {
                     log.warn("[CATALOG_EVENT] 미지원 eventType={}, offset={} — 건너뜀",
                             payload.eventType(), record.offset());
-                    continue;
                 }
-                productMetricsApp.applyLikeDelta(
-                        payload.eventId(),
-                        payload.productDbId(),
-                        payload.delta(),
-                        payload.likedAt()
-                );
             } catch (Exception e) {
                 log.error("[CATALOG_EVENT_FAILED] offset={}, key={}", record.offset(), record.key(), e);
                 throw new org.springframework.kafka.listener.BatchListenerFailedException(

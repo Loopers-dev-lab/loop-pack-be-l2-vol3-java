@@ -39,4 +39,9 @@ public interface ProductRepository {
      * DB PK로 상품을 조회합니다.
      */
     Optional<ProductModel> findById(Long id);
+
+    /**
+     * DB PK 목록으로 상품을 일괄 조회합니다 (삭제된 상품 포함).
+     */
+    List<ProductModel> findAllByIdIncludingDeleted(List<Long> ids);
 }

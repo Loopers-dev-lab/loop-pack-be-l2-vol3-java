@@ -35,7 +35,8 @@ public class CacheConfig {
 
         Map<String, RedisCacheConfiguration> cacheConfigs = Map.of(
                 "product", defaultConfig.entryTtl(Duration.ofSeconds(60)),
-                "products", defaultConfig.entryTtl(Duration.ofSeconds(30))
+                "products", defaultConfig.entryTtl(Duration.ofSeconds(30)),
+                "rankingPage", defaultConfig.entryTtl(Duration.ofSeconds(30))
         );
 
         return RedisCacheManager.builder(lettuceConnectionFactory)

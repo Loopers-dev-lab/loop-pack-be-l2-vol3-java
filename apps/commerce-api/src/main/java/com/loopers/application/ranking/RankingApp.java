@@ -1,0 +1,121 @@
+package com.loopers.application.ranking;
+
+import com.loopers.domain.ranking.RankingEntry;
+import com.loopers.domain.ranking.RankingRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+@Component
+@RequiredArgsConstructor
+public class RankingApp {
+
+    private final RankingRepository rankingRepository;
+    private final RankingProductCache productCache;
+
+    public RankingPageResult getTopN(LocalDate date, long page, long size) {
+        long offset = page * size;
+        List<RankingEntry> entries = rankingRepository.findTopN(date, offset, size);
+        long totalElements = rankingRepository.countMembers(date);
+        List<RankingInfo> items = enrich(entries, offset);
+        return new RankingPageResult(items, page, size, totalElements);
+    }
+
+    public RankingCursorResult getByCursor(LocalDate date, Double cursorScore, long size) {
+        List<RankingEntry> entries = rankingRepository.findByCursor(date, cursorScore, size);
+        List<RankingInfo> items = enrichByCursor(date, entries);
+        Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
+        return new RankingCursorResult(items, nextCursor);
+    }
+
+    public Optional<ProductRankingInfo> getProductRanking(Long productDbId, LocalDate date) {
+        Optional<Long> rank = rankingRepository.findRank(date, productDbId);
+        if (rank.isEmpty()) {
+            return Optional.empty();
+        }
+        Double score = rankingRepository.findScore(date, productDbId).orElse(null);
+        return Optional.of(new ProductRankingInfo(rank.get(), score));
+    }
+
+    private List<RankingInfo> enrich(List<RankingEntry> entries, long baseOffset) {
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+        List<RankingInfo> items = new ArrayList<>(entries.size());
+        long rank = baseOffset;
+        for (RankingEntry entry : entries) {
+            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
+            if (snapshot == null || snapshot.deleted()) {
+                continue;
+            }
+            rank++;
+            items.add(toInfo(entry, rank, snapshot));
+        }
+        return items;
+    }
+
+    private List<RankingInfo> enrichByCursor(LocalDate date, List<RankingEntry> entries) {
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+        List<RankingInfo> items = new ArrayList<>(entries.size());
+        for (RankingEntry entry : entries) {
+            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
+            if (snapshot == null || snapshot.deleted()) {
+                continue;
+            }
+            Long globalRank = rankingRepository.findRank(date, entry.productDbId()).orElse(null);
+            long rank = globalRank != null ? globalRank : 0L;
+            items.add(toInfo(entry, rank, snapshot));
+        }
+        return items;
+    }
+
+    public RankingPageResult getHourlyTopN(LocalDate date, int hour, long page, long size) {
+        long offset = page * size;
+        List<RankingEntry> entries = rankingRepository.findHourlyTopN(date, hour, offset, size);
+        long totalElements = rankingRepository.countHourlyMembers(date, hour);
+        List<RankingInfo> items = enrich(entries, offset);
+        return new RankingPageResult(items, page, size, totalElements);
+    }
+
+    public RankingCursorResult getHourlyByCursor(LocalDate date, int hour, Double cursorScore, long size) {
+        List<RankingEntry> entries = rankingRepository.findHourlyCursor(date, hour, cursorScore, size);
+        List<RankingInfo> items = enrichHourlyCursor(date, hour, entries);
+        Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
+        return new RankingCursorResult(items, nextCursor);
+    }
+
+    private List<RankingInfo> enrichHourlyCursor(LocalDate date, int hour, List<RankingEntry> entries) {
+        if (entries.isEmpty()) {
+            return List.of();
+        }
+        List<RankingInfo> items = new ArrayList<>(entries.size());
+        for (RankingEntry entry : entries) {
+            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
+            if (snapshot == null || snapshot.deleted()) {
+                continue;
+            }
+            Long globalRank = rankingRepository.findHourlyRank(date, hour, entry.productDbId()).orElse(null);
+            long rank = globalRank != null ? globalRank : 0L;
+            items.add(toInfo(entry, rank, snapshot));
+        }
+        return items;
+    }
+
+    private RankingInfo toInfo(RankingEntry entry, long rank, CachedProductSnapshot snapshot) {
+        return new RankingInfo(
+                rank,
+                entry.score(),
+                snapshot.id(),
+                snapshot.productId(),
+                snapshot.productName(),
+                snapshot.price(),
+                RankingInfo.STATUS_ACTIVE
+        );
+    }
+}

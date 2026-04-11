@@ -1,33 +1,47 @@
 package com.loopers.application.product;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.common.cursor.CursorPageResult;
 import com.loopers.domain.product.ProductMetricsModel;
 import com.loopers.domain.product.ProductMetricsRepository;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.product.ViewDedupRepository;
 import com.loopers.domain.product.vo.ProductId;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class ProductApp {
+
+    private static final String VIEW_EVENTS_TOPIC = "view-events";
 
     private final ProductService productService;
     private final ProductRepository productRepository;
     private final ProductCacheStore productCacheStore;
     private final ProductMetricsRepository productMetricsRepository;
+    private final KafkaTemplate<Object, Object> kafkaTemplate;
+    private final ObjectMapper objectMapper;
+    private final ViewDedupRepository viewDedupRepository;
 
     @Transactional
     public ProductInfo createProduct(String productId, String brandId, String productName, BigDecimal price, int stockQuantity) {
@@ -35,15 +49,41 @@ public class ProductApp {
         return ProductInfo.from(product);
     }
 
-    @Transactional(readOnly = true)
-    public ProductInfo getProduct(String productId) {
-        return productCacheStore.get(productId).orElseGet(() -> {
+    @Transactional
+    public ProductInfo getProduct(String productId, Long memberId) {
+        ProductInfo info = productCacheStore.get(productId).orElseGet(() -> {
             ProductModel product = productRepository.findByProductId(new ProductId(productId))
                     .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "해당 ID의 상품이 존재하지 않습니다."));
-            ProductInfo info = ProductInfo.from(product);
-            productCacheStore.put(productId, info);
-            return info;
+            ProductInfo fresh = ProductInfo.from(product);
+            productCacheStore.put(productId, fresh);
+            return fresh;
         });
+        if (shouldPublishViewEvent(info.id(), memberId)) {
+            publishViewEvent(info.id(), memberId);
+        }
+        return info;
+    }
+
+    private boolean shouldPublishViewEvent(Long productDbId, Long memberId) {
+        if (memberId == null) {
+            return false;
+        }
+        return viewDedupRepository.markIfFirstView(productDbId, memberId, LocalDate.now());
+    }
+
+    private void publishViewEvent(Long productDbId, Long memberId) {
+        try {
+            String eventId = UUID.randomUUID().toString();
+            LocalDateTime now = LocalDateTime.now();
+            ViewEventPayload payload = new ViewEventPayload(
+                    eventId, "ViewedEvent", 1, productDbId, memberId, 1, now);
+            String json = objectMapper.writeValueAsString(payload);
+            kafkaTemplate.send(VIEW_EVENTS_TOPIC, String.valueOf(productDbId), json);
+        } catch (JsonProcessingException e) {
+            log.warn("[VIEW_EVENT] 직렬화 실패 — productDbId={}, memberId={}", productDbId, memberId, e);
+        } catch (Exception e) {
+            log.warn("[VIEW_EVENT] 발행 실패 — productDbId={}, memberId={}", productDbId, memberId, e);
+        }
     }
 
     @Caching(evict = {

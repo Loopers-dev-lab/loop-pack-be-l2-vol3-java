@@ -24,6 +24,9 @@ public class OrderItemModel extends BaseEntity {
     @JoinColumn(name = "order_id", nullable = false)
     private OrderModel order;
 
+    @Column(name = "ref_product_id", nullable = false)
+    private Long refProductId; // 스냅샷: 주문 시점의 상품 DB PK
+
     @Column(name = "product_id", nullable = false, length = 20)
     private String productId; // 스냅샷: 주문 시점의 상품 ID
 
@@ -36,16 +39,17 @@ public class OrderItemModel extends BaseEntity {
     @Column(name = "quantity", nullable = false)
     private int quantity;
 
-    private OrderItemModel(String productId, String productName, BigDecimal price, int quantity) {
+    private OrderItemModel(Long refProductId, String productId, String productName, BigDecimal price, int quantity) {
         this.orderItemId = OrderItemId.generate();
+        this.refProductId = refProductId;
         this.productId = productId;
         this.productName = productName;
         this.price = price;
         this.quantity = quantity;
     }
 
-    public static OrderItemModel create(String productId, String productName, BigDecimal price, int quantity) {
-        return new OrderItemModel(productId, productName, price, quantity);
+    public static OrderItemModel create(Long refProductId, String productId, String productName, BigDecimal price, int quantity) {
+        return new OrderItemModel(refProductId, productId, productName, price, quantity);
     }
 
     public BigDecimal getTotalPrice() {

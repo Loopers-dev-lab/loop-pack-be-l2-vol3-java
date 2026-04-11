@@ -22,8 +22,11 @@ public class ProductV1Controller implements ProductV1ApiSpec {
 
     @GetMapping("/{productId}")
     @Override
-    public ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> getProduct(@PathVariable String productId) {
-        ProductInfo info = productFacade.getProduct(productId);
+    public ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> getProduct(
+            @PathVariable String productId,
+            @org.springframework.web.bind.annotation.RequestHeader(name = "X-USER-ID", required = false) Long memberId
+    ) {
+        ProductInfo info = productFacade.getProduct(productId, memberId);
         return ResponseEntity.ok(ApiResponse.success(ProductV1Dto.ProductResponse.from(info)));
     }
 
