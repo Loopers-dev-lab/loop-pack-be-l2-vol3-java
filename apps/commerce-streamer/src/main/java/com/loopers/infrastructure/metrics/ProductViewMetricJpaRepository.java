@@ -28,7 +28,7 @@ public interface ProductViewMetricJpaRepository extends JpaRepository<ProductVie
     @Query(value = """
             INSERT INTO product_view_metrics (product_id, bucket_time, view_count)
             VALUES (:productId, :bucketTime, :viewCount)
-            ON DUPLICATE KEY UPDATE view_count = view_count + :viewCount
+            ON DUPLICATE KEY UPDATE view_count = :viewCount
             """, nativeQuery = true)
     void upsert(@Param("productId") Long productId,
                 @Param("bucketTime") LocalDateTime bucketTime,
