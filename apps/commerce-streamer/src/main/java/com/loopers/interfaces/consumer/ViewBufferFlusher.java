@@ -1,19 +1,25 @@
 package com.loopers.interfaces.consumer;
 
 import com.loopers.application.metrics.ViewBuffer;
+import com.loopers.application.metrics.ViewBuffer.BucketKey;
 import com.loopers.application.metrics.ViewBuffer.BufferSnapshot;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.context.SmartLifecycle;
-import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -22,10 +28,12 @@ public class ViewBufferFlusher implements SmartLifecycle {
 
     private static final int MAX_BUFFER_SIZE = 100_000;
     private static final int MAX_RETRY = 3;
+    private static final int TTL_SECONDS = 600;
 
     private final ViewBuffer buffer;
     private final RedisTemplate<String, String> redisTemplate;
     private final KafkaListenerEndpointRegistry registry;
+    private final DefaultRedisScript<Long> viewBucketFlushScript;
 
     private volatile boolean running = false;
 
@@ -42,13 +50,25 @@ public class ViewBufferFlusher implements SmartLifecycle {
             return;
         }
 
+        Map<TopicPartition, BufferSnapshot> currentTarget = snapshot;
+        Set<Long> lastFailedBuckets = null;
+
         for (int attempt = 0; attempt < MAX_RETRY; attempt++) {
             try {
-                flushToRedis(snapshot);
+                flushToRedis(currentTarget);
                 resumeConsumer();
                 log.debug("View buffer flush 완료: partitions={}", snapshot.size());
                 return;
+            } catch (PartialFlushException e) {
+                lastFailedBuckets = e.failedBuckets;
+                currentTarget = filterByBuckets(snapshot, lastFailedBuckets);
+                log.warn("View buffer flush 부분 실패, attempt={}/{}, failedBuckets={}",
+                        attempt + 1, MAX_RETRY, lastFailedBuckets.size());
+                if (attempt < MAX_RETRY - 1) {
+                    sleep(1000L * (1L << attempt));
+                }
             } catch (Exception e) {
+                lastFailedBuckets = extractAllBuckets(currentTarget);
                 log.warn("View buffer flush 실패, attempt={}/{}", attempt + 1, MAX_RETRY, e);
                 if (attempt < MAX_RETRY - 1) {
                     sleep(1000L * (1L << attempt));
@@ -56,26 +76,80 @@ public class ViewBufferFlusher implements SmartLifecycle {
             }
         }
 
-        buffer.restore(snapshot);
-        log.error("View buffer flush {}회 실패, 다음 사이클 재시도", MAX_RETRY);
+        if (lastFailedBuckets != null && !lastFailedBuckets.isEmpty()) {
+            Map<TopicPartition, BufferSnapshot> failedSnapshot = filterByBuckets(snapshot, lastFailedBuckets);
+            buffer.restore(failedSnapshot);
+            log.error("View buffer flush {}회 실패, 실패 bucket {} 개 restore", MAX_RETRY, lastFailedBuckets.size());
+        }
     }
 
     private void flushToRedis(Map<TopicPartition, BufferSnapshot> snapshot) {
-        redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-            snapshot.values().forEach(snap ->
-                    snap.counts().forEach((key, count) -> {
-                        String redisKey = "metric:bucket:" + key.bucket().toEpochMilli();
-                        String field = String.valueOf(key.productId());
-                        connection.hashCommands().hIncrBy(
-                                redisKey.getBytes(),
-                                field.getBytes(),
-                                count
-                        );
-                        connection.keyCommands().expire(redisKey.getBytes(), 600);
-                    })
-            );
-            return null;
+        Map<Long, Map<Long, Long>> byBucket = groupByBucket(snapshot);
+
+        Set<Long> failedBuckets = new HashSet<>();
+        for (var entry : byBucket.entrySet()) {
+            Long bucketMillis = entry.getKey();
+            Map<Long, Long> productCounts = entry.getValue();
+
+            String redisKey = "metric:bucket:" + bucketMillis;
+            List<String> keys = List.of(redisKey);
+
+            List<String> args = new ArrayList<>();
+            args.add(String.valueOf(TTL_SECONDS));
+            productCounts.forEach((pid, count) -> {
+                args.add(String.valueOf(pid));
+                args.add(String.valueOf(count));
+            });
+
+            try {
+                redisTemplate.execute(viewBucketFlushScript, keys, args.toArray(new String[0]));
+            } catch (Exception e) {
+                log.warn("bucket flush 실패: bucket={}, error={}", bucketMillis, e.getMessage());
+                failedBuckets.add(bucketMillis);
+            }
+        }
+
+        if (!failedBuckets.isEmpty()) {
+            throw new PartialFlushException(failedBuckets);
+        }
+    }
+
+    private Map<Long, Map<Long, Long>> groupByBucket(Map<TopicPartition, BufferSnapshot> snapshot) {
+        Map<Long, Map<Long, Long>> byBucket = new HashMap<>();
+        snapshot.values().forEach(snap ->
+                snap.counts().forEach((key, count) ->
+                        byBucket
+                                .computeIfAbsent(key.bucket().toEpochMilli(), k -> new HashMap<>())
+                                .merge(key.productId(), count, Long::sum)
+                )
+        );
+        return byBucket;
+    }
+
+    private Map<TopicPartition, BufferSnapshot> filterByBuckets(
+            Map<TopicPartition, BufferSnapshot> snapshot, Set<Long> targetBuckets
+    ) {
+        Map<TopicPartition, BufferSnapshot> filtered = new HashMap<>();
+        snapshot.forEach((tp, snap) -> {
+            Map<BucketKey, Long> filteredCounts = new HashMap<>();
+            snap.counts().forEach((key, count) -> {
+                if (targetBuckets.contains(key.bucket().toEpochMilli())) {
+                    filteredCounts.put(key, count);
+                }
+            });
+            if (!filteredCounts.isEmpty()) {
+                filtered.put(tp, new BufferSnapshot(filteredCounts));
+            }
         });
+        return filtered;
+    }
+
+    private Set<Long> extractAllBuckets(Map<TopicPartition, BufferSnapshot> snapshot) {
+        Set<Long> buckets = new HashSet<>();
+        snapshot.values().forEach(snap ->
+                snap.counts().keySet().forEach(key -> buckets.add(key.bucket().toEpochMilli()))
+        );
+        return buckets;
     }
 
     private void pauseConsumer() {
@@ -132,5 +206,14 @@ public class ViewBufferFlusher implements SmartLifecycle {
     @Override
     public int getPhase() {
         return Integer.MAX_VALUE - 1;
+    }
+
+    private static class PartialFlushException extends RuntimeException {
+        final Set<Long> failedBuckets;
+
+        PartialFlushException(Set<Long> failedBuckets) {
+            super("bucket flush 부분 실패: " + failedBuckets.size() + "개");
+            this.failedBuckets = failedBuckets;
+        }
     }
 }
