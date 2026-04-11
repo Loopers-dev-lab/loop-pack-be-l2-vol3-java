@@ -37,6 +37,11 @@ public class ProductRepositoryImpl implements ProductRepository {
     }
 
     @Override
+    public List<Product> findAllByIds(List<Long> ids) {
+        return productJpaRepository.findAllById(ids);
+    }
+
+    @Override
     public List<Product> findAll(SortCondition sort) {
         return switch (sort) {
             case latest -> productJpaRepository.findByDeletedAtIsNull(Sort.by(Sort.Direction.DESC, "createdAt"));

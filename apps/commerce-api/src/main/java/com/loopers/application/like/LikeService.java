@@ -46,14 +46,14 @@ public class LikeService {
 
         // Outbox에 저장 (Like 저장과 같은 TX → 원자적 보장)
         String eventId = UUID.randomUUID().toString();
-        CatalogEvent event = new CatalogEvent(eventId, CatalogEvent.Type.LIKED.name(), productId, memberId, Instant.now().toEpochMilli());
+        CatalogEvent event = CatalogEvent.of(eventId, CatalogEvent.Type.LIKED, productId, memberId, Instant.now().toEpochMilli());
         outboxEventRepository.save(OutboxEvent.create(eventId, KafkaTopics.CATALOG_EVENTS, String.valueOf(productId), objectMapper.writeValueAsString(event)));
 
         // JVM 내부 이벤트 (AFTER_COMMIT에서 likesCount 즉시 반영)
         eventPublisher.publishEvent(new LikedEvent(memberId, productId));
     }
 
-    // TODO: UnlikedEvent 설계 후 동일한 패턴으로 이벤트 발행으로 교체 예정
+    @SneakyThrows
     @Transactional
     public void unlike(Long memberId, Long productId) {
         if (!likeRepository.existsByMemberIdAndProductId(memberId, productId)) {
@@ -63,5 +63,10 @@ public class LikeService {
             throw new CoreException(ErrorType.NOT_FOUND, "[id = " + productId + "] 상품을 찾을 수 없습니다.");
         }
         likeRepository.deleteByMemberIdAndProductId(memberId, productId);
+
+        // Outbox에 UNLIKED 이벤트 저장 (LIKED와 동일한 패턴)
+        String eventId = UUID.randomUUID().toString();
+        CatalogEvent event = CatalogEvent.of(eventId, CatalogEvent.Type.UNLIKED, productId, memberId, Instant.now().toEpochMilli());
+        outboxEventRepository.save(OutboxEvent.create(eventId, KafkaTopics.CATALOG_EVENTS, String.valueOf(productId), objectMapper.writeValueAsString(event)));
     }
 }

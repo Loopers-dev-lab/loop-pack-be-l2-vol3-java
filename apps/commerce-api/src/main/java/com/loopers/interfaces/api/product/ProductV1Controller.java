@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.product;
 import com.loopers.application.product.ProductDetailInfo;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductListInfo;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.domain.product.SortCondition;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.List;
 public class ProductV1Controller implements ProductV1ApiSpec {
 
     private final ProductFacade productFacade;
+    private final RankingFacade rankingFacade;
 
     @GetMapping
     @Override
@@ -39,6 +41,8 @@ public class ProductV1Controller implements ProductV1ApiSpec {
         @PathVariable Long productId
     ) {
         ProductDetailInfo info = productFacade.getProductDetail(productId);
-        return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info));
+        productFacade.publishViewedEvent(productId);
+        Long rank = rankingFacade.getRank(productId);
+        return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info, rank));
     }
 }
