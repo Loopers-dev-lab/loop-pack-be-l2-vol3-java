@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.MvProductRankRepository;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,14 +25,16 @@ import static org.mockito.Mockito.when;
 class RankingAppTest {
 
     private RankingRepository rankingRepository;
+    private MvProductRankRepository mvProductRankRepository;
     private RankingProductCache productCache;
     private RankingApp rankingApp;
 
     @BeforeEach
     void setUp() {
         rankingRepository = mock(RankingRepository.class);
+        mvProductRankRepository = mock(MvProductRankRepository.class);
         productCache = mock(RankingProductCache.class);
-        rankingApp = new RankingApp(rankingRepository, productCache);
+        rankingApp = new RankingApp(rankingRepository, mvProductRankRepository, productCache);
     }
 
     @Nested

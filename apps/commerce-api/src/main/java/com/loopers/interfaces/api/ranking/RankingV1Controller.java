@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.ranking;
 import com.loopers.application.ranking.RankingApp;
 import com.loopers.application.ranking.RankingCursorResult;
 import com.loopers.application.ranking.RankingPageResult;
+import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,12 +28,14 @@ public class RankingV1Controller implements RankingV1ApiSpec {
     @GetMapping
     @Override
     public ResponseEntity<ApiResponse<RankingV1Dto.RankingPageResponse>> getRankingByOffset(
+            @RequestParam(required = false) String period,
             @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
+        RankingPeriod rankingPeriod = RankingPeriod.fromString(period);
         LocalDate targetDate = parseDateOrToday(date);
-        RankingPageResult result = rankingApp.getTopN(targetDate, page, size);
+        RankingPageResult result = rankingApp.getTopN(rankingPeriod, targetDate, page, size);
         return ResponseEntity.ok(ApiResponse.success(RankingV1Dto.RankingPageResponse.from(result)));
     }
 

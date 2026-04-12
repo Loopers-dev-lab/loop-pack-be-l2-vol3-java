@@ -1,6 +1,10 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.MvProductRankRepository;
+import com.loopers.domain.ranking.MvRankingKeyGenerator;
+import com.loopers.domain.ranking.RankPeriodType;
 import com.loopers.domain.ranking.RankingEntry;
+import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.domain.ranking.RankingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,10 +19,29 @@ import java.util.Optional;
 public class RankingApp {
 
     private final RankingRepository rankingRepository;
+    private final MvProductRankRepository mvProductRankRepository;
     private final RankingProductCache productCache;
 
-    public RankingPageResult getTopN(LocalDate date, long page, long size) {
+    public RankingPageResult getTopN(RankingPeriod period, LocalDate date, long page, long size) {
         long offset = page * size;
+        if (period == RankingPeriod.DAILY) {
+            return getDailyTopN(date, page, size, offset);
+        }
+        RankPeriodType type = period == RankingPeriod.WEEKLY ? RankPeriodType.WEEKLY : RankPeriodType.MONTHLY;
+        String periodKey = period == RankingPeriod.WEEKLY
+                ? MvRankingKeyGenerator.weeklyPeriodKey(date)
+                : MvRankingKeyGenerator.monthlyPeriodKey(date);
+        List<RankingEntry> entries = mvProductRankRepository.findByPeriodKey(type, periodKey, offset, size);
+        long totalElements = mvProductRankRepository.countByPeriodKey(type, periodKey);
+        List<RankingInfo> items = enrich(entries, offset);
+        return new RankingPageResult(items, page, size, totalElements);
+    }
+
+    public RankingPageResult getTopN(LocalDate date, long page, long size) {
+        return getTopN(RankingPeriod.DAILY, date, page, size);
+    }
+
+    private RankingPageResult getDailyTopN(LocalDate date, long page, long size, long offset) {
         List<RankingEntry> entries = rankingRepository.findTopN(date, offset, size);
         long totalElements = rankingRepository.countMembers(date);
         List<RankingInfo> items = enrich(entries, offset);
