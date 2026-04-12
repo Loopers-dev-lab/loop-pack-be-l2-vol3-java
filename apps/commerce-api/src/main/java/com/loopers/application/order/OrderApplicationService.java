@@ -61,7 +61,8 @@ public class OrderApplicationService {
         Order order = new Order(userId, List.of(item), userCouponId, discountAmount);
         Order savedOrder = orderRepository.save(order);
 
-        outboxRepository.save(OutboxEvent.forOrderCreated(savedOrder.getId(), productId, quantity));
+        int finalAmount = originalAmount - discountAmount;
+        outboxRepository.save(OutboxEvent.forOrderCreated(savedOrder.getId(), productId, quantity, finalAmount));
         eventPublisher.publishEvent(new UserActionEvent(
             UserActionEvent.EventType.ORDER_CREATED, userId, savedOrder.getId(), null
         ));

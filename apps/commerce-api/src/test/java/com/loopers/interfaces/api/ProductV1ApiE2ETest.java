@@ -9,6 +9,8 @@ import com.loopers.interfaces.api.product.ProductAdminV1Dto;
 import com.loopers.interfaces.api.product.ProductV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -449,6 +451,56 @@ class ProductV1ApiE2ETest {
                 new ParameterizedTypeReference<>() {}
             );
             assertThat(response.getBody().data().name()).isEqualTo("조던");
+        }
+
+        @DisplayName("랭킹 ZSET에 점수가 있으면 상품 상세 조회 시 rank가 반환된다.")
+        @Test
+        void returnsRank_whenProductHasRankingScore() {
+            // arrange
+            Brand brand = createBrand("Nike");
+            Product product1 = createProduct(brand.getId(), "에어맥스", 100000, 0);
+            Product product2 = createProduct(brand.getId(), "조던", 200000, 0);
+
+            String rankingKey = "ranking:all:" + LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            redisTemplate.opsForZSet().add(rankingKey, String.valueOf(product1.getId()), 1.0);
+            redisTemplate.opsForZSet().add(rankingKey, String.valueOf(product2.getId()), 0.5);
+
+            // act
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+                "/api/v1/products/" + product1.getId(),
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert: product1은 점수가 높아 1위
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().rank()).isEqualTo(1)
+            );
+        }
+
+        @DisplayName("랭킹 ZSET에 점수가 없으면 상품 상세 조회 시 rank가 null로 반환된다.")
+        @Test
+        void returnsNullRank_whenProductHasNoRankingScore() {
+            // arrange
+            Brand brand = createBrand("Nike");
+            Product product = createProduct(brand.getId(), "에어맥스", 100000, 0);
+            // ZSET에 데이터 없음
+
+            // act
+            ResponseEntity<ApiResponse<ProductV1Dto.ProductResponse>> response = testRestTemplate.exchange(
+                "/api/v1/products/" + product.getId(),
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {}
+            );
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().rank()).isNull()
+            );
         }
 
         @DisplayName("어드민 상품 삭제 시 상세 캐시가 무효화된다.")

@@ -12,7 +12,8 @@ public record ProductInfo(
     int stock,
     SellingStatus sellingStatus,
     int likeCount,
-    Boolean isLiked
+    Boolean isLiked,
+    Integer rank
 ) {
     public static ProductInfo from(Product product) {
         return new ProductInfo(
@@ -24,6 +25,7 @@ public record ProductInfo(
             product.getStock(),
             product.getSellingStatus(),
             product.getLikeCount(),
+            null,
             null
         );
     }
@@ -38,7 +40,8 @@ public record ProductInfo(
             product.getStock(),
             product.getSellingStatus(),
             product.getLikeCount(),
-            isLiked
+            isLiked,
+            null
         );
     }
 
@@ -56,15 +59,25 @@ public record ProductInfo(
             product.getStock(),
             product.getSellingStatus(),
             likeCount,
-            isLiked
+            isLiked,
+            null
         );
     }
 
     /**
      * isLiked만 교체한 새 인스턴스를 반환한다.
-     * Cache-Aside 조회 시 캐시에 저장된 상품 정보(isLiked=null)에 사용자별 좋아요 여부를 오버레이할 때 사용한다.
+     * Cache-Aside 조회 시 캐시에 저장된 상품 정보(isLiked=null)에
+     * 사용자별 좋아요 여부를 오버레이할 때 사용한다.
      */
     public ProductInfo withIsLiked(Boolean isLiked) {
-        return new ProductInfo(id, brandId, name, description, price, stock, sellingStatus, likeCount, isLiked);
+        return new ProductInfo(id, brandId, name, description, price, stock, sellingStatus, likeCount, isLiked, rank);
+    }
+
+    /**
+     * rank만 교체한 새 인스턴스를 반환한다.
+     * 상품 상세 조회 시 ZREVRANK로 조회한 순위를 오버레이할 때 사용한다.
+     */
+    public ProductInfo withRank(Integer rank) {
+        return new ProductInfo(id, brandId, name, description, price, stock, sellingStatus, likeCount, isLiked, rank);
     }
 }
