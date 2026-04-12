@@ -5,7 +5,6 @@ import com.loopers.contract.kafka.ProductMetricsEventMessage;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsDailyRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsHourlyRepository;
-import com.loopers.infrastructure.metrics.ProductMetricsRepository;
 import com.loopers.infrastructure.ranking.redis.RedisProductRankingRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import jakarta.persistence.EntityManager;
@@ -44,7 +43,6 @@ class ProductMetricsConsumerServiceTest {
     @DisplayName("중복 이벤트가 아니면 집계를 반영하고 현재 랭킹판에 점수를 즉시 누적한다")
     void consume_newEvent_updatesMetricsAndRanking() {
         EventHandledRepository eventHandledRepository = mock(EventHandledRepository.class);
-        ProductMetricsRepository productMetricsRepository = mock(ProductMetricsRepository.class);
         ProductMetricsDailyRepository productMetricsDailyRepository = mock(ProductMetricsDailyRepository.class);
         ProductMetricsHourlyRepository productMetricsHourlyRepository = mock(ProductMetricsHourlyRepository.class);
         RedisProductRankingRepository redisProductRankingRepository = mock(RedisProductRankingRepository.class);
@@ -52,7 +50,6 @@ class ProductMetricsConsumerServiceTest {
         ProductMetricsConsumerService productMetricsConsumerService =
                 new ProductMetricsConsumerService(
                         eventHandledRepository,
-                        productMetricsRepository,
                         productMetricsDailyRepository,
                         productMetricsHourlyRepository,
                         redisProductRankingRepository,
@@ -76,7 +73,6 @@ class ProductMetricsConsumerServiceTest {
 
         productMetricsConsumerService.consume("collector", message);
 
-        verify(productMetricsRepository, times(1)).upsert(message);
         verify(productMetricsDailyRepository, times(1)).upsert(message);
         verify(productMetricsHourlyRepository, times(1)).upsert(message);
         verify(redisProductRankingRepository, times(1)).incrementDailyRanking(LocalDate.of(2025, 9, 7), "product-1", 700.3d);
@@ -88,7 +84,6 @@ class ProductMetricsConsumerServiceTest {
     @DisplayName("즉시 increment가 비활성화면 metrics만 적재하고 Redis 랭킹 누적은 하지 않는다")
     void consume_whenImmediateIncrementDisabled_skipsRankingIncrement() {
         EventHandledRepository eventHandledRepository = mock(EventHandledRepository.class);
-        ProductMetricsRepository productMetricsRepository = mock(ProductMetricsRepository.class);
         ProductMetricsDailyRepository productMetricsDailyRepository = mock(ProductMetricsDailyRepository.class);
         ProductMetricsHourlyRepository productMetricsHourlyRepository = mock(ProductMetricsHourlyRepository.class);
         RedisProductRankingRepository redisProductRankingRepository = mock(RedisProductRankingRepository.class);
@@ -96,7 +91,6 @@ class ProductMetricsConsumerServiceTest {
         ProductMetricsConsumerService productMetricsConsumerService =
                 new ProductMetricsConsumerService(
                         eventHandledRepository,
-                        productMetricsRepository,
                         productMetricsDailyRepository,
                         productMetricsHourlyRepository,
                         redisProductRankingRepository,
@@ -124,7 +118,6 @@ class ProductMetricsConsumerServiceTest {
 
         productMetricsConsumerService.consume("collector", message);
 
-        verify(productMetricsRepository, times(1)).upsert(message);
         verify(productMetricsDailyRepository, times(1)).upsert(message);
         verify(productMetricsHourlyRepository, times(1)).upsert(message);
         verify(redisProductRankingRepository, never()).incrementDailyRanking(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble());
@@ -136,7 +129,6 @@ class ProductMetricsConsumerServiceTest {
     @DisplayName("이미 처리된 이벤트면 집계와 랭킹 누적을 건너뛴다")
     void consume_duplicateEvent_skipsMetricsAndRanking() {
         EventHandledRepository eventHandledRepository = mock(EventHandledRepository.class);
-        ProductMetricsRepository productMetricsRepository = mock(ProductMetricsRepository.class);
         ProductMetricsDailyRepository productMetricsDailyRepository = mock(ProductMetricsDailyRepository.class);
         ProductMetricsHourlyRepository productMetricsHourlyRepository = mock(ProductMetricsHourlyRepository.class);
         RedisProductRankingRepository redisProductRankingRepository = mock(RedisProductRankingRepository.class);
@@ -144,7 +136,6 @@ class ProductMetricsConsumerServiceTest {
         ProductMetricsConsumerService productMetricsConsumerService =
                 new ProductMetricsConsumerService(
                         eventHandledRepository,
-                        productMetricsRepository,
                         productMetricsDailyRepository,
                         productMetricsHourlyRepository,
                         redisProductRankingRepository,
@@ -168,7 +159,6 @@ class ProductMetricsConsumerServiceTest {
 
         productMetricsConsumerService.consume("collector", message);
 
-        verify(productMetricsRepository, never()).upsert(message);
         verify(productMetricsDailyRepository, never()).upsert(message);
         verify(productMetricsHourlyRepository, never()).upsert(message);
         verify(redisProductRankingRepository, never()).incrementDailyRanking(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyDouble());
@@ -200,7 +190,6 @@ class ProductMetricsConsumerServiceIntegrationTest {
         entityManager.createNativeQuery("TRUNCATE TABLE event_handled").executeUpdate();
         entityManager.createNativeQuery("TRUNCATE TABLE product_metrics_hourly").executeUpdate();
         entityManager.createNativeQuery("TRUNCATE TABLE product_metrics_daily").executeUpdate();
-        entityManager.createNativeQuery("TRUNCATE TABLE product_metrics").executeUpdate();
     }
 
     @Test
@@ -220,16 +209,6 @@ class ProductMetricsConsumerServiceIntegrationTest {
 
         productMetricsConsumerService.consume("collector", message);
         productMetricsConsumerService.consume("collector", message);
-
-        Object[] totalRow = (Object[]) entityManager.createNativeQuery(
-                        """
-                        SELECT like_count, sales_count, sales_amount, view_count
-                        FROM product_metrics
-                        WHERE product_id = :productId
-                        """
-                )
-                .setParameter("productId", message.productId())
-                .getSingleResult();
 
         Object[] dailyRow = (Object[]) entityManager.createNativeQuery(
                         """
@@ -261,10 +240,6 @@ class ProductMetricsConsumerServiceIntegrationTest {
                 .setParameter("consumerGroup", "collector")
                 .getSingleResult();
 
-        assertThat(((Number) totalRow[0]).longValue()).isEqualTo(message.deltaLike());
-        assertThat(((Number) totalRow[1]).longValue()).isEqualTo(message.deltaSales());
-        assertThat(((Number) totalRow[2]).longValue()).isEqualTo(message.deltaRevenue());
-        assertThat(((Number) totalRow[3]).longValue()).isEqualTo(message.deltaView());
         assertThat(((Number) dailyRow[0]).longValue()).isEqualTo(message.deltaLike());
         assertThat(((Number) dailyRow[1]).longValue()).isEqualTo(message.deltaSales());
         assertThat(((Number) dailyRow[2]).longValue()).isEqualTo(message.deltaRevenue());

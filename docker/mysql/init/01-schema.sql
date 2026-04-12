@@ -243,17 +243,6 @@ CREATE TABLE IF NOT EXISTS outbox_event (
     KEY idx_outbox_event_aggregate (aggregate_type, aggregate_id)
 );
 
-CREATE TABLE IF NOT EXISTS product_metrics (
-    product_id VARCHAR(36) PRIMARY KEY,
-    like_count BIGINT NOT NULL DEFAULT 0,
-    sales_count BIGINT NOT NULL DEFAULT 0,
-    sales_amount BIGINT NOT NULL DEFAULT 0,
-    view_count BIGINT NOT NULL DEFAULT 0,
-    version BIGINT NOT NULL DEFAULT 0,
-    updated_at DATETIME(6) NOT NULL,
-    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
-);
-
 CREATE TABLE IF NOT EXISTS product_metrics_daily (
     metric_date DATE NOT NULL,
     product_id VARCHAR(36) NOT NULL,
