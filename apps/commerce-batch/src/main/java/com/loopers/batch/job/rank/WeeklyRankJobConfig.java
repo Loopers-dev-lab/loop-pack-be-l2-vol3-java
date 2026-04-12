@@ -2,12 +2,10 @@ package com.loopers.batch.job.rank;
 
 import com.loopers.batch.job.rank.step.AggregatedScoreRow;
 import com.loopers.batch.job.rank.step.AtomicMvRankWriter;
-import com.loopers.batch.job.rank.step.RankAssignProcessor;
 import com.loopers.batch.listener.ChunkListener;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
 import com.loopers.domain.rank.MvProductRankRepository;
-import com.loopers.domain.rank.MvProductRankRow;
 import com.loopers.domain.rank.RankPeriodType;
 import com.loopers.ranking.RankingKeyGenerator;
 import lombok.RequiredArgsConstructor;
@@ -88,9 +86,8 @@ public class WeeklyRankJobConfig {
         );
 
         return new StepBuilder(BUILD_STEP, jobRepository)
-                .<AggregatedScoreRow, MvProductRankRow>chunk(CHUNK_SIZE, transactionManager)
+                .<AggregatedScoreRow, AggregatedScoreRow>chunk(CHUNK_SIZE, transactionManager)
                 .reader(weeklyScoreReader(weekStart, weekEnd))
-                .processor(new RankAssignProcessor(periodKey))
                 .writer(writer)
                 .listener(writer)
                 .listener(stepMonitorListener)

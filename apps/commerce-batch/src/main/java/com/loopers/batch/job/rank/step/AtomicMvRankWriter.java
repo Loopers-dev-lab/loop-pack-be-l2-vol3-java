@@ -13,16 +13,18 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
-public class AtomicMvRankWriter implements ItemWriter<MvProductRankRow>, StepExecutionListener {
+public class AtomicMvRankWriter implements ItemWriter<AggregatedScoreRow>, StepExecutionListener {
 
     private final MvProductRankRepository repository;
     private final RankPeriodType periodType;
     private final String periodKey;
     private final TransactionTemplate transactionTemplate;
-    private final List<MvProductRankRow> accumulated = new ArrayList<>();
+    private final List<AggregatedScoreRow> accumulated = new ArrayList<>();
 
     public AtomicMvRankWriter(MvProductRankRepository repository,
                                RankPeriodType periodType,
@@ -35,7 +37,7 @@ public class AtomicMvRankWriter implements ItemWriter<MvProductRankRow>, StepExe
     }
 
     @Override
-    public void write(Chunk<? extends MvProductRankRow> chunk) {
+    public void write(Chunk<? extends AggregatedScoreRow> chunk) {
         accumulated.addAll(chunk.getItems());
     }
 
@@ -46,12 +48,34 @@ public class AtomicMvRankWriter implements ItemWriter<MvProductRankRow>, StepExe
             return stepExecution.getExitStatus();
         }
 
+        List<MvProductRankRow> ranked = assignRanks(accumulated);
+
         transactionTemplate.executeWithoutResult(status -> {
             repository.deleteByPeriodKey(periodType, periodKey);
-            repository.batchInsert(periodType, accumulated);
-            log.info("MV 원자 적재 완료: type={}, periodKey={}, rows={}", periodType, periodKey, accumulated.size());
+            repository.batchInsert(periodType, ranked);
+            log.info("MV 원자 적재 완료: type={}, periodKey={}, rows={}", periodType, periodKey, ranked.size());
         });
 
         return stepExecution.getExitStatus();
+    }
+
+    private List<MvProductRankRow> assignRanks(List<AggregatedScoreRow> rows) {
+        List<AggregatedScoreRow> sorted = rows.stream()
+                .sorted(Comparator.comparingDouble(AggregatedScoreRow::totalScore).reversed()
+                        .thenComparingLong(AggregatedScoreRow::productDbId))
+                .toList();
+
+        AtomicInteger rank = new AtomicInteger(1);
+        return sorted.stream()
+                .map(row -> new MvProductRankRow(
+                        periodKey,
+                        rank.getAndIncrement(),
+                        row.productDbId(),
+                        row.totalScore(),
+                        row.totalView(),
+                        row.totalLike(),
+                        row.totalOrder()
+                ))
+                .toList();
     }
 }
