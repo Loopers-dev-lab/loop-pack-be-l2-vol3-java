@@ -67,8 +67,8 @@ class RankingAppTest {
         }
 
         @Test
-        @DisplayName("삭제된 상품은 랭킹에서 숨긴다 (멘토링 피드백: 부정적 피드백 미노출)")
-        void deletedProductIsHidden() {
+        @DisplayName("삭제된 상품은 DISCONTINUED 상태로 랭킹에 포함된다")
+        void deletedProductIsDiscontinued() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             when(rankingRepository.findTopN(eq(date), any(Long.class), any(Long.class))).thenReturn(List.of(
                     new RankingEntry(10L, 50.0),
@@ -82,14 +82,15 @@ class RankingAppTest {
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
-            assertThat(result.items()).hasSize(1);
-            assertThat(result.items().get(0).productName()).isEqualTo("정상 상품");
-            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
+            assertThat(result.items()).hasSize(2);
+            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
+            assertThat(result.items().get(1).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
+            assertThat(result.items().get(1).productName()).isEqualTo("정상 상품");
         }
 
         @Test
-        @DisplayName("캐시에 없는 상품(DB에서도 삭제)도 랭킹에서 숨긴다")
-        void missingProductIsHidden() {
+        @DisplayName("캐시에 없는 상품도 DISCONTINUED로 랭킹에 포함된다")
+        void missingProductIsDiscontinued() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             when(rankingRepository.findTopN(eq(date), any(Long.class), any(Long.class))).thenReturn(List.of(
                     new RankingEntry(999L, 30.0)
@@ -99,7 +100,9 @@ class RankingAppTest {
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
-            assertThat(result.items()).isEmpty();
+            assertThat(result.items()).hasSize(1);
+            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
+            assertThat(result.items().get(0).productDbId()).isEqualTo(999L);
         }
 
         @Test

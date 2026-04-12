@@ -73,9 +73,6 @@ public class RankingApp {
         long rank = baseOffset;
         for (RankingEntry entry : entries) {
             CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
-            if (snapshot == null || snapshot.deleted()) {
-                continue;
-            }
             rank++;
             items.add(toInfo(entry, rank, snapshot));
         }
@@ -89,9 +86,6 @@ public class RankingApp {
         List<RankingInfo> items = new ArrayList<>(entries.size());
         for (RankingEntry entry : entries) {
             CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
-            if (snapshot == null || snapshot.deleted()) {
-                continue;
-            }
             Long globalRank = rankingRepository.findRank(date, entry.productDbId()).orElse(null);
             long rank = globalRank != null ? globalRank : 0L;
             items.add(toInfo(entry, rank, snapshot));
@@ -121,9 +115,6 @@ public class RankingApp {
         List<RankingInfo> items = new ArrayList<>(entries.size());
         for (RankingEntry entry : entries) {
             CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
-            if (snapshot == null || snapshot.deleted()) {
-                continue;
-            }
             Long globalRank = rankingRepository.findHourlyRank(date, hour, entry.productDbId()).orElse(null);
             long rank = globalRank != null ? globalRank : 0L;
             items.add(toInfo(entry, rank, snapshot));
@@ -132,6 +123,17 @@ public class RankingApp {
     }
 
     private RankingInfo toInfo(RankingEntry entry, long rank, CachedProductSnapshot snapshot) {
+        if (snapshot == null || snapshot.deleted()) {
+            return new RankingInfo(
+                    rank,
+                    entry.score(),
+                    entry.productDbId(),
+                    null,
+                    null,
+                    null,
+                    RankingInfo.STATUS_DISCONTINUED
+            );
+        }
         return new RankingInfo(
                 rank,
                 entry.score(),
