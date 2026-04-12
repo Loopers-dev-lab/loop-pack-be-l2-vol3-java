@@ -2,7 +2,7 @@ package com.loopers.application.ranking;
 
 import com.loopers.domain.ranking.ProductDailySignalRepository;
 import com.loopers.domain.ranking.RankingRepository;
-import com.loopers.domain.ranking.ScoreAggregator;
+import com.loopers.ranking.ScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,14 +19,14 @@ public class RankingApp {
     private static final double SECONDS_IN_DAY = 86400.0;
 
     private final RankingRepository rankingRepository;
-    private final ScoreAggregator scoreAggregator;
+    private final ScoreCalculator scoreCalculator;
     private final ProductDailySignalRepository productDailySignalRepository;
 
     public void applyLikeDelta(Long productDbId, int delta, LocalDate date) {
         if (delta <= 0) {
             return;
         }
-        double score = scoreAggregator.scoreForLike(delta) + tieBreakFraction();
+        double score = scoreCalculator.scoreForLike(delta) + tieBreakFraction();
         rankingRepository.incrementScore(date, productDbId, score);
         try {
             productDailySignalRepository.upsertLikeCount(productDbId, date, delta);
@@ -36,7 +36,7 @@ public class RankingApp {
     }
 
     public void applyViewScore(Long productDbId, LocalDate date) {
-        double score = scoreAggregator.scoreForView() + tieBreakFraction();
+        double score = scoreCalculator.scoreForView() + tieBreakFraction();
         rankingRepository.incrementScore(date, productDbId, score);
         try {
             productDailySignalRepository.upsertViewCount(productDbId, date, 1);
@@ -46,7 +46,7 @@ public class RankingApp {
     }
 
     public void applyOrderScore(Long productDbId, BigDecimal price, int quantity, LocalDate date) {
-        double score = scoreAggregator.scoreForOrder(price, quantity) + tieBreakFraction();
+        double score = scoreCalculator.scoreForOrder(price, quantity) + tieBreakFraction();
         rankingRepository.incrementScore(date, productDbId, score);
         try {
             double amount = price.doubleValue() * quantity;

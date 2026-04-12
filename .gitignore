@@ -54,3 +54,6 @@ exp*
 **/src/test/java/**/technical/
 **/src/test/java/**/benchmark
 **/src/test/java/**/verification
+
+### local performance tests (k6 등 체크리스트 외 성능 테스트) ###
+k6/local/

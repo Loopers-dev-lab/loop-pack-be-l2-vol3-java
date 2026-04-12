@@ -1,4 +1,4 @@
-package com.loopers.domain.ranking;
+package com.loopers.ranking;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

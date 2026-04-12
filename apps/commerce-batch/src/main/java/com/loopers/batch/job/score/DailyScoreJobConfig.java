@@ -5,7 +5,7 @@ import com.loopers.batch.job.score.step.MvProductScoreDailyRow;
 import com.loopers.batch.listener.ChunkListener;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
-import com.loopers.domain.rank.RankScoreCalculator;
+import com.loopers.ranking.ScoreCalculator;
 import com.loopers.domain.signal.ProductDailySignalModel;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +46,7 @@ public class DailyScoreJobConfig {
     private final PlatformTransactionManager transactionManager;
     private final EntityManagerFactory entityManagerFactory;
     private final DataSource dataSource;
-    private final RankScoreCalculator rankScoreCalculator;
+    private final ScoreCalculator scoreCalculator;
     private final JobListener jobListener;
     private final StepMonitorListener stepMonitorListener;
     private final ChunkListener chunkListener;
@@ -89,7 +89,7 @@ public class DailyScoreJobConfig {
     }
 
     private ItemProcessor<ProductDailySignalModel, MvProductScoreDailyRow> dailyScoreProcessor(LocalDate date) {
-        return new DailyScoreProcessor(rankScoreCalculator, date);
+        return new DailyScoreProcessor(scoreCalculator, date);
     }
 
     private JdbcBatchItemWriter<MvProductScoreDailyRow> scoreDailyWriter() {

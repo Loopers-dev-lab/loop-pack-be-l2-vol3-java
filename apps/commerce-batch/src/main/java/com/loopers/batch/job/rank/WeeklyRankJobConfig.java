@@ -9,7 +9,7 @@ import com.loopers.batch.listener.StepMonitorListener;
 import com.loopers.domain.rank.MvProductRankRepository;
 import com.loopers.domain.rank.MvProductRankRow;
 import com.loopers.domain.rank.RankPeriodType;
-import com.loopers.domain.rank.RankingKeyGenerator;
+import com.loopers.ranking.RankingKeyGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;

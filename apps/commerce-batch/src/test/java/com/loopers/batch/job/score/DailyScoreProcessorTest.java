@@ -2,8 +2,8 @@ package com.loopers.batch.job.score;
 
 import com.loopers.batch.job.score.step.DailyScoreProcessor;
 import com.loopers.batch.job.score.step.MvProductScoreDailyRow;
-import com.loopers.domain.rank.RankScoreCalculator;
-import com.loopers.domain.rank.RankingWeightProperties;
+import com.loopers.ranking.ScoreCalculator;
+import com.loopers.ranking.RankingWeightProperties;
 import com.loopers.domain.signal.ProductDailySignalModel;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.within;
 
 class DailyScoreProcessorTest {
 
-    private final RankScoreCalculator calculator = new RankScoreCalculator(
+    private final ScoreCalculator calculator = new ScoreCalculator(
             new RankingWeightProperties(0.1, 0.2, 0.7)
     );
     private final LocalDate targetDate = LocalDate.of(2026, 4, 11);

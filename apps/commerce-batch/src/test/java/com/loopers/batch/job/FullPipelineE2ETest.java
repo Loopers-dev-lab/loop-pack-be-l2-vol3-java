@@ -4,7 +4,7 @@ import com.loopers.batch.job.rank.WeeklyRankJobConfig;
 import com.loopers.domain.rank.MvProductRankRepository;
 import com.loopers.domain.rank.MvProductRankRow;
 import com.loopers.domain.rank.RankPeriodType;
-import com.loopers.domain.rank.RankScoreCalculator;
+import com.loopers.ranking.ScoreCalculator;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +51,7 @@ class FullPipelineE2ETest {
     private MvProductRankRepository mvProductRankRepository;
 
     @Autowired
-    private RankScoreCalculator rankScoreCalculator;
+    private ScoreCalculator rankScoreCalculator;
 
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
@@ -83,7 +83,7 @@ class FullPipelineE2ETest {
                 long view = productId * 10;
                 long like = productId * 5;
                 BigDecimal order = BigDecimal.valueOf(productId * 100);
-                double score = rankScoreCalculator.calculate(view, like, order);
+                double score = rankScoreCalculator.calculateTotal(view, like, order);
                 insertScoreDaily(productId, date, score, view, like, order);
             }
         }

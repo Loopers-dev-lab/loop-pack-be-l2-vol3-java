@@ -1,6 +1,6 @@
 package com.loopers.batch.job.score.step;
 
-import com.loopers.domain.rank.RankScoreCalculator;
+import com.loopers.ranking.ScoreCalculator;
 import com.loopers.domain.signal.ProductDailySignalModel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.item.ItemProcessor;
@@ -10,12 +10,12 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class DailyScoreProcessor implements ItemProcessor<ProductDailySignalModel, MvProductScoreDailyRow> {
 
-    private final RankScoreCalculator calculator;
+    private final ScoreCalculator calculator;
     private final LocalDate targetDate;
 
     @Override
     public MvProductScoreDailyRow process(ProductDailySignalModel signal) {
-        double score = calculator.calculate(
+        double score = calculator.calculateTotal(
                 signal.getViewCount(),
                 signal.getLikeCount(),
                 signal.getOrderAmount()

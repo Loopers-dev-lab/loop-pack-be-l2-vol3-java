@@ -1,5 +1,6 @@
 package com.loopers.domain.rank;
 
+import com.loopers.ranking.RankingKeyGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

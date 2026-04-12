@@ -1,7 +1,7 @@
 package com.loopers.application.ranking;
 
 import com.loopers.domain.ranking.MvProductRankRepository;
-import com.loopers.domain.ranking.MvRankingKeyGenerator;
+import com.loopers.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankPeriodType;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingPeriod;
@@ -29,8 +29,8 @@ public class RankingApp {
         }
         RankPeriodType type = period == RankingPeriod.WEEKLY ? RankPeriodType.WEEKLY : RankPeriodType.MONTHLY;
         String periodKey = period == RankingPeriod.WEEKLY
-                ? MvRankingKeyGenerator.weeklyPeriodKey(date)
-                : MvRankingKeyGenerator.monthlyPeriodKey(date);
+                ? RankingKeyGenerator.weeklyPeriodKey(date)
+                : RankingKeyGenerator.monthlyPeriodKey(date);
         List<RankingEntry> entries = mvProductRankRepository.findByPeriodKey(type, periodKey, offset, size);
         long totalElements = mvProductRankRepository.countByPeriodKey(type, periodKey);
         List<RankingInfo> items = enrich(entries, offset);
