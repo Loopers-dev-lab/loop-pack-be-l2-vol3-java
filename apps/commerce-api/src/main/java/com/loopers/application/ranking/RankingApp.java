@@ -33,8 +33,9 @@ public class RankingApp {
                 : RankingKeyGenerator.monthlyPeriodKey(date);
         List<RankingEntry> entries = mvProductRankRepository.findByPeriodKey(type, periodKey, offset, size);
         long totalElements = mvProductRankRepository.countByPeriodKey(type, periodKey);
+        java.time.ZonedDateTime lastUpdatedAt = mvProductRankRepository.findLastUpdatedAt(type, periodKey).orElse(null);
         List<RankingInfo> items = enrich(entries, offset);
-        return new RankingPageResult(items, page, size, totalElements);
+        return new RankingPageResult(items, page, size, totalElements, lastUpdatedAt);
     }
 
     public RankingPageResult getTopN(LocalDate date, long page, long size) {
@@ -45,7 +46,7 @@ public class RankingApp {
         List<RankingEntry> entries = rankingRepository.findTopN(date, offset, size);
         long totalElements = rankingRepository.countMembers(date);
         List<RankingInfo> items = enrich(entries, offset);
-        return new RankingPageResult(items, page, size, totalElements);
+        return new RankingPageResult(items, page, size, totalElements, null);
     }
 
     public RankingCursorResult getByCursor(LocalDate date, Double cursorScore, long size) {
@@ -103,7 +104,7 @@ public class RankingApp {
         List<RankingEntry> entries = rankingRepository.findHourlyTopN(date, hour, offset, size);
         long totalElements = rankingRepository.countHourlyMembers(date, hour);
         List<RankingInfo> items = enrich(entries, offset);
-        return new RankingPageResult(items, page, size, totalElements);
+        return new RankingPageResult(items, page, size, totalElements, null);
     }
 
     public RankingCursorResult getHourlyByCursor(LocalDate date, int hour, Double cursorScore, long size) {

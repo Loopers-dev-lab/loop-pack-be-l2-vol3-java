@@ -7,7 +7,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.sql.Timestamp;
+import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
@@ -33,5 +36,15 @@ public class MvProductRankRepositoryImpl implements MvProductRankRepository {
         String sql = "SELECT COUNT(*) FROM " + type.getTableName() + " WHERE period_key = ?";
         Long count = jdbcTemplate.queryForObject(sql, Long.class, periodKey);
         return count != null ? count : 0L;
+    }
+
+    @Override
+    public Optional<ZonedDateTime> findLastUpdatedAt(RankPeriodType type, String periodKey) {
+        String sql = "SELECT MAX(updated_at) FROM " + type.getTableName() + " WHERE period_key = ?";
+        Timestamp ts = jdbcTemplate.queryForObject(sql, Timestamp.class, periodKey);
+        if (ts == null) {
+            return Optional.empty();
+        }
+        return Optional.of(ts.toInstant().atZone(java.time.ZoneId.of("Asia/Seoul")));
     }
 }
