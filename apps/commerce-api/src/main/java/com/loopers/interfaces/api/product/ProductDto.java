@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.application.product.command.UpdateProductCommand;
+import com.loopers.application.product.view.ProductDetailView;
 import com.loopers.application.product.view.ProductListView;
 import com.loopers.application.product.view.ProductView;
 import com.loopers.application.product.view.PublicProductListItemView;
@@ -48,6 +49,7 @@ public class ProductDto {
             UUID brandId,
             BrandInfo brand,
             Integer likeCount,
+            Long rank,
             ZonedDateTime deletedAt
     ) {
         public static ProductResponse from(Product product) {
@@ -65,6 +67,24 @@ public class ProductDto {
                     productView.brandId(),
                     new BrandInfo(productView.brandId(), productView.brandName()),
                     productView.likeCount(),
+                    null,
+                    productView.deletedAt()
+            );
+        }
+
+        public static ProductResponse from(ProductDetailView productDetailView) {
+            ProductView productView = productDetailView.product();
+            return new ProductResponse(
+                    productView.id(),
+                    productView.name(),
+                    productView.price(),
+                    productView.stock(),
+                    productView.description(),
+                    productView.categoryId(),
+                    productView.brandId(),
+                    new BrandInfo(productView.brandId(), productView.brandName()),
+                    productView.likeCount(),
+                    productDetailView.rank(),
                     productView.deletedAt()
             );
         }
@@ -80,6 +100,7 @@ public class ProductDto {
                     product.brandId(),
                     new BrandInfo(product.brandId(), brandName),
                     product.likeCount(),
+                    null,
                     product.deletedAt()
             );
         }

@@ -1,6 +1,6 @@
 package com.loopers.interfaces.api.admin;
 
-import com.loopers.application.order.OrderUseCase;
+import com.loopers.application.process.checkout.OrderUseCase;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderRepository;

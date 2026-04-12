@@ -52,6 +52,9 @@ cache:
     ttl: 30s
     jitter-enabled: false
     jitter-ratio: 0.1
+  ranking-product:
+    enabled: true
+    ttl: 30s
 
 loopers:
   kafka:

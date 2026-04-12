@@ -15,7 +15,6 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.ZonedDateTime;
-import java.util.UUID;
 
 @Component
 public class BehaviorOutboxEventHandler {
@@ -55,11 +54,11 @@ public class BehaviorOutboxEventHandler {
                 event.productId(),
                 deltaLike,
                 deltaSales,
+                0,
                 deltaView,
                 event.version(),
                 event.occurredAt()
         );
-
         String payloadJson;
         try {
             payloadJson = objectMapper.writeValueAsString(message);

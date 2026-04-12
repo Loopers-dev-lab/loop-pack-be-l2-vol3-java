@@ -67,6 +67,28 @@ public class OrderApplicationService {
         return orderRepository.save(cancelled);
     }
 
+    @Transactional
+    public Order requestCancel(OrderAccessRequest request) {
+        Order order = orderRepository.findById(request.orderId())
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+
+        if (!request.isAdmin() && !order.isOwner(request.memberId())) {
+            throw new CoreException(ErrorType.FORBIDDEN, "타인의 주문을 취소할 수 없습니다.");
+        }
+
+        Order cancelPending = order.requestCancel();
+        return orderRepository.save(cancelPending);
+    }
+
+    @Transactional
+    public Order confirmCancelForSystem(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "주문을 찾을 수 없습니다."));
+
+        Order cancelled = order.cancel();
+        return orderRepository.save(cancelled);
+    }
+
     @Transactional(readOnly = true)
     public Order getById(OrderAccessRequest request) {
         Order order = orderRepository.findById(request.orderId())

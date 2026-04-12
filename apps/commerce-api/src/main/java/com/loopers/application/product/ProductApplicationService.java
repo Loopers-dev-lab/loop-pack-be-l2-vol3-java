@@ -3,6 +3,7 @@ package com.loopers.application.product;
 import com.loopers.application.brand.BrandCacheRepository;
 import com.loopers.application.coupon.category.CategoryCacheRepository;
 import com.loopers.application.product.cache.EvictPublicProductDetailCache;
+import com.loopers.application.ranking.cache.EvictRankingProductCache;
 import com.loopers.application.product.command.CreateProductCommand;
 import com.loopers.application.product.command.UpdateProductCommand;
 import com.loopers.domain.product.Product;
@@ -74,6 +75,11 @@ public class ProductApplicationService {
         return productRepository.findIdsByBrandId(brandId);
     }
 
+    @Transactional(readOnly = true)
+    public java.util.List<Product> findAllByIds(java.util.List<UUID> productIds) {
+        return productRepository.findAllByIdIn(productIds);
+    }
+
     @Transactional
     public void deleteSoftByBrandId(UUID brandId) {
         productRepository.softDeleteByBrandId(brandId);
@@ -81,6 +87,7 @@ public class ProductApplicationService {
 
     @Transactional
     @EvictPublicProductDetailCache
+    @EvictRankingProductCache
     public Product update(UUID productId, UpdateProductCommand command) {
         Product existing = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));
@@ -109,6 +116,7 @@ public class ProductApplicationService {
 
     @Transactional
     @EvictPublicProductDetailCache
+    @EvictRankingProductCache
     public void deleteSoft(UUID productId) {
         Product existing = productRepository.findById(productId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "상품을 찾을 수 없습니다."));

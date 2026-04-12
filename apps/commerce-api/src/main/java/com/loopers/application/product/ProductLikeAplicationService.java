@@ -1,6 +1,7 @@
 package com.loopers.application.product;
 
 import com.loopers.application.product.cache.EvictPublicProductDetailCache;
+import com.loopers.application.ranking.cache.EvictRankingProductCache;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.support.error.CoreException;
@@ -42,6 +43,7 @@ public class ProductLikeAplicationService {
 
     @Transactional
     @EvictPublicProductDetailCache
+    @EvictRankingProductCache
     public void increaseLikeCount(UUID productId) {
         int updatedCount = productRepository.updateLikeCount(productId, 1);
         if (updatedCount == 0) {
@@ -51,6 +53,7 @@ public class ProductLikeAplicationService {
 
     @Transactional
     @EvictPublicProductDetailCache
+    @EvictRankingProductCache
     public void decreaseLikeCount(UUID productId) {
         int updatedCount = productRepository.updateLikeCount(productId, -1);
         if (updatedCount == 0) {
@@ -60,6 +63,7 @@ public class ProductLikeAplicationService {
 
     @Transactional
     @EvictPublicProductDetailCache
+    @EvictRankingProductCache
     public void decreaseLikeCountIfPresent(UUID productId) {
         productRepository.updateLikeCount(productId, -1);
     }
