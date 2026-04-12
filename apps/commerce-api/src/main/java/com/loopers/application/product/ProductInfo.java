@@ -16,10 +16,15 @@ public record ProductInfo(
         Integer stock,
         String imageUrl,
         Integer likesCount,
+        Long rank,
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
 ) {
     public static ProductInfo from(Product product, Brand brand) {
+        return from(product, brand, null);
+    }
+
+    public static ProductInfo from(Product product, Brand brand, Long rank) {
         return new ProductInfo(
                 product.getId(),
                 product.getBrandId(),
@@ -30,6 +35,7 @@ public record ProductInfo(
                 product.getStock(),
                 product.getImageUrl(),
                 product.getLikesCount(),
+                rank,
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );

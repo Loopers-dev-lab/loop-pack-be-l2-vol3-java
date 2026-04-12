@@ -35,6 +35,7 @@ public class ProductV1Dto {
             Integer stock,
             String imageUrl,
             Integer likesCount,
+            Long rank,
             ZonedDateTime createdAt,
             ZonedDateTime updatedAt
     ) {
@@ -49,6 +50,7 @@ public class ProductV1Dto {
                     info.stock(),
                     info.imageUrl(),
                     info.likesCount(),
+                    info.rank(),
                     info.createdAt(),
                     info.updatedAt()
             );

@@ -1,10 +1,14 @@
 package com.loopers.application.order;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.coupon.CouponService;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderHistoryService;
 import com.loopers.domain.order.OrderItem;
 import com.loopers.domain.order.OrderService;
+import com.loopers.domain.outbox.OutboxEvent;
+import com.loopers.domain.outbox.OutboxEventService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 
@@ -17,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +31,8 @@ public class OrderFacade {
     private final OrderHistoryService orderHistoryService;
     private final CouponService couponService;
     private final ProductService productService;
+    private final OutboxEventService outboxEventService;
+    private final ObjectMapper objectMapper;
 
     public record OrderItemRequest(Long productId, Integer quantity) {}
 
@@ -53,7 +60,23 @@ public class OrderFacade {
         }
 
         Order order = orderService.createOrder(userId, orderItems, discountAmount, userCouponId);
+        saveOrderCompletedEvent(order, itemRequests);
         return OrderInfo.from(order);
+    }
+
+    private void saveOrderCompletedEvent(Order order, List<OrderItemRequest> itemRequests) {
+        try {
+            List<Map<String, Object>> items = itemRequests.stream()
+                    .map(r -> Map.<String, Object>of("productId", r.productId(), "quantity", r.quantity()))
+                    .toList();
+            String payload = objectMapper.writeValueAsString(Map.of("orderId", order.getId(), "items", items));
+            OutboxEvent outboxEvent = OutboxEvent.create(
+                    "catalog-events", "ORDER_COMPLETED", String.valueOf(order.getId()), payload
+            );
+            outboxEventService.save(outboxEvent);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Outbox 이벤트 직렬화 실패", e);
+        }
     }
 
     public OrderInfo getOrder(Long orderId, Long userId) {
