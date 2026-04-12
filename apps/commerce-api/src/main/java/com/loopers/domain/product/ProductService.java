@@ -73,6 +73,13 @@ public class ProductService {
         return productRepository.adminSearch(condition, pageable);
     }
 
+    /**
+     * 랭킹 응답 조립용 — 노출 가능한 상품만 다건 조회한다.
+     */
+    public List<Product> findVisibleByIds(List<Long> ids) {
+        return productRepository.findVisibleByIds(ids);
+    }
+
     public Product update(Long productId, String name, int price, int supplyPrice, int discountPrice,
                           int shippingFee, String description, ProductStatus status,
                           String displayYn, List<ProductOption> options) {

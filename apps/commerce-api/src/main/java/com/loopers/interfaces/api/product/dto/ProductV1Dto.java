@@ -55,9 +55,18 @@ public class ProductV1Dto {
             ProductStatus status,
             String displayYn,
             List<ProductOptionResponse> options,
-            ZonedDateTime createdAt) {
+            ZonedDateTime createdAt,
+            /**
+             * 일간 랭킹 순위 (1-based). 순위권 밖이면 null.
+             * R9 - week9.md §9 참조.
+             */
+            Long dailyRank) {
 
         public static ProductDetailResponse from(ProductDetailInfo info) {
+            return from(info, null);
+        }
+
+        public static ProductDetailResponse from(ProductDetailInfo info, Long dailyRank) {
             List<ProductOptionResponse> optionResponses = info.options().stream()
                     .map(ProductOptionResponse::from)
                     .toList();
@@ -77,7 +86,8 @@ public class ProductV1Dto {
                     info.status(),
                     info.displayYn(),
                     optionResponses,
-                    info.createdAt());
+                    info.createdAt(),
+                    dailyRank);
         }
     }
 

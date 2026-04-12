@@ -125,7 +125,8 @@ public class OrderPaymentFacade {
 
     private List<OrderPaidEvent.OrderedProduct> toOrderedProductEvents(OrderDetailInfo orderInfo) {
         return orderInfo.orderItems().stream()
-                .map(item -> new OrderPaidEvent.OrderedProduct(item.productId(), item.quantity()))
+                .map(item -> new OrderPaidEvent.OrderedProduct(
+                        item.productId(), item.quantity(), item.price()))
                 .toList();
     }
 }

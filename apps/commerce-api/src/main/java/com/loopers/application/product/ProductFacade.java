@@ -14,6 +14,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 // 상품 관련 Use Case Facade.
 //
 // Kafka 이벤트 발행:
@@ -137,5 +142,24 @@ public class ProductFacade {
 
     public Page<ProductInfo> getLikedProducts(Long memberId, Pageable pageable) {
         return likeService.getLikedProducts(memberId, pageable).map(ProductInfo::from);
+    }
+
+    /**
+     * 랭킹 응답 조립용 — 노출 가능한 상품 정보를 id → `ProductInfo` Map 으로 반환한다.
+     *
+     * 필터: `deletedAt IS NULL AND displayYn = 'Y'`.
+     * 캐시를 우회하고 DB 를 직접 조회한다 (랭킹 응답은 size <= 20 수준이라 캐시 이득 제한적).
+     * 삭제/숨김 상품은 Map 에 포함되지 않으며, 호출 측이 필터링 후 응답을 축소할 수 있다.
+     */
+    public Map<Long, ProductInfo> findVisibleByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Map.of();
+        List<Product> products = productService.findVisibleByIds(ids);
+        return products.stream()
+                .collect(Collectors.toMap(
+                        Product::getId,
+                        ProductInfo::from,
+                        (a, b) -> a,
+                        LinkedHashMap::new
+                ));
     }
 }

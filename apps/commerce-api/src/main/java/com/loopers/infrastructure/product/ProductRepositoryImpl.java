@@ -299,6 +299,21 @@ public class ProductRepositoryImpl implements ProductRepository {
         return productJpaRepository.decrementLikeCount(productId);
     }
 
+    @Override
+    public List<Product> findVisibleByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return queryFactory
+                .selectFrom(product)
+                .join(product.brand, brand).fetchJoin()
+                .where(product.id.in(ids)
+                        .and(product.deletedAt.isNull())
+                        .and(product.displayYn.eq("Y")))
+                .fetch();
+    }
+
+    // 상품 목록에 옵션을 조립한다. 옵션을 상품 id 목록으로 일괄 조회하여 N+1 을 방지한다.
     private List<Product> assembleWithOptions(List<Product> products) {
         if (products.isEmpty()) {
             return products;

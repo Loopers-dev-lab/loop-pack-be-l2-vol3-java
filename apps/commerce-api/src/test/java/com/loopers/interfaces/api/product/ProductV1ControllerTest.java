@@ -4,6 +4,7 @@ import com.loopers.application.product.ProductDetailInfo;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductOptionInfo;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.config.WebMvcConfig;
 import com.loopers.domain.auth.LdapAuthService;
 import com.loopers.domain.member.Member;
@@ -55,6 +56,9 @@ class ProductV1ControllerTest {
     private ProductFacade productFacade;
 
     @MockBean
+    private RankingFacade rankingFacade;
+
+    @MockBean
     private MemberService memberService;
 
     @MockBean
@@ -97,18 +101,39 @@ class ProductV1ControllerTest {
     class GetProduct {
 
         @Test
-        @DisplayName("인증 없이 상품 상세 조회 시 200 OK를 반환한다.")
+        @DisplayName("인증 없이 상품 상세 조회 시 200 OK와 dailyRank 를 반환하고 rankingFacade 를 1회 호출한다.")
         void returnsOk_withoutAuth() throws Exception {
             // given
             ProductOptionInfo optInfo = new ProductOptionInfo(1L, "M사이즈", 100);
             ProductDetailInfo info = new ProductDetailInfo(1L, 1L, "나이키", "에어맥스", 100000, 80000, 10000, 3000, 0, "설명", MarginType.AMOUNT, ProductStatus.ON_SALE, "Y", List.of(optInfo), ZonedDateTime.now());
             when(productFacade.getProduct(1L, null)).thenReturn(info);
+            when(rankingFacade.getDailyRank(1L)).thenReturn(3L);
 
             // when & then
             mockMvc.perform(get("/api/v1/products/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(1))
-                .andExpect(jsonPath("$.data.name").value("에어맥스"));
+                .andExpect(jsonPath("$.data.name").value("에어맥스"))
+                .andExpect(jsonPath("$.data.dailyRank").value(3));
+
+            verify(rankingFacade).getDailyRank(1L);
+        }
+
+        @Test
+        @DisplayName("순위권 밖 상품 조회 시 dailyRank 가 null 로 직렬화된다.")
+        void returnsNullRank_whenNotRanked() throws Exception {
+            // given
+            ProductOptionInfo optInfo = new ProductOptionInfo(1L, "M사이즈", 100);
+            ProductDetailInfo info = new ProductDetailInfo(1L, 1L, "나이키", "에어맥스", 100000, 80000, 10000, 3000, 0, "설명", MarginType.AMOUNT, ProductStatus.ON_SALE, "Y", List.of(optInfo), ZonedDateTime.now());
+            when(productFacade.getProduct(1L, null)).thenReturn(info);
+            when(rankingFacade.getDailyRank(1L)).thenReturn(null);
+
+            // when & then
+            mockMvc.perform(get("/api/v1/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dailyRank").doesNotExist());
+
+            verify(rankingFacade).getDailyRank(1L);
         }
 
         @Test
@@ -121,6 +146,51 @@ class ProductV1ControllerTest {
             // when & then
             mockMvc.perform(get("/api/v1/products/999"))
                 .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("랭킹 저장소 예외 발생 시 200 OK + dailyRank=null 을 반환한다.")
+        void returnsOkWithNullRank_whenRankingFacadeThrows() throws Exception {
+            // given
+            ProductOptionInfo optInfo = new ProductOptionInfo(1L, "M사이즈", 100);
+            ProductDetailInfo info = new ProductDetailInfo(1L, 1L, "나이키", "에어맥스", 100000, 80000, 10000, 3000, 0, "설명", MarginType.AMOUNT, ProductStatus.ON_SALE, "Y", List.of(optInfo), ZonedDateTime.now());
+            when(productFacade.getProduct(1L, null)).thenReturn(info);
+            when(rankingFacade.getDailyRank(1L)).thenThrow(new RuntimeException("Redis 연결 실패"));
+
+            // when & then
+            mockMvc.perform(get("/api/v1/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dailyRank").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("랭킹 저장소 예외 발생 시 로컬 캐시 엔드포인트도 200 OK + dailyRank=null 을 반환한다.")
+        void localCache_returnsOkWithNullRank_whenRankingFacadeThrows() throws Exception {
+            // given
+            ProductOptionInfo optInfo = new ProductOptionInfo(1L, "M사이즈", 100);
+            ProductDetailInfo info = new ProductDetailInfo(1L, 1L, "나이키", "에어맥스", 100000, 80000, 10000, 3000, 0, "설명", MarginType.AMOUNT, ProductStatus.ON_SALE, "Y", List.of(optInfo), ZonedDateTime.now());
+            when(productFacade.getProductWithLocalCache(1L)).thenReturn(info);
+            when(rankingFacade.getDailyRank(1L)).thenThrow(new RuntimeException("Redis 연결 실패"));
+
+            // when & then
+            mockMvc.perform(get("/api/v1/products/1/local-cache"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dailyRank").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("랭킹 저장소 예외 발생 시 캐시 미적용 엔드포인트도 200 OK + dailyRank=null 을 반환한다.")
+        void noCache_returnsOkWithNullRank_whenRankingFacadeThrows() throws Exception {
+            // given
+            ProductOptionInfo optInfo = new ProductOptionInfo(1L, "M사이즈", 100);
+            ProductDetailInfo info = new ProductDetailInfo(1L, 1L, "나이키", "에어맥스", 100000, 80000, 10000, 3000, 0, "설명", MarginType.AMOUNT, ProductStatus.ON_SALE, "Y", List.of(optInfo), ZonedDateTime.now());
+            when(productFacade.getProductNoCache(1L)).thenReturn(info);
+            when(rankingFacade.getDailyRank(1L)).thenThrow(new RuntimeException("Redis 연결 실패"));
+
+            // when & then
+            mockMvc.perform(get("/api/v1/products/1/no-cache"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.dailyRank").doesNotExist());
         }
     }
 

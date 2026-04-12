@@ -1,25 +1,11 @@
 package com.loopers.domain.metrics;
 
-import java.util.Optional;
-
-/**
- * 상품 메트릭 저장소 인터페이스 (DIP).
+/*
+ * [R7 레거시 — 주석 보존]
+ *
+ * 본 인터페이스는 R7 `ProductMetrics` 저장소 계약이었으며, R9 랭킹 파이프라인
+ * (`ProductMetricsHourlyRepository`) 도입과 함께 비활성화되었다. 히스토리/참고 목적으로 보존한다.
+ *
+ * 대체: com.loopers.domain.ranking.ProductMetricsHourlyRepository
+ * 관련 문서: docs/week9/week9.md §9
  */
-public interface ProductMetricsRepository {
-
-    /**
-     * 상품 ID로 메트릭을 조회한다.
-     *
-     * @param productId 상품 ID
-     * @return 메트릭 (없으면 empty)
-     */
-    Optional<ProductMetrics> findByProductId(Long productId);
-
-    /**
-     * 상품 메트릭을 저장/업데이트한다.
-     *
-     * @param productMetrics 저장할 메트릭
-     * @return 저장된 메트릭
-     */
-    ProductMetrics save(ProductMetrics productMetrics);
-}
