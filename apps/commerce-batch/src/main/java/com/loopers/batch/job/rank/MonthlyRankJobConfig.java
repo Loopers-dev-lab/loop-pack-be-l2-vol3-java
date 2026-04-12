@@ -1,7 +1,7 @@
 package com.loopers.batch.job.rank;
 
 import com.loopers.batch.job.rank.step.AggregatedScoreRow;
-import com.loopers.batch.job.rank.step.CleanupMvTasklet;
+import com.loopers.batch.job.rank.step.AtomicMvRankWriter;
 import com.loopers.batch.job.rank.step.RankAssignProcessor;
 import com.loopers.batch.listener.ChunkListener;
 import com.loopers.batch.listener.JobListener;
@@ -18,15 +18,14 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
-import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
-import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.time.LocalDate;
@@ -38,7 +37,6 @@ import java.time.format.DateTimeFormatter;
 public class MonthlyRankJobConfig {
 
     public static final String JOB_NAME = "monthlyRankJob";
-    private static final String CLEANUP_STEP = "cleanupMonthlyStep";
     private static final String BUILD_STEP = "buildMonthlyRankStep";
     private static final int CHUNK_SIZE = 20;
     private static final int TOP_N = 100;
@@ -66,23 +64,11 @@ public class MonthlyRankJobConfig {
     private final ChunkListener chunkListener;
 
     @Bean(JOB_NAME)
-    public Job monthlyRankJob(Step cleanupMonthlyStep, Step buildMonthlyRankStep) {
+    public Job monthlyRankJob(Step buildMonthlyRankStep) {
         return new JobBuilder(JOB_NAME, jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(jobListener)
-                .start(cleanupMonthlyStep)
-                .next(buildMonthlyRankStep)
-                .build();
-    }
-
-    @Bean(CLEANUP_STEP)
-    @JobScope
-    public Step cleanupMonthlyStep(@Value("#{jobParameters['date']}") String dateStr) {
-        LocalDate date = LocalDate.parse(dateStr, DATE_FMT);
-        String periodKey = RankingKeyGenerator.monthlyPeriodKey(date);
-        return new StepBuilder(CLEANUP_STEP, jobRepository)
-                .tasklet(new CleanupMvTasklet(mvProductRankRepository, RankPeriodType.MONTHLY, periodKey), transactionManager)
-                .listener(stepMonitorListener)
+                .start(buildMonthlyRankStep)
                 .build();
     }
 
@@ -94,11 +80,19 @@ public class MonthlyRankJobConfig {
         LocalDate monthStart = RankingKeyGenerator.monthStart(date);
         LocalDate monthEnd = RankingKeyGenerator.monthEnd(date);
 
+        AtomicMvRankWriter writer = new AtomicMvRankWriter(
+                mvProductRankRepository,
+                RankPeriodType.MONTHLY,
+                periodKey,
+                new TransactionTemplate(transactionManager)
+        );
+
         return new StepBuilder(BUILD_STEP, jobRepository)
                 .<AggregatedScoreRow, MvProductRankRow>chunk(CHUNK_SIZE, transactionManager)
                 .reader(monthlyScoreReader(monthStart, monthEnd))
                 .processor(new RankAssignProcessor(periodKey))
-                .writer(rankWriter())
+                .writer(writer)
+                .listener(writer)
                 .listener(stepMonitorListener)
                 .listener(chunkListener)
                 .build();
@@ -121,26 +115,6 @@ public class MonthlyRankJobConfig {
                         rs.getLong("total_like"),
                         rs.getBigDecimal("total_order")
                 ))
-                .build();
-    }
-
-    private JdbcBatchItemWriter<MvProductRankRow> rankWriter() {
-        return new JdbcBatchItemWriterBuilder<MvProductRankRow>()
-                .dataSource(dataSource)
-                .sql("""
-                        INSERT INTO mv_product_rank_monthly
-                            (period_key, rank_no, ref_product_id, score, view_count, like_count, order_amount, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                        """)
-                .itemPreparedStatementSetter((row, ps) -> {
-                    ps.setString(1, row.periodKey());
-                    ps.setInt(2, row.rankNo());
-                    ps.setLong(3, row.refProductId());
-                    ps.setDouble(4, row.score());
-                    ps.setLong(5, row.viewCount());
-                    ps.setLong(6, row.likeCount());
-                    ps.setBigDecimal(7, row.orderAmount());
-                })
                 .build();
     }
 }
