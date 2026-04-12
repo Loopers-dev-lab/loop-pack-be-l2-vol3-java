@@ -28,6 +28,8 @@ spring:
     activate:
       on-profile: local, test
   batch:
+    job:
+      enabled: false
     jdbc:
       initialize-schema: always
 

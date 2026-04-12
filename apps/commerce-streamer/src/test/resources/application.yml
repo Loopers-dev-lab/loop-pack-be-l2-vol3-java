@@ -1,0 +1,17 @@
+spring:
+  main:
+    web-application-type: none
+  application:
+    name: commerce-streamer-test
+  profiles:
+    active: test
+
+datasource:
+  redis:
+    database: 0
+    master:
+      host: localhost
+      port: 6379
+    replicas:
+      - host: localhost
+        port: 6380

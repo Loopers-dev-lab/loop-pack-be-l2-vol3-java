@@ -86,6 +86,7 @@ subprojects {
         systemProperty("user.timezone", "Asia/Seoul")
         systemProperty("spring.profiles.active", "test")
         jvmArgs("-Xshare:off")
+        environment("DOCKER_API_VERSION", "1.44")
     }
 
     tasks.withType<JacocoReport> {
