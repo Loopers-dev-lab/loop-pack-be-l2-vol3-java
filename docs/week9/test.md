@@ -2,12 +2,12 @@
 
 ## TL;DR
 
-- **총 신규 테스트 파일**: 11개 (streamer 7 + api 4)
-- **총 테스트 케이스**: **68개** (Unit 38 / Integration 22 / E2E 8)
-- **실행 결과**: **failures=0, errors=0** — 전부 통과
-- **실행 시각**: 2026-04-09 14:51 KST — `./gradlew ... --rerun-tasks` (강제 재실행)
-- **벽시계 소요 시간**: **1m 9s** (BUILD SUCCESSFUL)
-- **Testsuite 실행 시간 합**: **4.08s** (JVM/Context/Testcontainers 구동 시간 제외)
+- **총 신규 테스트 파일**: 15개 (streamer 10 + api 5)
+- **총 테스트 케이스**: **100개** (Unit 69 / Integration 23 / E2E 8)
+- **실행 결과**: **failures=0, errors=0** — 랭킹 관련 전부 통과
+- **실행 시각**: 2026-04-10 11:24 KST — `./gradlew ... --rerun-tasks` (강제 재실행)
+- **벽시계 소요 시간**: **3m 1s** (전체 suite 포함)
+- **Testsuite 실행 시간 합**: **3.12s** (JVM/Context/Testcontainers 구동 시간 제외)
 - **커버 범위**: 도메인 로직 / 배치 aggregate / DB Native UPSERT / Redis ZADD·ZREVRANGE·ZREVRANK / Kafka 배치 리스너 경로 / 스케줄러 / HTTP E2E
 
 ---
@@ -40,7 +40,7 @@
 
 ---
 
-## 2. commerce-streamer 테스트 (45 케이스, 7 파일)
+## 2. commerce-streamer 테스트 (64 케이스, 10 파일)
 
 ### 2-1. `RankingKeyTest` (단위 · 4 케이스)
 
@@ -88,12 +88,12 @@
 
 **결과**: 10 passed · 0.005s
 
-### 2-3. `BatchAggregatorTest` (단위 · 12 케이스)
+### 2-3. `BatchAggregatorTest` (단위 · 15 케이스)
 
 **위치**: `src/test/java/com/loopers/application/ranking/BatchAggregatorTest.java`
 **대상**: `BatchAggregator.aggregateCatalog / aggregateOrder / extractEventId` — Kafka `poll()` 결과를 상품별 `MetricDelta` 로 압축
 
-#### `@Nested Catalog` — catalog-events 집계 (6)
+#### `@Nested Catalog` — catalog-events 집계 (9)
 
 | # | 케이스 | 검증 포인트 |
 |---|---|---|
@@ -103,6 +103,9 @@
 | 4 | 서로 다른 상품은 분리되어 집계 | 상품별 분리 |
 | 5 | 잘못된 JSON 레코드는 skip 하고 나머지는 정상 처리 | 파싱 실패 격리 |
 | 6 | 빈 리스트는 빈 Map 을 반환한다 | 엣지 케이스 |
+| 7 | productId 가 문자열 'abc' 이면 skip 된다 | productId 타입 방어 |
+| 8 | productId 가 빈 문자열이면 skip 된다 | productId 빈값 방어 |
+| 9 | productId 가 boolean true 이면 skip 된다 | productId 타입 방어 |
 
 #### `@Nested Order` — order-events 집계 (4)
 
@@ -120,9 +123,9 @@
 | 1 | 정상 payload 에서 eventId 를 꺼낸다 | 멱등 필터 입력 |
 | 2 | 파싱 실패 시 null | 방어 로직 |
 
-**결과**: 12 passed · 0.21s
+**결과**: 15 passed
 
-### 2-4. `RankingAggregationServiceTest` (단위 · 5 케이스)
+### 2-4. `RankingAggregationServiceTest` (단위 · 6 케이스)
 
 **위치**: `src/test/java/com/loopers/application/ranking/RankingAggregationServiceTest.java`
 **대상**: `RankingAggregationService.processCatalogBatch / processOrderBatch` — 멱등 필터 → aggregate → DB UPSERT → snapshot → 재계산 → ZADD → event_handled 저장
@@ -134,7 +137,7 @@
 |---|---|---|
 | 1 | 정상 경로 — 상품별 UPSERT + snapshot + ZADD + event_handled 저장 | 전체 흐름 · ZADD 키 `ranking:all:20260409` |
 | 2 | 이미 처리된 eventId 는 필터링되어 중복 반영되지 않는다 | 멱등 필터 |
-| 3 | 전부 이미 처리된 배치는 no-op (UPSERT/ZADD 호출 없음) | 짧은 회로 · `verify(never())` |
+| 3 | 전부 이미 처리된 배치라도 ZADD 동기화는 수행하여 Redis를 복구한다 | UPSERT `never()` · ZADD `times(1)` — 부분 실패 후 자가 복구 보장 |
 | 4 | bucket_hour 는 KST 현재 시각을 시간 단위로 절삭한다 | `truncatedTo(HOURS)` 정확성 |
 
 #### `@Nested OrderBatch` (1)
@@ -143,7 +146,13 @@
 |---|---|---|
 | 1 | order_count/order_amount 가 라인 합산으로 반영된다 | 주문 라인 분리 집계 |
 
-**결과**: 5 passed · 0.20s
+#### `@Nested BulkCallProtection` (1)
+
+| # | 케이스 | 검증 포인트 |
+|---|---|---|
+| 1 | 상품 50개 배치 처리 시 snapshotsByDate 1회 + upsertScores 1회만 호출한다 | N+1 방지 — `verify(times(1))` |
+
+**결과**: 6 passed · 0.20s
 
 ### 2-5. `ProductMetricsHourlyRepositoryImplIntegrationTest` (통합 · 7 케이스)
 
@@ -175,7 +184,7 @@
 
 **결과**: 7 passed · 0.35s
 
-### 2-6. `RankingAggregationServiceIntegrationTest` (통합 · 4 케이스)
+### 2-6. `RankingAggregationServiceIntegrationTest` (통합 · 5 케이스)
 
 **위치**: `src/test/java/com/loopers/application/ranking/RankingAggregationServiceIntegrationTest.java`
 **대상**: `RankingAggregationService` — Kafka 리스너 레이어 없이 직접 호출하여 DB + Redis 실체 연동 검증
@@ -188,14 +197,15 @@
 | 1 | view/like 이벤트가 DB UPSERT + ZSET ZADD 까지 전파된다 | end-to-end · `opsForZSet().score()` 검증 |
 | 2 | 동일 eventId 로 두 번 호출해도 중복 반영되지 않는다 (멱등) | 실제 DB `event_handled` UNIQUE |
 
-#### `@Nested Order` (2)
+#### `@Nested Order` (3)
 
 | # | 케이스 | 검증 포인트 |
 |---|---|---|
 | 1 | **주문 1건(10000원) 이 좋아요 3건 보다 높은 점수를 가진다 (checklist)** | 실 DB + 실 Redis 기반 검증 — `reverseRank` == 0 |
-| 2 | ZSET 키에 retention TTL 이 설정된다 (2 일) | `getExpire()` ≤ 2d |
+| 2 | 상위 TX 롤백 시 UPSERT 도 함께 되돌아간다 | 트랜잭션 원자성 검증 |
+| 3 | ZSET 키에 retention TTL 이 설정된다 (2 일) | `getExpire()` ≤ 2d |
 
-**결과**: 4 passed · 0.92s
+**결과**: 5 passed · 0.984s
 
 ### 2-7. `RankingCarryOverSchedulerIntegrationTest` (통합 · 3 케이스)
 
@@ -211,11 +221,52 @@
 
 **결과**: 3 passed · 0.05s
 
+### 2-8. `RankingCachePropertiesTest` (단위 · 4 케이스)
+
+**위치**: `src/test/java/com/loopers/domain/ranking/RankingCachePropertiesTest.java`
+**대상**: `RankingCacheProperties` — `ranking.cache.retention` YAML 바인딩 및 유효성 검증
+**환경**: `ApplicationContextRunner`
+
+| # | 케이스 | 검증 포인트 |
+|---|---|---|
+| 1 | P2D 는 정상 바인딩된다 | `retention().toDays() == 2` |
+| 2 | PT0S (0초) 는 컨텍스트 로딩에 실패한다 | 양수 강제 |
+| 3 | -PT1S (음수) 는 컨텍스트 로딩에 실패한다 | 음수 방어 |
+| 4 | retention 이 누락되면 컨텍스트 로딩에 실패한다 | 필수값 강제 |
+
+### 2-9. `RankingWeightsTest` (단위 · 5 케이스)
+
+**위치**: `src/test/java/com/loopers/domain/ranking/RankingWeightsTest.java`
+**대상**: `RankingWeights` — `ranking.weights.*` YAML 바인딩 및 유효성 검증
+**환경**: `ApplicationContextRunner`
+
+| # | 케이스 | 검증 포인트 |
+|---|---|---|
+| 1 | 0.1/0.2/0.7 은 정상 바인딩된다 | view/like/order 각 필드 값 검증 |
+| 2 | 음수 가중치는 컨텍스트 로딩에 실패한다 | 음수 방어 |
+| 3 | NaN 가중치는 컨텍스트 로딩에 실패한다 | NaN 방어 |
+| 4 | Infinity 가중치는 컨텍스트 로딩에 실패한다 | Infinity 방어 |
+| 5 | 총합이 0이면 컨텍스트 로딩에 실패한다 | 전체 0 방어 |
+
+### 2-10. `RedisRankingReaderTest` (단위 · 5 케이스)
+
+**위치**: `src/test/java/com/loopers/infrastructure/ranking/RedisRankingReaderTest.java`
+**대상**: `RedisRankingReader.forEachWithScore` — 페이지 단위 ZRANGE 청크 순회 (OOM 방어)
+**더블**: Mockito로 `RedisTemplate`, `ZSetOperations` 모킹
+
+| # | 케이스 | 검증 포인트 |
+|---|---|---|
+| 1 | 엔트리가 PAGE_SIZE 이하이면 ZRANGE 1회 호출로 완료된다 | 단일 페이지 |
+| 2 | 엔트리가 PAGE_SIZE+1 개이면 ZRANGE 2회 호출되고 모두 순회된다 | 페이지 경계 |
+| 3 | 빈 키에서는 consumer 가 호출되지 않는다 | 엣지 케이스 |
+| 4 | key 가 null 이면 consumer 가 호출되지 않는다 | null 방어 |
+| 5 | 잘못된 멤버 값은 skip 되고 나머지는 모두 전달된다 | 파싱 실패 격리 |
+
 ---
 
-## 3. commerce-api 테스트 (23 케이스, 4 파일)
+## 3. commerce-api 테스트 (36 케이스, 6 파일)
 
-### 3-1. `RankingFacadeTest` (단위 · 7 케이스)
+### 3-1. `RankingFacadeTest` (단위 · 11 케이스)
 
 **위치**: `src/test/java/com/loopers/application/ranking/RankingFacadeTest.java`
 **대상**: `RankingFacade.getDailyRanking / getDailyRank`
@@ -238,7 +289,16 @@
 | 2 | 순위권 밖이면 null | nullable 계약 |
 | 3 | productId 가 null 이면 null 반환 | 방어 |
 
-**결과**: 7 passed · 0.68s
+#### `@Nested KstMidnightBoundary` (4)
+
+| # | 케이스 | 검증 포인트 |
+|---|---|---|
+| 1 | KST 23:59:59 에는 그 날짜 키로 조회한다 | 자정 직전 경계값 |
+| 2 | KST 00:00:00 에는 다음 날짜 키로 조회한다 | 자정 직후 경계값 |
+| 3 | 날짜 생략 케이스 — KST 23:59:59 에는 그 날 키로 getDailyRanking 을 호출한다 | Clock 주입 + 날짜 자동 결정 |
+| 4 | 날짜 생략 케이스 — KST 00:00:00 에는 새 날짜 키로 getDailyRanking 을 호출한다 | Clock 주입 + 날짜 자동 결정 |
+
+**결과**: 11 passed · 0.070s
 
 ### 3-2. `RedisRankingRepositoryIntegrationTest` (통합 · 8 케이스)
 
@@ -301,6 +361,37 @@
 
 **결과**: 2 passed · 0.64s
 
+### 3-5. `RankingKeyTest` (단위 · 4 케이스)
+
+**위치**: `src/test/java/com/loopers/domain/ranking/RankingKeyTest.java`
+**대상**: `RankingKey.daily(LocalDate)` — streamer/api 간 키 포맷 회귀 방지 (api 측)
+
+| # | 케이스 | 검증 포인트 |
+|---|---|---|
+| 1 | yyyyMMdd 포맷으로 prefix 와 결합된다 (streamer/api 간 회귀 방지) | `daily(2026-04-09) == "ranking:all:20260409"` |
+| 2 | 월/일이 한 자리여도 2자리로 zero-padding 된다 | `2026-01-03 → "ranking:all:20260103"` |
+| 3 | null 입력은 IllegalArgumentException 을 던진다 | null 방어 |
+| 4 | 상수 prefix 는 'ranking:all:' 이다 (streamer/api 간 회귀 방지) | `DAILY_PREFIX` 리터럴 고정 |
+
+### 3-6. `ProductV1ControllerTest` (단위 · 5 케이스)
+
+**위치**: `src/test/java/com/loopers/interfaces/api/product/ProductV1ControllerTest.java`
+**대상**: `GET /api/v1/products/{productId}` — week 9 에서 추가된 `dailyRank` 필드 및 Redis 장애 격리 동작 검증
+**더블**: `MockMvc` + `@MockBean RankingFacade`
+**비고**: 기존 파일에 랭킹 관련 케이스 추가. `GetProducts` / `Like` / `Unlike` nested class 는 기존 테스트로 범위 외.
+
+#### `@Nested GetProduct` — dailyRank 관련 (5)
+
+| # | 케이스 | 검증 포인트 |
+|---|---|---|
+| 1 | 인증 없이 상품 상세 조회 시 200 OK 와 dailyRank 를 반환하고 rankingFacade 를 1회 호출한다 | `dailyRank` 직렬화 · `verify(rankingFacade, times(1))` |
+| 2 | 순위권 밖 상품 조회 시 dailyRank 가 null 로 직렬화된다 | nullable 계약 |
+| 3 | 랭킹 저장소 예외 발생 시 200 OK + dailyRank=null 을 반환한다 | Redis 장애 격리 — fallback |
+| 4 | 랭킹 저장소 예외 발생 시 로컬 캐시 엔드포인트도 200 OK + dailyRank=null 을 반환한다 | 캐시 엔드포인트 fallback |
+| 5 | 랭킹 저장소 예외 발생 시 캐시 미적용 엔드포인트도 200 OK + dailyRank=null 을 반환한다 | 캐시 미적용 엔드포인트 fallback |
+
+**결과**: 5 passed (전체 파일 11 passed) · 0.019s
+
 ---
 
 ## 4. 실행 결과 요약
@@ -310,17 +401,22 @@
 | 앱 | 파일 | 유형 | 케이스 | 통과 | 실패 | 에러 | Suite time* |
 |---|---|---|---|---|---|---|---|
 | commerce-streamer | RankingKeyTest | Unit | 4 | 4 | 0 | 0 | 0.002s |
-| commerce-streamer | RankingScoreCalculatorTest | Unit | 10 | 10 | 0 | 0 | 0.003s |
-| commerce-streamer | BatchAggregatorTest | Unit | 12 | 12 | 0 | 0 | 0.048s |
-| commerce-streamer | RankingAggregationServiceTest | Unit | 5 | 5 | 0 | 0 | 0.071s |
-| commerce-streamer | ProductMetricsHourlyRepositoryImplIntegrationTest | Integration | 7 | 7 | 0 | 0 | 0.322s |
-| commerce-streamer | RankingAggregationServiceIntegrationTest | Integration | 4 | 4 | 0 | 0 | 0.815s |
-| commerce-streamer | RankingCarryOverSchedulerIntegrationTest | Integration | 3 | 3 | 0 | 0 | 0.047s |
-| commerce-api | RankingFacadeTest | Unit | 7 | 7 | 0 | 0 | 0.677s |
-| commerce-api | RedisRankingRepositoryIntegrationTest | Integration | 8 | 8 | 0 | 0 | 0.103s |
-| commerce-api | RankingV1ApiE2ETest | E2E | 6 | 6 | 0 | 0 | 1.252s |
-| commerce-api | ProductDetailDailyRankE2ETest | E2E | 2 | 2 | 0 | 0 | 0.742s |
-| **합계** | **11** |  | **68** | **68** | **0** | **0** | **4.082s** |
+| commerce-streamer | RankingScoreCalculatorTest | Unit | 10 | 10 | 0 | 0 | 0.004s |
+| commerce-streamer | BatchAggregatorTest | Unit | 15 | 15 | 0 | 0 | 0.054s |
+| commerce-streamer | RankingAggregationServiceTest | Unit | 6 | 6 | 0 | 0 | 0.183s |
+| commerce-streamer | RankingCachePropertiesTest | Unit | 4 | 4 | 0 | 0 | 0.035s |
+| commerce-streamer | RankingWeightsTest | Unit | 5 | 5 | 0 | 0 | 0.023s |
+| commerce-streamer | RedisRankingReaderTest | Unit | 5 | 5 | 0 | 0 | 0.012s |
+| commerce-streamer | ProductMetricsHourlyRepositoryImplIntegrationTest | Integration | 7 | 7 | 0 | 0 | 0.329s |
+| commerce-streamer | RankingAggregationServiceIntegrationTest | Integration | 5 | 5 | 0 | 0 | 0.984s |
+| commerce-streamer | RankingCarryOverSchedulerIntegrationTest | Integration | 3 | 3 | 0 | 0 | 0.053s |
+| commerce-api | RankingKeyTest | Unit | 4 | 4 | 0 | 0 | 0.001s |
+| commerce-api | RankingFacadeTest | Unit | 11 | 11 | 0 | 0 | 0.070s |
+| commerce-api | ProductV1ControllerTest | Unit | 5 | 5 | 0 | 0 | 0.019s |
+| commerce-api | RedisRankingRepositoryIntegrationTest | Integration | 8 | 8 | 0 | 0 | 0.033s |
+| commerce-api | RankingV1ApiE2ETest | E2E | 6 | 6 | 0 | 0 | 1.050s |
+| commerce-api | ProductDetailDailyRankE2ETest | E2E | 2 | 2 | 0 | 0 | 0.288s |
+| **합계** | **16** |  | **100** | **100** | **0** | **0** | **3.140s** |
 
 *Suite time: JUnit `testsuite time` 속성 합계. Spring 컨텍스트 구동 · Testcontainers 부팅은 첫 테스트에 흡수됨. 벽시계 기준 전체 실행은 **1m 9s**.
 
@@ -328,10 +424,10 @@
 
 | 유형 | 케이스 | Suite time 합 | 평균/케이스 |
 |---|---|---|---|
-| Unit | 38 | 0.801s | 21ms |
-| Integration | 22 | 1.287s | 58ms |
-| E2E | 8 | 1.994s | 249ms |
-| **총계** | **68** | **4.082s** | **60ms** |
+| Unit | 69 | 0.402s | 6ms |
+| Integration | 23 | 1.399s | 61ms |
+| E2E | 8 | 1.338s | 167ms |
+| **총계** | **100** | **3.140s** | - |
 
 ### 4-3. 최종 Gradle 실행 로그
 
@@ -351,7 +447,7 @@ BUILD SUCCESSFUL in 1m 9s
 29 actionable tasks: 29 executed
 ```
 
-`--rerun-tasks` 는 Gradle 의 task cache 를 무시하고 강제로 모든 태스크를 재실행한다. 68개 테스트가 모두 통과했으며 (failures=0, errors=0), 벽시계 기준 `1m 9s` 가 소요되었다.
+`--rerun-tasks` 는 Gradle 의 task cache 를 무시하고 강제로 모든 태스크를 재실행한다. 랭킹 관련 100개 테스트가 모두 통과했으며 (failures=0, errors=0), 벽시계 기준 `3m 1s` 가 소요되었다. (비랭킹 `QueueV1ApiE2ETest` 2건 실패는 9주차 범위 외 별개 이슈)
 
 ---
 
@@ -373,7 +469,7 @@ Nice-To-Have:
 
 | 항목 | 커버 테스트 |
 |---|---|
-| 카프카 배치 리스너 (집계 압축) | `BatchAggregatorTest` (12 케이스) · `RankingAggregationServiceTest.CatalogBatch` |
+| 카프카 배치 리스너 (집계 압축) | `BatchAggregatorTest` (15 케이스) · `RankingAggregationServiceTest.CatalogBatch` |
 | 23:50 Score Carry-Over 스케줄러 | `RankingCarryOverSchedulerIntegrationTest` (3 케이스) |
 | 멱등성 (배치 내 중복, 재처리) | `RankingAggregationServiceTest.idempotencyFilter` · `allAlreadyHandled` · `RankingAggregationServiceIntegrationTest.idempotency` |
 | GREATEST 가드 (좋아요 취소 · 음수 방지) | `ProductMetricsHourlyRepositoryImplIntegrationTest.insertNegativeLikeClamped` · `decrementLikeClamped` |

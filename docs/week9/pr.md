@@ -2,7 +2,7 @@
 
 - **배경**: 사용자의 행동에 대해 Kafka → commerce-streamer 으로 `product_metrics`에 이벤트를 집계하고 있었으나, 랭킹 정보를 API로 제공하는 수단이 없었습니다. RDB `GROUP BY + ORDER BY` 방식은 트래픽이 많아질수록 병목이 되며, 랭킹 특성상 높은 조회 빈도가 DB 과부하로 이어질 수 있습니다.
 - **목표**: Redis ZSET을 기반으로 실시간 랭킹 집계 파이프라인을 구축하고, 일간 인기 상품 Top-N API와 상품 상세의 순위 정보를 제공합니다.
-- **결과**: Kafka 배치 리스너가 `product_metrics` 집계 → 점수 재계산 → ZADD 덮어쓰기를 메시지를 받을 때마다 수행하며, commerce-api는 단순 `ZREVRANGE` / `ZREVRANK`만으로 랭킹을 응답합니다. 신규 95개 테스트 ALL PASS, k6 쓰기 처리량 시나리오(A-3) 실측 완료.
+- **결과**: Kafka 배치 리스너가 `product_metrics` 집계 → 점수 재계산 → ZADD 덮어쓰기를 메시지를 받을 때마다 수행하며, commerce-api는 단순 `ZREVRANGE` / `ZREVRANK`만으로 랭킹을 응답합니다. 신규 100개 테스트 ALL PASS, k6 쓰기 처리량 시나리오(A-3) 실측 완료.
 
 
 ## 🧭 Context & Decision
@@ -232,7 +232,7 @@ flowchart LR
   E --> F["오늘 이벤트 유입으로 자연 역전"]
 ```
 
-### Partial Failure 시 Self-Healing
+### Partial Failure 시 자동 복구
 
 ```mermaid
 flowchart LR
@@ -243,13 +243,13 @@ flowchart LR
   D --> F["snapshotToday"]
   E --> F
   F --> G["ZADD\n항상 실행"]
-  G --> H["Self-Healing 완료"]
+  G --> H["자동 복구 완료"]
 ```
 
 
 ## 🧪 테스트
 
-### 신규 테스트 요약 (95건 ALL PASS)
+### 신규 테스트 요약 (100건 ALL PASS)
 
 | # | 테스트 클래스 | 유형 | 모듈 | 건수 | 검증 범위 |
 |---|---|---|---|---|---|
@@ -259,14 +259,14 @@ flowchart LR
 | 4 | `BatchAggregatorTest` | Unit | streamer | 15 | catalog/order 이벤트 압축, 파싱 오류 skip, eventId 추출, 잘못된 productId 타입(문자열/boolean) skip |
 | 5 | `RankingAggregationServiceTest` | Unit | streamer | 6 | 중복 처리 방지 필터, DB 스킵 시에도 ZADD 실행(자동 복구), N+1 bulk 단일 호출 보호 |
 | 6 | `RankingCachePropertiesTest` | Unit | streamer | 4 | null/zero/음수 Duration 컨텍스트 실패, 정상 바인딩 |
-| 7 | `RankingWeightsTest` | Unit | streamer | 4 | NaN/Infinity/음수/합계0 컨텍스트 실패, 정상 바인딩 |
+| 7 | `RankingWeightsTest` | Unit | streamer | 5 | NaN/Infinity/음수/합계0 컨텍스트 실패, 정상 바인딩 |
 | 8 | `RedisRankingReaderTest` | Unit | streamer | 5 | PAGE_SIZE 단위 청크 순회, 빈 키, null 키, 잘못된 멤버 skip |
 | 9 | `ProductMetricsHourlyRepositoryImplIntegrationTest` | Integration | streamer | 7 | 동시 쓰기 안전성, 음수 방지 처리, 중복 키 처리 |
 | 10 | `RankingAggregationServiceIntegrationTest` | Integration | streamer | 5 | 전체 파이프라인(DB+Redis), 중복 메시지 재처리, 상위 TX 롤백 시 UPSERT 원복 |
 | 11 | `RankingCarryOverSchedulerIntegrationTest` | Integration | streamer | 3 | 점수 이월 정상 동작, score × 0.01 적용, 오늘 키 없을 때 아무것도 하지 않음 |
 | 12 | `RedisRankingRepositoryIntegrationTest` | Integration | api | 8 | ZREVRANGE 정렬 순서, 1부터 시작하는 순위 변환, 페이지네이션, 순위권 밖 null |
 | 13 | `RankingFacadeTest` | Unit | api | 11 | ZREVRANGE + findVisibleByIds 조합, 논리 삭제 상품 제외, KST 자정 경계 4케이스 |
-| 14 | `ProductV1ControllerTest` | Unit | api | 4 | Redis 장애 격리 fallback(3 엔드포인트), null rank 행위 검증 |
+| 14 | `ProductV1ControllerTest` | Unit | api | 5 | dailyRank 직렬화, 순위권 밖 null, Redis 장애 격리 fallback(3 엔드포인트) |
 | 15 | `RankingV1ApiE2ETest` | E2E | api | 6 | HTTP 전체 흐름, 날짜 파라미터, 인증, 페이지네이션 |
 | 16 | `ProductDetailDailyRankE2ETest` | E2E | api | 2 | 상품 상세 dailyRank 포함, 순위권 밖 null, 인증 |
 
@@ -365,10 +365,16 @@ like/unlike(30%)는 DB 쓰기 트랜잭션 점유 후 Kafka produce가 `AFTER_CO
 
 `order-events`는 파티션 키가 `orderId`라 같은 상품이 여러 Consumer에 동시에 처리될 수 있어서, `INSERT ... ON DUPLICATE KEY UPDATE`로 DB 수준에서 동시 쓰기를 방어했습니다. 근본적으로는 파티션 키를 `productId`로 바꾸는 게 맞지만, 한 주문에 여러 상품이 포함되는 구조를 함께 재설계해야 해서 이번엔 문서에만 남겨두었어요. Native UPSERT를 먼저 적용하고 파티션 키 재설계를 다음 과제로 미룬 판단이 적절한지 여쭤보고 싶습니다.
 
-### 2. RankingKey 포맷을 두 앱에 각각 복사해도 괜찮을까요?
+### 2. snapshotToday가 상품 수만큼 개별 조회되는 구조, 개선이 필요할까요?
 
-streamer가 ZSET에 쓸 때와 api가 읽을 때 키 포맷(`ranking:all:20260409`)이 반드시 같아야 합니다. 별도 공유 모듈을 두면 두 앱 사이에 의존이 생겨 read/write 분리 원칙이 흐려질 것 같아서, 각 앱에 복사하고 `RankingKeyTest`를 양쪽에 두어 "두 앱의 키가 항상 같은지"를 테스트로 보장했습니다. 실무에서도 이런 방식이 자주 쓰이는지, 아니면 더 나은 접근이 있는지 여쭤봐도 될까요?
+`RankingAggregationService.recalculateFromSnapshot()`에서 배치 내 상품마다 `snapshotToday`를 개별 호출하고 있습니다.
 
-### 3. Carry-Over 이월 비율 0.01, 이 값의 기준이 궁금합니다!
+```java
+for (Long productId : productIds) {
+    ProductDailyAggregate snapshot =
+        productMetricsHourlyRepository.snapshotByDate(productId, today);
+    scores.put(productId, rankingScoreCalculator.calculate(snapshot));
+}
+```
 
-자정 직후 랭킹이 비는 구간을 막기 위해 매일 23:50에 `RankingCarryOverScheduler`가 오늘 ZSET의 점수 × 0.01을 내일 키에 미리 채워둡니다. 멘토링에서 "낮은 가중치를 곱해 이월하라"는 방향을 확인했는데, 구체적인 값은 언급이 없어서 직접 결정해야 했습니다. 값이 너무 크면(예: 0.1) 어제 인기 상품이 오늘 랭킹을 계속 지배해 신상품이 치고 올라올 기회가 줄어들고, 너무 작으면(예: 0.001) 자정 직후 Cold Start 완화 효과가 사실상 없어집니다. 0.01이면 오늘 이벤트 몇 건만 쌓여도 어제 시드값을 역전할 수 있다고 판단했는데, 실무에서 이런 이월 비율을 어떤 기준으로 결정하는지 여쭤보고 싶습니다!
+상품 100개가 배치에 담기면 DB SELECT가 100번 발생하는 구조입니다. `WHERE product_id IN (...) GROUP BY product_id`로 한 번에 처리할 수 있는데, 멘토링에서 "N건 → 1회"를 강조해 주셨는데 쓰기(UPSERT)는 배치로 잘 처리하면서 읽기(snapshot)는 N회가 된 점이 마음에 걸립니다. 자동 복구을 위해 allProductIds 전체를 항상 조회해야 하는 구조상 이 부분을 배치 SELECT로 개선하는 게 맞는 방향인지 여쭤보고 싶습니다!
