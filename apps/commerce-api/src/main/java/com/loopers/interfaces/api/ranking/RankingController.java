@@ -10,10 +10,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
 
 @RestController
 @RequiredArgsConstructor
@@ -43,6 +45,27 @@ public class RankingController {
                     page,
                     size,
                     rankingQueryFacade.getHourlyPage(metricHour, page, size)
+            ));
+        }
+        if (window == RankingWindow.WEEKLY) {
+            LocalDate periodStartDate = (date != null ? date : LocalDate.now(KOREA_ZONE))
+                    .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            return ApiResponse.success(RankingDto.TopRankingResponse.from(
+                    window.name(),
+                    periodStartDate.format(DateTimeFormatter.BASIC_ISO_DATE),
+                    page,
+                    size,
+                    rankingQueryFacade.getWeeklyPage(periodStartDate, page, size)
+            ));
+        }
+        if (window == RankingWindow.MONTHLY) {
+            LocalDate periodStartDate = (date != null ? date : LocalDate.now(KOREA_ZONE)).withDayOfMonth(1);
+            return ApiResponse.success(RankingDto.TopRankingResponse.from(
+                    window.name(),
+                    periodStartDate.format(DateTimeFormatter.BASIC_ISO_DATE),
+                    page,
+                    size,
+                    rankingQueryFacade.getMonthlyPage(periodStartDate, page, size)
             ));
         }
         LocalDate metricDate = date != null ? date : LocalDate.now(KOREA_ZONE);

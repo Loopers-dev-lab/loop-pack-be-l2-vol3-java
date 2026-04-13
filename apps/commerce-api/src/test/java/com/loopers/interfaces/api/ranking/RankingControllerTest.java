@@ -128,6 +128,52 @@ class RankingControllerTest {
                     .andExpect(jsonPath("$.data.items[0].productId").value(productId.toString()))
                     .andExpect(jsonPath("$.data.items[0].rank").value(1));
         }
+
+        @Test
+        @DisplayName("주간 랭킹 페이지를 반환한다")
+        void getWeeklyRankingsSuccess() throws Exception {
+            UUID productId = UUID.randomUUID();
+            UUID brandId = UUID.randomUUID();
+            LocalDate periodStartDate = LocalDate.of(2025, 9, 8);
+            given(rankingQueryFacade.getWeeklyPage(periodStartDate, 1, 1)).willReturn(List.of(
+                    new TopRankingProductView(productId, "사료A", 10000, brandId, "퍼피박스", 5, 1L, 4.2d)
+            ));
+
+            mockMvc.perform(get("/api/v1/rankings")
+                            .param("window", "WEEKLY")
+                            .param("date", "20250910")
+                            .param("size", "1")
+                            .param("page", "1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
+                    .andExpect(jsonPath("$.data.window").value("WEEKLY"))
+                    .andExpect(jsonPath("$.data.date").value("20250908"))
+                    .andExpect(jsonPath("$.data.items[0].productId").value(productId.toString()))
+                    .andExpect(jsonPath("$.data.items[0].rank").value(1));
+        }
+
+        @Test
+        @DisplayName("월간 랭킹 페이지를 반환한다")
+        void getMonthlyRankingsSuccess() throws Exception {
+            UUID productId = UUID.randomUUID();
+            UUID brandId = UUID.randomUUID();
+            LocalDate periodStartDate = LocalDate.of(2025, 9, 1);
+            given(rankingQueryFacade.getMonthlyPage(periodStartDate, 1, 1)).willReturn(List.of(
+                    new TopRankingProductView(productId, "사료A", 10000, brandId, "퍼피박스", 5, 1L, 5.3d)
+            ));
+
+            mockMvc.perform(get("/api/v1/rankings")
+                            .param("window", "MONTHLY")
+                            .param("date", "20250917")
+                            .param("size", "1")
+                            .param("page", "1"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
+                    .andExpect(jsonPath("$.data.window").value("MONTHLY"))
+                    .andExpect(jsonPath("$.data.date").value("20250901"))
+                    .andExpect(jsonPath("$.data.items[0].productId").value(productId.toString()))
+                    .andExpect(jsonPath("$.data.items[0].rank").value(1));
+        }
     }
 
     @Nested
