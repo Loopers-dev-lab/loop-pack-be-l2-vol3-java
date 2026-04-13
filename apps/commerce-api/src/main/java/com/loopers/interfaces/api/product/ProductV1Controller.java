@@ -3,6 +3,8 @@ package com.loopers.interfaces.api.product;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductDto;
 import com.loopers.application.product.ProductSortType;
+import com.loopers.application.ranking.RankingDto;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class ProductV1Controller {
 
     private final ProductFacade productFacade;
+    private final RankingFacade rankingFacade;
 
     @GetMapping("/api/v1/products")
     public ApiResponse<ProductV1Dto.ProductPageResponse> getProducts(
@@ -41,9 +44,10 @@ public class ProductV1Controller {
     }
 
     @GetMapping("/api/v1/products/{productId}")
-    public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
+    public ApiResponse<ProductV1Dto.ProductDetailResponse> getProduct(@PathVariable Long productId) {
         ProductDto.ProductInfo product = productFacade.getProduct(productId);
-        return ApiResponse.success(ProductV1Dto.ProductResponse.from(product));
+        RankingDto.ProductRankInfo rankInfo = rankingFacade.getProductRank(productId, rankingFacade.todayDate());
+        return ApiResponse.success(ProductV1Dto.ProductDetailResponse.of(product, rankInfo));
     }
 
     @GetMapping("/api-admin/v1/products")
@@ -57,7 +61,8 @@ public class ProductV1Controller {
 
     @GetMapping("/api-admin/v1/products/{productId}")
     public ApiResponse<ProductV1Dto.ProductResponse> getAdminProduct(@PathVariable Long productId) {
-        return getProduct(productId);
+        ProductDto.ProductInfo product = productFacade.getProduct(productId);
+        return ApiResponse.success(ProductV1Dto.ProductResponse.from(product));
     }
 
     @PostMapping("/api-admin/v1/products")

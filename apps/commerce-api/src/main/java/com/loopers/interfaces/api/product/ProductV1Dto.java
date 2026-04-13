@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductDto;
+import com.loopers.application.ranking.RankingDto;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -74,6 +75,36 @@ public class ProductV1Dto {
                 info.stock(),
                 info.likeCount(),
                 info.isDeleted()
+            );
+        }
+    }
+
+    public record ProductDetailResponse(
+        Long id,
+        Long brandId,
+        String brandName,
+        String name,
+        String description,
+        BigDecimal price,
+        Integer stock,
+        Integer likeCount,
+        boolean isDeleted,
+        Long rank,
+        Double rankScore
+    ) {
+        public static ProductDetailResponse of(ProductDto.ProductInfo info, RankingDto.ProductRankInfo rankInfo) {
+            return new ProductDetailResponse(
+                info.id(),
+                info.brandId(),
+                info.brandName(),
+                info.name(),
+                info.description(),
+                info.price(),
+                info.stock(),
+                info.likeCount(),
+                info.isDeleted(),
+                rankInfo.rank(),
+                rankInfo.score()
             );
         }
     }

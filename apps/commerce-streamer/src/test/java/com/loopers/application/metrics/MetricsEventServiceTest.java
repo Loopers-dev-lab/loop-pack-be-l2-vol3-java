@@ -1,5 +1,6 @@
 package com.loopers.application.metrics;
 
+import com.loopers.application.ranking.RankingScoreService;
 import com.loopers.domain.event.EventHandled;
 import com.loopers.domain.event.EventHandledRepository;
 import com.loopers.domain.metrics.ProductMetricsRepository;
@@ -17,6 +18,7 @@ class MetricsEventServiceTest {
 
     private EventHandledRepository eventHandledRepository;
     private ProductMetricsRepository productMetricsRepository;
+    private RankingScoreService rankingScoreService;
     private MetricsEventService metricsEventService;
 
     private static final Instant EVENT_TIME = Instant.parse("2026-03-26T10:00:00Z");
@@ -25,10 +27,11 @@ class MetricsEventServiceTest {
     void setUp() {
         eventHandledRepository = mock(EventHandledRepository.class);
         productMetricsRepository = mock(ProductMetricsRepository.class);
-        metricsEventService = new MetricsEventService(eventHandledRepository, productMetricsRepository);
+        rankingScoreService = mock(RankingScoreService.class);
+        metricsEventService = new MetricsEventService(eventHandledRepository, productMetricsRepository, rankingScoreService);
     }
 
-    @DisplayName("PRODUCT_VIEWED 이벤트를 처리하면 viewCount를 증가시킨다")
+    @DisplayName("PRODUCT_VIEWED 이벤트를 처리하면 viewCount를 증가시키고 랭킹 점수를 갱신한다")
     @Test
     void processViewedEvent() {
         when(eventHandledRepository.existsByTopicAndEventId(anyString(), anyString())).thenReturn(false);
@@ -37,6 +40,7 @@ class MetricsEventServiceTest {
 
         verify(eventHandledRepository).save(any(EventHandled.class));
         verify(productMetricsRepository).upsertViewCount(10L, 1);
+        verify(rankingScoreService).updateScore("PRODUCT_VIEWED", 10L, 0);
     }
 
     @DisplayName("PRODUCT_LIKED 이벤트를 처리하면 likeCount를 1 증가시킨다")
@@ -61,7 +65,7 @@ class MetricsEventServiceTest {
         verify(productMetricsRepository).upsertLikeCount(10L, -1);
     }
 
-    @DisplayName("ORDER_PLACED 이벤트를 처리하면 salesCount를 quantity만큼 증가시킨다")
+    @DisplayName("ORDER_PLACED 이벤트를 처리하면 salesCount를 quantity만큼 증가시키고 랭킹 점수를 갱신한다")
     @Test
     void processOrderPlacedEvent() {
         when(eventHandledRepository.existsByTopicAndEventId(anyString(), anyString())).thenReturn(false);
@@ -70,6 +74,7 @@ class MetricsEventServiceTest {
 
         verify(eventHandledRepository).save(any(EventHandled.class));
         verify(productMetricsRepository).upsertSalesCount(10L, 3);
+        verify(rankingScoreService).updateScore("ORDER_PLACED", 10L, 3);
     }
 
     @DisplayName("ORDER_CANCELLED 이벤트를 처리하면 salesCount를 quantity만큼 감소시킨다")
@@ -104,5 +109,6 @@ class MetricsEventServiceTest {
 
         verify(eventHandledRepository, never()).save(any());
         verify(productMetricsRepository, never()).upsertViewCount(anyLong(), anyInt());
+        verify(rankingScoreService, never()).updateScore(anyString(), anyLong(), anyInt());
     }
 }

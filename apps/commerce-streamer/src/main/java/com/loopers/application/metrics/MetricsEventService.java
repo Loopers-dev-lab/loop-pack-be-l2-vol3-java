@@ -1,5 +1,6 @@
 package com.loopers.application.metrics;
 
+import com.loopers.application.ranking.RankingScoreService;
 import com.loopers.domain.event.EventHandled;
 import com.loopers.domain.event.EventHandledRepository;
 import com.loopers.domain.metrics.ProductMetricsRepository;
@@ -18,6 +19,7 @@ public class MetricsEventService {
 
     private final EventHandledRepository eventHandledRepository;
     private final ProductMetricsRepository productMetricsRepository;
+    private final RankingScoreService rankingScoreService;
 
     @Transactional
     public void process(String topic, String eventId, String eventType, Long productId,
@@ -38,5 +40,7 @@ public class MetricsEventService {
             case "PRODUCT_PRICE_CHANGED" -> productMetricsRepository.upsertPrice(productId, price, occurredAt);
             default -> log.warn("알 수 없는 이벤트 타입 - eventType: {}", eventType);
         }
+
+        rankingScoreService.updateScore(eventType, productId, quantity);
     }
 }
