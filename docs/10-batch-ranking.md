@@ -153,16 +153,46 @@ GET /api/v1/rankings?date=20260413&period=monthly&size=20&page=1  → mv_product
 
 ---
 
+## 7. 설계 시 고민한 이슈들
+
+### 배치 실패 시 랭킹 공백
+배치가 실패하면 MV 테이블이 갱신되지 않아 이전 데이터가 그대로 노출된다.
+Spring Batch는 동일 파라미터로 재실행 시 실패 지점부터 이어서 실행하는 기능을 제공한다.
+자동 재시도를 구성할 경우 최대 재시도 횟수 + Exponential Backoff + 실패 알림을 세트로 설계해야 한다.
+
+### 배치 실행 타이밍
+매일 새벽(예: 새벽 1시)에 실행하는 게 자연스럽다. 하루치 `product_metrics`가 모두 쌓인 이후에 집계해야 정확하기 때문이다.
+단, 배치 실행 이후 자정까지 들어온 이벤트는 다음 배치까지 반영되지 않는 지연이 발생한다.
+
+### 주간/월간 기준 정의
+집계 기간을 어떻게 정의하느냐에 따라 결과가 달라진다.
+
+| 방식 | 설명 | 적합한 경우 |
+|---|---|---|
+| 최근 N일 | 오늘 기준 7일/30일 전 ~ 오늘, 매일 바뀜 | 트렌드 중심 서비스 |
+| 고정 기간 | 월요일~일요일, 1일~말일 고정, 기간 시작일에 한 번에 바뀜 | 커머스 큐레이션, 마케팅 연동 |
+
+커머스 서비스 특성상 고정 기간 방식이 더 자연스러울 수 있으나, 비즈니스 요구사항에 따라 결정해야 한다.
+
+### 동점 처리
+두 상품의 점수가 동일할 때 순위 결정 기준이 명확하지 않으면 배치를 돌릴 때마다 순위가 달라질 수 있다.
+Redis ZSET은 동점 시 사전순으로 처리하지만, DB 집계는 기준이 없으면 비결정적이다.
+
+### 어뷰징 방지
+배치는 기간 내 데이터를 단순 합산하는 구조라, 배치 실행 직전 단기간에 대량 이벤트를 발생시켜 랭킹을 인위적으로 올리는 어뷰징에 취약하다.
+
+---
+
 ## 6. 구현 체크리스트
 
 ### Phase 1. product_metrics 구조 변경
 
-- [ ] `metrics_date` 컬럼 추가 (DDL)
-- [ ] `total_quantity` 컬럼 추가 (DDL) — 주문 수량 합산, 일간과 동일한 점수 기준 유지
-- [ ] UNIQUE 제약 변경: `product_id` → `(product_id, metrics_date)`
-- [ ] `ProductMetricsEntity` — `metricsDate`, `totalQuantity` 필드 추가
-- [ ] `ProductMetricsJpaRepository` — increment 쿼리에 `metrics_date` 조건 추가, `incrementTotalQuantity` 추가
-- [ ] `ProductMetricsProcessor` — `occurredAt.toLocalDate()`를 날짜 기준으로 upsert, ORDER_CONFIRMED 시 quantity 누적
+- [x] `metrics_date` 컬럼 추가 (DDL)
+- [x] `total_quantity` 컬럼 추가 (DDL) — 주문 수량 합산, 일간과 동일한 점수 기준 유지
+- [x] UNIQUE 제약 변경: `product_id` → `(product_id, metrics_date)`
+- [x] `ProductMetricsEntity` — `metricsDate`, `totalQuantity` 필드 추가
+- [x] `ProductMetricsJpaRepository` — increment 쿼리에 `metrics_date` 조건 추가, `upsertIfAbsent` 추가, `incrementSalesAndQuantity`로 통합
+- [x] `ProductMetricsProcessor` — `occurredAt.toLocalDate()`를 날짜 기준으로 upsert, ORDER_CONFIRMED 시 `incrementSalesAndQuantity` 호출
 
 ### Phase 2. MV 테이블 생성
 
