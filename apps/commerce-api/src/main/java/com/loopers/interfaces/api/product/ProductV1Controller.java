@@ -5,6 +5,8 @@ import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.application.product.ProductSort;
 import com.loopers.application.product.ProductViewEventPublisher;
+import com.loopers.application.ranking.RankingFacade;
+import com.loopers.domain.ranking.RankingInfo;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.PageResponse;
 import com.loopers.interfaces.api.product.dto.ProductV1Dto;
@@ -24,12 +26,14 @@ public class ProductV1Controller {
 
     private final ProductFacade productFacade;
     private final ProductViewEventPublisher productViewEventPublisher;
+    private final RankingFacade rankingFacade;
 
     @GetMapping("/{productId}")
     public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
         ProductInfo product = productFacade.getActiveProduct(productId);
         productViewEventPublisher.publish(productId);
-        return ApiResponse.success(ProductV1Dto.ProductResponse.from(product));
+        RankingInfo ranking = rankingFacade.getProductRank(productId);
+        return ApiResponse.success(ProductV1Dto.ProductResponse.from(product, ranking));
     }
 
     @GetMapping

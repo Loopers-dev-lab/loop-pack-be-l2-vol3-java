@@ -15,4 +15,5 @@ public class PaymentCompletedEventPayload implements EventPayload {
     private Long orderId;
     private Long userId;
     private List<Long> productIds;
+    private List<OrderedProduct> orderedProducts;
 }

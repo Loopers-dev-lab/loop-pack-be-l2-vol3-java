@@ -3,6 +3,9 @@ package com.loopers.application.payment;
 import com.loopers.application.outbox.OutboxEventPublisher;
 import com.loopers.domain.order.InMemoryOrderItemRepository;
 import com.loopers.domain.order.InMemoryOrderRepository;
+import com.loopers.domain.order.OrderItem;
+import com.loopers.event.EventType;
+import com.loopers.event.payload.PaymentCompletedEventPayload;
 import com.loopers.application.order.OrderCompensationService;
 import com.loopers.application.order.OrderService;
 import com.loopers.domain.order.Order;
@@ -27,16 +30,20 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
+import org.mockito.ArgumentCaptor;
 
 class PaymentFacadeTest {
 
     private InMemoryPaymentRepository paymentRepository;
     private InMemoryOrderRepository orderRepository;
+    private InMemoryOrderItemRepository orderItemRepository;
     private OrderService orderService;
     private OrderCompensationService orderCompensationService;
     private OutboxEventPublisher outboxEventPublisher;
@@ -47,7 +54,8 @@ class PaymentFacadeTest {
     void setUp() {
         paymentRepository = new InMemoryPaymentRepository();
         orderRepository = new InMemoryOrderRepository();
-        orderService = new OrderService(orderRepository, new InMemoryOrderItemRepository());
+        orderItemRepository = new InMemoryOrderItemRepository();
+        orderService = new OrderService(orderRepository, orderItemRepository);
         orderCompensationService = mock(OrderCompensationService.class);
         outboxEventPublisher = mock(OutboxEventPublisher.class);
         pgPaymentGateway = mock(PgPaymentGateway.class);
@@ -115,6 +123,41 @@ class PaymentFacadeTest {
             assertAll(
                     () -> assertThat(payment.getStatus()).isEqualTo(PaymentStatus.COMPLETED),
                     () -> assertThat(orderRepository.findById(order.getId()).get().getStatus()).isEqualTo(Order.Status.PAID)
+            );
+        }
+
+        @DisplayName("SUCCESS 콜백 시 발행되는 이벤트에 상품별 결제 금액 정보가 포함된다.")
+        @Test
+        void publishesPaymentEventWithOrderedProducts_whenSuccess() {
+            // arrange
+            Order order = orderRepository.save(Order.create(1L, List.of(
+                    new OrderItemSnapshot(1L, "상품A", 10000L, 2),
+                    new OrderItemSnapshot(2L, "상품B", 5000L, 1)
+            )));
+            orderItemRepository.saveAll(List.of(
+                    OrderItem.create(order.getId(), 1L, "상품A", 10000L, 2),
+                    OrderItem.create(order.getId(), 2L, "상품B", 5000L, 1)
+            ));
+            Payment payment = paymentRepository.save(Payment.create(order.getId(), "pgOrderCode-010", CardType.SAMSUNG, "1234-5678-9012-3456", 25000L));
+            payment.assignPgTransaction("TXN-010");
+
+            // act
+            paymentFacade.handleCallback(new PgCallbackCommand("TXN-010", "SUCCESS", null));
+
+            // assert
+            ArgumentCaptor<PaymentCompletedEventPayload> captor = ArgumentCaptor.forClass(PaymentCompletedEventPayload.class);
+            then(outboxEventPublisher).should().publish(eq(EventType.PAYMENT_COMPLETED), captor.capture(), eq(order.getId()));
+
+            PaymentCompletedEventPayload payload = captor.getValue();
+            assertAll(
+                    () -> assertThat(payload.getProductIds()).containsExactly(1L, 2L),
+                    () -> assertThat(payload.getOrderedProducts()).hasSize(2),
+                    () -> assertThat(payload.getOrderedProducts())
+                            .extracting("productId", "price", "quantity")
+                            .containsExactly(
+                                    tuple(1L, 10000L, 2),
+                                    tuple(2L, 5000L, 1)
+                            )
             );
         }
 
