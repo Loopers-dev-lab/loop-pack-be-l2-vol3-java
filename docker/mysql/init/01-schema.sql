@@ -272,6 +272,36 @@ CREATE TABLE IF NOT EXISTS product_metrics_hourly (
     KEY idx_product_metrics_hourly_product_hour (product_id, metric_hour),
     KEY idx_product_metrics_hourly_hour (metric_hour)
 );
+
+CREATE TABLE IF NOT EXISTS product_ranking_weekly_batch (
+    period_start_date DATE NOT NULL,
+    period_end_date DATE NOT NULL,
+    product_id VARCHAR(36) NOT NULL,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    ranking_score DECIMAL(18,1) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (period_start_date, product_id),
+    KEY idx_product_ranking_weekly_batch_start_date (period_start_date),
+    KEY idx_product_ranking_weekly_batch_score (period_start_date, ranking_score)
+);
+
+CREATE TABLE IF NOT EXISTS product_ranking_monthly_batch (
+    period_start_date DATE NOT NULL,
+    period_end_date DATE NOT NULL,
+    product_id VARCHAR(36) NOT NULL,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    ranking_score DECIMAL(18,1) NOT NULL,
+    created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (period_start_date, product_id),
+    KEY idx_product_ranking_monthly_batch_start_date (period_start_date),
+    KEY idx_product_ranking_monthly_batch_score (period_start_date, ranking_score)
+);
 CREATE TABLE IF NOT EXISTS event_handled (
     id BIGINT NOT NULL AUTO_INCREMENT,
     consumer_group VARCHAR(120) NOT NULL,
