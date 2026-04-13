@@ -32,13 +32,15 @@ public class RankingV1Dto {
             String date,
             int page,
             int size,
+            String period,
             List<RankingItemResponse> rankings
     ) {
-        public static RankingListResponse of(String date, int page, int size, List<RankingInfo> infos) {
+        public static RankingListResponse of(String date, int page, int size, String period, List<RankingInfo> infos) {
             return new RankingListResponse(
                     date,
                     page,
                     size,
+                    period,
                     infos.stream().map(RankingItemResponse::from).toList()
             );
         }

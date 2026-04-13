@@ -10,6 +10,7 @@ public interface RankingV1ApiSpec {
     ApiResponse<RankingV1Dto.RankingListResponse> getRankings(
             @RequestParam String date,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "daily") String period
     );
 }

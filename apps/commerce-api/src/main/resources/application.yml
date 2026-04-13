@@ -23,6 +23,11 @@ spring:
       - redis.yml
       - logging.yml
       - monitoring.yml
+  batch:
+    job:
+      enabled: false
+    jdbc:
+      initialize-schema: always
 
 springdoc:
   use-fqn: true

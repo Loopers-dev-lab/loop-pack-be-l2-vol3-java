@@ -23,9 +23,10 @@ public class RankingV1Controller implements RankingV1ApiSpec {
     public ApiResponse<RankingV1Dto.RankingListResponse> getRankings(
             @RequestParam String date,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "daily") String period
     ) {
-        List<RankingInfo> rankings = rankingFacade.getTopRankings(date, page, size);
-        return ApiResponse.success(RankingV1Dto.RankingListResponse.of(date, page, size, rankings));
+        List<RankingInfo> rankings = rankingFacade.getTopRankings(date, page, size, period);
+        return ApiResponse.success(RankingV1Dto.RankingListResponse.of(date, page, size, period, rankings));
     }
 }
