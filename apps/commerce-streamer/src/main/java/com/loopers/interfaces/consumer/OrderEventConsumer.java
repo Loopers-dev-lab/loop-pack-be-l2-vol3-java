@@ -3,9 +3,11 @@ package com.loopers.interfaces.consumer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.event.model.EventHandleStatus;
+import com.loopers.domain.metrics.service.MetricsService;
 import com.loopers.infrastructure.event.entity.EventHandledEntity;
 import com.loopers.infrastructure.event.repository.EventHandledJpaRepository;
 import com.loopers.interfaces.consumer.dto.OrderEventMessage;
+import com.loopers.support.util.KafkaMessageUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -22,6 +24,7 @@ import java.util.List;
 public class OrderEventConsumer {
 
     private final EventHandledJpaRepository eventHandledRepository;
+    private final MetricsService metricsService;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -38,15 +41,21 @@ public class OrderEventConsumer {
     }
 
     private void processRecord(ConsumerRecord<Object, Object> record) {
-        OrderEventMessage event = objectMapper.convertValue(record.value(), OrderEventMessage.class);
+        OrderEventMessage event = KafkaMessageUtil.readValue(objectMapper, record.value(), OrderEventMessage.class);
 
         if (eventHandledRepository.existsById(event.eventId())) {
             return;
         }
 
         switch (event.eventType()) {
-            case ORDER_CREATED ->
+            case ORDER_CREATED -> {
                 log.info("주문 생성 이벤트 수신 - orderId: {}, memberId: {}", event.orderId(), event.memberId());
+                if (event.orderProducts() != null) {
+                    for (var product : event.orderProducts()) {
+                        metricsService.incrementOrderCount(product.productId());
+                    }
+                }
+            }
             case PAYMENT_COMPLETED ->
                 log.info("결제 완료 이벤트 수신 - orderId: {}", event.orderId());
             default -> {}

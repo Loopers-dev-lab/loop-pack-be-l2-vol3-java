@@ -16,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.UUID;
+
 @Slf4j
 @RequiredArgsConstructor
 @Component
@@ -30,10 +34,18 @@ public class FavoriteEventListener {
     public void onFavoriteAdded(FavoriteAddedEvent event) {
         log.info("좋아요 집계 처리 - productId: {}, memberId: {}", event.productId(), event.memberId());
         productService.increaseLikeCount(event.productId());
+        String payload = toJson(Map.of(
+                "eventId", UUID.randomUUID().toString(),
+                "eventType", "FAVORITE_ADDED",
+                "productId", event.productId(),
+                "memberId", event.memberId(),
+                "version", System.currentTimeMillis(),
+                "createdAt", LocalDateTime.now().toString()
+        ));
         outboxEventRepository.save(OutboxEvent.create(
                 OutboxEventType.FAVORITE_ADDED,
                 String.valueOf(event.productId()),
-                toJson(event)
+                payload
         ));
         log.info("유저 행동 로깅 - memberId: {}, action: FAVORITE_ADD, targetId: {}", event.memberId(), event.productId());
     }
@@ -43,10 +55,18 @@ public class FavoriteEventListener {
     public void onFavoriteRemoved(FavoriteRemovedEvent event) {
         log.info("좋아요 집계 해제 처리 - productId: {}, memberId: {}", event.productId(), event.memberId());
         productService.decreaseLikeCount(event.productId());
+        String payload = toJson(Map.of(
+                "eventId", UUID.randomUUID().toString(),
+                "eventType", "FAVORITE_REMOVED",
+                "productId", event.productId(),
+                "memberId", event.memberId(),
+                "version", System.currentTimeMillis(),
+                "createdAt", LocalDateTime.now().toString()
+        ));
         outboxEventRepository.save(OutboxEvent.create(
                 OutboxEventType.FAVORITE_REMOVED,
                 String.valueOf(event.productId()),
-                toJson(event)
+                payload
         ));
         log.info("유저 행동 로깅 - memberId: {}, action: FAVORITE_REMOVE, targetId: {}", event.memberId(), event.productId());
     }

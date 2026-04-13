@@ -7,6 +7,7 @@ import com.loopers.support.enums.SortFilter;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -26,6 +27,7 @@ public interface ProductV1ApiSpec {
     ApiResponse<FindProductApiResDto> findProduct(
             @Parameter(description = "로그인 ID (선택)") String loginId,
             @Parameter(description = "비밀번호 (선택)") String password,
-            @Parameter(description = "상품 ID", required = true) Long productId
+            @Parameter(description = "상품 ID", required = true) Long productId,
+            @Parameter(hidden = true) HttpServletRequest request
     );
 }

@@ -87,7 +87,7 @@ public class ProductCacheRepositoryImpl implements ProductCacheRepository {
     private ProductItem toItem(ProductCacheDto dto) {
         return new ProductItem(
                 dto.id(), dto.name(), dto.brandId(), dto.brandName(),
-                dto.price(), dto.stock(), dto.displayStatus(), 0L, false
+                dto.price(), dto.stock(), dto.displayStatus(), 0L, false, null
         );
     }
 }

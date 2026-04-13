@@ -3,12 +3,11 @@ package com.loopers.interfaces.consumer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.event.model.EventHandleStatus;
-import com.loopers.domain.event.model.EventType;
+import com.loopers.domain.metrics.service.MetricsService;
 import com.loopers.infrastructure.event.entity.EventHandledEntity;
 import com.loopers.infrastructure.event.repository.EventHandledJpaRepository;
-import com.loopers.infrastructure.metrics.entity.ProductMetricsEntity;
-import com.loopers.infrastructure.metrics.repository.ProductMetricsJpaRepository;
 import com.loopers.interfaces.consumer.dto.CatalogEventMessage;
+import com.loopers.support.util.KafkaMessageUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -24,7 +23,7 @@ import java.util.List;
 @Component
 public class CatalogEventConsumer {
 
-    private final ProductMetricsJpaRepository productMetricsRepository;
+    private final MetricsService metricsService;
     private final EventHandledJpaRepository eventHandledRepository;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
@@ -42,30 +41,22 @@ public class CatalogEventConsumer {
     }
 
     private void processRecord(ConsumerRecord<Object, Object> record) {
-        CatalogEventMessage event = objectMapper.convertValue(record.value(), CatalogEventMessage.class);
+        CatalogEventMessage event = KafkaMessageUtil.readValue(objectMapper, record.value(), CatalogEventMessage.class);
 
         if (eventHandledRepository.existsById(event.eventId())) {
             return;
         }
 
-        ProductMetricsEntity metrics = productMetricsRepository.findById(event.productId())
-                .orElseGet(() -> ProductMetricsEntity.createNew(event.productId()));
-
-        if (event.version() <= metrics.getVersion()) {
-            eventHandledRepository.save(EventHandledEntity.of(event.eventId(), EventHandleStatus.SKIPPED));
-            return;
-        }
-
         switch (event.eventType()) {
-            case FAVORITE_ADDED -> metrics.incrementLikeCount();
-            case FAVORITE_REMOVED -> metrics.decrementLikeCount();
+            case PRODUCT_VIEWED -> metricsService.incrementViewCount(event.productId(), event.version());
+            case FAVORITE_ADDED -> metricsService.incrementLikeCount(event.productId(), event.version());
+            case FAVORITE_REMOVED -> metricsService.decrementLikeCount(event.productId(), event.version());
             default -> {}
         }
-        metrics.updateVersion(event.version());
 
-        productMetricsRepository.save(metrics);
         eventHandledRepository.save(EventHandledEntity.of(event.eventId(), EventHandleStatus.SUCCESS));
 
         log.info("catalog-events 처리 완료 - eventType: {}, productId: {}", event.eventType(), event.productId());
     }
+
 }

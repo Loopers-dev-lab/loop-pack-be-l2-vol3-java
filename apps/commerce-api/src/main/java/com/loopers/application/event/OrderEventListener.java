@@ -19,7 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -36,10 +40,19 @@ public class OrderEventListener {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void onOrderCreated(OrderCreatedEvent event) {
         log.info("주문 생성 이벤트 - orderId: {}, memberId: {}, totalPrice: {}", event.orderId(), event.memberId(), event.totalPrice());
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("eventType", "ORDER_CREATED");
+        payload.put("orderId", event.orderId());
+        payload.put("memberId", event.memberId());
+        payload.put("totalPrice", event.totalPrice());
+        payload.put("orderProducts", event.orderProducts());
+        payload.put("version", System.currentTimeMillis());
+        payload.put("createdAt", LocalDateTime.now().toString());
         outboxEventRepository.save(OutboxEvent.create(
                 OutboxEventType.ORDER_CREATED,
                 String.valueOf(event.orderId()),
-                toJson(event)
+                toJson(payload)
         ));
         log.info("유저 행동 로깅 - memberId: {}, action: ORDER_CREATE, targetId: {}", event.memberId(), event.orderId());
     }

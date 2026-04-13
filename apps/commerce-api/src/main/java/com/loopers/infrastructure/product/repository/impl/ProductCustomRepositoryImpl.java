@@ -40,7 +40,8 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
                         productEntity.stock,
                         productEntity.displayStatus,
                         productEntity.likeCount,
-                        Expressions.asBoolean(false)
+                        Expressions.asBoolean(false),
+                        Expressions.nullExpression(Long.class)
                 ))
                 .from(productEntity)
                 .innerJoin(brandEntity).on(productEntity.brandId.eq(brandEntity.id))
@@ -70,7 +71,8 @@ public class ProductCustomRepositoryImpl implements ProductCustomRepository {
                         productEntity.stock,
                         productEntity.displayStatus,
                         productEntity.likeCount,
-                        Expressions.asBoolean(false)
+                        Expressions.asBoolean(false),
+                        Expressions.nullExpression(Long.class)
                 ))
                 .from(productEntity)
                 .innerJoin(brandEntity).on(productEntity.brandId.eq(brandEntity.id))

@@ -1,6 +1,7 @@
 package com.loopers.interfaces.api.product.dto;
 
 import com.loopers.application.product.dto.FindProductResDto;
+import com.loopers.domain.product.vo.DisplayStatus;
 
 public record FindProductApiResDto(
         Long id,
@@ -9,9 +10,10 @@ public record FindProductApiResDto(
         String brandName,
         int price,
         int stock,
-        String displayStatus,
+        DisplayStatus displayStatus,
         long favoriteCnt,
-        boolean isFavorite
+        boolean isFavorite,
+        Long ranking
 ) {
     public static FindProductApiResDto from(FindProductResDto dto) {
         return new FindProductApiResDto(
@@ -23,7 +25,8 @@ public record FindProductApiResDto(
                 dto.stock(),
                 dto.displayStatus(),
                 dto.favoriteCnt(),
-                dto.isFavorite()
+                dto.isFavorite(),
+                dto.ranking()
         );
     }
 }

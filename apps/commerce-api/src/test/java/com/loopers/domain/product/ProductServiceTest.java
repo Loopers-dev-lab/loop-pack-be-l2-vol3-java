@@ -272,7 +272,7 @@ class ProductServiceTest {
         @Test
         void skipsCache_whenBrandIdPresent() {
             // arrange
-            ProductItem item = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, "DISPLAYING", 5L, false);
+            ProductItem item = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, DisplayStatus.DISPLAYING, 5L, false, null);
             Page<ProductItem> page = new PageImpl<>(List.of(item));
             Pageable pageable = PageRequest.of(0, 10);
             when(productCustomRepository.findProductList(1L, SortFilter.LATEST, pageable)).thenReturn(page);
@@ -290,7 +290,7 @@ class ProductServiceTest {
         void returnsCachedPage_whenFirstPageCacheHit() {
             // arrange
             Pageable pageable = PageRequest.of(0, 10);
-            ProductItem cachedItem = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, "DISPLAYING", 0L, false);
+            ProductItem cachedItem = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, DisplayStatus.DISPLAYING, 0L, false, null);
             ProductCacheRepository.CachedPage cached = new ProductCacheRepository.CachedPage(List.of(cachedItem), 100);
 
             when(productCacheRepository.getFirstPage()).thenReturn(Optional.of(cached));
@@ -310,7 +310,7 @@ class ProductServiceTest {
         void savesToCache_whenFirstPageCacheMiss() {
             // arrange
             Pageable pageable = PageRequest.of(0, 10);
-            ProductItem item = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, "DISPLAYING", 5L, false);
+            ProductItem item = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, DisplayStatus.DISPLAYING, 5L, false, null);
             Page<ProductItem> page = new PageImpl<>(List.of(item), pageable, 1);
 
             when(productCacheRepository.getFirstPage()).thenReturn(Optional.empty());
@@ -333,7 +333,7 @@ class ProductServiceTest {
         @Test
         void returnsCachedItem_whenCacheHit() {
             // arrange
-            ProductItem cachedItem = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, "DISPLAYING", 0L, false);
+            ProductItem cachedItem = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, DisplayStatus.DISPLAYING, 0L, false, null);
             when(productCacheRepository.get(1L)).thenReturn(Optional.of(cachedItem));
             when(productCacheRepository.getLikeCount(1L)).thenReturn(Optional.of(10L));
 
@@ -349,7 +349,7 @@ class ProductServiceTest {
         @Test
         void savesToCache_whenCacheMiss() {
             // arrange
-            ProductItem item = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, "DISPLAYING", 3L, false);
+            ProductItem item = new ProductItem(1L, "운동화", 1L, "나이키", 50000, 100, DisplayStatus.DISPLAYING, 3L, false, null);
             when(productCacheRepository.get(1L)).thenReturn(Optional.empty());
             when(productCustomRepository.findProduct(1L)).thenReturn(Optional.of(item));
 
