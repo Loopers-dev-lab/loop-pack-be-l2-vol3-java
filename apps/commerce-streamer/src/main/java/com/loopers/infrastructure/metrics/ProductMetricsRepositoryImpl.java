@@ -45,12 +45,7 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     }
 
     @Override
-    public void incrementSalesCount(Long productId, LocalDate metricsDate) {
-        jpaRepository.incrementSalesCount(productId, metricsDate);
-    }
-
-    @Override
-    public void incrementTotalQuantity(Long productId, LocalDate metricsDate, int quantity) {
-        jpaRepository.incrementTotalQuantity(productId, metricsDate, quantity);
+    public void incrementSalesAndQuantity(Long productId, LocalDate metricsDate, int quantity) {
+        jpaRepository.incrementSalesAndQuantity(productId, metricsDate, quantity);
     }
 }

@@ -17,7 +17,5 @@ public interface ProductMetricsRepository {
 
     void incrementViewCount(Long productId, LocalDate metricsDate);
 
-    void incrementSalesCount(Long productId, LocalDate metricsDate);
-
-    void incrementTotalQuantity(Long productId, LocalDate metricsDate, int quantity);
+    void incrementSalesAndQuantity(Long productId, LocalDate metricsDate, int quantity);
 }
