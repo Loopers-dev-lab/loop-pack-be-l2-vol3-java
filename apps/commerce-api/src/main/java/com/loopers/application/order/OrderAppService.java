@@ -96,7 +96,7 @@ public class OrderAppService {
 
         // 6. 주문 생성 이벤트 발행
         eventPublisher.publishEvent(new OrderCreatedEvent(
-                order.getId(), command.getUserId(), productIds, ZonedDateTime.now()));
+                order.getId(), command.getUserId(), productIds, totalAmount.getAmount().longValue(), ZonedDateTime.now()));
 
         // 7. 입장 토큰 삭제
         tokenService.delete(command.getUserId());
@@ -196,8 +196,9 @@ public class OrderAppService {
                 productIds.add(lockedOptions.get(i).getProductId());
             }
         }
+        long totalAmount = order.getTotalAmount().getAmount().longValue();
         eventPublisher.publishEvent(new OrderCanceledEvent(
-                order.getId(), order.getUserId(), productIds, ZonedDateTime.now()));
+                order.getId(), order.getUserId(), productIds, totalAmount, ZonedDateTime.now()));
 
         return order;
     }

@@ -7,6 +7,7 @@ public record OrderCreatedEvent(
         Long orderId,
         Long userId,
         List<Long> productIds,
+        long totalAmount,
         ZonedDateTime occurredAt
 ) {
 }

@@ -22,6 +22,7 @@ public class ProductDto {
             String brandName,
             long likeCount,
             boolean likedByUser,
+            Long rank,
             List<OptionResponse> options
     ) {
         public static ProductResponse from(ProductInfo info) {
@@ -33,6 +34,7 @@ public class ProductDto {
                     info.getBrandName(),
                     info.getLikeCount(),
                     info.isLikedByUser(),
+                    info.getRank(),
                     info.getOptions().stream().map(OptionResponse::from).toList()
             );
         }

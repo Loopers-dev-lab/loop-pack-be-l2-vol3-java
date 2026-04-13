@@ -59,6 +59,7 @@ class OrderAppServiceTest {
         given(order.getUserId()).willReturn(1L);
         given(order.getStatus()).willReturn(OrderStatus.PENDING);
         given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
+        given(order.getTotalAmount()).willReturn(Money.of(20000));
         return order;
     }
 
@@ -272,6 +273,7 @@ class OrderAppServiceTest {
             given(order.getStatus()).willReturn(OrderStatus.CANCELED);
             given(order.getIssuedCouponId()).willReturn(null);
             given(order.getOrderItems()).willReturn(List.of(createTestOrderItem()));
+            given(order.getTotalAmount()).willReturn(Money.of(20000));
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             Option option = mock(Option.class);
@@ -344,6 +346,7 @@ class OrderAppServiceTest {
             given(order.getId()).willReturn(1L);
             given(order.getIssuedCouponId()).willReturn(10L);
             given(order.getOrderItems()).willReturn(List.of(orderItem));
+            given(order.getTotalAmount()).willReturn(Money.of(20000));
             given(orderRepository.findByIdWithLock(1L)).willReturn(Optional.of(order));
 
             IssuedCoupon issuedCoupon = mock(IssuedCoupon.class);
