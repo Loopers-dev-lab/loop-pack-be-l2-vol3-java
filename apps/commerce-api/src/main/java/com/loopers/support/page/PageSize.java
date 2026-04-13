@@ -26,6 +26,15 @@ public record PageSize(int page, int size) {
     }
 
     /**
+     * 0-based 오프셋을 계산한다.
+     *
+     * @return page * size
+     */
+    public int offset() {
+        return page * size;
+    }
+
+    /**
      * 정렬 조건 없이 {@link Pageable}로 변환한다.
      *
      * @return Pageable

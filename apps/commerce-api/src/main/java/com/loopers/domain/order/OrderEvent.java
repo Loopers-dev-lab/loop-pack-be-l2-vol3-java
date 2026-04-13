@@ -90,12 +90,16 @@ public class OrderEvent {
      *
      * @param productId 상품 ID
      * @param quantity  수량
+     * @param price     상품 단가 (원)
      */
-    public record OrderItemSnapshot(Long productId, Long quantity) {
+    public record OrderItemSnapshot(Long productId, Long quantity, Long price) {
 
         public static List<OrderItemSnapshot> from(List<OrderItem> orderItems) {
             return orderItems.stream()
-                    .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity()))
+                    .map(item -> new OrderItemSnapshot(
+                            item.getProductId(),
+                            item.getQuantity(),
+                            item.getProductPrice().getAmount()))
                     .toList();
         }
     }

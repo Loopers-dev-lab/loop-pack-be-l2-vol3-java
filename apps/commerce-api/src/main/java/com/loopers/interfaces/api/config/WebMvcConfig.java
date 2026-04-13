@@ -27,6 +27,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         authInterceptor.addOptionalPattern("/api/v1/products");
         authInterceptor.addOptionalPattern("/api/v1/products/*");
+        authInterceptor.addOptionalPattern("/api/v1/rankings/**");
 
         registry.addInterceptor(authInterceptor)
                 .addPathPatterns("/api/**")

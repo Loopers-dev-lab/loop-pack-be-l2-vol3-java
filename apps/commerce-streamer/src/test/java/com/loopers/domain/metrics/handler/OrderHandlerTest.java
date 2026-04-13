@@ -53,8 +53,8 @@ class OrderHandlerTest {
         void upsertsOrderCountPerProduct() {
             // arrange
             List<MetricsPayload.Order.OrderItem> items = List.of(
-                    new MetricsPayload.Order.OrderItem(10L, 2L),
-                    new MetricsPayload.Order.OrderItem(20L, 3L)
+                    new MetricsPayload.Order.OrderItem(10L, 2L, 50000L),
+                    new MetricsPayload.Order.OrderItem(20L, 3L, 30000L)
             );
 
             // act

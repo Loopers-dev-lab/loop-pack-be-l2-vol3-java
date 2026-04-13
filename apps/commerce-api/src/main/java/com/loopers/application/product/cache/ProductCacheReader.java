@@ -1,6 +1,10 @@
 package com.loopers.application.product.cache;
 
-import static com.loopers.application.product.cache.ProductCacheConstants.*;
+import static com.loopers.application.product.cache.ProductCacheConstants.DETAIL_KEY;
+import static com.loopers.application.product.cache.ProductCacheConstants.LIST_KEY;
+import static com.loopers.application.product.cache.ProductCacheConstants.PRODUCT_TYPE;
+import static com.loopers.application.product.cache.ProductCacheConstants.detailTtl;
+import static com.loopers.application.product.cache.ProductCacheConstants.listTtl;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,7 +43,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProductCacheReader {
 
-    private static final CacheType<ProductIdPage> ID_PAGE_TYPE = new CacheType<>() {};
+    private static final CacheType<ProductIdPage> ID_PAGE_TYPE = new CacheType<>() {
+    };
     private static final String ALL_BRAND = "all";
     private static final int MAX_CACHEABLE_PAGE = 2;
     private static final long LOCK_TIMEOUT_SECONDS = 3;
@@ -119,6 +124,35 @@ public class ProductCacheReader {
         return productService.getActiveProduct(productId);
     }
 
+    /**
+     * ID 목록으로 활성 상품을 일괄 조회한다.
+     *
+     * <p>캐시를 먼저 조회하고, 미스된 상품은 DB에서 조회한 뒤 캐싱한다.
+     * 입력된 ID 목록의 순서를 보장하여 반환한다.</p>
+     *
+     * @param productIds 상품 ID 목록
+     * @return 활성 상품 목록 (입력 순서 보장)
+     */
+    public List<Product> readActiveProductsByIds(List<Long> productIds) {
+        if (productIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<String> detailKeys = productIds.stream()
+                .map(DETAIL_KEY::of)
+                .toList();
+        List<Product> cached = cacheRepository.multiGet(detailKeys, PRODUCT_TYPE);
+
+        List<Long> missedIds = findMissedIds(productIds, cached);
+        Map<Long, Product> fetched = missedIds.isEmpty()
+                ? Collections.emptyMap()
+                : productService.getActiveProductsByIds(missedIds);
+
+        cacheProducts(fetched);
+
+        return mergeProducts(productIds, cached, fetched);
+    }
+
     private String buildListKey(Long brandId, ProductSortType sortType, PageSize pageSize) {
         String brandSegment = Objects.nonNull(brandId) ? String.valueOf(brandId) : ALL_BRAND;
         return LIST_KEY.of(brandSegment, sortType.name(), pageSize.page(), pageSize.size());
@@ -128,17 +162,7 @@ public class ProductCacheReader {
      * ID 리스트 캐시 HIT 시, 상품 상세를 일괄 조회하고 부분 미스를 처리한다.
      */
     private Page<Product> resolveProductsFromIdPage(ProductIdPage idPage) {
-        List<Long> ids = idPage.ids();
-        List<Product> cached = cacheRepository.multiGet(idPage.detailKeys(), PRODUCT_TYPE);
-
-        List<Long> missedIds = findMissedIds(ids, cached);
-        Map<Long, Product> fetched = missedIds.isEmpty()
-                ? Collections.emptyMap()
-                : productService.getActiveProductsByIds(missedIds);
-
-        cacheProducts(fetched);
-
-        List<Product> products = mergeProducts(ids, cached, fetched);
+        List<Product> products = readActiveProductsByIds(idPage.ids());
         return new Page<>(products, idPage.hasNext());
     }
 

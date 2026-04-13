@@ -99,7 +99,11 @@ public enum ErrorType {
     PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND", "결제를 찾을 수 없습니다."),
     PAYMENT_NOT_READY(HttpStatus.BAD_REQUEST, "PAYMENT_NOT_READY", "결제 시작이 가능한 상태가 아닙니다."),
     PAYMENT_ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "PAYMENT_ALREADY_PROCESSED", "이미 처리된 결제입니다."),
-    PAYMENT_GATEWAY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_GATEWAY_UNAVAILABLE", "결제 서비스가 일시적으로 불가합니다. 잠시 후 다시 시도해주세요.");
+    PAYMENT_GATEWAY_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PAYMENT_GATEWAY_UNAVAILABLE", "결제 서비스가 일시적으로 불가합니다. 잠시 후 다시 시도해주세요."),
+
+    /** Ranking 도메인 에러 */
+    INVALID_RANKING_DATE_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_RANKING_DATE_FORMAT", "날짜는 yyyyMMdd 형식이어야 합니다."),
+    INVALID_RANKING_DATETIME_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_RANKING_DATETIME_FORMAT", "날짜시간은 yyyyMMddHH 형식이어야 합니다.");
 
     private final HttpStatus status;
     private final String code;

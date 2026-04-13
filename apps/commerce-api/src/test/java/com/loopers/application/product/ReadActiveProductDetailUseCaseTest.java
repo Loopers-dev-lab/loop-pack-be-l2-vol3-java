@@ -3,6 +3,8 @@ package com.loopers.application.product;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -24,6 +26,7 @@ import com.loopers.domain.product.ProductEventPublisher;
 import com.loopers.domain.product.ProductName;
 import com.loopers.domain.product.ProductThumbnailUrl;
 import com.loopers.domain.product.Stock;
+import com.loopers.domain.ranking.RankingRepository;
 import com.loopers.domain.shared.Money;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +48,9 @@ class ReadActiveProductDetailUseCaseTest {
     private ProductEventPublisher productEventPublisher;
 
     @Mock
+    private RankingRepository rankingRepository;
+
+    @Mock
     private Product product;
 
     @Mock
@@ -61,6 +67,7 @@ class ReadActiveProductDetailUseCaseTest {
             Long userId = 1L;
             Long productId = 100L;
             stubDependencies(userId, productId, false);
+            given(rankingRepository.findRank(anyString(), anyLong())).willReturn(null);
 
             // act
             readActiveProductDetailUseCase.execute(userId, productId);
@@ -81,6 +88,7 @@ class ReadActiveProductDetailUseCaseTest {
             Long userId = 1L;
             Long productId = 100L;
             stubDependencies(userId, productId, true);
+            given(rankingRepository.findRank(anyString(), anyLong())).willReturn(null);
 
             // act
             ProductDetail result = readActiveProductDetailUseCase.execute(userId, productId);
@@ -88,7 +96,27 @@ class ReadActiveProductDetailUseCaseTest {
             // assert
             assertAll(
                     () -> assertThat(result.productId()).isEqualTo(productId),
-                    () -> assertThat(result.liked()).isTrue()
+                    () -> assertThat(result.liked()).isTrue(),
+                    () -> assertThat(result.rank()).isNull()
+            );
+        }
+
+        @DisplayName("랭킹 순위가 있으면, rank를 포함하여 반환한다.")
+        @Test
+        void returnsProductDetailWithRank_whenRanked() {
+            // arrange
+            Long userId = 1L;
+            Long productId = 100L;
+            stubDependencies(userId, productId, false);
+            given(rankingRepository.findRank(anyString(), anyLong())).willReturn(3);
+
+            // act
+            ProductDetail result = readActiveProductDetailUseCase.execute(userId, productId);
+
+            // assert
+            assertAll(
+                    () -> assertThat(result.productId()).isEqualTo(productId),
+                    () -> assertThat(result.rank()).isEqualTo(3)
             );
         }
 

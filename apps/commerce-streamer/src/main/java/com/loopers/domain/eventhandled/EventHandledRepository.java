@@ -9,10 +9,10 @@ package com.loopers.domain.eventhandled;
 public interface EventHandledRepository {
 
     /**
-     * 이벤트 ID를 처리 완료로 등록한다. 이미 등록된 경우 false를 반환한다.
+     * 이벤트 처리 키를 등록한다. 이미 등록된 경우 false를 반환한다.
      *
-     * @param eventId 이벤트 식별자
+     * @param key 중복 판별 키 (예: eventId 또는 prefix + eventId)
      * @return 새로 등록되면 true, 이미 존재하면 false
      */
-    boolean markIfAbsent(String eventId);
+    boolean markIfAbsent(String key);
 }

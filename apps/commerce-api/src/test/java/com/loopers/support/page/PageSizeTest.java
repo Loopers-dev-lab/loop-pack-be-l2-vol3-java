@@ -32,4 +32,18 @@ class PageSizeTest {
             assertThat(pageSize.size()).isEqualTo(100);
         }
     }
+
+    @DisplayName("오프셋을 계산할 때,")
+    @Nested
+    class Offset {
+
+        @DisplayName("page * size를 반환한다.")
+        @Test
+        void returnsPageTimesSize() {
+            // act & assert
+            assertThat(new PageSize(0, 20).offset()).isZero();
+            assertThat(new PageSize(1, 20).offset()).isEqualTo(20);
+            assertThat(new PageSize(3, 10).offset()).isEqualTo(30);
+        }
+    }
 }

@@ -34,16 +34,12 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ProductMetricsConsumer {
 
-    private static final String TOPIC_LIKED = "like-liked-v1";
-    private static final String TOPIC_UNLIKED = "like-unliked-v1";
-    private static final String TOPIC_ORDER_COMPLETED = "order-completed-v1";
-    private static final String TOPIC_PRODUCT_VIEWED = "product-viewed-v1";
 
     private final ProductMetricsService productMetricsService;
     private final KafkaMessageParser kafkaMessageParser;
 
     @KafkaListener(
-            topics = {TOPIC_LIKED, TOPIC_UNLIKED},
+            topics = {Topics.LIKED, Topics.UNLIKED},
             containerFactory = KafkaConfig.BATCH_LISTENER
     )
     public void consumeLikeEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
@@ -51,7 +47,7 @@ public class ProductMetricsConsumer {
         for (ConsumerRecord<String, Object> record : messages) {
             try {
                 LikeMessage msg = kafkaMessageParser.parse(record.value(), LikeMessage.class);
-                boolean liked = TOPIC_LIKED.equals(record.topic());
+                boolean liked = Topics.LIKED.equals(record.topic());
                 MetricsEventType eventType = liked ? MetricsEventType.LIKED : MetricsEventType.UNLIKED;
                 productMetricsService.handleEvent(
                         new MetricsEventMeta(msg.eventId(), eventType),
@@ -65,7 +61,7 @@ public class ProductMetricsConsumer {
     }
 
     @KafkaListener(
-            topics = TOPIC_ORDER_COMPLETED,
+            topics = Topics.ORDER_COMPLETED,
             containerFactory = KafkaConfig.BATCH_LISTENER
     )
     public void consumeOrderEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
@@ -74,7 +70,7 @@ public class ProductMetricsConsumer {
             try {
                 OrderCompletedMessage msg = kafkaMessageParser.parse(record.value(), OrderCompletedMessage.class);
                 List<MetricsPayload.Order.OrderItem> items = msg.orderItems().stream()
-                        .map(item -> new MetricsPayload.Order.OrderItem(item.productId(), item.quantity()))
+                        .map(item -> new MetricsPayload.Order.OrderItem(item.productId(), item.quantity(), item.price()))
                         .toList();
                 productMetricsService.handleEvent(
                         new MetricsEventMeta(msg.eventId(), MetricsEventType.ORDER_COMPLETED),
@@ -88,7 +84,7 @@ public class ProductMetricsConsumer {
     }
 
     @KafkaListener(
-            topics = TOPIC_PRODUCT_VIEWED,
+            topics = Topics.PRODUCT_VIEWED,
             containerFactory = KafkaConfig.BATCH_LISTENER
     )
     public void consumeViewEvents(List<ConsumerRecord<String, Object>> messages, Acknowledgment ack) {
