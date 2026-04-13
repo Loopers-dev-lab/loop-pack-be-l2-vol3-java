@@ -9,6 +9,8 @@ public interface ProductMetricsRepository {
 
     ProductMetrics save(ProductMetrics metrics);
 
+    void upsertIfAbsent(Long productId, LocalDate metricsDate);
+
     void incrementLikeCount(Long productId, LocalDate metricsDate);
 
     void decrementLikeCount(Long productId, LocalDate metricsDate);

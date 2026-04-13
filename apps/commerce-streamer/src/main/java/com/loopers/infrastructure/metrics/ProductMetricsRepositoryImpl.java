@@ -25,6 +25,11 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     }
 
     @Override
+    public void upsertIfAbsent(Long productId, LocalDate metricsDate) {
+        jpaRepository.upsertIfAbsent(productId, metricsDate);
+    }
+
+    @Override
     public void incrementLikeCount(Long productId, LocalDate metricsDate) {
         jpaRepository.incrementLikeCount(productId, metricsDate);
     }
