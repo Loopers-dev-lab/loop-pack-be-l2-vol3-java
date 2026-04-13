@@ -34,10 +34,6 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
     void incrementViewCount(@Param("productId") Long productId, @Param("metricsDate") LocalDate metricsDate);
 
     @Modifying
-    @Query("UPDATE ProductMetricsEntity m SET m.salesCount = m.salesCount + 1 WHERE m.productId = :productId AND m.metricsDate = :metricsDate")
-    void incrementSalesCount(@Param("productId") Long productId, @Param("metricsDate") LocalDate metricsDate);
-
-    @Modifying
-    @Query("UPDATE ProductMetricsEntity m SET m.totalQuantity = m.totalQuantity + :quantity WHERE m.productId = :productId AND m.metricsDate = :metricsDate")
-    void incrementTotalQuantity(@Param("productId") Long productId, @Param("metricsDate") LocalDate metricsDate, @Param("quantity") int quantity);
+    @Query("UPDATE ProductMetricsEntity m SET m.salesCount = m.salesCount + 1, m.totalQuantity = m.totalQuantity + :quantity WHERE m.productId = :productId AND m.metricsDate = :metricsDate")
+    void incrementSalesAndQuantity(@Param("productId") Long productId, @Param("metricsDate") LocalDate metricsDate, @Param("quantity") int quantity);
 }
