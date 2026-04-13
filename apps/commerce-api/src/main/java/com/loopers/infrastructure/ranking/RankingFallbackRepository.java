@@ -39,9 +39,9 @@ public class RankingFallbackRepository {
         return queryToMap(sql, from, to, limit);
     }
 
-    public Map<Long, Long> sumQuantityByRange(LocalDateTime from, LocalDateTime to, int limit) {
+    public Map<Long, Long> sumSalesAmountByRange(LocalDateTime from, LocalDateTime to, int limit) {
         String sql = """
-                SELECT product_id, SUM(quantity) AS total
+                SELECT product_id, SUM(sales_amount) AS total
                 FROM product_order_metrics
                 WHERE bucket_time >= ? AND bucket_time < ?
                 GROUP BY product_id

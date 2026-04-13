@@ -30,19 +30,19 @@ public class RankingAggregator {
     public Map<Long, Double> aggregate(LocalDateTime from, LocalDateTime to, WeightConfig config) {
         Map<Long, Long> viewCounts = viewMetricRepository.sumByBucketTimeRange(from, to, QUERY_LIMIT);
         Map<Long, Long> likeCounts = likeMetricRepository.sumByBucketTimeRange(from, to, QUERY_LIMIT);
-        Map<Long, Long> orderQty = orderMetricRepository.sumQuantityByBucketTimeRange(from, to, QUERY_LIMIT);
+        Map<Long, Long> salesAmounts = orderMetricRepository.sumSalesAmountByBucketTimeRange(from, to, QUERY_LIMIT);
 
         Set<Long> allProductIds = new HashSet<>();
         allProductIds.addAll(viewCounts.keySet());
         allProductIds.addAll(likeCounts.keySet());
-        allProductIds.addAll(orderQty.keySet());
+        allProductIds.addAll(salesAmounts.keySet());
 
         Map<Long, Double> scores = new HashMap<>();
         for (Long pid : allProductIds) {
             double s = scorer.score(
                     viewCounts.getOrDefault(pid, 0L),
                     likeCounts.getOrDefault(pid, 0L),
-                    orderQty.getOrDefault(pid, 0L),
+                    salesAmounts.getOrDefault(pid, 0L),
                     config
             );
             if (s > 0) {

@@ -31,4 +31,14 @@ public class ProductOrderMetricRepositoryImpl implements ProductOrderMetricRepos
         }
         return result;
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, Long> sumSalesAmountByBucketTimeRange(LocalDateTime from, LocalDateTime to, int limit) {
+        Map<Long, Long> result = new LinkedHashMap<>();
+        for (Object[] row : jpaRepository.sumSalesAmountByBucketTimeRange(from, to, limit)) {
+            result.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+        return result;
+    }
 }

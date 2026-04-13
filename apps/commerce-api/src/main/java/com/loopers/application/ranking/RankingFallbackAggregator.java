@@ -26,18 +26,18 @@ public class RankingFallbackAggregator {
     public Map<Long, Double> aggregate(LocalDateTime from, LocalDateTime to) {
         Map<Long, Long> views = fallbackRepository.sumViewsByRange(from, to, QUERY_LIMIT);
         Map<Long, Long> likes = fallbackRepository.sumLikesByRange(from, to, QUERY_LIMIT);
-        Map<Long, Long> orders = fallbackRepository.sumQuantityByRange(from, to, QUERY_LIMIT);
+        Map<Long, Long> salesAmounts = fallbackRepository.sumSalesAmountByRange(from, to, QUERY_LIMIT);
 
         Set<Long> allIds = new HashSet<>();
         allIds.addAll(views.keySet());
         allIds.addAll(likes.keySet());
-        allIds.addAll(orders.keySet());
+        allIds.addAll(salesAmounts.keySet());
 
         return allIds.stream()
                 .map(pid -> Map.entry(pid,
                         W_VIEW * views.getOrDefault(pid, 0L)
                                 + W_LIKE * likes.getOrDefault(pid, 0L)
-                                + W_ORDER * orders.getOrDefault(pid, 0L)))
+                                + W_ORDER * Math.log10(salesAmounts.getOrDefault(pid, 0L) + 1)))
                 .filter(e -> e.getValue() > 0)
                 .sorted(Map.Entry.<Long, Double>comparingByValue().reversed())
                 .limit(RANKING_SIZE)

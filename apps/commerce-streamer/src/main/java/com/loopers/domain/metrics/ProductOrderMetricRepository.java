@@ -9,4 +9,6 @@ public interface ProductOrderMetricRepository {
 
     // Query
     Map<Long, Long> sumQuantityByBucketTimeRange(LocalDateTime from, LocalDateTime to, int limit);
+
+    Map<Long, Long> sumSalesAmountByBucketTimeRange(LocalDateTime from, LocalDateTime to, int limit);
 }

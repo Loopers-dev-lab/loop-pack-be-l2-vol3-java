@@ -59,8 +59,9 @@ class RankingAggregatorIntegrationTest {
 
             Map<Long, Double> result = aggregator.aggregate(FROM, TO);
 
-            // 기본 가중치: 0.1*500 + 0.2*5 + 0.7*2 = 52.4
-            assertThat(result.get(1L)).isCloseTo(52.4, within(0.001));
+            // 기본 가중치: 0.1*500 + 0.2*5 + 0.7*log10(20001) = 50 + 1 + 0.7*4.301 ≈ 54.011
+            double expected = 0.1 * 500 + 0.2 * 5 + 0.7 * Math.log10(20001);
+            assertThat(result.get(1L)).isCloseTo(expected, within(0.001));
         }
 
         @Test
@@ -91,8 +92,9 @@ class RankingAggregatorIntegrationTest {
             WeightConfig viewHeavy = WeightConfig.create("exp", 0.5, 0.3, 0.2, 50);
             Map<Long, Double> result = aggregator.aggregate(FROM, TO, viewHeavy);
 
-            // 0.5*500 + 0.3*5 + 0.2*2 = 251.9
-            assertThat(result.get(1L)).isCloseTo(251.9, within(0.001));
+            // 0.5*500 + 0.3*5 + 0.2*log10(20001) = 250 + 1.5 + 0.2*4.301 ≈ 252.360
+            double expected = 0.5 * 500 + 0.3 * 5 + 0.2 * Math.log10(20001);
+            assertThat(result.get(1L)).isCloseTo(expected, within(0.001));
         }
 
         @Test
