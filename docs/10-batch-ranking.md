@@ -158,10 +158,11 @@ GET /api/v1/rankings?date=20260413&period=monthly&size=20&page=1  → mv_product
 ### Phase 1. product_metrics 구조 변경
 
 - [ ] `metrics_date` 컬럼 추가 (DDL)
+- [ ] `total_quantity` 컬럼 추가 (DDL) — 주문 수량 합산, 일간과 동일한 점수 기준 유지
 - [ ] UNIQUE 제약 변경: `product_id` → `(product_id, metrics_date)`
-- [ ] `ProductMetricsEntity` — `metricsDate` 필드 추가
-- [ ] `ProductMetricsJpaRepository` — increment 쿼리에 `metrics_date` 조건 추가
-- [ ] `ProductMetricsProcessor` — `occurredAt.toLocalDate()`를 날짜 기준으로 upsert
+- [ ] `ProductMetricsEntity` — `metricsDate`, `totalQuantity` 필드 추가
+- [ ] `ProductMetricsJpaRepository` — increment 쿼리에 `metrics_date` 조건 추가, `incrementTotalQuantity` 추가
+- [ ] `ProductMetricsProcessor` — `occurredAt.toLocalDate()`를 날짜 기준으로 upsert, ORDER_CONFIRMED 시 quantity 누적
 
 ### Phase 2. MV 테이블 생성
 
