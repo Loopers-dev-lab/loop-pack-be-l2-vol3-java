@@ -9,11 +9,14 @@ import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.brand.BrandRepository;
+import com.loopers.infrastructure.ranking.RankingRedisRepository;
 import com.loopers.infrastructure.redis.StockReservationRedisRepository;
 import com.loopers.interfaces.api.product.ProductDto;
+import com.loopers.interfaces.api.ranking.RankingDto;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -21,14 +24,22 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ProductFacade {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
@@ -36,6 +47,7 @@ public class ProductFacade {
     private final ProductCachePort productCachePort;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final StockReservationRedisRepository stockRedisRepository;
+    private final RankingRedisRepository rankingRedisRepository;
 
     // ── 상품 상세 (캐시 적용) ──
 
@@ -49,16 +61,29 @@ public class ProductFacade {
 
     public ProductDto.ProductResponse getProductDetailCached(Long productId) {
         ProductDto.ProductResponse cached = productCachePort.getProductDetail(productId);
+        ProductDto.ProductResponse response;
         if (cached != null) {
             applicationEventPublisher.publishEvent(new ProductViewedEvent(productId, 0L));
-            return cached;
+            response = cached;
+        } else {
+            ProductWithBrand info = getProductDetail(productId);
+            response = ProductDto.ProductResponse.from(info);
+            productCachePort.putProductDetail(productId, response);
+            applicationEventPublisher.publishEvent(new ProductViewedEvent(productId, 0L));
         }
+        return response.withRanking(lookupRanking(productId));
+    }
 
-        ProductWithBrand info = getProductDetail(productId);
-        ProductDto.ProductResponse response = ProductDto.ProductResponse.from(info);
-        productCachePort.putProductDetail(productId, response);
-        applicationEventPublisher.publishEvent(new ProductViewedEvent(productId, 0L));
-        return response;
+    private RankingDto.RankingInfo lookupRanking(Long productId) {
+        try {
+            String today = LocalDate.now(KST).format(DATE_FORMATTER);
+            RankingRedisRepository.RankAndScore rs = rankingRedisRepository.getRankAndScore(today, productId);
+            if (rs == null) return null;
+            return new RankingDto.RankingInfo(rs.rank(), rs.score(), today);
+        } catch (Exception e) {
+            log.warn("상품 {} 랭킹 조회 실패", productId, e);
+            return null;
+        }
     }
 
     // ── 상품 목록 (페이지네이션 + 캐시 적용) ──
@@ -90,6 +115,15 @@ public class ProductFacade {
         ProductDto.PagedProductResponse response = ProductDto.PagedProductResponse.from(result);
         productCachePort.putProductList(brandId, sort, page, size, response);
         return response;
+    }
+
+    // ── 신상품 조회 ──
+
+    public ProductDto.PagedProductResponse getNewProducts(int hours, int page, int size) {
+        ZonedDateTime since = ZonedDateTime.now(KST).minusHours(hours);
+        Pageable pageable = PageRequest.of(page, size);
+        Page<ProductWithBrand> result = productRepository.findNewProducts(since, pageable);
+        return ProductDto.PagedProductResponse.from(result);
     }
 
     // ── 기존 List 반환 메서드 (하위 호환 + 벤치마크용) ──
@@ -136,10 +170,10 @@ public class ProductFacade {
     // ── 상품 CUD (캐시 무효화 포함) ──
 
     @Transactional
-    public Product createProduct(Long brandId, String name, int price, int stockQuantity) {
+    public Product createProduct(Long brandId, String name, int price, int stockQuantity, Long categoryId) {
         brandRepository.findById(brandId)
             .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "브랜드를 찾을 수 없습니다."));
-        Product product = new Product(brandId, name, new Price(price), new Stock(stockQuantity));
+        Product product = new Product(brandId, name, new Price(price), new Stock(stockQuantity), categoryId);
         Product saved = productRepository.save(product);
         productCachePort.evictProductList();
         return saved;

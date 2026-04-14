@@ -175,7 +175,8 @@ public class OrderFacade {
 
         domainEventPublisher.publish("order", String.valueOf(orderId),
             "ORDER_CANCELLED",
-            Map.of("orderId", orderId, "memberId", memberId, "items", eventItems),
+            Map.of("orderId", orderId, "memberId", memberId, "items", eventItems,
+                "originalOrderDate", order.getCreatedAt().toLocalDate().toString()),
             new OrderCancelledEvent(orderId, memberId, eventItems));
     }
 

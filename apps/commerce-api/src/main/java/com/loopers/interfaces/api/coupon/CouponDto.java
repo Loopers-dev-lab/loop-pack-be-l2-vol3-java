@@ -46,28 +46,6 @@ public class CouponDto {
         }
     }
 
-    public record CouponIssueRequestResponse(
-        Long requestId,
-        Long couponId,
-        Long memberId,
-        String status,
-        String rejectReason,
-        ZonedDateTime createdAt,
-        ZonedDateTime completedAt
-    ) {
-        public static CouponIssueRequestResponse from(CouponIssueRequest request) {
-            return new CouponIssueRequestResponse(
-                request.getId(),
-                request.getCouponId(),
-                request.getMemberId(),
-                request.getStatus().name(),
-                request.getRejectReason(),
-                request.getCreatedAt(),
-                request.getCompletedAt()
-            );
-        }
-    }
-
     public record CouponIssueResponse(
         Long id,
         Long couponId,

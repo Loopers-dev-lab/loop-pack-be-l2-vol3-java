@@ -10,6 +10,7 @@ import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
+import com.loopers.domain.event.DomainEventPublisher;
 import com.loopers.fake.*;
 import com.loopers.infrastructure.redis.CouponIssueRequestRedisRepository;
 import com.loopers.support.error.CoreException;
@@ -49,8 +50,9 @@ class OrderFacadeTest {
             mock(CouponIssueRequestRedisRepository.class),
             mock(KafkaTemplate.class), new ObjectMapper(),
             Clock.systemDefaultZone());
+        DomainEventPublisher noOpPublisher = (type, id, eventType, payload, event) -> {};
         orderFacade = new OrderFacade(orderRepository, productRepository, brandRepository,
-            couponFacade);
+            couponFacade, noOpPublisher);
     }
 
     @Nested

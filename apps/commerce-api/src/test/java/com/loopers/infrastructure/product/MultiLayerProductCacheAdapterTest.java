@@ -142,7 +142,7 @@ class MultiLayerProductCacheAdapterTest {
     // ── 헬퍼 ──
 
     private static ProductDto.ProductResponse detailResponse(Long id) {
-        return new ProductDto.ProductResponse(id, 10L, "나이키", "에어맥스", 150000, 10, 5);
+        return new ProductDto.ProductResponse(id, 10L, "나이키", "에어맥스", 150000, 10, 5, null, null);
     }
 
     private static ProductDto.PagedProductResponse listResponse() {

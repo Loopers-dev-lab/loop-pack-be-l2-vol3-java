@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductWithBrand;
+import com.loopers.interfaces.api.ranking.RankingDto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,7 +16,8 @@ public class ProductDto {
         @NotNull Long brandId,
         @NotBlank String name,
         @Min(0) int price,
-        @Min(0) int stockQuantity
+        @Min(0) int stockQuantity,
+        Long categoryId
     ) {}
 
     public record UpdateRequest(
@@ -31,7 +33,9 @@ public class ProductDto {
         String name,
         int price,
         int stockQuantity,
-        int likeCount
+        int likeCount,
+        Long categoryId,
+        RankingDto.RankingInfo ranking
     ) {
         public static ProductResponse from(ProductWithBrand info) {
             Product product = info.product();
@@ -42,7 +46,9 @@ public class ProductDto {
                 product.getName(),
                 product.getPrice().getValue(),
                 product.getStock().getQuantity(),
-                (int) info.likeCount()
+                (int) info.likeCount(),
+                product.getCategoryId(),
+                null
             );
         }
 
@@ -54,8 +60,14 @@ public class ProductDto {
                 product.getName(),
                 product.getPrice().getValue(),
                 product.getStock().getQuantity(),
-                0
+                0,
+                product.getCategoryId(),
+                null
             );
+        }
+
+        public ProductResponse withRanking(RankingDto.RankingInfo ranking) {
+            return new ProductResponse(id, brandId, brandName, name, price, stockQuantity, likeCount, categoryId, ranking);
         }
     }
 

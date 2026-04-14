@@ -4,8 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.coupon.CouponFacade;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.domain.coupon.CouponIssue;
-import com.loopers.domain.coupon.CouponIssueRequest;
-import com.loopers.domain.coupon.CouponIssueRequestRepository;
+import com.loopers.infrastructure.redis.CouponIssueRequestRedisRepository;
 import com.loopers.domain.order.Order;
 import com.loopers.domain.order.OrderStatus;
 import com.loopers.domain.payment.*;
@@ -22,7 +21,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import java.time.Clock;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -53,14 +51,10 @@ class PaymentCallbackTest {
 
         ProductFacade productFacade = new ProductFacade(
             productRepository, new FakeBrandRepository(), new FakeLikeRepository(),
-            new FakeProductCachePort(), event -> {}, stockRedisRepository);
+            new FakeProductCachePort(), event -> {}, stockRedisRepository, null);
 
-        CouponIssueRequestRepository issueRequestRepository = new CouponIssueRequestRepository() {
-            @Override public CouponIssueRequest save(CouponIssueRequest request) { return request; }
-            @Override public Optional<CouponIssueRequest> findById(Long id) { return Optional.empty(); }
-        };
         CouponFacade couponFacade = new CouponFacade(new FakeCouponRepository(), couponIssueRepository,
-            issueRequestRepository, mock(KafkaTemplate.class), new ObjectMapper(), Clock.systemDefaultZone());
+            mock(CouponIssueRequestRedisRepository.class), mock(KafkaTemplate.class), new ObjectMapper(), Clock.systemDefaultZone());
 
         recoveryService = new PaymentRecoveryService(
             paymentRepository, new FakePaymentStatusHistoryRepository(),

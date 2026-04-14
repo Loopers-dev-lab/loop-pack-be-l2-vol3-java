@@ -31,6 +31,9 @@ public class Product extends BaseEntity {
     @Embedded
     private Stock stock;
 
+    @Column(name = "category_id")
+    private Long categoryId;
+
     @Column(name = "like_count", nullable = false)
     private int likeCount = 0;
 
@@ -39,6 +42,11 @@ public class Product extends BaseEntity {
         this.name = name;
         this.price = price;
         this.stock = stock;
+    }
+
+    public Product(Long brandId, String name, Price price, Stock stock, Long categoryId) {
+        this(brandId, name, price, stock);
+        this.categoryId = categoryId;
     }
 
     public void changeName(String name) {

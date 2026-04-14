@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,7 +40,7 @@ class ProductFacadeTest {
         brandRepository = new FakeBrandRepository();
         likeRepository = new FakeLikeRepository();
         productRepository.setBrandRepository(brandRepository);
-        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCachePort(), event -> {}, new FakeStockReservationRedisRepository());
+        productFacade = new ProductFacade(productRepository, brandRepository, likeRepository, new FakeProductCachePort(), event -> {}, new FakeStockReservationRedisRepository(), null);
     }
 
     @Nested
@@ -238,7 +239,7 @@ class ProductFacadeTest {
             Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
 
             // act
-            Product result = productFacade.createProduct(brand.getId(), "에어맥스", 150000, 10);
+            Product result = productFacade.createProduct(brand.getId(), "에어맥스", 150000, 10, null);
 
             // assert
             assertThat(result.getId()).isNotNull();
@@ -252,7 +253,7 @@ class ProductFacadeTest {
         @DisplayName("존재하지 않는 브랜드로 상품을 생성하면 예외가 발생한다")
         @Test
         void createProduct_withInvalidBrand_throwsCoreException() {
-            assertThatThrownBy(() -> productFacade.createProduct(999L, "에어맥스", 150000, 10))
+            assertThatThrownBy(() -> productFacade.createProduct(999L, "에어맥스", 150000, 10, null))
                     .isInstanceOf(CoreException.class)
                     .extracting(e -> ((CoreException) e).getErrorType())
                     .isEqualTo(ErrorType.NOT_FOUND);
@@ -334,6 +335,90 @@ class ProductFacadeTest {
             // assert
             assertThat(likeRepository.findByMemberIdAndProductId(1L, product.getId())).isEmpty();
             assertThat(likeRepository.findByMemberIdAndProductId(2L, product.getId())).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("신상품 조회")
+    class GetNewProducts {
+
+        @DisplayName("48시간 이내 등록 상품만 반환된다")
+        @Test
+        void getNewProducts_returnsOnlyRecentProducts() {
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product recent = productRepository.save(new Product(brand.getId(), "신상품", new Price(100000), new Stock(10)));
+            Product old = productRepository.save(new Product(brand.getId(), "구상품", new Price(80000), new Stock(5)));
+
+            // recent는 방금 생성 (createdAt = now), old는 3일 전으로 설정
+            productRepository.setCreatedAt(old.getId(), ZonedDateTime.now().minusHours(72));
+
+            ProductDto.PagedProductResponse response = productFacade.getNewProducts(48, 0, 20);
+
+            assertThat(response.data()).hasSize(1);
+            assertThat(response.data().get(0).name()).isEqualTo("신상품");
+        }
+
+        @DisplayName("삭제된 상품은 결과에서 제외된다")
+        @Test
+        void getNewProducts_excludesDeletedProducts() {
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product active = productRepository.save(new Product(brand.getId(), "활성상품", new Price(100000), new Stock(10)));
+            Product deleted = productRepository.save(new Product(brand.getId(), "삭제상품", new Price(80000), new Stock(5)));
+            deleted.delete();
+
+            ProductDto.PagedProductResponse response = productFacade.getNewProducts(48, 0, 20);
+
+            assertThat(response.data()).hasSize(1);
+            assertThat(response.data().get(0).name()).isEqualTo("활성상품");
+        }
+
+        @DisplayName("신상품이 없으면 빈 리스트가 반환된다")
+        @Test
+        void getNewProducts_whenNoNewProducts_returnsEmpty() {
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product old = productRepository.save(new Product(brand.getId(), "구상품", new Price(80000), new Stock(5)));
+            productRepository.setCreatedAt(old.getId(), ZonedDateTime.now().minusHours(72));
+
+            ProductDto.PagedProductResponse response = productFacade.getNewProducts(48, 0, 20);
+
+            assertThat(response.data()).isEmpty();
+            assertThat(response.totalElements()).isZero();
+        }
+
+        @DisplayName("등록순 최신 먼저 정렬된다")
+        @Test
+        void getNewProducts_sortedByCreatedAtDesc() {
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            Product p1 = productRepository.save(new Product(brand.getId(), "먼저등록", new Price(100000), new Stock(10)));
+            Product p2 = productRepository.save(new Product(brand.getId(), "나중등록", new Price(80000), new Stock(5)));
+
+            productRepository.setCreatedAt(p1.getId(), ZonedDateTime.now().minusHours(2));
+            productRepository.setCreatedAt(p2.getId(), ZonedDateTime.now().minusHours(1));
+
+            ProductDto.PagedProductResponse response = productFacade.getNewProducts(48, 0, 20);
+
+            assertThat(response.data()).hasSize(2);
+            assertThat(response.data().get(0).name()).isEqualTo("나중등록");
+            assertThat(response.data().get(1).name()).isEqualTo("먼저등록");
+        }
+
+        @DisplayName("페이지네이션이 올바르게 동작한다")
+        @Test
+        void getNewProducts_pagination_worksCorrectly() {
+            Brand brand = brandRepository.save(new Brand("나이키", "스포츠 브랜드"));
+            for (int i = 0; i < 5; i++) {
+                productRepository.save(new Product(brand.getId(), "상품" + i, new Price(10000), new Stock(10)));
+            }
+
+            ProductDto.PagedProductResponse page0 = productFacade.getNewProducts(48, 0, 2);
+            ProductDto.PagedProductResponse page1 = productFacade.getNewProducts(48, 1, 2);
+            ProductDto.PagedProductResponse page2 = productFacade.getNewProducts(48, 2, 2);
+
+            assertThat(page0.data()).hasSize(2);
+            assertThat(page1.data()).hasSize(2);
+            assertThat(page2.data()).hasSize(1);
+            assertThat(page0.totalElements()).isEqualTo(5);
+            assertThat(page0.totalPages()).isEqualTo(3);
         }
     }
 
