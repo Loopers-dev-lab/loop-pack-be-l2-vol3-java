@@ -47,4 +47,25 @@ public class RankingService {
         Long rank = rankingRepository.getRank(key, productId);
         return rank != null ? rank + 1 : null; // 0-based → 1-based
     }
+
+    /** 주간 랭킹 조회: date(yyyyMMdd)에서 yearWeek를 계산하여 MV 테이블 조회 */
+    public List<RankingEntry> getTopRankingsWeekly(String date, int page, int size) {
+        String yearWeek = computeYearWeek(date);
+        int offset = (page - 1) * size;
+        return rankingRepository.getTopNWeekly(yearWeek, offset, size);
+    }
+
+    /** 월간 랭킹 조회: date(yyyyMMdd)에서 yearMonth를 계산하여 MV 테이블 조회 */
+    public List<RankingEntry> getTopRankingsMonthly(String date, int page, int size) {
+        String yearMonth = date.substring(0, 6);   // "yyyyMMdd" → "yyyyMM"
+        int offset = (page - 1) * size;
+        return rankingRepository.getTopNMonthly(yearMonth, offset, size);
+    }
+
+    private String computeYearWeek(String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr, DATE_FORMAT);
+        int year = date.get(java.time.temporal.WeekFields.ISO.weekBasedYear());
+        int week = date.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear());
+        return String.format("%dW%02d", year, week);
+    }
 }
