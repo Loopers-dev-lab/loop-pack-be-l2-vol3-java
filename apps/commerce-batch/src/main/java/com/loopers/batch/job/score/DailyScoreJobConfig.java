@@ -39,7 +39,7 @@ public class DailyScoreJobConfig {
 
     public static final String JOB_NAME = "dailyScoreJob";
     private static final String STEP_NAME = "buildDailyScoreStep";
-    private static final int CHUNK_SIZE = 500;
+    private static final int CHUNK_SIZE = 2000;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final JobRepository jobRepository;
