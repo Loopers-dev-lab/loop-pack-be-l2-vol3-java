@@ -14,6 +14,8 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -38,11 +40,33 @@ public class RankJobFactory {
     private final StepMonitorListener stepMonitorListener;
     private final ChunkListener chunkListener;
 
+    @Value("${batch.rank.validation.fail-on-incomplete:false}")
+    private boolean failOnIncomplete;
+
     public Job buildJob(String jobName, Step step) {
         return new JobBuilder(jobName, jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .listener(jobListener)
                 .start(step)
+                .build();
+    }
+
+    public Job buildJob(String jobName, Step validationStep, Step buildStep) {
+        return new JobBuilder(jobName, jobRepository)
+                .incrementer(new RunIdIncrementer())
+                .listener(jobListener)
+                .start(validationStep)
+                .next(buildStep)
+                .build();
+    }
+
+    public Step buildValidationStep(String stepName, LocalDate periodStart, LocalDate periodEnd) {
+        ScoreCompletenessTasklet tasklet = new ScoreCompletenessTasklet(
+                new JdbcTemplate(dataSource), periodStart, periodEnd, failOnIncomplete
+        );
+        return new StepBuilder(stepName, jobRepository)
+                .tasklet(tasklet, transactionManager)
+                .listener(stepMonitorListener)
                 .build();
     }
 

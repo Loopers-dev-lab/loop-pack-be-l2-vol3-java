@@ -20,13 +20,25 @@ import java.time.LocalDate;
 public class WeeklyRankJobConfig {
 
     public static final String JOB_NAME = "weeklyRankJob";
+    private static final String VALIDATION_STEP = "validateWeeklyScoreCompletenessStep";
     private static final String BUILD_STEP = "buildWeeklyRankStep";
 
     private final RankJobFactory rankJobFactory;
 
     @Bean(JOB_NAME)
-    public Job weeklyRankJob(Step buildWeeklyRankStep) {
-        return rankJobFactory.buildJob(JOB_NAME, buildWeeklyRankStep);
+    public Job weeklyRankJob(Step validateWeeklyScoreCompletenessStep, Step buildWeeklyRankStep) {
+        return rankJobFactory.buildJob(JOB_NAME, validateWeeklyScoreCompletenessStep, buildWeeklyRankStep);
+    }
+
+    @Bean(VALIDATION_STEP)
+    @JobScope
+    public Step validateWeeklyScoreCompletenessStep(@Value("#{jobParameters['date']}") String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        return rankJobFactory.buildValidationStep(
+                VALIDATION_STEP,
+                RankingKeyGenerator.weekStart(date),
+                RankingKeyGenerator.weekEnd(date)
+        );
     }
 
     @Bean(BUILD_STEP)
