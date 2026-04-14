@@ -2,6 +2,7 @@ package com.loopers.batch.job.rank;
 
 import com.loopers.batch.job.rank.step.AggregatedScoreRow;
 import com.loopers.batch.job.rank.step.AtomicMvRankWriter;
+import com.loopers.batch.job.rank.step.RankAggregationSql;
 import com.loopers.batch.listener.ChunkListener;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
@@ -39,19 +40,6 @@ public class WeeklyRankJobConfig {
     private static final int CHUNK_SIZE = 20;
     private static final int TOP_N = 100;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
-
-    private static final String READER_SQL = """
-            SELECT sd.product_db_id,
-                   SUM(sd.score)          AS total_score,
-                   SUM(sd.view_count)     AS total_view,
-                   SUM(sd.like_count)     AS total_like,
-                   SUM(sd.order_amount)   AS total_order
-            FROM mv_product_score_daily sd
-            WHERE sd.score_date BETWEEN ? AND ?
-            GROUP BY sd.product_db_id
-            ORDER BY total_score DESC, sd.product_db_id ASC
-            LIMIT ?
-            """;
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
@@ -99,7 +87,7 @@ public class WeeklyRankJobConfig {
         return new JdbcCursorItemReaderBuilder<AggregatedScoreRow>()
                 .name("weeklyScoreReader")
                 .dataSource(dataSource)
-                .sql(READER_SQL)
+                .sql(RankAggregationSql.AGGREGATE_BY_DATE_RANGE)
                 .preparedStatementSetter(ps -> {
                     ps.setObject(1, weekStart);
                     ps.setObject(2, weekEnd);
