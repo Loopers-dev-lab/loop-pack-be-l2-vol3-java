@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -81,9 +82,9 @@ public class RankingProductCache {
     }
 
     private Map<Long, CachedProductSnapshot> fetchAndCacheBatch(List<Long> ids) {
-        List<com.loopers.domain.product.ProductModel> products = productRepository.findAllByIdIncludingDeleted(ids);
+        List<ProductModel> products = productRepository.findAllByIdIncludingDeleted(ids);
         Map<Long, CachedProductSnapshot> map = new HashMap<>(products.size());
-        for (com.loopers.domain.product.ProductModel product : products) {
+        for (ProductModel product : products) {
             CachedProductSnapshot snapshot = CachedProductSnapshot.from(product);
             byte[] bytes = serializer.serialize(snapshot);
             redisTemplate.opsForValue().set(KEY_PREFIX + snapshot.id(), bytes, HARD_TTL_SECONDS, TimeUnit.SECONDS);
