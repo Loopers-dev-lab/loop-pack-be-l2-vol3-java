@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -69,12 +70,12 @@ public class RankingApp {
         if (entries.isEmpty()) {
             return List.of();
         }
+        Map<Long, CachedProductSnapshot> snapshots = productCache.findAllByIds(productDbIds(entries));
         List<RankingInfo> items = new ArrayList<>(entries.size());
         long rank = baseOffset;
         for (RankingEntry entry : entries) {
-            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
             rank++;
-            items.add(toInfo(entry, rank, snapshot));
+            items.add(toInfo(entry, rank, snapshots.get(entry.productDbId())));
         }
         return items;
     }
@@ -83,14 +84,22 @@ public class RankingApp {
         if (entries.isEmpty()) {
             return List.of();
         }
+        Map<Long, CachedProductSnapshot> snapshots = productCache.findAllByIds(productDbIds(entries));
         List<RankingInfo> items = new ArrayList<>(entries.size());
         for (RankingEntry entry : entries) {
-            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
             Long globalRank = rankingRepository.findRank(date, entry.productDbId()).orElse(null);
             long rank = globalRank != null ? globalRank : 0L;
-            items.add(toInfo(entry, rank, snapshot));
+            items.add(toInfo(entry, rank, snapshots.get(entry.productDbId())));
         }
         return items;
+    }
+
+    private List<Long> productDbIds(List<RankingEntry> entries) {
+        List<Long> ids = new ArrayList<>(entries.size());
+        for (RankingEntry entry : entries) {
+            ids.add(entry.productDbId());
+        }
+        return ids;
     }
 
     public RankingPageResult getHourlyTopN(LocalDate date, int hour, long page, long size) {
@@ -112,12 +121,12 @@ public class RankingApp {
         if (entries.isEmpty()) {
             return List.of();
         }
+        Map<Long, CachedProductSnapshot> snapshots = productCache.findAllByIds(productDbIds(entries));
         List<RankingInfo> items = new ArrayList<>(entries.size());
         for (RankingEntry entry : entries) {
-            CachedProductSnapshot snapshot = productCache.findById(entry.productDbId());
             Long globalRank = rankingRepository.findHourlyRank(date, hour, entry.productDbId()).orElse(null);
             long rank = globalRank != null ? globalRank : 0L;
-            items.add(toInfo(entry, rank, snapshot));
+            items.add(toInfo(entry, rank, snapshots.get(entry.productDbId())));
         }
         return items;
     }

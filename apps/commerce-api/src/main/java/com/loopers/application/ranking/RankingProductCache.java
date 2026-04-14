@@ -10,6 +10,10 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +37,59 @@ public class RankingProductCache {
         this.productRepository = productRepository;
         this.serializer = new GenericJackson2JsonRedisSerializer();
         this.redisTemplate = buildRedisTemplate(redisConnectionFactory);
+    }
+
+    public Map<Long, CachedProductSnapshot> findAllByIds(List<Long> productDbIds) {
+        if (productDbIds.isEmpty()) {
+            return Map.of();
+        }
+        List<String> keys = new ArrayList<>(productDbIds.size());
+        for (Long id : productDbIds) {
+            keys.add(KEY_PREFIX + id);
+        }
+        List<byte[]> raw = redisTemplate.opsForValue().multiGet(keys);
+
+        Map<Long, CachedProductSnapshot> result = new HashMap<>(productDbIds.size());
+        List<Long> missingIds = new ArrayList<>();
+        List<Long> staleIds = new ArrayList<>();
+        for (int i = 0; i < productDbIds.size(); i++) {
+            Long id = productDbIds.get(i);
+            byte[] bytes = raw == null ? null : raw.get(i);
+            if (bytes == null) {
+                missingIds.add(id);
+                continue;
+            }
+            CachedProductSnapshot snapshot = (CachedProductSnapshot) serializer.deserialize(bytes);
+            if (snapshot == null) {
+                missingIds.add(id);
+                continue;
+            }
+            result.put(id, snapshot);
+            if (!isWithinSoftTtl(snapshot.cachedAtEpochSecond())) {
+                staleIds.add(id);
+            }
+        }
+
+        if (!missingIds.isEmpty()) {
+            Map<Long, CachedProductSnapshot> loaded = fetchAndCacheBatch(missingIds);
+            result.putAll(loaded);
+        }
+        for (Long staleId : staleIds) {
+            refreshAsync(staleId, KEY_PREFIX + staleId);
+        }
+        return result;
+    }
+
+    private Map<Long, CachedProductSnapshot> fetchAndCacheBatch(List<Long> ids) {
+        List<com.loopers.domain.product.ProductModel> products = productRepository.findAllByIdIncludingDeleted(ids);
+        Map<Long, CachedProductSnapshot> map = new HashMap<>(products.size());
+        for (com.loopers.domain.product.ProductModel product : products) {
+            CachedProductSnapshot snapshot = CachedProductSnapshot.from(product);
+            byte[] bytes = serializer.serialize(snapshot);
+            redisTemplate.opsForValue().set(KEY_PREFIX + snapshot.id(), bytes, HARD_TTL_SECONDS, TimeUnit.SECONDS);
+            map.put(snapshot.id(), snapshot);
+        }
+        return map;
     }
 
     public CachedProductSnapshot findById(Long productDbId) {
