@@ -39,7 +39,6 @@ public class DailyScoreJobConfig {
 
     public static final String JOB_NAME = "dailyScoreJob";
     private static final String STEP_NAME = "buildDailyScoreStep";
-    private static final int CHUNK_SIZE = 2000;
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final JobRepository jobRepository;
@@ -50,6 +49,9 @@ public class DailyScoreJobConfig {
     private final JobListener jobListener;
     private final StepMonitorListener stepMonitorListener;
     private final ChunkListener chunkListener;
+
+    @Value("${batch.daily-score.chunk-size:5000}")
+    private int chunkSize;
 
     @Bean(JOB_NAME)
     public Job dailyScoreJob(Step buildDailyScoreStep) {
@@ -67,7 +69,7 @@ public class DailyScoreJobConfig {
     ) {
         LocalDate date = LocalDate.parse(dateStr, DATE_FMT);
         return new StepBuilder(STEP_NAME, jobRepository)
-                .<ProductDailySignalModel, MvProductScoreDailyRow>chunk(CHUNK_SIZE, transactionManager)
+                .<ProductDailySignalModel, MvProductScoreDailyRow>chunk(chunkSize, transactionManager)
                 .reader(dailySignalReader(date))
                 .processor(dailyScoreProcessor(date))
                 .writer(scoreDailyWriter())
@@ -83,7 +85,7 @@ public class DailyScoreJobConfig {
                 "SELECT p FROM ProductDailySignalModel p WHERE p.signalDate = :signalDate ORDER BY p.productDbId"
         );
         reader.setParameterValues(Map.of("signalDate", date));
-        reader.setPageSize(CHUNK_SIZE);
+        reader.setPageSize(chunkSize);
         reader.setName("dailySignalReader");
         return reader;
     }
