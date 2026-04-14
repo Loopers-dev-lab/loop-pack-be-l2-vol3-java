@@ -50,11 +50,18 @@ public class AtomicMvRankWriter implements ItemWriter<AggregatedScoreRow>, StepE
 
         List<MvProductRankRow> ranked = assignRanks(accumulated);
 
-        transactionTemplate.executeWithoutResult(status -> {
-            repository.deleteByPeriodKey(periodType, periodKey);
-            repository.batchInsert(periodType, ranked);
-            log.info("MV 원자 적재 완료: type={}, periodKey={}, rows={}", periodType, periodKey, ranked.size());
-        });
+        try {
+            transactionTemplate.executeWithoutResult(status -> {
+                repository.deleteByPeriodKey(periodType, periodKey);
+                repository.batchInsert(periodType, ranked);
+                log.info("MV 원자 적재 완료: type={}, periodKey={}, rows={}", periodType, periodKey, ranked.size());
+            });
+        } catch (RuntimeException e) {
+            log.error("MV 원자 적재 실패: type={}, periodKey={}, rows={}", periodType, periodKey, ranked.size(), e);
+            stepExecution.setStatus(BatchStatus.FAILED);
+            stepExecution.addFailureException(e);
+            return ExitStatus.FAILED;
+        }
 
         return stepExecution.getExitStatus();
     }
