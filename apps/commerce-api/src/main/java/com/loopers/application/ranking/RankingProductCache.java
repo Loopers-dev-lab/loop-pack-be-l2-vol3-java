@@ -118,24 +118,6 @@ public class RankingProductCache {
         return map;
     }
 
-    public CachedProductSnapshot findById(Long productDbId) {
-        String key = KEY_PREFIX + productDbId;
-        byte[] bytes = redisTemplate.opsForValue().get(key);
-
-        if (bytes != null) {
-            CachedProductSnapshot snapshot = (CachedProductSnapshot) serializer.deserialize(bytes);
-            if (snapshot != null) {
-                if (isWithinSoftTtl(snapshot.cachedAtEpochSecond())) {
-                    return snapshot;
-                }
-                refreshAsync(productDbId, key);
-                return snapshot;
-            }
-        }
-
-        return fetchAndCache(productDbId, key);
-    }
-
     private boolean isWithinSoftTtl(long cachedAtEpochSecond) {
         return cachedAtEpochSecond > 0
                 && Instant.now().getEpochSecond() - cachedAtEpochSecond < SOFT_TTL_SECONDS;
