@@ -20,6 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 public class AtomicMvRankWriter implements ItemWriter<AggregatedScoreRow>, StepExecutionListener {
 
+    private static final int ACCUMULATION_HARD_LIMIT = 10_000;
+
     private final MvProductRankRepository repository;
     private final RankPeriodType periodType;
     private final String periodKey;
@@ -38,6 +40,13 @@ public class AtomicMvRankWriter implements ItemWriter<AggregatedScoreRow>, StepE
 
     @Override
     public void write(Chunk<? extends AggregatedScoreRow> chunk) {
+        if (accumulated.size() + chunk.size() > ACCUMULATION_HARD_LIMIT) {
+            throw new IllegalStateException(
+                    "AtomicMvRankWriter accumulated 상한 초과: current=" + accumulated.size()
+                            + ", incoming=" + chunk.size() + ", limit=" + ACCUMULATION_HARD_LIMIT
+                            + ". Reader LIMIT 또는 상한 재검토 필요"
+            );
+        }
         accumulated.addAll(chunk.getItems());
     }
 
