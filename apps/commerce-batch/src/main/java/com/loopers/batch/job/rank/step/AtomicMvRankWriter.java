@@ -59,14 +59,20 @@ public class AtomicMvRankWriter implements ItemWriter<AggregatedScoreRow>, StepE
 
         List<MvProductRankRow> ranked = assignRanks(accumulated);
 
+        long swapStartNanos = System.nanoTime();
         try {
             transactionTemplate.executeWithoutResult(status -> {
                 repository.deleteByPeriodKey(periodType, periodKey);
                 repository.batchInsert(periodType, ranked);
-                log.info("MV 원자 적재 완료: type={}, periodKey={}, rows={}", periodType, periodKey, ranked.size());
             });
+            long swapDurationMs = (System.nanoTime() - swapStartNanos) / 1_000_000L;
+            log.info("MV 원자 적재 완료: type={}, periodKey={}, rows={}, swapDurationMs={}",
+                    periodType, periodKey, ranked.size(), swapDurationMs);
+            stepExecution.getExecutionContext().putLong("mvSwapDurationMs", swapDurationMs);
         } catch (RuntimeException e) {
-            log.error("MV 원자 적재 실패: type={}, periodKey={}, rows={}", periodType, periodKey, ranked.size(), e);
+            long swapDurationMs = (System.nanoTime() - swapStartNanos) / 1_000_000L;
+            log.error("MV 원자 적재 실패: type={}, periodKey={}, rows={}, elapsedMs={}",
+                    periodType, periodKey, ranked.size(), swapDurationMs, e);
             stepExecution.setStatus(BatchStatus.FAILED);
             stepExecution.addFailureException(e);
             return ExitStatus.FAILED;
