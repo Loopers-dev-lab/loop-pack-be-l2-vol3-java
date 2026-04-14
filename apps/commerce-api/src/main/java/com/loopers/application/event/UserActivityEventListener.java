@@ -53,6 +53,13 @@ public class UserActivityEventListener {
         saveLog(event.userId(), UserActivityType.PRODUCT_CLICK, "PRODUCT", String.valueOf(event.productId()), Map.of());
     }
 
+    @EventListener
+    public void onProductDwelled(AppEvents.ProductDwelledApplicationEvent event) {
+        saveLog(event.userId(), UserActivityType.PRODUCT_DWELL, "PRODUCT", String.valueOf(event.productId()), Map.of(
+            "dwellTimeSeconds", event.dwellTimeSeconds()
+        ));
+    }
+
     private void saveLog(Long userId, UserActivityType type, String targetType, String targetId, Map<String, Object> detail) {
         try {
             String detailJson = objectMapper.writeValueAsString(detail);

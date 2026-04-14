@@ -10,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ProductService {
@@ -29,6 +31,14 @@ public class ProductService {
             return productRepository.findAllOrderByLikesDesc(pageable, brandId);
         }
         return productRepository.findAll(pageable, brandId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ProductModel> getProductsByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return productRepository.findAllByIds(ids);
     }
 
     @Transactional

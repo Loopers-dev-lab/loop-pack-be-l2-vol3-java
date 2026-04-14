@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.collector.CouponIssueConsumeService;
 import com.loopers.application.collector.EventDedupService;
 import com.loopers.application.collector.ProductMetricsAggregationService;
+import com.loopers.application.collector.RealtimeRankingAggregationService;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.kafka.message.KafkaEventEnvelope;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class CommerceEventKafkaConsumer {
     private final ObjectMapper objectMapper;
     private final EventDedupService eventDedupService;
     private final ProductMetricsAggregationService productMetricsAggregationService;
+    private final RealtimeRankingAggregationService realtimeRankingAggregationService;
     private final CouponIssueConsumeService couponIssueConsumeService;
 
     @Value("${commerce.consumer.group.metrics}")
@@ -76,6 +78,7 @@ public class CommerceEventKafkaConsumer {
         switch (event.eventType()) {
             case "PRODUCT_LIKE_CHANGED" -> handleLikeChanged(event);
             case "PRODUCT_VIEWED" -> handleProductViewed(event);
+            case "PRODUCT_DWELLED" -> handleProductDwelled(event);
             case "ORDER_PLACED" -> handleOrderPlaced(event);
             default -> log.debug("Skip unknown metrics event type: {}", event.eventType());
         }
@@ -101,11 +104,20 @@ public class CommerceEventKafkaConsumer {
         Long productId = toLong(event.payload().get("productId"));
         long delta = toLong(event.payload().get("delta"));
         productMetricsAggregationService.applyLikeDelta(productId, delta, event.occurredAt());
+        realtimeRankingAggregationService.applyLikeDelta(productId, delta, event.occurredAt());
     }
 
     private void handleProductViewed(KafkaEventEnvelope event) {
         Long productId = toLong(event.payload().get("productId"));
         productMetricsAggregationService.applyView(productId, event.occurredAt());
+        realtimeRankingAggregationService.applyView(productId, event.occurredAt());
+    }
+
+    private void handleProductDwelled(KafkaEventEnvelope event) {
+        Long productId = toLong(event.payload().get("productId"));
+        Long userId = toLong(event.payload().get("userId"));
+        int dwellTimeSeconds = toLong(event.payload().get("dwellTimeSeconds")).intValue();
+        realtimeRankingAggregationService.applyDwell(productId, userId, dwellTimeSeconds, event.occurredAt());
     }
 
     private void handleOrderPlaced(KafkaEventEnvelope event) {
@@ -120,7 +132,9 @@ public class CommerceEventKafkaConsumer {
             }
             Long productId = toLong(item.get("productId"));
             long quantity = toLong(item.get("quantity"));
+            long unitPrice = toLong(item.get("unitPrice"));
             productMetricsAggregationService.applySales(productId, quantity, event.occurredAt());
+            realtimeRankingAggregationService.applyOrder(productId, unitPrice, quantity, event.occurredAt());
         }
     }
 

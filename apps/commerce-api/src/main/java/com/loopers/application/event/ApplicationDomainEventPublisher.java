@@ -54,6 +54,16 @@ public class ApplicationDomainEventPublisher {
         ));
     }
 
+    public void publishProductDwelled(Long productId, Long userId, int dwellTimeSeconds) {
+        applicationEventPublisher.publishEvent(new AppEvents.ProductDwelledApplicationEvent(
+            UUID.randomUUID().toString(),
+            productId,
+            userId,
+            dwellTimeSeconds,
+            ZonedDateTime.now()
+        ));
+    }
+
     public void publishCouponIssueRequested(Long requestId, Long couponId, Long userId) {
         applicationEventPublisher.publishEvent(new AppEvents.CouponIssueRequestedApplicationEvent(
             UUID.randomUUID().toString(),

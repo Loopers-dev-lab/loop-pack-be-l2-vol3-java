@@ -12,3 +12,11 @@ GET {{commerce-api}}/api/v1/products?page=0&size=20&sort=likes_desc&brandId=1
 
 ### 상품 상세 조회
 GET {{commerce-api}}/api/v1/products/1
+
+### 상품 체류 시간 보고 (30초 체류)
+POST {{commerce-api}}/api/v1/products/1/dwell
+Content-Type: application/json
+
+{
+  "dwellTimeSeconds": 30
+}

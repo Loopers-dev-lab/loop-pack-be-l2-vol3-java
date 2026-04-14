@@ -4,6 +4,7 @@ import com.loopers.interfaces.api.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 
 @Tag(name = "Product V1 API", description = "상품 공개 API 입니다.")
@@ -25,5 +26,14 @@ public interface ProductV1ApiSpec {
     )
     ApiResponse<ProductV1Dto.ProductResponse> getProduct(
         @Parameter(description = "상품 ID", required = true) Long productId
+    );
+
+    @Operation(
+        summary = "상품 체류 시간 보고",
+        description = "상품 상세 페이지 체류 시간을 보고합니다. 최소 5초 이상이어야 합니다."
+    )
+    ApiResponse<Object> reportDwell(
+        @Parameter(description = "상품 ID", required = true) Long productId,
+        @Valid ProductV1Dto.DwellRequest request
     );
 }

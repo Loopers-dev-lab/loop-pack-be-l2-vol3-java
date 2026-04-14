@@ -92,6 +92,25 @@ public class OutboxEventWriter {
     }
 
     @EventListener
+    public void handleDwelled(AppEvents.ProductDwelledApplicationEvent event) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("productId", event.productId());
+        payload.put("userId", event.userId());
+        payload.put("dwellTimeSeconds", event.dwellTimeSeconds());
+
+        write(event.eventId(), catalogEventsTopic, String.valueOf(event.productId()), new KafkaEventEnvelope(
+            event.eventId(),
+            "PRODUCT_DWELLED",
+            "PRODUCT",
+            String.valueOf(event.productId()),
+            String.valueOf(event.productId()),
+            1,
+            event.occurredAt(),
+            payload
+        ));
+    }
+
+    @EventListener
     public void handleViewed(AppEvents.ProductViewedApplicationEvent event) {
         Map<String, Object> payload = new HashMap<>();
         payload.put("productId", event.productId());
