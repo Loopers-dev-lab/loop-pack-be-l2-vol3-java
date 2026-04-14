@@ -22,7 +22,7 @@ public class ProductMetricsReadModel {
     private Long viewCount;
 
     @Column(nullable = false)
-    private Long orderCount;
+    private Long orderLineCount;
 
     protected ProductMetricsReadModel() {}
 }

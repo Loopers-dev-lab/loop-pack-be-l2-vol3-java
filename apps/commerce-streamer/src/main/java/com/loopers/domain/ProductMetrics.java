@@ -20,7 +20,7 @@ public class ProductMetrics {
     private Long viewCount = 0L;
 
     @Column(nullable = false)
-    private Long orderCount = 0L;
+    private Long orderLineCount = 0L;
 
     protected ProductMetrics() {}
 }
