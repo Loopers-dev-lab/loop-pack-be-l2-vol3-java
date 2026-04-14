@@ -1,5 +1,6 @@
 package com.loopers.interfaces.consumer.payload;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 
 public record OrderCreatedEventPayload(
@@ -8,7 +9,8 @@ public record OrderCreatedEventPayload(
         Long userId,
         String orderId,
         Long totalAmount,
-        List<Item> items
+        List<Item> items,
+        ZonedDateTime occurredAt
 ) {
-    public record Item(Long productId, Integer quantity) {}
+    public record Item(Long productId, Integer quantity, Integer unitPrice) {}
 }

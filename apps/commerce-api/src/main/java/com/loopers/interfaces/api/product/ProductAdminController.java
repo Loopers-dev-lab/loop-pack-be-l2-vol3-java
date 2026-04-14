@@ -45,8 +45,7 @@ public class ProductAdminController {
     @AdminOnly
     @GetMapping("/api-admin/v1/products/{productId}")
     public ApiResponse<ProductAdminDto.DetailResponse> getDetail(@PathVariable Long productId) {
-        ProductInfo productInfo  = productFacade.getDetail(productId);
-        return ApiResponse.success(ProductAdminDto.DetailResponse.from(productInfo));
+        return ApiResponse.success(ProductAdminDto.DetailResponse.from(productFacade.getDetail(productId).productInfo()));
     }
 
     @AdminOnly

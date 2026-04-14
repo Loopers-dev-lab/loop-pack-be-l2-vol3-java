@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.product.ProductViewEvent;
+import com.loopers.domain.product.ProductViewEventPublisher;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
@@ -30,6 +33,7 @@ import com.loopers.support.page.PageResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.mockito.Mockito.verify;
 
 @Import(RedisTestContainersConfig.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -55,6 +59,9 @@ class ProductApiE2ETest {
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
+
+    @MockBean
+    private ProductViewEventPublisher productViewEventPublisher;
 
     @AfterEach
     void tearDown() {
@@ -215,6 +222,67 @@ class ProductApiE2ETest {
 
             // assert
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+
+        @DisplayName("상품 조회 성공 시, ProductViewEventPublisher.publish() 가 호출된다.")
+        @Test
+        void publishesViewEvent_whenProductFound() {
+            // arrange
+            Brand brand = brandJpaRepository.save(Brand.of("나이키", null));
+            Product product = productJpaRepository.save(
+                Product.of("나이키 에어맥스", "편안한 운동화", Stock.from(10), Price.from(150000), brand.getId())
+            );
+
+            // act
+            ParameterizedTypeReference<ApiResponse<ProductDto.DetailResponse>> responseType = new ParameterizedTypeReference<>() {};
+            testRestTemplate.exchange(ENDPOINT + "/" + product.getId(), HttpMethod.GET, HttpEntity.EMPTY, responseType);
+
+            // assert
+            verify(productViewEventPublisher).publish(new ProductViewEvent.Viewed(product.getId()));
+        }
+
+        @DisplayName("오늘 ZSET 에 해당 상품이 있으면, rank 가 포함된 응답을 반환한다.")
+        @Test
+        void returnsRank_whenProductIsInTodayZSet() {
+            // arrange
+            Brand brand = brandJpaRepository.save(Brand.of("나이키", null));
+            Product product1 = productJpaRepository.save(Product.of("상품 A", null, Stock.from(10), Price.from(1000), brand.getId()));
+            Product product2 = productJpaRepository.save(Product.of("상품 B", null, Stock.from(10), Price.from(2000), brand.getId()));
+
+            String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String key = "ranking:all:" + today;
+            redisTemplate.opsForZSet().add(key, product1.getId().toString(), 5.0); // rank 1
+            redisTemplate.opsForZSet().add(key, product2.getId().toString(), 3.0); // rank 2
+
+            // act
+            ParameterizedTypeReference<ApiResponse<ProductDto.DetailResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<ProductDto.DetailResponse>> response =
+                testRestTemplate.exchange(ENDPOINT + "/" + product2.getId(), HttpMethod.GET, HttpEntity.EMPTY, responseType);
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().rank()).isEqualTo(2L)
+            );
+        }
+
+        @DisplayName("오늘 ZSET 에 해당 상품이 없으면, rank 가 null 인 응답을 반환한다.")
+        @Test
+        void returnsNullRank_whenProductNotInTodayZSet() {
+            // arrange
+            Brand brand = brandJpaRepository.save(Brand.of("나이키", null));
+            Product product = productJpaRepository.save(Product.of("나이키 에어맥스", null, Stock.from(10), Price.from(150000), brand.getId()));
+
+            // act
+            ParameterizedTypeReference<ApiResponse<ProductDto.DetailResponse>> responseType = new ParameterizedTypeReference<>() {};
+            ResponseEntity<ApiResponse<ProductDto.DetailResponse>> response =
+                testRestTemplate.exchange(ENDPOINT + "/" + product.getId(), HttpMethod.GET, HttpEntity.EMPTY, responseType);
+
+            // assert
+            assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody().data().rank()).isNull()
+            );
         }
     }
 }
