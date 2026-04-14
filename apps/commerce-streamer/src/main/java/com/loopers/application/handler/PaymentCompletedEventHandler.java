@@ -29,19 +29,15 @@ public class PaymentCompletedEventHandler implements EventHandler<PaymentComplet
 
     @Override
     public void handle(Event<PaymentCompletedEventPayload> event) {
-        PaymentCompletedEventPayload payload = event.getPayload();
-        LocalDate today = LocalDate.now(clock);
-
-        for (Long productId : payload.getProductIds()) {
-            productMetricsRepository.incrementOrderLineCount(productId);
-        }
-
-        List<OrderedProduct> orderedProducts = payload.getOrderedProducts();
+        List<OrderedProduct> orderedProducts = event.getPayload().getOrderedProducts();
         if (orderedProducts == null || orderedProducts.isEmpty()) {
             return;
         }
 
+        LocalDate today = LocalDate.now(clock);
         for (OrderedProduct product : orderedProducts) {
+            productMetricsRepository.incrementOrderLineCount(product.getProductId());
+
             long orderAmount = product.getPrice() * product.getQuantity();
             productMetricsDailyRepository.incrementOrderLineCountAndAmount(
                     product.getProductId(), today, orderAmount

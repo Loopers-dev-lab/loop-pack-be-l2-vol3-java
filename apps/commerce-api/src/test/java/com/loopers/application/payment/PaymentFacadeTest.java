@@ -150,7 +150,6 @@ class PaymentFacadeTest {
 
             PaymentCompletedEventPayload payload = captor.getValue();
             assertAll(
-                    () -> assertThat(payload.getProductIds()).containsExactly(1L, 2L),
                     () -> assertThat(payload.getOrderedProducts()).hasSize(2),
                     () -> assertThat(payload.getOrderedProducts())
                             .extracting("productId", "price", "quantity")

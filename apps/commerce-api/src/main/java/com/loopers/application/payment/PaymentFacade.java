@@ -133,16 +133,13 @@ public class PaymentFacade {
                 if (affected > 0) {
                     orderService.markOrderPaid(payment.getOrderId());
                     List<OrderItemInfo> orderItems = orderService.getOrderItems(payment.getOrderId());
-                    List<Long> productIds = orderItems.stream()
-                                                      .map(OrderItemInfo::productId)
-                                                      .toList();
                     List<OrderedProduct> orderedProducts = orderItems.stream()
                                                                      .map(item -> OrderedProduct.of(item.productId(), item.price(), item.quantity()))
                                                                      .toList();
 
                     outboxEventPublisher.publish(
                             EventType.PAYMENT_COMPLETED,
-                            PaymentCompletedEventPayload.of(payment.getId(), payment.getOrderId(), null, productIds, orderedProducts),
+                            PaymentCompletedEventPayload.of(payment.getId(), payment.getOrderId(), orderedProducts),
                             payment.getOrderId()
                     );
                 }
