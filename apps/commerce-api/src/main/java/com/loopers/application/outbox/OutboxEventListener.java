@@ -60,7 +60,7 @@ public class OutboxEventListener {
         long now = System.currentTimeMillis();
         List<OrderItem> orderItems = orderService.getOrderItems(event.orderId());
         List<OrderEventMessage.Item> items = orderItems.stream()
-                .map(i -> new OrderEventMessage.Item(i.getProductId(), i.getQuantity()))
+                .map(i -> new OrderEventMessage.Item(i.getProductId(), i.getQuantity(), i.getPrice()))
                 .toList();
         OrderEventMessage message = new OrderEventMessage(
                 UUID.randomUUID().toString(),
@@ -79,7 +79,7 @@ public class OutboxEventListener {
         long now = System.currentTimeMillis();
         List<OrderItem> orderItems = orderService.getOrderItems(event.orderId());
         List<OrderEventMessage.Item> items = orderItems.stream()
-                .map(i -> new OrderEventMessage.Item(i.getProductId(), i.getQuantity()))
+                .map(i -> new OrderEventMessage.Item(i.getProductId(), i.getQuantity(), i.getPrice()))
                 .toList();
         OrderEventMessage message = new OrderEventMessage(
                 UUID.randomUUID().toString(),
