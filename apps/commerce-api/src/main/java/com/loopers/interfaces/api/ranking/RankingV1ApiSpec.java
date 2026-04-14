@@ -8,8 +8,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @Tag(name = "Ranking V1 API", description = "상품 랭킹 API")
 public interface RankingV1ApiSpec {
 
-    @Operation(summary = "랭킹 조회", description = "날짜별 상품 랭킹을 조회합니다.")
+    @Operation(summary = "랭킹 조회", description = "기간별 상품 랭킹을 조회합니다. (일간/주간/월간)")
     ApiResponse<RankingV1Dto.RankingPageResponse> getRankings(
+            @Parameter(description = "기간 (daily/weekly/monthly, 기본 daily)") String period,
             @Parameter(description = "조회 날짜 (yyyyMMdd), 미지정 시 오늘") String date,
             @Parameter(description = "페이지 크기 (기본 20)") int size,
             @Parameter(description = "페이지 번호 (1부터, 기본 1)") int page

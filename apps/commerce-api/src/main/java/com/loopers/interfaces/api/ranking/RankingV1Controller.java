@@ -25,18 +25,22 @@ public class RankingV1Controller implements RankingV1ApiSpec {
     @GetMapping
     @Override
     public ApiResponse<RankingV1Dto.RankingPageResponse> getRankings(
+            @RequestParam(defaultValue = "daily") String period,
             @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "1") int page
     ) {
-        // date 미지정 시 오늘 날짜를 기본값으로 사용
         if (date == null || date.isBlank()) {
             date = LocalDate.now().format(DATE_FORMAT);
         }
 
-        // Facade에서 ZSET 조회 + 상품/브랜드 Aggregation 수행
-        RankingInfo.RankingPageResponse info = rankingFacade.getRankings(date, page, size);
-        // application 레이어 Info → interfaces 레이어 DTO 변환
+        // period에 따라 데이터 소스 분기
+        RankingInfo.RankingPageResponse info = switch (period) {
+            case "weekly" -> rankingFacade.getRankingsWeekly(date, page, size);
+            case "monthly" -> rankingFacade.getRankingsMonthly(date, page, size);
+            default -> rankingFacade.getRankings(date, page, size);
+        };
+
         return ApiResponse.success(RankingV1Dto.RankingPageResponse.from(info));
     }
 
