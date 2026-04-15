@@ -1,6 +1,8 @@
 package com.loopers.batch.job.rank.step;
 
 import com.loopers.domain.rank.RankPeriodType;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
@@ -17,15 +19,25 @@ public class MvRankCleanupTasklet implements Tasklet {
     private final RankPeriodType periodType;
     private final String periodKey;
     private final int batchLimit;
+    private final MeterRegistry meterRegistry;
 
     public MvRankCleanupTasklet(JdbcTemplate jdbcTemplate,
                                  RankPeriodType periodType,
                                  String periodKey,
                                  int batchLimit) {
+        this(jdbcTemplate, periodType, periodKey, batchLimit, null);
+    }
+
+    public MvRankCleanupTasklet(JdbcTemplate jdbcTemplate,
+                                 RankPeriodType periodType,
+                                 String periodKey,
+                                 int batchLimit,
+                                 MeterRegistry meterRegistry) {
         this.jdbcTemplate = jdbcTemplate;
         this.periodType = periodType;
         this.periodKey = periodKey;
         this.batchLimit = batchLimit;
+        this.meterRegistry = meterRegistry;
     }
 
     @Override
@@ -41,6 +53,7 @@ public class MvRankCleanupTasklet implements Tasklet {
             return RepeatStatus.FINISHED;
         }
 
+        Timer.Sample sample = meterRegistry == null ? null : Timer.start(meterRegistry);
         long totalDeleted = 0L;
         int deleted;
         do {
@@ -51,6 +64,14 @@ public class MvRankCleanupTasklet implements Tasklet {
             );
             totalDeleted += deleted;
         } while (deleted == batchLimit);
+
+        if (sample != null) {
+            sample.stop(Timer.builder("batch.rank.cleanup")
+                    .tag("period_type", periodType.name())
+                    .register(meterRegistry));
+            meterRegistry.counter("batch.rank.cleanup.deleted",
+                    "period_type", periodType.name()).increment(totalDeleted);
+        }
 
         log.info("MV cleanup 완료: type={}, periodKey={}, publishedVersion={}, deleted={}",
                 periodType, periodKey, publishedVersion, totalDeleted);
