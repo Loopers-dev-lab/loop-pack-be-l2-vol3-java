@@ -1,6 +1,7 @@
 package com.loopers.batch.job.ranking;
 
 import com.loopers.batch.job.ranking.param.RankingJobParametersListener;
+import com.loopers.batch.job.ranking.step.stage.StageViewMetricsStepConfig;
 import com.loopers.batch.job.ranking.step.truncate.TruncateStagingTasklet;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
@@ -10,6 +11,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,7 +19,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * 롤링 7일 / 30일 랭킹 배치 Job 구성.
- * 현재 Step 0 (스테이징 초기화) 만 연결되어 있으며, 이후 커밋에서 Step 1~7 가 순차 추가된다.
+ * 현재 Step 0 (스테이징 초기화) + Step 1 (View 적재) 가 연결되어 있으며,
+ * 이후 커밋에서 Step 2~7 가 순차 추가된다.
  */
 @Configuration
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = RollingRankingJobConfig.JOB_NAME)
@@ -35,11 +38,12 @@ public class RollingRankingJobConfig {
     private final TruncateStagingTasklet truncateStagingTasklet;
 
     @Bean(JOB_NAME)
-    public Job rollingRankingJob() {
+    public Job rollingRankingJob(@Qualifier(StageViewMetricsStepConfig.STEP_NAME) Step stageViewMetricsStep) {
         return new JobBuilder(JOB_NAME, jobRepository)
                 .listener(jobListener)
                 .listener(rankingJobParametersListener)
                 .start(truncateStagingStep())
+                .next(stageViewMetricsStep)
                 .build();
     }
 
