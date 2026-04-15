@@ -181,6 +181,27 @@ Redis ZSET은 동점 시 사전순으로 처리하지만, DB 집계는 기준이
 ### 어뷰징 방지
 배치는 기간 내 데이터를 단순 합산하는 구조라, 배치 실행 직전 단기간에 대량 이벤트를 발생시켜 랭킹을 인위적으로 올리는 어뷰징에 취약하다.
 
+### 월간 집계를 주간 MV에서 하지 않는 이유
+
+월간 배치가 `mv_product_rank_weekly`를 입력으로 쓰는 방식(체인 구조)을 고려했으나 채택하지 않았다.
+
+**이유 1 — score 합산 불가**
+현재 점수 공식에 `log1p`가 포함되어 있어 주간 score를 단순 합산하면 월간 score와 달라진다.
+```
+log1p(3) + log1p(4) ≠ log1p(7)
+→ 주간 score 합산 ≠ 월간 score
+```
+원본 count를 함께 저장하면 해결되지만, MV 테이블의 역할(랭킹 조회)과 책임이 섞인다.
+
+**이유 2 — TOP 100 절단 문제**
+`mv_product_rank_weekly`는 TOP 100만 저장한다. 주간 TOP 100에 한 번도 들지 못한 상품은 월간 집계에서 누락된다.
+
+**이유 3 — 스케줄러 의존성**
+월간 배치가 주간 배치 완료 후에만 실행될 수 있어 순서 의존성이 생긴다. 주간 배치 장애 시 월간 배치도 영향을 받는다.
+
+**결론**
+`product_metrics`(일별 원본)에서 weekly, monthly가 각자 독립적으로 집계하는 구조(fan-out)를 채택했다. 단일 원천에서 파생되므로 재집계가 단순하고 스케줄러 간 의존성이 없다.
+
 ---
 
 ## 6. 구현 체크리스트
@@ -196,8 +217,8 @@ Redis ZSET은 동점 시 사전순으로 처리하지만, DB 집계는 기준이
 
 ### Phase 2. MV 테이블 생성
 
-- [ ] `mv_product_rank_weekly` DDL 작성
-- [ ] `mv_product_rank_monthly` DDL 작성
+- [x] `MvProductRankWeeklyEntity` JPA Entity 생성 (DDL 대체)
+- [x] `MvProductRankMonthlyEntity` JPA Entity 생성 (DDL 대체)
 
 ### Phase 3. Spring Batch Job
 
