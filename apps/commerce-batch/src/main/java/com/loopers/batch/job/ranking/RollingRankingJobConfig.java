@@ -2,6 +2,7 @@ package com.loopers.batch.job.ranking;
 
 import com.loopers.batch.job.ranking.param.RankingJobParametersListener;
 import com.loopers.batch.job.ranking.step.purge.PurgeMvStepConfig;
+import com.loopers.batch.job.ranking.step.score.ScoreAggregationStepConfig;
 import com.loopers.batch.job.ranking.step.stage.StageLikeMetricsStepConfig;
 import com.loopers.batch.job.ranking.step.stage.StageOrderMetricsStepConfig;
 import com.loopers.batch.job.ranking.step.stage.StageViewMetricsStepConfig;
@@ -46,7 +47,8 @@ public class RollingRankingJobConfig {
             @Qualifier(StageLikeMetricsStepConfig.STEP_NAME) Step stageLikeMetricsStep,
             @Qualifier(StageOrderMetricsStepConfig.STEP_NAME) Step stageOrderMetricsStep,
             @Qualifier(PurgeMvStepConfig.STEP_LAST_7D) Step purgeLast7dMvStep,
-            @Qualifier(PurgeMvStepConfig.STEP_LAST_30D) Step purgeLast30dMvStep
+            @Qualifier(PurgeMvStepConfig.STEP_LAST_30D) Step purgeLast30dMvStep,
+            @Qualifier(ScoreAggregationStepConfig.STEP_NAME) Step scoreAggregationStep
     ) {
         return new JobBuilder(JOB_NAME, jobRepository)
                 .listener(jobListener)
@@ -57,6 +59,7 @@ public class RollingRankingJobConfig {
                 .next(stageOrderMetricsStep)
                 .next(purgeLast7dMvStep)
                 .next(purgeLast30dMvStep)
+                .next(scoreAggregationStep)
                 .build();
     }
 
