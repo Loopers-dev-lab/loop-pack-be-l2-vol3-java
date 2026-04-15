@@ -1,7 +1,6 @@
 package com.loopers.domain.rank;
 
 import com.loopers.utils.DatabaseCleanUp;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,19 +40,6 @@ class MvSwapStrategyBenchmarkTest {
     @BeforeEach
     void setUp() {
         databaseCleanUp.truncateAllTables();
-        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS mv_product_rank_publication (" +
-                "period_type VARCHAR(20) NOT NULL," +
-                "period_key VARCHAR(50) NOT NULL," +
-                "published_version BIGINT NOT NULL DEFAULT 0," +
-                "next_version BIGINT NOT NULL DEFAULT 0," +
-                "updated_at DATETIME(6) NOT NULL," +
-                "PRIMARY KEY (period_type, period_key))");
-        jdbcTemplate.execute("DELETE FROM mv_product_rank_publication");
-    }
-
-    @AfterEach
-    void tearDown() {
-        jdbcTemplate.execute("DROP TABLE IF EXISTS mv_product_rank_publication");
     }
 
     @DisplayName("S1 SWAP 단계: DELETE by period_key(10K rows) — tx 지속 시간 실측")
@@ -163,16 +149,16 @@ class MvSwapStrategyBenchmarkTest {
     }
 
     private void seedS2Rows(long version, int count) {
-        String periodKeyForVersion = version == 1L ? "2026W13" : "2026W14";
         String sql = "INSERT INTO mv_product_rank_weekly " +
-                "(period_key, rank_no, ref_product_id, score, view_count, like_count, order_amount, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                "(period_key, version, rank_no, ref_product_id, score, view_count, like_count, order_amount, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         Timestamp now = Timestamp.from(Instant.now());
         List<Object[]> params = new ArrayList<>(count);
         long rankOffset = (version - 1) * 1_000_000L;
         for (int i = 0; i < count; i++) {
             params.add(new Object[]{
-                    periodKeyForVersion,
+                    PERIOD_KEY,
+                    version,
                     i + 1,
                     rankOffset + i + 1,
                     (double) (count - i),

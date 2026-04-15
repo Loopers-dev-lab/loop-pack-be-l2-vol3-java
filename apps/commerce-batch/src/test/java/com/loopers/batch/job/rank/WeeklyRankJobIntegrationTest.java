@@ -118,7 +118,8 @@ class WeeklyRankJobIntegrationTest {
 
         // assert
         assertThat(execution2.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-        assertThat(mvProductRankRepository.countByPeriodKey(RankPeriodType.WEEKLY, "2026W15")).isEqualTo(1);
+        assertThat(mvProductRankRepository.countByPeriodKey(RankPeriodType.WEEKLY, "2026W15"))
+                .as("S2: 2회 실행 시 두 version이 테이블에 공존 (cleanup은 별도)").isEqualTo(2);
     }
 
     @DisplayName("score_daily가 비어있으면 MV 0행, COMPLETED")

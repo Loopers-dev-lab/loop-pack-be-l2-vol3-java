@@ -1,7 +1,6 @@
 package com.loopers.domain.rank;
 
 import com.loopers.utils.DatabaseCleanUp;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -38,16 +37,6 @@ class MvAtomicSwapSemanticsTest {
     void setUp() {
         databaseCleanUp.truncateAllTables();
         tx = new TransactionTemplate(transactionManager);
-        jdbc.execute("CREATE TABLE IF NOT EXISTS mv_product_rank_publication (" +
-                "period_type VARCHAR(20) NOT NULL, period_key VARCHAR(50) NOT NULL," +
-                "published_version BIGINT NOT NULL DEFAULT 0, next_version BIGINT NOT NULL DEFAULT 0," +
-                "updated_at DATETIME(6) NOT NULL, PRIMARY KEY (period_type, period_key))");
-        jdbc.execute("DELETE FROM mv_product_rank_publication");
-    }
-
-    @AfterEach
-    void tearDown() {
-        jdbc.execute("DROP TABLE IF EXISTS mv_product_rank_publication");
     }
 
     @Nested
@@ -163,13 +152,23 @@ class MvAtomicSwapSemanticsTest {
             );
             assertThat(published).isEqualTo(2L);
 
-            Integer mixedViolation = jdbc.queryForObject(
+            Integer publishedRowCount = jdbc.queryForObject(
                     "SELECT COUNT(*) FROM mv_product_rank_weekly mv " +
-                            "JOIN mv_product_rank_publication p ON p.period_type='WEEKLY' AND p.period_key=mv.period_key " +
-                            "WHERE mv.period_key=? AND mv.score < ?",
-                    Integer.class, PERIOD_KEY, 1.5 * 100
+                            "JOIN mv_product_rank_publication p " +
+                            "  ON p.period_type='WEEKLY' AND p.period_key=mv.period_key AND p.published_version=mv.version " +
+                            "WHERE mv.period_key=?",
+                    Integer.class, PERIOD_KEY
             );
-            assertThat(mixedViolation).as("published version 기준 조회 시 2.4 가중치 결과만").isZero();
+            assertThat(publishedRowCount).as("published 기준 조회는 version=2 행 100개만 반환").isEqualTo(100);
+
+            Integer oldVersionLeak = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM mv_product_rank_weekly mv " +
+                            "JOIN mv_product_rank_publication p " +
+                            "  ON p.period_type='WEEKLY' AND p.period_key=mv.period_key AND p.published_version=mv.version " +
+                            "WHERE mv.period_key=? AND mv.version != 2",
+                    Integer.class, PERIOD_KEY
+            );
+            assertThat(oldVersionLeak).as("published 기준 조회에 version=1 (OLD) 혼재 없음").isZero();
         }
 
         @DisplayName("F5: 재실행 멱등성 — next_version 재 bump + CAS")
@@ -222,14 +221,13 @@ class MvAtomicSwapSemanticsTest {
     }
 
     private void seedVersionedRows(long version, int count, double weight) {
-        String pkForV = "V" + version + "W15";
         String sql = "INSERT INTO mv_product_rank_weekly " +
-                "(period_key, rank_no, ref_product_id, score, view_count, like_count, order_amount, created_at, updated_at) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+                "(period_key, version, rank_no, ref_product_id, score, view_count, like_count, order_amount, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
         List<Object[]> params = new ArrayList<>(count);
         long base = version * 1_000_000L;
         for (int i = 0; i < count; i++) {
-            params.add(new Object[]{pkForV, i + 1, base + i + 1, weight * (count - i), 10L, 5L, BigDecimal.valueOf(100)});
+            params.add(new Object[]{PERIOD_KEY, version, i + 1, base + i + 1, weight * (count - i), 10L, 5L, BigDecimal.valueOf(100)});
         }
         jdbc.batchUpdate(sql, params);
     }

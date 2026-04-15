@@ -157,7 +157,8 @@ class FullPipelineE2ETest {
             assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         }
 
-        assertThat(mvProductRankRepository.countByPeriodKey(RankPeriodType.WEEKLY, "2026W15")).isEqualTo(1);
+        assertThat(mvProductRankRepository.countByPeriodKey(RankPeriodType.WEEKLY, "2026W15"))
+                .as("S2: 2회 실행 시 version=1/2 공존 (cleanup은 별도)").isEqualTo(2);
     }
 
     @DisplayName("DailyScoreJob 미실행 → MV 빈 상태, COMPLETED")
