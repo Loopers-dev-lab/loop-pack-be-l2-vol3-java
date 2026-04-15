@@ -1,6 +1,8 @@
 package com.loopers.batch.job.ranking;
 
 import com.loopers.batch.job.ranking.param.RankingJobParametersListener;
+import com.loopers.batch.job.ranking.step.stage.StageLikeMetricsStepConfig;
+import com.loopers.batch.job.ranking.step.stage.StageOrderMetricsStepConfig;
 import com.loopers.batch.job.ranking.step.stage.StageViewMetricsStepConfig;
 import com.loopers.batch.job.ranking.step.truncate.TruncateStagingTasklet;
 import com.loopers.batch.listener.JobListener;
@@ -38,12 +40,18 @@ public class RollingRankingJobConfig {
     private final TruncateStagingTasklet truncateStagingTasklet;
 
     @Bean(JOB_NAME)
-    public Job rollingRankingJob(@Qualifier(StageViewMetricsStepConfig.STEP_NAME) Step stageViewMetricsStep) {
+    public Job rollingRankingJob(
+            @Qualifier(StageViewMetricsStepConfig.STEP_NAME) Step stageViewMetricsStep,
+            @Qualifier(StageLikeMetricsStepConfig.STEP_NAME) Step stageLikeMetricsStep,
+            @Qualifier(StageOrderMetricsStepConfig.STEP_NAME) Step stageOrderMetricsStep
+    ) {
         return new JobBuilder(JOB_NAME, jobRepository)
                 .listener(jobListener)
                 .listener(rankingJobParametersListener)
                 .start(truncateStagingStep())
                 .next(stageViewMetricsStep)
+                .next(stageLikeMetricsStep)
+                .next(stageOrderMetricsStep)
                 .build();
     }
 
