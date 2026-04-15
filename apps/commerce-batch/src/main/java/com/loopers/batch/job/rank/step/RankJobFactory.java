@@ -6,6 +6,7 @@ import com.loopers.batch.listener.StepMonitorListener;
 import com.loopers.domain.rank.MvProductRankPublicationRepository;
 import com.loopers.domain.rank.MvProductRankRepository;
 import com.loopers.domain.rank.RankPeriodType;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -41,6 +42,7 @@ public class RankJobFactory {
     private final JobListener jobListener;
     private final StepMonitorListener stepMonitorListener;
     private final ChunkListener chunkListener;
+    private final MeterRegistry meterRegistry;
 
     @Value("${batch.rank.validation.fail-on-incomplete:false}")
     private boolean failOnIncomplete;
@@ -89,6 +91,14 @@ public class RankJobFactory {
                                       RankPeriodType periodType,
                                       String currentPeriodKey,
                                       String previousPeriodKey) {
+        return buildHealthCheckStep(stepName, periodType, currentPeriodKey, previousPeriodKey, false);
+    }
+
+    public Step buildHealthCheckStep(String stepName,
+                                      RankPeriodType periodType,
+                                      String currentPeriodKey,
+                                      String previousPeriodKey,
+                                      boolean backfillMode) {
         MvOutputHealthCheckTasklet tasklet = new MvOutputHealthCheckTasklet(
                 new JdbcTemplate(dataSource),
                 periodType,
@@ -96,7 +106,8 @@ public class RankJobFactory {
                 previousPeriodKey,
                 healthCheckMinRows,
                 healthCheckMaxVariancePct,
-                healthCheckFailOnAnomaly
+                healthCheckFailOnAnomaly,
+                backfillMode
         );
         return new StepBuilder(stepName, jobRepository)
                 .tasklet(tasklet, transactionManager)
@@ -109,7 +120,8 @@ public class RankJobFactory {
                 new JdbcTemplate(dataSource),
                 periodType,
                 periodKey,
-                cleanupBatchLimit
+                cleanupBatchLimit,
+                meterRegistry
         );
         return new StepBuilder(stepName, jobRepository)
                 .tasklet(tasklet, transactionManager)
@@ -132,13 +144,18 @@ public class RankJobFactory {
                           String periodKey,
                           LocalDate periodStart,
                           LocalDate periodEnd) {
+        TransactionTemplate insertTx = new TransactionTemplate(transactionManager);
+        insertTx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        TransactionTemplate publishTx = new TransactionTemplate(transactionManager);
+        publishTx.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
         PublishingRankWriter writer = new PublishingRankWriter(
                 mvProductRankRepository,
                 mvProductRankPublicationRepository,
                 periodType,
                 periodKey,
-                new TransactionTemplate(transactionManager),
-                new TransactionTemplate(transactionManager)
+                insertTx,
+                publishTx,
+                meterRegistry
         );
 
         return new StepBuilder(stepName, jobRepository)
