@@ -42,6 +42,7 @@ public class LikeMetricStreamingReader implements ItemStreamReader<AggregatedMet
                 .name("likeMetricCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
+                .saveState(false)  // ViewMetricStreamingReader 주석 참고
                 .sql("""
                         SELECT product_id, bucket_time, like_count
                           FROM product_like_metrics

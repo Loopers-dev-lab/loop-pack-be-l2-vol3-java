@@ -46,6 +46,10 @@ public class ViewMetricStreamingReader implements ItemStreamReader<AggregatedMet
                 .name("viewMetricCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
+                // saveState=false: streaming aggregator 의 lookahead 와 chunk-mid restart 가
+                // 충돌하므로 cursor 위치를 ExecutionContext 에 저장하지 않는다.
+                // 재시작 시 처음부터 다시 read → UPSERT 의 멱등성으로 결정적 결과 보장.
+                .saveState(false)
                 .sql("""
                         SELECT product_id, bucket_time, view_count
                           FROM product_view_metrics

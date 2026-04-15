@@ -43,6 +43,8 @@ public class ScoreAggregationStepConfig {
                 .name("stagingAggregationCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
+                // saveState=false: 2차 staging 도 UPSERT 라 멱등. restart 시 처음부터.
+                .saveState(false)
                 .sql("""
                         SELECT period_type, period_key, product_id,
                                view_count, like_count, sales_amount

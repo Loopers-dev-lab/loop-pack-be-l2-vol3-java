@@ -42,6 +42,7 @@ public class OrderMetricStreamingReader implements ItemStreamReader<AggregatedMe
                 .name("orderMetricCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
+                .saveState(false)  // ViewMetricStreamingReader 주석 참고
                 .sql("""
                         SELECT product_id, bucket_time, sales_amount
                           FROM product_order_metrics
