@@ -48,33 +48,40 @@ class RankingKeyResolverTest {
     }
 
     @Nested
-    class 주간_키 {
+    class 롤링_7일_키 {
 
         @Test
-        void ISO_주차가_포함된_주간_키를_생성한다() {
-            // 2026-04-10 금요일 → ISO week 15
-            String key = resolver.resolve(RankingPeriod.WEEKLY, LocalDate.of(2026, 4, 10), "control");
+        void 어제_기준_anchor_로_last7d_키를_생성한다() {
+            // 조회 기준일 2026-04-15 → anchor_date = 2026-04-14 (오늘 제외)
+            String key = resolver.resolve(RankingPeriod.LAST_7D, LocalDate.of(2026, 4, 15), "control");
 
-            assertThat(key).isEqualTo("ranking:weekly:202615:control");
+            assertThat(key).isEqualTo("ranking:last7d:20260414:control");
         }
 
         @Test
-        void 연초_주차가_올바르게_계산된다() {
-            // 2026-01-01 목요일 → ISO week 1
-            String key = resolver.resolve(RankingPeriod.WEEKLY, LocalDate.of(2026, 1, 1), "control");
+        void 실험_그룹별로_독립된_키를_생성한다() {
+            String key = resolver.resolve(RankingPeriod.LAST_7D, LocalDate.of(2026, 4, 15), "experiment_a");
 
-            assertThat(key).isEqualTo("ranking:weekly:202601:control");
+            assertThat(key).isEqualTo("ranking:last7d:20260414:experiment_a");
+        }
+
+        @Test
+        void 월_경계를_걸쳐도_음수_날짜없이_안전하게_계산된다() {
+            // 조회 기준일 2026-01-01 → anchor_date = 2025-12-31
+            String key = resolver.resolve(RankingPeriod.LAST_7D, LocalDate.of(2026, 1, 1), "control");
+
+            assertThat(key).isEqualTo("ranking:last7d:20251231:control");
         }
     }
 
     @Nested
-    class 월간_키 {
+    class 롤링_30일_키 {
 
         @Test
-        void 연월이_포함된_월간_키를_생성한다() {
-            String key = resolver.resolve(RankingPeriod.MONTHLY, LocalDate.of(2026, 4, 10), "control");
+        void 어제_기준_anchor_로_last30d_키를_생성한다() {
+            String key = resolver.resolve(RankingPeriod.LAST_30D, LocalDate.of(2026, 4, 15), "control");
 
-            assertThat(key).isEqualTo("ranking:monthly:202604:control");
+            assertThat(key).isEqualTo("ranking:last30d:20260414:control");
         }
     }
 
@@ -86,6 +93,17 @@ class RankingKeyResolverTest {
             String key = resolver.resolve(RankingPeriod.DAILY, LocalDate.of(2026, 4, 10));
 
             assertThat(key).isEqualTo("ranking:daily:20260410:control");
+        }
+    }
+
+    @Nested
+    class anchor_date_계산 {
+
+        @Test
+        void 오늘의_anchor_는_어제이다() {
+            LocalDate anchor = resolver.anchorDateOf(LocalDate.of(2026, 4, 15));
+
+            assertThat(anchor).isEqualTo(LocalDate.of(2026, 4, 14));
         }
     }
 }
