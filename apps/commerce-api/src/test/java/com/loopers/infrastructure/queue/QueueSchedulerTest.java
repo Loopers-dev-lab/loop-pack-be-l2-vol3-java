@@ -9,10 +9,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +29,12 @@ class QueueSchedulerTest {
     @Mock
     private TokenService tokenService;
 
+    @Mock
+    private RedissonClient redissonClient;
+
+    @Mock
+    private RLock lock;
+
     @InjectMocks
     private QueueScheduler queueScheduler;
 
@@ -33,6 +42,8 @@ class QueueSchedulerTest {
     void setUp() {
         ReflectionTestUtils.setField(queueScheduler, "batchSize", 14);
         ReflectionTestUtils.setField(queueScheduler, "fixedRate", 1L); // jitter = 0ms 고정
+        given(redissonClient.getLock(anyString())).willReturn(lock);
+        given(lock.isHeldByCurrentThread()).willReturn(true);
     }
 
     @DisplayName("큐가 비어있으면 아무것도 실행하지 않는다.")

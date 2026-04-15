@@ -278,6 +278,9 @@ class ConcurrencyTest {
             assertThat(successCount.get()).isEqualTo(10);
             assertThat(failCount.get()).isZero();
 
+            // LikeCountEventListener가 @Async + AFTER_COMMIT으로 비동기 처리되므로 대기
+            Thread.sleep(2000);
+
             Product updatedProduct = productRepository.findById(productId).orElseThrow();
             assertThat(updatedProduct.getLikeCount()).isEqualTo(successCount.get());
         }
