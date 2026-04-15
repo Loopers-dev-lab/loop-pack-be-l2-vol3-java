@@ -28,4 +28,10 @@ public interface RankingV1ApiSpec {
             description = "배치 집계 기반의 주간 인기 상품 랭킹을 페이지 단위로 조회합니다."
     )
     ApiResponse<RankingDto.RankingResponse> getWeeklyRankings(Long userId, String date, int page, int size);
+
+    @Operation(
+            summary = "월간 인기 상품 랭킹 조회 API",
+            description = "배치 집계 기반의 월간 인기 상품 랭킹을 페이지 단위로 조회합니다."
+    )
+    ApiResponse<RankingDto.RankingResponse> getMonthlyRankings(Long userId, String date, int page, int size);
 }
