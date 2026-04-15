@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 public class RankingCarryOverScheduler {
 
     private static final DateTimeFormatter KEY_DATE_FMT = DateTimeFormatter.BASIC_ISO_DATE;
+    private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
     private static final long TTL_DAYS = 2;
 
     private final RedisTemplate<String, String> redisTemplate;
@@ -37,7 +39,7 @@ public class RankingCarryOverScheduler {
 
     @Scheduled(cron = "0 50 23 * * *")
     public void carryOver() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZONE);
         String todayKey = rankingKey(today);
         String tomorrowKey = rankingKey(today.plusDays(1));
 

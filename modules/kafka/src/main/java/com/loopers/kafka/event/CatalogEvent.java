@@ -17,6 +17,9 @@ public record CatalogEvent(
      * LIKED, UNLIKED, VIEWED용 팩토리 (price/quantity 불필요)
      */
     public static CatalogEvent of(String eventId, Type type, Long productId, Long memberId, long occurredAt) {
+        if (type == Type.ORDERED) {
+            throw new IllegalArgumentException("ORDERED 이벤트는 ordered() 팩토리를 사용해야 합니다.");
+        }
         return new CatalogEvent(eventId, type.name(), productId, memberId, occurredAt, null, null);
     }
 

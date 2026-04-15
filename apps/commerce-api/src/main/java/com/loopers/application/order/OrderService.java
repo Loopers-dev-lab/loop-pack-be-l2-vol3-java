@@ -18,6 +18,7 @@ import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class OrderService {
@@ -138,16 +140,21 @@ public class OrderService {
             .collect(Collectors.toList());
 
         // Outbox에 ORDERED 이벤트 저장 (주문 라인별 1건씩 — 랭킹은 상품 단위)
-        for (Order.OrderLineEntity ol : order.getOrderLines()) {
-            String eventId = UUID.randomUUID().toString();
-            CatalogEvent event = CatalogEvent.ordered(
-                eventId, ol.getProductId(), memberId, Instant.now().toEpochMilli(),
-                ol.getUnitPrice(), ol.getQuantity()
-            );
-            outboxEventRepository.save(OutboxEvent.create(
-                eventId, KafkaTopics.CATALOG_EVENTS, String.valueOf(ol.getProductId()),
-                objectMapper.writeValueAsString(event)
-            ));
+        // 랭킹은 보조 지표이므로 실패해도 주문을 롤백하지 않는다 (fail-open)
+        try {
+            for (Order.OrderLineEntity ol : order.getOrderLines()) {
+                String eventId = UUID.randomUUID().toString();
+                CatalogEvent event = CatalogEvent.ordered(
+                    eventId, ol.getProductId(), memberId, Instant.now().toEpochMilli(),
+                    ol.getUnitPrice(), ol.getQuantity()
+                );
+                outboxEventRepository.save(OutboxEvent.create(
+                    eventId, KafkaTopics.CATALOG_EVENTS, String.valueOf(ol.getProductId()),
+                    objectMapper.writeValueAsString(event)
+                ));
+            }
+        } catch (Exception e) {
+            log.warn("[Order] ORDERED 이벤트 Outbox 저장 실패 orderId={}", order.getId(), e);
         }
 
         // 주문 완료 후 entered 키 삭제 — 슬롯 즉시 반환 (TTL 만료 대기 없이)

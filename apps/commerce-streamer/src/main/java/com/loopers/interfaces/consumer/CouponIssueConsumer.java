@@ -38,9 +38,13 @@ public class CouponIssueConsumer {
      * 실험용 플래그
      * USE_ATOMIC_LONG=true  → AtomicLong (재시작 시 카운트 리셋 → 초과발급 재현)
      * USE_ATOMIC_LONG=false → DB 카운터 (재시작 후에도 유지 → 정확히 100장)
+     * SLOW_ACK=true         → ack 전 10초 대기 (kill 타이밍 확보 → 재전달 재현)
      */
     private static final boolean USE_ATOMIC_LONG =
         Boolean.parseBoolean(System.getenv().getOrDefault("USE_ATOMIC_LONG", "false"));
+
+    private static final boolean SLOW_ACK =
+        Boolean.parseBoolean(System.getenv().getOrDefault("SLOW_ACK", "false"));
 
     private final AtomicLong atomicCount = new AtomicLong(0);
 
@@ -91,6 +95,11 @@ public class CouponIssueConsumer {
             } catch (Exception e) {
                 log.error("[CouponIssue] failed record={} cause={}", record, e.getMessage());
             }
+        }
+        // [실험 2] SLOW_ACK: ack 전 10초 대기 → 이 사이에 kill → 재시작 후 같은 메시지 재전달 재현
+        if (SLOW_ACK) {
+            log.info("[CouponIssue][SlowAck] sleeping 10s before ack — kill me now!");
+            try { Thread.sleep(10_000); } catch (InterruptedException ignored) {}
         }
         ack.acknowledge();
     }

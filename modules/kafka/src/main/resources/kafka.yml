@@ -48,6 +48,18 @@ spring:
         bootstrap.servers: kafka-1:9092,kafka-2:9092,kafka-3:9092
 
 ---
+# [실험 4] acks=1: 리더만 확인 → 복제 전 리더 kill 시 메시지 유실 재현
+# enable.idempotence=false 필수 (idempotence는 acks=all 필요)
+spring.config.activate.on-profile: acks-one
+
+spring:
+  kafka:
+    producer:
+      acks: 1
+      properties:
+        enable.idempotence: false
+
+---
 spring.config.activate.on-profile: dev
 
 ---
