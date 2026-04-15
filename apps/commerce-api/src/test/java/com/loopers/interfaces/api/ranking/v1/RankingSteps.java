@@ -12,6 +12,7 @@ public class RankingSteps {
 
     private static final String DAILY_ENDPOINT = "/api/v1/rankings/daily";
     private static final String HOURLY_ENDPOINT = "/api/v1/rankings/hourly";
+    private static final String WEEKLY_ENDPOINT = "/api/v1/rankings/weekly";
 
     public static ResponseEntity<ApiResponse<RankingDto.RankingResponse>> getDailyRankings(
             TestRestTemplate testRestTemplate,
@@ -25,6 +26,13 @@ public class RankingSteps {
             String queryParams
     ) {
         return doGet(testRestTemplate, HOURLY_ENDPOINT, queryParams);
+    }
+
+    public static ResponseEntity<ApiResponse<RankingDto.RankingResponse>> getWeeklyRankings(
+            TestRestTemplate testRestTemplate,
+            String queryParams
+    ) {
+        return doGet(testRestTemplate, WEEKLY_ENDPOINT, queryParams);
     }
 
     private static ResponseEntity<ApiResponse<RankingDto.RankingResponse>> doGet(
