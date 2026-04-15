@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobScope;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -23,20 +26,20 @@ public class MonthlyRankJobConfig {
     private static final String VALIDATION_STEP = "validateMonthlyScoreCompletenessStep";
     private static final String BUILD_STEP = "buildMonthlyRankStep";
     private static final String HEALTH_CHECK_STEP = "healthCheckMonthlyRankStep";
-    private static final String CLEANUP_STEP = "cleanupMonthlyRankStep";
 
     private final RankJobFactory rankJobFactory;
+    private final JobRepository jobRepository;
 
     @Bean(JOB_NAME)
     public Job monthlyRankJob(Step validateMonthlyScoreCompletenessStep,
                                Step buildMonthlyRankStep,
-                               Step healthCheckMonthlyRankStep,
-                               Step cleanupMonthlyRankStep) {
-        return rankJobFactory.buildJob(JOB_NAME,
-                validateMonthlyScoreCompletenessStep,
-                buildMonthlyRankStep,
-                healthCheckMonthlyRankStep,
-                cleanupMonthlyRankStep);
+                               Step healthCheckMonthlyRankStep) {
+        return new JobBuilder(JOB_NAME, jobRepository)
+                .incrementer(new RunIdIncrementer())
+                .start(validateMonthlyScoreCompletenessStep)
+                .next(buildMonthlyRankStep)
+                .next(healthCheckMonthlyRankStep)
+                .build();
     }
 
     @Bean(VALIDATION_STEP)
@@ -65,24 +68,16 @@ public class MonthlyRankJobConfig {
 
     @Bean(HEALTH_CHECK_STEP)
     @JobScope
-    public Step healthCheckMonthlyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
+    public Step healthCheckMonthlyRankStep(@Value("#{jobParameters['date']}") String dateStr,
+                                            @Value("#{jobParameters['mode']}") String mode) {
         LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        boolean backfillMode = "backfill".equalsIgnoreCase(mode);
         return rankJobFactory.buildHealthCheckStep(
                 HEALTH_CHECK_STEP,
                 RankPeriodType.MONTHLY,
                 RankingKeyGenerator.monthlyPeriodKey(date),
-                RankingKeyGenerator.previousMonthlyPeriodKey(date)
-        );
-    }
-
-    @Bean(CLEANUP_STEP)
-    @JobScope
-    public Step cleanupMonthlyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
-        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
-        return rankJobFactory.buildCleanupStep(
-                CLEANUP_STEP,
-                RankPeriodType.MONTHLY,
-                RankingKeyGenerator.monthlyPeriodKey(date)
+                RankingKeyGenerator.previousMonthlyPeriodKey(date),
+                backfillMode
         );
     }
 }

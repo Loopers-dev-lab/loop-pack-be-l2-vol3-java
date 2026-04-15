@@ -18,6 +18,7 @@ public class MvOutputHealthCheckTasklet implements Tasklet {
     private final long minRows;
     private final double maxVariancePct;
     private final boolean failOnAnomaly;
+    private final boolean backfillMode;
 
     public MvOutputHealthCheckTasklet(JdbcTemplate jdbcTemplate,
                                        RankPeriodType periodType,
@@ -26,6 +27,18 @@ public class MvOutputHealthCheckTasklet implements Tasklet {
                                        long minRows,
                                        double maxVariancePct,
                                        boolean failOnAnomaly) {
+        this(jdbcTemplate, periodType, currentPeriodKey, previousPeriodKey,
+                minRows, maxVariancePct, failOnAnomaly, false);
+    }
+
+    public MvOutputHealthCheckTasklet(JdbcTemplate jdbcTemplate,
+                                       RankPeriodType periodType,
+                                       String currentPeriodKey,
+                                       String previousPeriodKey,
+                                       long minRows,
+                                       double maxVariancePct,
+                                       boolean failOnAnomaly,
+                                       boolean backfillMode) {
         this.jdbcTemplate = jdbcTemplate;
         this.periodType = periodType;
         this.currentPeriodKey = currentPeriodKey;
@@ -33,10 +46,15 @@ public class MvOutputHealthCheckTasklet implements Tasklet {
         this.minRows = minRows;
         this.maxVariancePct = maxVariancePct;
         this.failOnAnomaly = failOnAnomaly;
+        this.backfillMode = backfillMode;
     }
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
+        if (backfillMode) {
+            log.info("MV health backfill 모드 — 전기 대비 variance 검사 skip, min-rows만 확인: type={} periodKey={}",
+                    periodType, currentPeriodKey);
+        }
         long currentCount = countRows(currentPeriodKey);
         if (currentCount < minRows) {
             handleAnomaly(String.format(
@@ -46,7 +64,7 @@ public class MvOutputHealthCheckTasklet implements Tasklet {
             return RepeatStatus.FINISHED;
         }
 
-        if (previousPeriodKey != null) {
+        if (!backfillMode && previousPeriodKey != null) {
             long previousCount = countRows(previousPeriodKey);
             if (previousCount > 0) {
                 double variance = Math.abs(currentCount - previousCount) / (double) previousCount;

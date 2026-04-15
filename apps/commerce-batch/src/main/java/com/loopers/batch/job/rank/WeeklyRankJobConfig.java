@@ -7,6 +7,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobScope;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -23,20 +26,20 @@ public class WeeklyRankJobConfig {
     private static final String VALIDATION_STEP = "validateWeeklyScoreCompletenessStep";
     private static final String BUILD_STEP = "buildWeeklyRankStep";
     private static final String HEALTH_CHECK_STEP = "healthCheckWeeklyRankStep";
-    private static final String CLEANUP_STEP = "cleanupWeeklyRankStep";
 
     private final RankJobFactory rankJobFactory;
+    private final JobRepository jobRepository;
 
     @Bean(JOB_NAME)
     public Job weeklyRankJob(Step validateWeeklyScoreCompletenessStep,
                               Step buildWeeklyRankStep,
-                              Step healthCheckWeeklyRankStep,
-                              Step cleanupWeeklyRankStep) {
-        return rankJobFactory.buildJob(JOB_NAME,
-                validateWeeklyScoreCompletenessStep,
-                buildWeeklyRankStep,
-                healthCheckWeeklyRankStep,
-                cleanupWeeklyRankStep);
+                              Step healthCheckWeeklyRankStep) {
+        return new JobBuilder(JOB_NAME, jobRepository)
+                .incrementer(new RunIdIncrementer())
+                .start(validateWeeklyScoreCompletenessStep)
+                .next(buildWeeklyRankStep)
+                .next(healthCheckWeeklyRankStep)
+                .build();
     }
 
     @Bean(VALIDATION_STEP)
@@ -65,24 +68,16 @@ public class WeeklyRankJobConfig {
 
     @Bean(HEALTH_CHECK_STEP)
     @JobScope
-    public Step healthCheckWeeklyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
+    public Step healthCheckWeeklyRankStep(@Value("#{jobParameters['date']}") String dateStr,
+                                           @Value("#{jobParameters['mode']}") String mode) {
         LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        boolean backfillMode = "backfill".equalsIgnoreCase(mode);
         return rankJobFactory.buildHealthCheckStep(
                 HEALTH_CHECK_STEP,
                 RankPeriodType.WEEKLY,
                 RankingKeyGenerator.weeklyPeriodKey(date),
-                RankingKeyGenerator.previousWeeklyPeriodKey(date)
-        );
-    }
-
-    @Bean(CLEANUP_STEP)
-    @JobScope
-    public Step cleanupWeeklyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
-        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
-        return rankJobFactory.buildCleanupStep(
-                CLEANUP_STEP,
-                RankPeriodType.WEEKLY,
-                RankingKeyGenerator.weeklyPeriodKey(date)
+                RankingKeyGenerator.previousWeeklyPeriodKey(date),
+                backfillMode
         );
     }
 }
