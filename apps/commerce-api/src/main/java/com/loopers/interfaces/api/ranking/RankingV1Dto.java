@@ -37,13 +37,16 @@ public class RankingV1Dto {
             long page,
             long size,
             long totalElements,
-            ZonedDateTime lastUpdatedAt
+            ZonedDateTime lastUpdatedAt,
+            String periodKey,
+            boolean isFallback
     ) {
         public static RankingPageResponse from(RankingPageResult result) {
             List<RankingItemResponse> items = result.items().stream()
                     .map(RankingItemResponse::from)
                     .toList();
-            return new RankingPageResponse(items, result.page(), result.size(), result.totalElements(), result.lastUpdatedAt());
+            return new RankingPageResponse(items, result.page(), result.size(), result.totalElements(),
+                    result.lastUpdatedAt(), result.periodKey(), result.isFallback());
         }
     }
 
