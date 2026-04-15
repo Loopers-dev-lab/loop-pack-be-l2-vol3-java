@@ -21,6 +21,7 @@ public class MetricsService {
     private final ProductMetricsRepository productMetricsRepository;
     private final EventHandledRepository eventHandledRepository;
     private final AggregateEventTrackerRepository aggregateEventTrackerRepository;
+    private final RankingService rankingService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -41,12 +42,19 @@ public class MetricsService {
         Long targetId = Long.parseLong(aggregateId);
 
         switch (eventType) {
+            case "PRODUCT_VIEWED" -> {
+                productMetricsRepository.incrementViewCount(targetId, 1);
+                rankingService.addScore(eventType, targetId, eventCreatedAt, 1.0);
+                aggregateEventTrackerRepository.upsert(aggregateId, eventType, eventCreatedAt);
+            }
             case "PRODUCT_LIKED" -> {
                 productMetricsRepository.incrementLikeCount(targetId, 1);
+                rankingService.addScore(eventType, targetId, eventCreatedAt, 1.0);
                 aggregateEventTrackerRepository.upsert(aggregateId, eventType, eventCreatedAt);
             }
             case "PRODUCT_UNLIKED" -> {
                 productMetricsRepository.incrementLikeCount(targetId, -1);
+                rankingService.addScore(eventType, targetId, eventCreatedAt, -1.0);
                 aggregateEventTrackerRepository.upsert(aggregateId, eventType, eventCreatedAt);
             }
             case "ORDER_COMPLETED" -> processOrderCompleted(aggregateId, eventType, eventCreatedAt, payload);
@@ -77,7 +85,9 @@ public class MetricsService {
             if (productIdsNode != null && productIdsNode.isArray() && !productIdsNode.isEmpty()) {
                 long amountPerProduct = totalAmount / productIdsNode.size();
                 for (JsonNode productIdNode : productIdsNode) {
-                    productMetricsRepository.incrementSalesCount(productIdNode.asLong(), 1, amountPerProduct);
+                    long productId = productIdNode.asLong();
+                    productMetricsRepository.incrementSalesCount(productId, 1, amountPerProduct);
+                    rankingService.addScore("ORDER_COMPLETED", productId, eventCreatedAt, amountPerProduct);
                 }
             }
 

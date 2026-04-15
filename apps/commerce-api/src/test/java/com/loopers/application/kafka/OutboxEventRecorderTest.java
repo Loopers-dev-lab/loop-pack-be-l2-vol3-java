@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.event.OrderCompletedEvent;
 import com.loopers.application.event.ProductLikedEvent;
 import com.loopers.application.event.ProductUnlikedEvent;
+import com.loopers.application.event.ProductViewedEvent;
 import com.loopers.domain.outbox.OutboxEventService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -61,6 +62,21 @@ class OutboxEventRecorderTest {
         // Assert
         verify(outboxEventService).recordEvent(
             "PRODUCT", "200", "PRODUCT_UNLIKED", "{\"productId\":200}"
+        );
+    }
+
+    @Test
+    @DisplayName("ProductViewedEvent 수신 시 PRODUCT 타입으로 outbox에 기록한다")
+    void recordsProductViewedEvent() {
+        // Arrange
+        ProductViewedEvent event = new ProductViewedEvent(300L);
+
+        // Act
+        recorder.handleProductViewed(event);
+
+        // Assert
+        verify(outboxEventService).recordEvent(
+            "PRODUCT", "300", "PRODUCT_VIEWED", "{\"productId\":300}"
         );
     }
 

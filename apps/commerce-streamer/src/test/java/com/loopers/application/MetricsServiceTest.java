@@ -39,13 +39,31 @@ class MetricsServiceTest {
     @Mock
     private AggregateEventTrackerRepository aggregateEventTrackerRepository;
 
+    @Mock
+    private RankingService rankingService;
+
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
     private static final ZonedDateTime EVENT_CREATED_AT = ZonedDateTime.parse("2026-03-27T10:00:00+09:00");
 
     @Test
-    @DisplayName("PRODUCT_LIKED 이벤트 수신 시 likeCount를 +1 한다")
+    @DisplayName("PRODUCT_VIEWED 이벤트 수신 시 viewCount를 +1 하고 랭킹 점수를 반영한다")
+    void incrementsViewCountAndRanking_whenProductViewed() {
+        // Arrange
+        doNothing().when(eventHandledRepository).save("0");
+
+        // Act
+        metricsService.processEvent("0", "PRODUCT_VIEWED", "100", EVENT_CREATED_AT);
+
+        // Assert
+        verify(productMetricsRepository).incrementViewCount(100L, 1);
+        verify(rankingService).addScore("PRODUCT_VIEWED", 100L, EVENT_CREATED_AT, 1.0);
+        verify(aggregateEventTrackerRepository).upsert("100", "PRODUCT_VIEWED", EVENT_CREATED_AT);
+    }
+
+    @Test
+    @DisplayName("PRODUCT_LIKED 이벤트 수신 시 likeCount를 +1 하고 랭킹 점수를 반영한다")
     void incrementsLikeCount_whenProductLiked() {
         // Arrange
         doNothing().when(eventHandledRepository).save("1");
@@ -55,12 +73,13 @@ class MetricsServiceTest {
 
         // Assert
         verify(productMetricsRepository).incrementLikeCount(100L, 1);
+        verify(rankingService).addScore("PRODUCT_LIKED", 100L, EVENT_CREATED_AT, 1.0);
         verify(eventHandledRepository).save("1");
         verify(aggregateEventTrackerRepository).upsert("100", "PRODUCT_LIKED", EVENT_CREATED_AT);
     }
 
     @Test
-    @DisplayName("PRODUCT_UNLIKED 이벤트 수신 시 likeCount를 -1 한다")
+    @DisplayName("PRODUCT_UNLIKED 이벤트 수신 시 likeCount를 -1 하고 랭킹 점수를 감소시킨다")
     void decrementsLikeCount_whenProductUnliked() {
         // Arrange
         doNothing().when(eventHandledRepository).save("2");
@@ -70,6 +89,7 @@ class MetricsServiceTest {
 
         // Assert
         verify(productMetricsRepository).incrementLikeCount(100L, -1);
+        verify(rankingService).addScore("PRODUCT_UNLIKED", 100L, EVENT_CREATED_AT, -1.0);
         verify(eventHandledRepository).save("2");
         verify(aggregateEventTrackerRepository).upsert("100", "PRODUCT_UNLIKED", EVENT_CREATED_AT);
     }
@@ -105,7 +125,7 @@ class MetricsServiceTest {
     }
 
     @Test
-    @DisplayName("ORDER_COMPLETED 이벤트 수신 시 최신 이벤트이면 salesCount를 집계한다")
+    @DisplayName("ORDER_COMPLETED 이벤트 수신 시 최신 이벤트이면 salesCount를 집계하고 랭킹 점수를 반영한다")
     void incrementsSalesCount_whenOrderCompletedAndNewerEvent() {
         // Arrange
         doNothing().when(eventHandledRepository).save("5");
@@ -121,6 +141,8 @@ class MetricsServiceTest {
         // Assert
         verify(productMetricsRepository).incrementSalesCount(10L, 1, 25000);
         verify(productMetricsRepository).incrementSalesCount(20L, 1, 25000);
+        verify(rankingService).addScore("ORDER_COMPLETED", 10L, EVENT_CREATED_AT, 25000.0);
+        verify(rankingService).addScore("ORDER_COMPLETED", 20L, EVENT_CREATED_AT, 25000.0);
         verify(aggregateEventTrackerRepository).upsert("200", "ORDER_COMPLETED", EVENT_CREATED_AT);
     }
 

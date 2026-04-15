@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.event.OrderCompletedEvent;
 import com.loopers.application.event.ProductLikedEvent;
 import com.loopers.application.event.ProductUnlikedEvent;
+import com.loopers.application.event.ProductViewedEvent;
 import com.loopers.domain.outbox.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
@@ -47,6 +48,16 @@ public class OutboxEventRecorder {
             OutboxAggregateType.PRODUCT,
             String.valueOf(event.productId()),
             OutboxEventType.PRODUCT_UNLIKED,
+            toJson(Map.of("productId", event.productId()))
+        );
+    }
+
+    @EventListener
+    public void handleProductViewed(ProductViewedEvent event) {
+        outboxEventService.recordEvent(
+            OutboxAggregateType.PRODUCT,
+            String.valueOf(event.productId()),
+            OutboxEventType.PRODUCT_VIEWED,
             toJson(Map.of("productId", event.productId()))
         );
     }

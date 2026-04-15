@@ -22,6 +22,8 @@ public interface ProductJpaRepository extends JpaRepository<ProductEntity, Long>
 
     List<ProductEntity> findAllByCategoryIdInAndDeletedAtIsNull(List<Long> categoryIds);
 
+    List<ProductEntity> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
+
     boolean existsByIdAndDeletedAtIsNull(Long id);
 
     @Query("SELECT DISTINCT p FROM ProductEntity p " +

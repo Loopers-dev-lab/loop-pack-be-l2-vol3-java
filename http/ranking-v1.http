@@ -1,0 +1,19 @@
+### 오늘 랭킹 조회 (기본)
+GET http://localhost:8080/api/v1/rankings
+Accept: application/json
+
+### 오늘 랭킹 조회 (페이징)
+GET http://localhost:8080/api/v1/rankings?size=10&page=0
+Accept: application/json
+
+### 오늘 랭킹 조회 (2페이지)
+GET http://localhost:8080/api/v1/rankings?size=10&page=1
+Accept: application/json
+
+### 특정 날짜 랭킹 조회
+GET http://localhost:8080/api/v1/rankings?date=20260409&size=20&page=0
+Accept: application/json
+
+### 상품 상세 조회 (랭킹 정보 포함)
+GET http://localhost:8080/api/v1/products/1
+Accept: application/json

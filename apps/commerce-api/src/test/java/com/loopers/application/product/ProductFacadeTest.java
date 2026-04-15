@@ -14,6 +14,7 @@ import com.loopers.domain.product.ProductSortType;
 import com.loopers.domain.product.ProductStatus;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import com.loopers.infrastructure.outbox.OutboxEventJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -58,6 +59,9 @@ class ProductFacadeTest {
 
     @Autowired
     private ProductDetailCacheRepository productDetailCacheRepository;
+
+    @Autowired
+    private OutboxEventJpaRepository outboxEventJpaRepository;
 
     private Brand savedBrand;
     private Category savedCategory;
@@ -156,6 +160,45 @@ class ProductFacadeTest {
             Optional<ProductDetailInfo> cached = productDetailCacheRepository.get(product.getId());
             assertThat(cached).isPresent();
             assertThat(cached.get().name()).isEqualTo("아이폰 15");
+        }
+
+        @Test
+        @DisplayName("상품 조회 시 PRODUCT_VIEWED 이벤트가 outbox에 기록된다")
+        void recordsProductViewedEvent() {
+            // Arrange
+            Product product = productRepository.save(
+                new Product("아이폰 15", savedBrand.getId(), 1L, 1500000L)
+            );
+
+            // Act
+            productFacade.getProduct(product.getId());
+
+            // Assert
+            assertThat(outboxEventJpaRepository.findAll())
+                .anyMatch(event -> "PRODUCT_VIEWED".equals(event.getEventType())
+                    && String.valueOf(product.getId()).equals(event.getAggregateId()));
+        }
+
+        @Test
+        @DisplayName("캐시 히트 시에도 PRODUCT_VIEWED 이벤트가 기록된다")
+        void recordsProductViewedEvent_evenOnCacheHit() {
+            // Arrange
+            Product product = productRepository.save(
+                new Product("아이폰 15", savedBrand.getId(), 1L, 1500000L)
+            );
+            productFacade.getProduct(product.getId());
+            long firstCount = outboxEventJpaRepository.findAll().stream()
+                .filter(e -> "PRODUCT_VIEWED".equals(e.getEventType()))
+                .count();
+
+            // Act
+            productFacade.getProduct(product.getId());
+
+            // Assert
+            long secondCount = outboxEventJpaRepository.findAll().stream()
+                .filter(e -> "PRODUCT_VIEWED".equals(e.getEventType()))
+                .count();
+            assertThat(secondCount).isEqualTo(firstCount + 1);
         }
 
         @Test
