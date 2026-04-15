@@ -10,9 +10,15 @@ public record RankingPageResult(
         long totalElements,
         ZonedDateTime lastUpdatedAt,
         String periodKey,
-        boolean isFallback
+        boolean isFallback,
+        Long publishedVersion
 ) {
     public RankingPageResult(List<RankingInfo> items, long page, long size, long totalElements, ZonedDateTime lastUpdatedAt) {
-        this(items, page, size, totalElements, lastUpdatedAt, null, false);
+        this(items, page, size, totalElements, lastUpdatedAt, null, false, null);
+    }
+
+    public RankingPageResult(List<RankingInfo> items, long page, long size, long totalElements,
+                              ZonedDateTime lastUpdatedAt, String periodKey, boolean isFallback) {
+        this(items, page, size, totalElements, lastUpdatedAt, periodKey, isFallback, null);
     }
 }

@@ -44,6 +44,16 @@ public class MvProductRankRepositoryImpl implements MvProductRankRepository {
     }
 
     @Override
+    public Optional<Long> findPublishedVersion(RankPeriodType type, String periodKey) {
+        List<Long> result = jdbcTemplate.queryForList(
+                "SELECT published_version FROM mv_product_rank_publication " +
+                        "WHERE period_type = ? AND period_key = ?",
+                Long.class, type.name(), periodKey
+        );
+        return result.isEmpty() ? Optional.empty() : Optional.ofNullable(result.get(0));
+    }
+
+    @Override
     public Optional<ZonedDateTime> findLastUpdatedAt(RankPeriodType type, String periodKey) {
         String sql = "SELECT MAX(mv.updated_at) FROM " + type.getTableName() + " mv " +
                 "INNER JOIN mv_product_rank_publication p " +

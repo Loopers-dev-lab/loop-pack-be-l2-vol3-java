@@ -36,7 +36,15 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         RankingPeriod rankingPeriod = RankingPeriod.fromString(period);
         LocalDate targetDate = parseDateOrToday(date);
         RankingPageResult result = rankingApp.getTopN(rankingPeriod, targetDate, page, size);
-        return ResponseEntity.ok(ApiResponse.success(RankingV1Dto.RankingPageResponse.from(result)));
+        ResponseEntity.BodyBuilder builder = ResponseEntity.ok();
+        if (result.periodKey() != null) {
+            builder.header("X-Ranking-Period-Key", result.periodKey());
+            builder.header("X-Ranking-Is-Fallback", String.valueOf(result.isFallback()));
+        }
+        if (result.publishedVersion() != null) {
+            builder.header("X-Ranking-Version", String.valueOf(result.publishedVersion()));
+        }
+        return builder.body(ApiResponse.success(RankingV1Dto.RankingPageResponse.from(result)));
     }
 
     @GetMapping("/cursor")

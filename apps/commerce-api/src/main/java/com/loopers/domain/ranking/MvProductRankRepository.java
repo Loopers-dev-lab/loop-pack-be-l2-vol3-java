@@ -11,4 +11,6 @@ public interface MvProductRankRepository {
     long countByPeriodKey(RankPeriodType type, String periodKey);
 
     Optional<ZonedDateTime> findLastUpdatedAt(RankPeriodType type, String periodKey);
+
+    Optional<Long> findPublishedVersion(RankPeriodType type, String periodKey);
 }

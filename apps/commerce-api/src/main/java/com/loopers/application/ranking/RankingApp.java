@@ -50,8 +50,9 @@ public class RankingApp {
         List<RankingEntry> entries = mvProductRankRepository.findByPeriodKey(type, periodKey, offset, size);
         long totalElements = mvProductRankRepository.countByPeriodKey(type, periodKey);
         java.time.ZonedDateTime lastUpdatedAt = mvProductRankRepository.findLastUpdatedAt(type, periodKey).orElse(null);
+        Long publishedVersion = mvProductRankRepository.findPublishedVersion(type, periodKey).orElse(null);
         List<RankingInfo> items = enrich(entries, offset);
-        return new RankingPageResult(items, page, size, totalElements, lastUpdatedAt, periodKey, isFallback);
+        return new RankingPageResult(items, page, size, totalElements, lastUpdatedAt, periodKey, isFallback, publishedVersion);
     }
 
     public RankingPageResult getTopN(LocalDate date, long page, long size) {
