@@ -22,6 +22,13 @@ management:
     defaults:
       enabled: false
 
+ranking:
+  weights:
+    view: 0.1
+    like: 0.2
+    unlike: -0.2
+    order: 0.6
+
 ---
 spring:
   config:
