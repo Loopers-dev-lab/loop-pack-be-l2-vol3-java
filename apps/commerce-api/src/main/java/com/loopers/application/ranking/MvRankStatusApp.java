@@ -19,10 +19,11 @@ public class MvRankStatusApp {
 
     private final JdbcTemplate jdbcTemplate;
 
-    public List<MvRankStatusInfo> listStatuses(RankPeriodType type) {
+    public List<MvRankStatusInfo> listStatuses(RankPeriodType type, int offset, int size) {
         List<Object[]> publications = jdbcTemplate.query(
                 "SELECT period_type, period_key, published_version, next_version, updated_at " +
-                        "FROM mv_product_rank_publication WHERE period_type = ? ORDER BY period_key DESC",
+                        "FROM mv_product_rank_publication WHERE period_type = ? " +
+                        "ORDER BY period_key DESC LIMIT ? OFFSET ?",
                 (rs, n) -> new Object[]{
                         rs.getString("period_type"),
                         rs.getString("period_key"),
@@ -30,7 +31,7 @@ public class MvRankStatusApp {
                         rs.getLong("next_version"),
                         rs.getTimestamp("updated_at")
                 },
-                type.name()
+                type.name(), size, offset
         );
         List<MvRankStatusInfo> out = new ArrayList<>(publications.size());
         for (Object[] p : publications) {
