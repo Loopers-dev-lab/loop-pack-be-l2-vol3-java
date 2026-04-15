@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.metrics.persistence;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
@@ -18,7 +18,7 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
 
     @Override
-    public List<ProductScoreProjection> findTopScores(LocalDateTime start, LocalDateTime end, int limit) {
+    public List<ProductScoreProjection> findTopScores(LocalDate start, LocalDate end, int limit) {
         return productMetricsJpaRepository.findTopScores(start, end, PageRequest.of(0, limit));
     }
 }

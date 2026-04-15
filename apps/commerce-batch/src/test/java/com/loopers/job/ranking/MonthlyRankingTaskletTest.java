@@ -10,7 +10,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -115,13 +114,13 @@ class MonthlyRankingTaskletTest {
             tasklet.execute(mock(StepContribution.class), mock(ChunkContext.class));
 
             // assert
-            ArgumentCaptor<LocalDateTime> startCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
-            ArgumentCaptor<LocalDateTime> endCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+            ArgumentCaptor<LocalDate> startCaptor = ArgumentCaptor.forClass(LocalDate.class);
+            ArgumentCaptor<LocalDate> endCaptor = ArgumentCaptor.forClass(LocalDate.class);
             verify(productMetricsRepository).findTopScores(startCaptor.capture(), endCaptor.capture(), eq(100));
 
             assertAll(
-                    () -> assertThat(startCaptor.getValue()).isEqualTo(LocalDateTime.of(2026, 3, 15, 0, 0, 0)),
-                    () -> assertThat(endCaptor.getValue()).isEqualTo(LocalDate.of(2026, 4, 13).atTime(java.time.LocalTime.MAX))
+                    () -> assertThat(startCaptor.getValue()).isEqualTo(LocalDate.of(2026, 3, 15)),
+                    () -> assertThat(endCaptor.getValue()).isEqualTo(LocalDate.of(2026, 4, 13))
             );
         }
     }

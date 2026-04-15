@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -79,9 +78,9 @@ class WeeklyRankingJobE2ETest {
             // arrange
             jobLauncherTestUtils.setJob(job);
 
-            saveMetrics(1L, LocalDateTime.of(2026, 4, 7, 10, 0), 100L, 10L, 5L);
-            saveMetrics(1L, LocalDateTime.of(2026, 4, 8, 14, 0), 200L, 20L, 10L);
-            saveMetrics(2L, LocalDateTime.of(2026, 4, 9, 9, 0), 50L, 5L, 3L);
+            saveMetrics(1L, LocalDate.of(2026, 4, 7), 100L, 10L, 5L);
+            saveMetrics(1L, LocalDate.of(2026, 4, 8), 200L, 20L, 10L);
+            saveMetrics(2L, LocalDate.of(2026, 4, 9), 50L, 5L, 3L);
 
             var jobParameters = new JobParametersBuilder()
                     .addString("date", "20260413")
@@ -121,7 +120,7 @@ class WeeklyRankingJobE2ETest {
             // arrange
             jobLauncherTestUtils.setJob(job);
 
-            saveMetrics(1L, LocalDateTime.of(2026, 4, 10, 12, 0), 100L, 10L, 5L);
+            saveMetrics(1L, LocalDate.of(2026, 4, 10), 100L, 10L, 5L);
 
             var jobParameters1 = new JobParametersBuilder()
                     .addString("date", "20260413")
@@ -145,14 +144,14 @@ class WeeklyRankingJobE2ETest {
         }
     }
 
-    private void saveMetrics(Long productId, LocalDateTime metricHour,
+    private void saveMetrics(Long productId, LocalDate metricDate,
             Long viewCount, Long likeCount, Long orderCount) {
         try {
             var constructor = ProductMetrics.class.getDeclaredConstructor();
             constructor.setAccessible(true);
             ProductMetrics metrics = constructor.newInstance();
             ReflectionTestUtils.setField(metrics, "productId", productId);
-            ReflectionTestUtils.setField(metrics, "metricHour", metricHour);
+            ReflectionTestUtils.setField(metrics, "metricDate", metricDate);
             ReflectionTestUtils.setField(metrics, "viewCount", viewCount);
             ReflectionTestUtils.setField(metrics, "likeCount", likeCount);
             ReflectionTestUtils.setField(metrics, "orderCount", orderCount);

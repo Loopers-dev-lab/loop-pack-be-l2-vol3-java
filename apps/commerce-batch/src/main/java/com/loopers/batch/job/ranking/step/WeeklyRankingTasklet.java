@@ -1,8 +1,6 @@
 package com.loopers.batch.job.ranking.step;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Objects;
@@ -35,8 +33,8 @@ import lombok.extern.slf4j.Slf4j;
  *
  * <p>집계 범위 예시 (date=20260413):</p>
  * <pre>
- * start: 2026-04-06 00:00:00
- * end:   2026-04-12 23:59:59.999999999
+ * start: 2026-04-06
+ * end:   2026-04-12
  * </pre>
  */
 @Slf4j
@@ -62,8 +60,8 @@ public class WeeklyRankingTasklet implements Tasklet {
         }
 
         LocalDate baseDate = LocalDate.parse(date, DATE_FORMAT);
-        LocalDateTime start = baseDate.minusDays(7).atStartOfDay();
-        LocalDateTime end = baseDate.minusDays(1).atTime(LocalTime.MAX);
+        LocalDate start = baseDate.minusDays(7);
+        LocalDate end = baseDate.minusDays(1);
 
         log.info("주간 랭킹 집계 시작 — 기준일: {}, 범위: {} ~ {}", baseDate, start, end);
 

@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.metrics.persistence;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
@@ -17,12 +17,12 @@ public interface ProductMetricsJpaRepository extends JpaRepository<ProductMetric
             + "m.productId, "
             + "CAST(SUM(m.viewCount * 0.1 + m.likeCount * 0.2 + m.orderCount * 0.7) AS double)) "
             + "FROM ProductMetrics m "
-            + "WHERE m.metricHour BETWEEN :start AND :end "
+            + "WHERE m.metricDate BETWEEN :start AND :end "
             + "GROUP BY m.productId "
             + "ORDER BY SUM(m.viewCount * 0.1 + m.likeCount * 0.2 + m.orderCount * 0.7) DESC")
     List<ProductScoreProjection> findTopScores(
-            @Param("start") LocalDateTime start,
-            @Param("end") LocalDateTime end,
+            @Param("start") LocalDate start,
+            @Param("end") LocalDate end,
             Pageable pageable
     );
 }
