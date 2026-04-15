@@ -22,12 +22,21 @@ public class WeeklyRankJobConfig {
     public static final String JOB_NAME = "weeklyRankJob";
     private static final String VALIDATION_STEP = "validateWeeklyScoreCompletenessStep";
     private static final String BUILD_STEP = "buildWeeklyRankStep";
+    private static final String HEALTH_CHECK_STEP = "healthCheckWeeklyRankStep";
+    private static final String CLEANUP_STEP = "cleanupWeeklyRankStep";
 
     private final RankJobFactory rankJobFactory;
 
     @Bean(JOB_NAME)
-    public Job weeklyRankJob(Step validateWeeklyScoreCompletenessStep, Step buildWeeklyRankStep) {
-        return rankJobFactory.buildJob(JOB_NAME, validateWeeklyScoreCompletenessStep, buildWeeklyRankStep);
+    public Job weeklyRankJob(Step validateWeeklyScoreCompletenessStep,
+                              Step buildWeeklyRankStep,
+                              Step healthCheckWeeklyRankStep,
+                              Step cleanupWeeklyRankStep) {
+        return rankJobFactory.buildJob(JOB_NAME,
+                validateWeeklyScoreCompletenessStep,
+                buildWeeklyRankStep,
+                healthCheckWeeklyRankStep,
+                cleanupWeeklyRankStep);
     }
 
     @Bean(VALIDATION_STEP)
@@ -51,6 +60,29 @@ public class WeeklyRankJobConfig {
                 RankingKeyGenerator.weeklyPeriodKey(date),
                 RankingKeyGenerator.weekStart(date),
                 RankingKeyGenerator.weekEnd(date)
+        );
+    }
+
+    @Bean(HEALTH_CHECK_STEP)
+    @JobScope
+    public Step healthCheckWeeklyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        return rankJobFactory.buildHealthCheckStep(
+                HEALTH_CHECK_STEP,
+                RankPeriodType.WEEKLY,
+                RankingKeyGenerator.weeklyPeriodKey(date),
+                RankingKeyGenerator.previousWeeklyPeriodKey(date)
+        );
+    }
+
+    @Bean(CLEANUP_STEP)
+    @JobScope
+    public Step cleanupWeeklyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        return rankJobFactory.buildCleanupStep(
+                CLEANUP_STEP,
+                RankPeriodType.WEEKLY,
+                RankingKeyGenerator.weeklyPeriodKey(date)
         );
     }
 }

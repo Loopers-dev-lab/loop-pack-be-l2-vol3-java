@@ -22,12 +22,21 @@ public class MonthlyRankJobConfig {
     public static final String JOB_NAME = "monthlyRankJob";
     private static final String VALIDATION_STEP = "validateMonthlyScoreCompletenessStep";
     private static final String BUILD_STEP = "buildMonthlyRankStep";
+    private static final String HEALTH_CHECK_STEP = "healthCheckMonthlyRankStep";
+    private static final String CLEANUP_STEP = "cleanupMonthlyRankStep";
 
     private final RankJobFactory rankJobFactory;
 
     @Bean(JOB_NAME)
-    public Job monthlyRankJob(Step validateMonthlyScoreCompletenessStep, Step buildMonthlyRankStep) {
-        return rankJobFactory.buildJob(JOB_NAME, validateMonthlyScoreCompletenessStep, buildMonthlyRankStep);
+    public Job monthlyRankJob(Step validateMonthlyScoreCompletenessStep,
+                               Step buildMonthlyRankStep,
+                               Step healthCheckMonthlyRankStep,
+                               Step cleanupMonthlyRankStep) {
+        return rankJobFactory.buildJob(JOB_NAME,
+                validateMonthlyScoreCompletenessStep,
+                buildMonthlyRankStep,
+                healthCheckMonthlyRankStep,
+                cleanupMonthlyRankStep);
     }
 
     @Bean(VALIDATION_STEP)
@@ -51,6 +60,29 @@ public class MonthlyRankJobConfig {
                 RankingKeyGenerator.monthlyPeriodKey(date),
                 RankingKeyGenerator.monthStart(date),
                 RankingKeyGenerator.monthEnd(date)
+        );
+    }
+
+    @Bean(HEALTH_CHECK_STEP)
+    @JobScope
+    public Step healthCheckMonthlyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        return rankJobFactory.buildHealthCheckStep(
+                HEALTH_CHECK_STEP,
+                RankPeriodType.MONTHLY,
+                RankingKeyGenerator.monthlyPeriodKey(date),
+                RankingKeyGenerator.previousMonthlyPeriodKey(date)
+        );
+    }
+
+    @Bean(CLEANUP_STEP)
+    @JobScope
+    public Step cleanupMonthlyRankStep(@Value("#{jobParameters['date']}") String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        return rankJobFactory.buildCleanupStep(
+                CLEANUP_STEP,
+                RankPeriodType.MONTHLY,
+                RankingKeyGenerator.monthlyPeriodKey(date)
         );
     }
 }

@@ -45,6 +45,18 @@ public class RankJobFactory {
     @Value("${batch.rank.validation.fail-on-incomplete:false}")
     private boolean failOnIncomplete;
 
+    @Value("${batch.rank.health-check.min-rows:1}")
+    private long healthCheckMinRows;
+
+    @Value("${batch.rank.health-check.max-variance-pct:0.5}")
+    private double healthCheckMaxVariancePct;
+
+    @Value("${batch.rank.health-check.fail-on-anomaly:false}")
+    private boolean healthCheckFailOnAnomaly;
+
+    @Value("${batch.rank.cleanup.batch-limit:1000}")
+    private int cleanupBatchLimit;
+
     public Job buildJob(String jobName, Step step) {
         return new JobBuilder(jobName, jobRepository)
                 .incrementer(new RunIdIncrementer())
@@ -59,6 +71,49 @@ public class RankJobFactory {
                 .listener(jobListener)
                 .start(validationStep)
                 .next(buildStep)
+                .build();
+    }
+
+    public Job buildJob(String jobName, Step validationStep, Step buildStep, Step healthCheckStep, Step cleanupStep) {
+        return new JobBuilder(jobName, jobRepository)
+                .incrementer(new RunIdIncrementer())
+                .listener(jobListener)
+                .start(validationStep)
+                .next(buildStep)
+                .next(healthCheckStep)
+                .next(cleanupStep)
+                .build();
+    }
+
+    public Step buildHealthCheckStep(String stepName,
+                                      RankPeriodType periodType,
+                                      String currentPeriodKey,
+                                      String previousPeriodKey) {
+        MvOutputHealthCheckTasklet tasklet = new MvOutputHealthCheckTasklet(
+                new JdbcTemplate(dataSource),
+                periodType,
+                currentPeriodKey,
+                previousPeriodKey,
+                healthCheckMinRows,
+                healthCheckMaxVariancePct,
+                healthCheckFailOnAnomaly
+        );
+        return new StepBuilder(stepName, jobRepository)
+                .tasklet(tasklet, transactionManager)
+                .listener(stepMonitorListener)
+                .build();
+    }
+
+    public Step buildCleanupStep(String stepName, RankPeriodType periodType, String periodKey) {
+        MvRankCleanupTasklet tasklet = new MvRankCleanupTasklet(
+                new JdbcTemplate(dataSource),
+                periodType,
+                periodKey,
+                cleanupBatchLimit
+        );
+        return new StepBuilder(stepName, jobRepository)
+                .tasklet(tasklet, transactionManager)
+                .listener(stepMonitorListener)
                 .build();
     }
 
