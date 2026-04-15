@@ -158,7 +158,7 @@ class FullPipelineE2ETest {
         }
 
         assertThat(mvProductRankRepository.countByPeriodKey(RankPeriodType.WEEKLY, "2026W15"))
-                .as("Job 종단 Cleanup Step이 이전 version 제거 → published version 행수만 남음").isEqualTo(1);
+                .as("A2 적용 후: cleanup이 별도 mvRankCleanupJob로 분리 — Weekly Job 2회 실행 시 두 version 공존").isEqualTo(2);
     }
 
     @DisplayName("DailyScoreJob 미실행 → MV 빈 상태, COMPLETED")
