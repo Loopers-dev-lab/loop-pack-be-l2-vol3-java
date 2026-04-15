@@ -202,6 +202,22 @@ log1p(3) + log1p(4) ≠ log1p(7)
 **결론**
 `product_metrics`(일별 원본)에서 weekly, monthly가 각자 독립적으로 집계하는 구조(fan-out)를 채택했다. 단일 원천에서 파생되므로 재집계가 단순하고 스케줄러 간 의존성이 없다.
 
+### product_metrics Reader에 JPA 대신 JDBC를 사용한 이유
+
+`commerce-batch`는 `commerce-streamer`를 의존하지 않는다. `ProductMetricsEntity`는 `commerce-streamer` 모듈에 정의되어 있어 batch 모듈의 클래스패스에 존재하지 않는다.
+
+JPA(JPQL)는 Entity 클래스를 직접 참조하기 때문에 클래스가 없으면 컴파일 에러가 발생한다.
+```
+FROM ProductMetricsEntity e  -- ProductMetricsEntity.class가 있어야 함
+```
+
+JDBC는 테이블 이름을 문자열로 참조하므로 Java 클래스 없이 DB 연결만으로 읽기가 가능하다.
+```sql
+FROM product_metrics  -- 테이블명 문자열, 클래스 불필요
+```
+
+batch 모듈에 `ProductMetricsEntity`를 중복 정의하는 방법도 있으나, 같은 Entity를 두 모듈에서 관리하면 스키마 변경 시 동기화 누락 위험이 있다. JDBC를 사용하면 이 문제를 피할 수 있다.
+
 ---
 
 ## 6. 구현 체크리스트
@@ -222,11 +238,18 @@ log1p(3) + log1p(4) ≠ log1p(7)
 
 ### Phase 3. Spring Batch Job
 
-- [ ] `RankingWeeklyJobConfig` — Chunk-Oriented Job 구현
-- [ ] `RankingMonthlyJobConfig` — Chunk-Oriented Job 구현
-- [ ] `ProductMetricsItemReader` — 날짜 범위 기반 페이징 Reader
-- [ ] `RankingItemProcessor` — score 계산 및 순위 부여
-- [ ] `MvRankingItemWriter` — MV 테이블 upsert Writer
+- [x] `RankingWeeklyJobConfig` — Chunk-Oriented Job 구현 (Step1: 점수 계산, Step2: 순위 확정)
+- [x] `RankingMonthlyJobConfig` — Chunk-Oriented Job 구현 (Step1: 점수 계산, Step2: 순위 확정)
+- [x] `ProductMetricsItemReader` — 날짜 범위 기반 페이징 Reader (period 파라미터로 weekly/monthly 날짜 범위 계산)
+- [x] `RankingItemProcessor` — score 계산 (`score = 0.1*view + 0.2*like + 0.7*log1p(qty)`), 출력: `RankedProductDto`
+- [x] `WeeklyMvRankingItemWriter` — weekly MV 테이블 upsert Writer
+- [x] `MonthlyMvRankingItemWriter` — monthly MV 테이블 upsert Writer
+- [x] `WeeklyRankAssignTasklet` — weekly 순위 부여 및 TOP 100 정리 (원래 계획의 `MvRankingItemWriter`에서 분리)
+- [x] `MonthlyRankAssignTasklet` — monthly 순위 부여 및 TOP 100 정리 (원래 계획의 `MvRankingItemWriter`에서 분리)
+- [x] `RankedProductDto` — Processor 출력 DTO (productId, score)
+- [x] `ProductMetricsAggregatedDto` — Reader 출력 DTO (productId, 집계된 view/like/quantity)
+- [x] `MvProductRankWeeklyJpaRepository` — weekly MV 조회/저장 Repository
+- [x] `MvProductRankMonthlyJpaRepository` — monthly MV 조회/저장 Repository
 
 ### Phase 4. Ranking API 확장
 
