@@ -11,6 +11,7 @@ import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.Chunk;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -24,6 +25,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 public class PublishingRankWriter implements ItemWriter<AggregatedScoreRow>, StepExecutionListener {
 
+    private static final String CTX_KEY_VERSION = "publishingWriter.version";
+    private static final String CTX_KEY_RANK = "publishingWriter.rankCursor";
+    private static final String CTX_KEY_WRITTEN = "publishingWriter.written";
+
     private final MvProductRankRepository rankRepository;
     private final MvProductRankPublicationRepository publicationRepository;
     private final RankPeriodType periodType;
@@ -36,6 +41,7 @@ public class PublishingRankWriter implements ItemWriter<AggregatedScoreRow>, Ste
     private volatile long myVersion = -1L;
     private volatile boolean versionAssigned = false;
     private volatile long totalWritten = 0L;
+    private volatile ExecutionContext executionContext;
 
     public PublishingRankWriter(MvProductRankRepository rankRepository,
                                  MvProductRankPublicationRepository publicationRepository,
@@ -54,6 +60,19 @@ public class PublishingRankWriter implements ItemWriter<AggregatedScoreRow>, Ste
     }
 
     @Override
+    public void beforeStep(StepExecution stepExecution) {
+        this.executionContext = stepExecution.getExecutionContext();
+        if (executionContext.containsKey(CTX_KEY_VERSION)) {
+            myVersion = executionContext.getLong(CTX_KEY_VERSION);
+            versionAssigned = true;
+            rankCounter.set((int) executionContext.getLong(CTX_KEY_RANK, 0L));
+            totalWritten = executionContext.getLong(CTX_KEY_WRITTEN, 0L);
+            log.info("PublishingRankWriter restart 복원: version={} rankCursor={} written={}",
+                    myVersion, rankCounter.get(), totalWritten);
+        }
+    }
+
+    @Override
     public void write(Chunk<? extends AggregatedScoreRow> chunk) {
         if (chunk.isEmpty()) {
             return;
@@ -62,16 +81,25 @@ public class PublishingRankWriter implements ItemWriter<AggregatedScoreRow>, Ste
         List<MvProductRankRow> rows = assignRanks(chunk.getItems(), version);
         insertTx.executeWithoutResult(status -> rankRepository.batchInsert(periodType, rows));
         totalWritten += rows.size();
+        if (executionContext != null) {
+            executionContext.putLong(CTX_KEY_RANK, rankCounter.get());
+            executionContext.putLong(CTX_KEY_WRITTEN, totalWritten);
+        }
     }
 
     private long ensureVersionAssigned() {
         if (versionAssigned) {
             return myVersion;
         }
-        Timer.Sample sample = Timer.start(meterRegistry);
+        Timer.Sample sample = meterRegistry == null ? null : Timer.start(meterRegistry);
         myVersion = publicationRepository.bumpNextVersion(periodType, periodKey);
-        sample.stop(timer("batch.rank.bump", periodType));
+        if (sample != null) {
+            sample.stop(timer("batch.rank.bump", periodType));
+        }
         versionAssigned = true;
+        if (executionContext != null) {
+            executionContext.putLong(CTX_KEY_VERSION, myVersion);
+        }
         log.info("PublishingRankWriter version 획득: type={} periodKey={} version={}",
                 periodType, periodKey, myVersion);
         return myVersion;
@@ -88,11 +116,14 @@ public class PublishingRankWriter implements ItemWriter<AggregatedScoreRow>, Ste
             return stepExecution.getExitStatus();
         }
         try {
-            Timer.Sample sample = Timer.start(meterRegistry);
+            Timer.Sample sample = meterRegistry == null ? null : Timer.start(meterRegistry);
+            long startNs = System.nanoTime();
             boolean published = Boolean.TRUE.equals(publishTx.execute(
                     status -> publicationRepository.casPublishIfGreater(periodType, periodKey, myVersion)
             ));
-            long casDurationNs = sample.stop(timer("batch.rank.cas", periodType));
+            long casDurationNs = sample == null
+                    ? (System.nanoTime() - startNs)
+                    : sample.stop(timer("batch.rank.cas", periodType));
             long durationMs = TimeUnit.NANOSECONDS.toMillis(casDurationNs);
             log.info("MV publish 완료: type={}, periodKey={}, version={}, published={}, written={}, casDurationMs={}",
                     periodType, periodKey, myVersion, published, totalWritten, durationMs);
