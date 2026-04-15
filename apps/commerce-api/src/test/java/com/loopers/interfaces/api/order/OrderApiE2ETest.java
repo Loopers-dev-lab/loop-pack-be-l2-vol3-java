@@ -322,20 +322,26 @@ class OrderApiE2ETest {
 
         @Test
         void PAID_상태의_주문을_취소하면_409_Conflict를_반환한다() {
-            // arrange — 1단계 트랜잭션으로 주문 즉시 PAID 확정
+            // arrange — 실제 상품/재고 생성 + PAID 주문 직접 생성 (PG 의존 없음)
             Brand brand = createActiveBrand("나이키");
             Product product = createActiveProduct(brand.getId(), "에어맥스");
-            UserAddress address = createAddress(userId);
-            createOrder(product.getId(), address.getId());
-            Order order = orderRepository.findAllByUserId(userId,
-                    java.time.ZonedDateTime.now().minusDays(1), java.time.ZonedDateTime.now().plusDays(1)).get(0);
+
+            Order pendingOrder = orderRepository.save(Order.place(userId, "ORD-PAID-CANCEL",
+                    List.of(com.loopers.domain.order.OrderItem.snapshot(
+                            product.getId(), "에어맥스", "나이키", 10000, 1)),
+                    "테스터", "010-1234-5678", "홍길동", "010-1234-5678",
+                    "00000", "어딘가", null));
+            // PENDING → PAID 전환 후 다시 저장
+            Order forConfirm = orderRepository.findById(pendingOrder.getId()).orElseThrow();
+            forConfirm.confirm(1L, "CARD");
+            Order paidOrder = orderRepository.save(forConfirm);
 
             // act
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
-                    "/api/v1/orders/" + order.getId(), HttpMethod.DELETE,
+                    "/api/v1/orders/" + paidOrder.getId(), HttpMethod.DELETE,
                     new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // assert — PAID 상태는 PENDING이 아니므로 취소 불가
+            // assert — PAID 상태는 취소 불가
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
         }
 

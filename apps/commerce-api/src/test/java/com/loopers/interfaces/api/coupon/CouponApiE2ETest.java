@@ -67,7 +67,7 @@ class CouponApiE2ETest {
     class 쿠폰_발급 {
 
         @Test
-        void 발급에_성공하면_200_OK를_반환한다() {
+        void 발급_요청에_성공하면_202_Accepted를_반환한다() {
             // arrange
             CouponTemplate template = createActiveTemplate();
 
@@ -76,37 +76,37 @@ class CouponApiE2ETest {
                     "/api/v1/coupons/" + template.getId() + "/issue", HttpMethod.POST,
                     new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            // assert — 비동기 FCFS: 요청 접수 즉시 202 응답
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         }
 
         @Test
-        void 존재하지_않는_템플릿이면_404_Not_Found를_반환한다() {
-            // act
+        void 존재하지_않는_템플릿도_요청_접수_시_202_Accepted를_반환한다() {
+            // act — 비동기 발급이므로 요청 접수 시점에는 템플릿 유효성 미검증
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     "/api/v1/coupons/999/issue", HttpMethod.POST,
                     new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+            // assert — Consumer 처리 후 polling으로 FAILED 확인 가능
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         }
 
         @Test
-        void 유저별_발급_제한_초과면_409_Conflict를_반환한다() {
+        void 중복_발급_요청도_접수_시_202_Accepted를_반환한다() {
             // arrange
             CouponTemplate template = createActiveTemplate();
-            // 첫 발급
+            // 첫 발급 요청
             testRestTemplate.exchange(
                     "/api/v1/coupons/" + template.getId() + "/issue", HttpMethod.POST,
                     new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // act - 재발급 시도 (maxIssueCountPerUser=1)
+            // act — 비동기 발급이므로 중복 검증은 Consumer에서 수행
             ResponseEntity<ApiResponse> response = testRestTemplate.exchange(
                     "/api/v1/coupons/" + template.getId() + "/issue", HttpMethod.POST,
                     new HttpEntity<>(authHeaders()), ApiResponse.class);
 
-            // assert
-            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+            // assert — 요청 접수는 성공, 실제 중복 거부는 Consumer에서 처리
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         }
 
         @Test
@@ -118,7 +118,7 @@ class CouponApiE2ETest {
                     "/api/v1/coupons/1/issue", HttpMethod.POST,
                     new HttpEntity<>(headers), ApiResponse.class);
 
-            // assert
+            // assert — 인증은 동기적으로 검증
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
         }
     }

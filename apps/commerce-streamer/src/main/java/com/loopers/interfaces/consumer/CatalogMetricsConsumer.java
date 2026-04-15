@@ -14,7 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
- * 카탈로그 메트릭 Consumer — 메시지 수신 + ACK + DLQ만 담당
+ * 카탈로그 메트릭 Consumer — 메시지 수신 + ACK + DLQ
  *
  * Interfaces 레이어의 책임: "요청 수신"
  *   Controller가 HTTP 요청을 받아서 Facade에 위임하듯이,
@@ -23,6 +23,12 @@ import java.util.List;
  * 비즈니스 처리는 CatalogMetricsProcessor(@Service)에 위임:
  *   → 프록시를 통한 호출 → @Transactional 정상 동작
  *   → self-invocation 방지 → increment + event_handled 같은 TX 보장
+ *
+ * 랭킹 책임 분리 (케브 피드백):
+ *   랭킹 delta 수집/flush는 별도 RankingConsumer(ranking-group)로 분리.
+ *   이 Consumer는 메트릭 집계(product_metrics, products.like_count)에만 집중한다.
+ *   → Redis 장애 시 metrics 파이프라인에 영향 없음
+ *   → 도메인 책임 분리 (아키텍처 퀀텀)
  */
 @Component
 public class CatalogMetricsConsumer {
@@ -64,6 +70,7 @@ public class CatalogMetricsConsumer {
                 dlqPublisher.sendToDlq(record, e);
             }
         }
+
         ack.acknowledge();
     }
 

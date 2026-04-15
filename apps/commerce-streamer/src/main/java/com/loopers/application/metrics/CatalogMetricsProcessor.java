@@ -29,6 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
  *   product_metrics.like_count + products.like_count를 같은 TX에서 업데이트.
  *   LikeFacade에서 products.like_count 직접 증분을 제거하고,
  *   이 Processor가 단일 파이프라인으로 두 테이블을 동기화한다.
+ *
+ * 랭킹 책임 분리 (R9 → 케브 피드백):
+ *   랭킹 delta 추출/flush는 별도 RankingConsumer(ranking-group)로 분리.
+ *   이 Processor는 메트릭 집계에만 집중한다.
  */
 @Service
 public class CatalogMetricsProcessor {
@@ -53,7 +57,7 @@ public class CatalogMetricsProcessor {
     /**
      * 메트릭 이벤트 처리 — 같은 TX에서 increment + 멱등성 기록
      *
-     * @return true = 처리됨, false = 중복 스킵
+     * @return 처리 여부 (true=처리됨, false=스킵)
      */
     @Transactional
     public boolean process(String eventType, String outboxId, String payload) {
@@ -147,4 +151,5 @@ public class CatalogMetricsProcessor {
         return productMetricsRepository.findById(productId)
                 .orElseGet(() -> productMetricsRepository.save(ProductMetricsEntity.create(productId)));
     }
+
 }

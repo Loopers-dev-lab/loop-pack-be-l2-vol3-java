@@ -38,12 +38,13 @@ public class ProductResponse {
             int basePrice,
             String brandName,
             int likeCount,
-            String stockStatus
+            String stockStatus,
+            Integer rank
     ) {
-        public static ProductDetail from(ProductInfo info, String brandName) {
+        public static ProductDetail from(ProductInfo info, String brandName, Integer rank) {
             return new ProductDetail(
                     info.id(), info.name(), info.description(), info.basePrice(),
-                    brandName, info.likeCount(), toStockStatus(info.status()));
+                    brandName, info.likeCount(), toStockStatus(info.status()), rank);
         }
     }
 
