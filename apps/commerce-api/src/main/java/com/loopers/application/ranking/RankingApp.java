@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 @Component
 @RequiredArgsConstructor
@@ -32,43 +33,23 @@ public class RankingApp {
         if (period == RankingPeriod.DAILY) {
             return getDailyTopN(date, page, size, offset);
         }
-        RankPeriodType type = period == RankingPeriod.WEEKLY ? RankPeriodType.WEEKLY : RankPeriodType.MONTHLY;
-        String periodKey = period == RankingPeriod.WEEKLY
-                ? RankingKeyGenerator.weeklyPeriodKey(date)
-                : RankingKeyGenerator.monthlyPeriodKey(date);
-        RankingPageResult primary = queryMvPeriod(type, periodKey, page, size, offset, false);
+        RankPeriodType type = (period == RankingPeriod.WEEKLY) ? RankPeriodType.WEEKLY : RankPeriodType.MONTHLY;
+        String currentKey = periodKey(period, date, false);
+        RankingPageResult primary = queryMvPeriod(type, currentKey, page, size, offset, false);
         if (primary.totalElements() > 0 || !coldStartFallbackEnabled) {
             return primary;
         }
-        String fallbackKey = period == RankingPeriod.WEEKLY
-                ? RankingKeyGenerator.previousWeeklyPeriodKey(date)
-                : RankingKeyGenerator.previousMonthlyPeriodKey(date);
-        return queryMvPeriod(type, fallbackKey, page, size, offset, true);
-    }
-
-    private RankingPageResult queryMvPeriod(RankPeriodType type, String periodKey, long page, long size, long offset, boolean isFallback) {
-        List<RankingEntry> entries = mvProductRankRepository.findByPeriodKey(type, periodKey, offset, size);
-        long totalElements = mvProductRankRepository.countByPeriodKey(type, periodKey);
-        java.time.ZonedDateTime lastUpdatedAt = mvProductRankRepository.findLastUpdatedAt(type, periodKey).orElse(null);
-        Long publishedVersion = mvProductRankRepository.findPublishedVersion(type, periodKey).orElse(null);
-        List<RankingInfo> items = enrich(entries, offset);
-        return new RankingPageResult(items, page, size, totalElements, lastUpdatedAt, periodKey, isFallback, publishedVersion);
+        return queryMvPeriod(type, periodKey(period, date, true), page, size, offset, true);
     }
 
     public RankingPageResult getTopN(LocalDate date, long page, long size) {
         return getTopN(RankingPeriod.DAILY, date, page, size);
     }
 
-    private RankingPageResult getDailyTopN(LocalDate date, long page, long size, long offset) {
-        List<RankingEntry> entries = rankingRepository.findTopN(date, offset, size);
-        long totalElements = rankingRepository.countMembers(date);
-        List<RankingInfo> items = enrich(entries, offset);
-        return new RankingPageResult(items, page, size, totalElements, null);
-    }
-
     public RankingCursorResult getByCursor(LocalDate date, Double cursorScore, long size) {
         List<RankingEntry> entries = rankingRepository.findByCursor(date, cursorScore, size);
-        List<RankingInfo> items = enrichByCursor(date, entries);
+        List<RankingInfo> items = enrichWith(entries,
+                (i, e) -> rankingRepository.findRank(date, e.productDbId()).orElse(0L));
         Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
         return new RankingCursorResult(items, nextCursor);
     }
@@ -82,91 +63,72 @@ public class RankingApp {
         return Optional.of(new ProductRankingInfo(rank.get(), score));
     }
 
-    private List<RankingInfo> enrich(List<RankingEntry> entries, long baseOffset) {
-        if (entries.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, CachedProductSnapshot> snapshots = productCache.findAllByIds(productDbIds(entries));
-        List<RankingInfo> items = new ArrayList<>(entries.size());
-        long rank = baseOffset;
-        for (RankingEntry entry : entries) {
-            rank++;
-            items.add(toInfo(entry, rank, snapshots.get(entry.productDbId())));
-        }
-        return items;
-    }
-
-    private List<RankingInfo> enrichByCursor(LocalDate date, List<RankingEntry> entries) {
-        if (entries.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, CachedProductSnapshot> snapshots = productCache.findAllByIds(productDbIds(entries));
-        List<RankingInfo> items = new ArrayList<>(entries.size());
-        for (RankingEntry entry : entries) {
-            Long globalRank = rankingRepository.findRank(date, entry.productDbId()).orElse(null);
-            long rank = globalRank != null ? globalRank : 0L;
-            items.add(toInfo(entry, rank, snapshots.get(entry.productDbId())));
-        }
-        return items;
-    }
-
-    private List<Long> productDbIds(List<RankingEntry> entries) {
-        List<Long> ids = new ArrayList<>(entries.size());
-        for (RankingEntry entry : entries) {
-            ids.add(entry.productDbId());
-        }
-        return ids;
-    }
-
     public RankingPageResult getHourlyTopN(LocalDate date, int hour, long page, long size) {
         long offset = page * size;
         List<RankingEntry> entries = rankingRepository.findHourlyTopN(date, hour, offset, size);
         long totalElements = rankingRepository.countHourlyMembers(date, hour);
-        List<RankingInfo> items = enrich(entries, offset);
+        List<RankingInfo> items = enrichByOffset(entries, offset);
         return new RankingPageResult(items, page, size, totalElements, null);
     }
 
     public RankingCursorResult getHourlyByCursor(LocalDate date, int hour, Double cursorScore, long size) {
         List<RankingEntry> entries = rankingRepository.findHourlyCursor(date, hour, cursorScore, size);
-        List<RankingInfo> items = enrichHourlyCursor(date, hour, entries);
+        List<RankingInfo> items = enrichWith(entries,
+                (i, e) -> rankingRepository.findHourlyRank(date, hour, e.productDbId()).orElse(0L));
         Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
         return new RankingCursorResult(items, nextCursor);
     }
 
-    private List<RankingInfo> enrichHourlyCursor(LocalDate date, int hour, List<RankingEntry> entries) {
+    private String periodKey(RankingPeriod period, LocalDate date, boolean previous) {
+        if (period == RankingPeriod.WEEKLY) {
+            return previous ? RankingKeyGenerator.previousWeeklyPeriodKey(date)
+                    : RankingKeyGenerator.weeklyPeriodKey(date);
+        }
+        return previous ? RankingKeyGenerator.previousMonthlyPeriodKey(date)
+                : RankingKeyGenerator.monthlyPeriodKey(date);
+    }
+
+    private RankingPageResult queryMvPeriod(RankPeriodType type, String periodKey, long page, long size, long offset, boolean isFallback) {
+        List<RankingEntry> entries = mvProductRankRepository.findByPeriodKey(type, periodKey, offset, size);
+        long totalElements = mvProductRankRepository.countByPeriodKey(type, periodKey);
+        java.time.ZonedDateTime lastUpdatedAt = mvProductRankRepository.findLastUpdatedAt(type, periodKey).orElse(null);
+        Long publishedVersion = mvProductRankRepository.findPublishedVersion(type, periodKey).orElse(null);
+        List<RankingInfo> items = enrichByOffset(entries, offset);
+        return new RankingPageResult(items, page, size, totalElements, lastUpdatedAt, periodKey, isFallback, publishedVersion);
+    }
+
+    private RankingPageResult getDailyTopN(LocalDate date, long page, long size, long offset) {
+        List<RankingEntry> entries = rankingRepository.findTopN(date, offset, size);
+        long totalElements = rankingRepository.countMembers(date);
+        List<RankingInfo> items = enrichByOffset(entries, offset);
+        return new RankingPageResult(items, page, size, totalElements, null);
+    }
+
+    private List<RankingInfo> enrichByOffset(List<RankingEntry> entries, long baseOffset) {
+        return enrichWith(entries, (i, e) -> baseOffset + i + 1);
+    }
+
+    private List<RankingInfo> enrichWith(List<RankingEntry> entries, BiFunction<Integer, RankingEntry, Long> rankResolver) {
         if (entries.isEmpty()) {
             return List.of();
         }
-        Map<Long, CachedProductSnapshot> snapshots = productCache.findAllByIds(productDbIds(entries));
+        List<Long> ids = entries.stream().map(RankingEntry::productDbId).toList();
+        Map<Long, CachedProductSnapshot> snapshots = productCache.findAllByIds(ids);
         List<RankingInfo> items = new ArrayList<>(entries.size());
-        for (RankingEntry entry : entries) {
-            Long globalRank = rankingRepository.findHourlyRank(date, hour, entry.productDbId()).orElse(null);
-            long rank = globalRank != null ? globalRank : 0L;
-            items.add(toInfo(entry, rank, snapshots.get(entry.productDbId())));
+        for (int i = 0; i < entries.size(); i++) {
+            RankingEntry entry = entries.get(i);
+            items.add(toInfo(entry, rankResolver.apply(i, entry), snapshots.get(entry.productDbId())));
         }
         return items;
     }
 
     private RankingInfo toInfo(RankingEntry entry, long rank, CachedProductSnapshot snapshot) {
         if (snapshot == null || snapshot.deleted()) {
-            return new RankingInfo(
-                    rank,
-                    entry.score(),
-                    entry.productDbId(),
-                    null,
-                    null,
-                    null,
-                    RankingInfo.STATUS_DISCONTINUED
-            );
+            return new RankingInfo(rank, entry.score(), entry.productDbId(),
+                    null, null, null, RankingInfo.STATUS_DISCONTINUED);
         }
-        return new RankingInfo(
-                rank,
-                entry.score(),
-                snapshot.id(),
-                snapshot.productId(),
-                snapshot.productName(),
-                snapshot.price(),
-                RankingInfo.STATUS_ACTIVE
-        );
+        return new RankingInfo(rank, entry.score(), snapshot.id(),
+                snapshot.productId(), snapshot.productName(), snapshot.price(),
+                RankingInfo.STATUS_ACTIVE);
     }
 }
