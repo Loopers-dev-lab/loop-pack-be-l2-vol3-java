@@ -9,5 +9,11 @@ public record MvProductRankRow(
         double score,
         long viewCount,
         long likeCount,
-        BigDecimal orderAmount
-) {}
+        BigDecimal orderAmount,
+        long version
+) {
+    public MvProductRankRow(String periodKey, int rankNo, long refProductId, double score,
+                             long viewCount, long likeCount, BigDecimal orderAmount) {
+        this(periodKey, rankNo, refProductId, score, viewCount, likeCount, orderAmount, 1L);
+    }
+}

@@ -13,24 +13,16 @@ import java.io.Serializable;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode
-public class MvProductRankId implements Serializable {
+public class MvProductRankPublicationId implements Serializable {
+
+    @Column(name = "period_type", nullable = false, length = 20)
+    private String periodType;
 
     @Column(name = "period_key", nullable = false, length = 8)
     private String periodKey;
 
-    @Column(name = "version", nullable = false)
-    private Long version;
-
-    @Column(name = "rank_no", nullable = false)
-    private Integer rankNo;
-
-    public MvProductRankId(String periodKey, Long version, Integer rankNo) {
+    public MvProductRankPublicationId(String periodType, String periodKey) {
+        this.periodType = periodType;
         this.periodKey = periodKey;
-        this.version = version;
-        this.rankNo = rankNo;
-    }
-
-    public MvProductRankId(String periodKey, Integer rankNo) {
-        this(periodKey, 1L, rankNo);
     }
 }

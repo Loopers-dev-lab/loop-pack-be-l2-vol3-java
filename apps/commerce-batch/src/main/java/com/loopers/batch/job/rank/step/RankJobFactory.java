@@ -3,6 +3,7 @@ package com.loopers.batch.job.rank.step;
 import com.loopers.batch.listener.ChunkListener;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
+import com.loopers.domain.rank.MvProductRankPublicationRepository;
 import com.loopers.domain.rank.MvProductRankRepository;
 import com.loopers.domain.rank.RankPeriodType;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class RankJobFactory {
     private final PlatformTransactionManager transactionManager;
     private final DataSource dataSource;
     private final MvProductRankRepository mvProductRankRepository;
+    private final MvProductRankPublicationRepository mvProductRankPublicationRepository;
     private final JobListener jobListener;
     private final StepMonitorListener stepMonitorListener;
     private final ChunkListener chunkListener;
@@ -75,10 +77,12 @@ public class RankJobFactory {
                           String periodKey,
                           LocalDate periodStart,
                           LocalDate periodEnd) {
-        AtomicMvRankWriter writer = new AtomicMvRankWriter(
+        PublishingRankWriter writer = new PublishingRankWriter(
                 mvProductRankRepository,
+                mvProductRankPublicationRepository,
                 periodType,
                 periodKey,
+                new TransactionTemplate(transactionManager),
                 new TransactionTemplate(transactionManager)
         );
 

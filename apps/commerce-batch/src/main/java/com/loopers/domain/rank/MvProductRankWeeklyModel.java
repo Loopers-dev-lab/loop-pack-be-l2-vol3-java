@@ -16,7 +16,7 @@ import java.time.ZonedDateTime;
 @Table(
         name = "mv_product_rank_weekly",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_period_product", columnNames = {"period_key", "ref_product_id"})
+                @UniqueConstraint(name = "uk_period_version_product", columnNames = {"period_key", "version", "ref_product_id"})
         }
 )
 @Getter
