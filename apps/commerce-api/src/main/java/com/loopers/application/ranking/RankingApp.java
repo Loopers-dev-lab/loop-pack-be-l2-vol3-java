@@ -7,6 +7,7 @@ import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.domain.ranking.RankingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -23,6 +24,9 @@ public class RankingApp {
     private final MvProductRankRepository mvProductRankRepository;
     private final RankingProductCache productCache;
 
+    @Value("${ranking.cold-start-fallback.enabled:false}")
+    private boolean coldStartFallbackEnabled;
+
     public RankingPageResult getTopN(RankingPeriod period, LocalDate date, long page, long size) {
         long offset = page * size;
         if (period == RankingPeriod.DAILY) {
@@ -32,11 +36,22 @@ public class RankingApp {
         String periodKey = period == RankingPeriod.WEEKLY
                 ? RankingKeyGenerator.weeklyPeriodKey(date)
                 : RankingKeyGenerator.monthlyPeriodKey(date);
+        RankingPageResult primary = queryMvPeriod(type, periodKey, page, size, offset, false);
+        if (primary.totalElements() > 0 || !coldStartFallbackEnabled) {
+            return primary;
+        }
+        String fallbackKey = period == RankingPeriod.WEEKLY
+                ? RankingKeyGenerator.previousWeeklyPeriodKey(date)
+                : RankingKeyGenerator.previousMonthlyPeriodKey(date);
+        return queryMvPeriod(type, fallbackKey, page, size, offset, true);
+    }
+
+    private RankingPageResult queryMvPeriod(RankPeriodType type, String periodKey, long page, long size, long offset, boolean isFallback) {
         List<RankingEntry> entries = mvProductRankRepository.findByPeriodKey(type, periodKey, offset, size);
         long totalElements = mvProductRankRepository.countByPeriodKey(type, periodKey);
         java.time.ZonedDateTime lastUpdatedAt = mvProductRankRepository.findLastUpdatedAt(type, periodKey).orElse(null);
         List<RankingInfo> items = enrich(entries, offset);
-        return new RankingPageResult(items, page, size, totalElements, lastUpdatedAt);
+        return new RankingPageResult(items, page, size, totalElements, lastUpdatedAt, periodKey, isFallback);
     }
 
     public RankingPageResult getTopN(LocalDate date, long page, long size) {

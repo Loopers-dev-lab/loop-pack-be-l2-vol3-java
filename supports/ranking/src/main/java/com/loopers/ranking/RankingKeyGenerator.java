@@ -49,4 +49,12 @@ public final class RankingKeyGenerator {
     public static LocalDate monthEnd(LocalDate date) {
         return date.withDayOfMonth(date.lengthOfMonth());
     }
+
+    public static String previousWeeklyPeriodKey(LocalDate date) {
+        return weeklyPeriodKey(date.minusWeeks(1));
+    }
+
+    public static String previousMonthlyPeriodKey(LocalDate date) {
+        return monthlyPeriodKey(date.minusMonths(1));
+    }
 }

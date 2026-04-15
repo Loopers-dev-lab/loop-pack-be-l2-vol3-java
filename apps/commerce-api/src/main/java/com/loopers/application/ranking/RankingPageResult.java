@@ -8,6 +8,11 @@ public record RankingPageResult(
         long page,
         long size,
         long totalElements,
-        ZonedDateTime lastUpdatedAt
+        ZonedDateTime lastUpdatedAt,
+        String periodKey,
+        boolean isFallback
 ) {
+    public RankingPageResult(List<RankingInfo> items, long page, long size, long totalElements, ZonedDateTime lastUpdatedAt) {
+        this(items, page, size, totalElements, lastUpdatedAt, null, false);
+    }
 }
