@@ -5,7 +5,10 @@ import com.loopers.application.RankingService;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.EventHandled;
 import com.loopers.domain.ProductMetrics;
+import com.loopers.domain.ProductMetricsDaily;
+import com.loopers.domain.ProductMetricsDailyId;
 import com.loopers.infrastructure.EventHandledJpaRepository;
+import com.loopers.infrastructure.ProductMetricsDailyJpaRepository;
 import com.loopers.infrastructure.ProductMetricsJpaRepository;
 import com.loopers.kafka.event.CatalogEvent;
 import com.loopers.kafka.topic.KafkaTopics;
@@ -17,6 +20,9 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 @Slf4j
@@ -24,8 +30,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CatalogEventConsumer {
 
+    private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
+
     private final EventHandledJpaRepository eventHandledRepository;
     private final ProductMetricsJpaRepository productMetricsRepository;
+    private final ProductMetricsDailyJpaRepository productMetricsDailyRepository;
     private final RankingService rankingService;
     private final ObjectMapper objectMapper;
 
@@ -43,6 +52,7 @@ public class CatalogEventConsumer {
                 }
 
                 upsertMetrics(event);
+                upsertDailyMetrics(event);
                 rankingService.updateRanking(event);
                 eventHandledRepository.save(EventHandled.of(event.eventId()));
                 log.info("[CatalogEvent] handled eventId={} type={} productId={}", event.eventId(), event.eventType(), event.productId());
@@ -52,6 +62,17 @@ public class CatalogEventConsumer {
             }
         }
         ack.acknowledge();
+    }
+
+    private void upsertDailyMetrics(CatalogEvent event) {
+        LocalDate metricDate = Instant.ofEpochMilli(event.occurredAt()).atZone(ZONE).toLocalDate();
+        ProductMetricsDailyId id = new ProductMetricsDailyId(event.productId(), metricDate);
+
+        ProductMetricsDaily daily = productMetricsDailyRepository.findById(id)
+            .orElseGet(() -> productMetricsDailyRepository.save(
+                ProductMetricsDaily.init(event.productId(), metricDate)));
+
+        daily.record(event.eventType());
     }
 
     private void upsertMetrics(CatalogEvent event) {
