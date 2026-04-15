@@ -32,7 +32,6 @@ public class RankJobFactory {
 
     public static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
     public static final int CHUNK_SIZE = 20;
-    public static final int TOP_N = 100;
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
@@ -58,6 +57,9 @@ public class RankJobFactory {
 
     @Value("${batch.rank.cleanup.batch-limit:1000}")
     private int cleanupBatchLimit;
+
+    @Value("${batch.rank.top-n:100}")
+    private int topN;
 
     public Job buildJob(String jobName, Step step) {
         return new JobBuilder(jobName, jobRepository)
@@ -176,7 +178,7 @@ public class RankJobFactory {
                 .preparedStatementSetter(ps -> {
                     ps.setObject(1, start);
                     ps.setObject(2, end);
-                    ps.setInt(3, TOP_N);
+                    ps.setInt(3, topN);
                 })
                 .rowMapper((rs, rowNum) -> new AggregatedScoreRow(
                         rs.getLong("product_db_id"),
