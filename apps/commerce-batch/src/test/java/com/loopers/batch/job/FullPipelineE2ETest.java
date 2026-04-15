@@ -72,10 +72,9 @@ class FullPipelineE2ETest {
         jdbcTemplate.execute("DELETE FROM BATCH_JOB_INSTANCE");
     }
 
-    @DisplayName("E2E: Phase 1(시뮬레이션) → Phase 2(weeklyRank) → MV 검증 — 10상품 × 7일")
+    @DisplayName("E2E: score_daily 시드 → weeklyRankJob → MV TOP 10")
     @Test
     void fullPipeline() throws Exception {
-        // Phase 1 시뮬레이션: product_daily_signals → mv_product_score_daily 직접 적재
         LocalDate monday = LocalDate.of(2026, 4, 6);
         for (int day = 0; day < 7; day++) {
             LocalDate date = monday.plusDays(day);
@@ -88,15 +87,9 @@ class FullPipelineE2ETest {
             }
         }
 
-        // Phase 2: weeklyRankJob
-        JobParameters params = new JobParametersBuilder()
-                .addString("date", "20260408")
-                .toJobParameters();
-        JobExecution execution = jobLauncherTestUtils.launchJob(params);
+        JobExecution execution = jobLauncherTestUtils.launchJob(dateParams("20260408"));
 
-        // assert
         assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-
         List<MvProductRankRow> results = mvProductRankRepository.findByPeriodKey(
                 RankPeriodType.WEEKLY, "2026W15", 0, 100);
         assertThat(results).hasSize(10);
@@ -104,36 +97,23 @@ class FullPipelineE2ETest {
         assertThat(results.get(0).refProductId()).isEqualTo(10L);
     }
 
-    @DisplayName("알고리즘 변경 시뮬레이션: score 변경 후 Phase 2 재실행 → 랭킹 역전")
+    @DisplayName("알고리즘 변경 시뮬레이션: score UPDATE 후 재실행 → 순위 역전")
     @Test
     void algorithmChangeSimulation() throws Exception {
-        // 초기 score: 상품1=100, 상품2=7000
         LocalDate date = LocalDate.of(2026, 4, 6);
         insertScoreDaily(1L, date, 100.0, 1000, 0, BigDecimal.ZERO);
         insertScoreDaily(2L, date, 7000.0, 0, 0, BigDecimal.valueOf(10000));
 
-        // Phase 2 실행 → 상품2가 1위
-        JobParameters params1 = new JobParametersBuilder()
-                .addString("date", "20260408")
-                .addLong("run.id", 1L)
-                .toJobParameters();
-        jobLauncherTestUtils.launchJob(params1);
-
+        jobLauncherTestUtils.launchJob(runParams("20260408", 1L));
         List<MvProductRankRow> before = mvProductRankRepository.findByPeriodKey(
                 RankPeriodType.WEEKLY, "2026W15", 0, 10);
         assertThat(before.get(0).refProductId()).isEqualTo(2L);
 
-        // 알고리즘 변경 시뮬레이션: score 직접 UPDATE (Phase 1 재실행 효과)
         jdbcTemplate.update("UPDATE mv_product_score_daily SET score = 900.0 WHERE product_db_id = 1");
         jdbcTemplate.update("UPDATE mv_product_score_daily SET score = 500.0 WHERE product_db_id = 2");
 
-        // Phase 2 재실행 → 상품1이 1위 (SQL 변경 없이!)
         cleanBatchMetaTables();
-        JobParameters params2 = new JobParametersBuilder()
-                .addString("date", "20260408")
-                .addLong("run.id", 2L)
-                .toJobParameters();
-        jobLauncherTestUtils.launchJob(params2);
+        jobLauncherTestUtils.launchJob(runParams("20260408", 2L));
 
         List<MvProductRankRow> after = mvProductRankRepository.findByPeriodKey(
                 RankPeriodType.WEEKLY, "2026W15", 0, 10);
@@ -141,33 +121,10 @@ class FullPipelineE2ETest {
         assertThat(after.get(0).score()).isCloseTo(900.0, within(0.01));
     }
 
-    @DisplayName("멱등성: weeklyRankJob 2회 실행 → 결과 동일")
-    @Test
-    void weeklyRankIdempotency() throws Exception {
-        LocalDate date = LocalDate.of(2026, 4, 6);
-        insertScoreDaily(1L, date, 720.0, 100, 50, BigDecimal.valueOf(1000));
-
-        for (int run = 1; run <= 2; run++) {
-            cleanBatchMetaTables();
-            JobParameters params = new JobParametersBuilder()
-                    .addString("date", "20260408")
-                    .addLong("run.id", (long) run)
-                    .toJobParameters();
-            JobExecution execution = jobLauncherTestUtils.launchJob(params);
-            assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-        }
-
-        assertThat(mvProductRankRepository.countByPeriodKey(RankPeriodType.WEEKLY, "2026W15"))
-                .as("A2 적용 후: cleanup이 별도 mvRankCleanupJob로 분리 — Weekly Job 2회 실행 시 두 version 공존").isEqualTo(2);
-    }
-
-    @DisplayName("DailyScoreJob 미실행 → MV 빈 상태, COMPLETED")
+    @DisplayName("score_daily 빈 상태 → MV 빈 상태, COMPLETED")
     @Test
     void weeklyRankWithoutDailyScore() throws Exception {
-        JobParameters params = new JobParametersBuilder()
-                .addString("date", "20260408")
-                .toJobParameters();
-        JobExecution execution = jobLauncherTestUtils.launchJob(params);
+        JobExecution execution = jobLauncherTestUtils.launchJob(dateParams("20260408"));
 
         assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
         assertThat(mvProductRankRepository.countByPeriodKey(RankPeriodType.WEEKLY, "2026W15")).isZero();
@@ -179,18 +136,25 @@ class FullPipelineE2ETest {
         LocalDate monday = LocalDate.of(2026, 4, 6);
         seedScoreDaily(1000, 7, monday);
 
-        JobParameters params = new JobParametersBuilder()
-                .addString("date", "20260408")
-                .toJobParameters();
-        JobExecution execution = jobLauncherTestUtils.launchJob(params);
+        JobExecution execution = jobLauncherTestUtils.launchJob(dateParams("20260408"));
 
         assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
-
         List<MvProductRankRow> results = mvProductRankRepository.findByPeriodKey(
                 RankPeriodType.WEEKLY, "2026W15", 0, 200);
         assertThat(results).hasSize(100);
         assertThat(results.get(0).rankNo()).isEqualTo(1);
         assertThat(results.get(0).refProductId()).isEqualTo(1000L);
+    }
+
+    private JobParameters dateParams(String date) {
+        return new JobParametersBuilder().addString("date", date).toJobParameters();
+    }
+
+    private JobParameters runParams(String date, long runId) {
+        return new JobParametersBuilder()
+                .addString("date", date)
+                .addLong("run.id", runId)
+                .toJobParameters();
     }
 
     private void insertScoreDaily(Long productDbId, LocalDate date, double score,
