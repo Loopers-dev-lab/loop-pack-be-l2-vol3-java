@@ -51,41 +51,34 @@ public class MvOutputHealthCheckTasklet implements Tasklet {
 
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
-        if (backfillMode) {
-            log.info("MV health backfill 모드 — 전기 대비 variance 검사 skip, min-rows만 확인: type={} periodKey={}",
-                    periodType, currentPeriodKey);
-        }
         long currentCount = countRows(currentPeriodKey);
         if (currentCount < minRows) {
-            handleAnomaly(String.format(
-                    "MV row 부족: type=%s periodKey=%s count=%d < min=%d",
-                    periodType, currentPeriodKey, currentCount, minRows
-            ));
+            handleAnomaly(String.format("MV row 부족: type=%s periodKey=%s count=%d < min=%d",
+                    periodType, currentPeriodKey, currentCount, minRows));
             return RepeatStatus.FINISHED;
         }
 
-        if (!backfillMode && previousPeriodKey != null) {
-            long previousCount = countRows(previousPeriodKey);
-            if (previousCount > 0) {
-                double variance = Math.abs(currentCount - previousCount) / (double) previousCount;
-                if (variance > maxVariancePct) {
-                    handleAnomaly(String.format(
-                            "MV row 전기 대비 변동폭 초과: type=%s %s=%d %s=%d variance=%.2f%% > threshold=%.2f%%",
-                            periodType, previousPeriodKey, previousCount, currentPeriodKey, currentCount,
-                            variance * 100, maxVariancePct * 100
-                    ));
-                    return RepeatStatus.FINISHED;
-                }
-                log.info("MV health ok: type={} {}={} {}={} variance={}%",
-                        periodType, previousPeriodKey, previousCount, currentPeriodKey, currentCount,
-                        String.format("%.2f", variance * 100));
-            } else {
-                log.info("MV health: previous periodKey {} 데이터 없음 — variance 검사 skip", previousPeriodKey);
-            }
+        if (backfillMode || previousPeriodKey == null) {
+            log.info("MV health {}: type={} periodKey={} rows={}",
+                    backfillMode ? "backfill-skip-variance" : "pass", periodType, currentPeriodKey, currentCount);
+            return RepeatStatus.FINISHED;
         }
 
-        log.info("MV 출력 헬스체크 통과: type={} periodKey={} rows={}",
-                periodType, currentPeriodKey, currentCount);
+        long previousCount = countRows(previousPeriodKey);
+        if (previousCount == 0L) {
+            log.info("MV health: previous {} 비어있음 — variance skip", previousPeriodKey);
+            return RepeatStatus.FINISHED;
+        }
+        double variance = Math.abs(currentCount - previousCount) / (double) previousCount;
+        if (variance > maxVariancePct) {
+            handleAnomaly(String.format(
+                    "MV row 변동폭 초과: type=%s %s=%d %s=%d variance=%.2f%% > threshold=%.2f%%",
+                    periodType, previousPeriodKey, previousCount, currentPeriodKey, currentCount,
+                    variance * 100, maxVariancePct * 100));
+            return RepeatStatus.FINISHED;
+        }
+        log.info("MV health ok: type={} prev={} curr={} variance={}%",
+                periodType, previousCount, currentCount, String.format("%.2f", variance * 100));
         return RepeatStatus.FINISHED;
     }
 
