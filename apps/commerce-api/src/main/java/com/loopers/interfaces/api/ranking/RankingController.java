@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.IsoFields;
 import java.util.List;
 
 @RestController
@@ -28,15 +29,30 @@ public class RankingController {
 
     @GetMapping("/api/v1/rankings")
     public ApiResponse<RankingDto.RankingListResponse> getRankings(
+            @RequestParam(defaultValue = "daily") String period,
             @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "" + DEFAULT_SIZE) int size,
             @RequestParam(defaultValue = "1") int page
     ) {
-        String rankingDate = validateDate(date);
         int validatedSize = validatePageSize(size);
         int zeroBasedPage = validatePage(page) - 1;
 
-        List<RankingInfo> rankings = rankingFacade.getTopRankings(rankingDate, zeroBasedPage, validatedSize);
+        List<RankingInfo> rankings = switch (period) {
+            case "daily" -> {
+                String rankingDate = validateDate(date);
+                yield rankingFacade.getTopRankings(rankingDate, zeroBasedPage, validatedSize);
+            }
+            case "weekly" -> {
+                String yearWeek = toYearWeek(date);
+                yield rankingFacade.getWeeklyTopRankings(yearWeek, zeroBasedPage, validatedSize);
+            }
+            case "monthly" -> {
+                String yearMonth = toYearMonth(date);
+                yield rankingFacade.getMonthlyTopRankings(yearMonth, zeroBasedPage, validatedSize);
+            }
+            default -> throw new CoreException(ErrorType.BAD_REQUEST, "period는 daily, weekly, monthly 중 하나여야 합니다.");
+        };
+
         List<RankingDto.RankingResponse> responses = rankings.stream()
                 .map(RankingDto.RankingResponse::from)
                 .toList();
@@ -60,6 +76,26 @@ public class RankingController {
                 .toList();
 
         return ApiResponse.success(new RankingDto.RankingListResponse(responses, page, validatedSize));
+    }
+
+    private String toYearWeek(String date) {
+        LocalDate targetDate = date != null ? parseDate(date) : LocalDate.now();
+        int year = targetDate.get(IsoFields.WEEK_BASED_YEAR);
+        int week = targetDate.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        return String.format("%d-W%02d", year, week);
+    }
+
+    private String toYearMonth(String date) {
+        LocalDate targetDate = date != null ? parseDate(date) : LocalDate.now();
+        return String.format("%d-%02d", targetDate.getYear(), targetDate.getMonthValue());
+    }
+
+    private LocalDate parseDate(String date) {
+        try {
+            return LocalDate.parse(date, DATE_FORMAT);
+        } catch (Exception e) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "date는 yyyyMMdd 형식이어야 합니다.");
+        }
     }
 
     private int validatePage(int page) {
