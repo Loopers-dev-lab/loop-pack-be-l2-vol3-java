@@ -7,9 +7,12 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.*;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.interfaces.api.ranking.RankingV1Dto;
 import com.loopers.interfaces.api.user.UserV1Dto;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
+import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
+import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,16 +22,23 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.*;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 
 import static com.loopers.interfaces.api.ApiResponse.Metadata.Result;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(MySqlTestContainersConfig.class)
+@Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class ProductV1ApiE2ETest {
 
     private static final String ENDPOINT_PRODUCTS = "/api/v1/products";
@@ -46,6 +56,10 @@ class ProductV1ApiE2ETest {
     private LikeFacade likeFacade;
     @Autowired
     private UserService userService;
+    @Autowired
+    private RedisCleanUp redisCleanUp;
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
 
     private Long productId;
     private Long brandId;
@@ -68,6 +82,7 @@ class ProductV1ApiE2ETest {
     @AfterEach
     void tearDown() {
         databaseCleanUp.truncateAllTables();
+        redisCleanUp.truncateAll();
     }
 
     @Test
@@ -87,7 +102,8 @@ class ProductV1ApiE2ETest {
             () -> assertThat(response.getBody().data().name()).isEqualTo("E2E상품"),
             () -> assertThat(response.getBody().data().price()).isEqualByComparingTo(new BigDecimal("15000")),
             () -> assertThat(response.getBody().data().stockQuantity()).isEqualTo(10),
-            () -> assertThat(response.getBody().data().likeCount()).isEqualTo(0L)
+            () -> assertThat(response.getBody().data().likeCount()).isEqualTo(0L),
+            () -> assertThat(response.getBody().data().rankingRank()).isNull()
         );
     }
 
@@ -113,6 +129,34 @@ class ProductV1ApiE2ETest {
             () -> assertThat(response.getBody().data().brandName()).isEqualTo(brandName),
             () -> assertThat(response.getBody().data().likeCount()).isEqualTo(1L)
         );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products/{productId} - ZSET에 있으면 rankingRank가 1-based로 반환된다")
+    void getProductDetail_whenInRankingZset_shouldReturnRankingRank() {
+        String dateStr = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.BASIC_ISO_DATE);
+        String key = "ranking:all:" + dateStr;
+        redisTemplate.opsForZSet().add(key, String.valueOf(productId), 1.0);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "/" + productId + "?date=" + dateStr, HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertAll(
+            () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+            () -> assertThat(response.getBody()).isNotNull(),
+            () -> assertThat(response.getBody().data().rankingRank()).isEqualTo(1L)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products/{productId} - date 형식이 잘못되면 400")
+    void getProductDetail_whenInvalidDate_shouldReturn400() {
+        ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "/" + productId + "?date=bad", HttpMethod.GET, new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
     @Test
@@ -206,5 +250,106 @@ class ProductV1ApiE2ETest {
             new ParameterizedTypeReference<>() {});
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/products/new-arrivals — 등록 최신순 신상 전용 목록")
+    void getNewArrivals_shouldReturnLatestOrderedList() {
+        ProductModel newer = productService.registerProduct(brandId, "더새상품", new BigDecimal("9000"), 2);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> response = testRestTemplate.exchange(
+            ENDPOINT_PRODUCTS + "/new-arrivals?page=0&size=20",
+            HttpMethod.GET,
+            new HttpEntity<>(null),
+            new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().meta().result()).isEqualTo(Result.SUCCESS),
+                () -> assertThat(response.getBody().data().content().get(0).id()).isEqualTo(newer.getId())
+        );
+    }
+
+    @Test
+    @DisplayName("목록 조회 직후 ZSET 변경이 있으면 상세 rankingRank가 목록 rank와 다를 수 있다 (E-RANK-MISMATCH)")
+    void getProductDetail_whenRankingChangesAfterList_shouldAllowRankMismatch() {
+        BrandModel brand = brandService.registerBrand("순위불일치E2E");
+        ProductModel first = productService.registerProduct(brand.getId(), "first", new BigDecimal("1000"), 5);
+        ProductModel second = productService.registerProduct(brand.getId(), "second", new BigDecimal("2000"), 5);
+        String date = "20260408";
+        String key = "ranking:all:" + date;
+        redisTemplate.opsForZSet().add(key, String.valueOf(first.getId()), 0.9d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(second.getId()), 0.8d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> listResponse = testRestTemplate.exchange(
+                "/api/v1/rankings?date=" + date + "&page=1&size=10",
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(listResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(listResponse.getBody()).isNotNull();
+        assertThat(listResponse.getBody().data().content().get(0).productId()).isEqualTo(first.getId());
+        assertThat(listResponse.getBody().data().content().get(0).rank()).isEqualTo(1);
+
+        redisTemplate.opsForZSet().add(key, String.valueOf(second.getId()), 1.0d);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> detailResponse = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "/" + first.getId() + "?date=" + date,
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(detailResponse.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(detailResponse.getBody()).isNotNull(),
+                () -> assertThat(detailResponse.getBody().data().rankingRank()).isEqualTo(2L)
+        );
+    }
+
+    @Test
+    @DisplayName("GET 상세에 rankingSnapshotId를 주면 라이브 ZSET 변경 후에도 목록 스냅샷 시점 순위와 일치한다")
+    void getProductDetail_withRankingSnapshotId_shouldMatchSnapshotRankAfterLiveChanges() {
+        BrandModel brand = brandService.registerBrand("상세스냅샷E2E");
+        ProductModel first = productService.registerProduct(brand.getId(), "snap-first", new BigDecimal("1000"), 5);
+        ProductModel second = productService.registerProduct(brand.getId(), "snap-second", new BigDecimal("2000"), 5);
+        String date = "20260409";
+        String key = "ranking:all:" + date;
+        redisTemplate.opsForZSet().add(key, String.valueOf(first.getId()), 0.9d);
+        redisTemplate.opsForZSet().add(key, String.valueOf(second.getId()), 0.8d);
+
+        ResponseEntity<ApiResponse<RankingV1Dto.SnapshotCreateResponse>> snap = testRestTemplate.exchange(
+                "/api/v1/rankings/snapshots?date=" + date,
+                HttpMethod.POST,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(snap.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        assertThat(snap.getBody()).isNotNull();
+        String rankingSnapshotId = snap.getBody().data().rankingSnapshotId();
+
+        redisTemplate.opsForZSet().add(key, String.valueOf(second.getId()), 1.0d);
+
+        ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> detailWithSnap = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "/" + first.getId() + "?date=" + date + "&rankingSnapshotId=" + rankingSnapshotId,
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> detailLive = testRestTemplate.exchange(
+                ENDPOINT_PRODUCTS + "/" + first.getId() + "?date=" + date,
+                HttpMethod.GET,
+                new HttpEntity<>(null),
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(detailWithSnap.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(detailWithSnap.getBody()).isNotNull(),
+                () -> assertThat(detailWithSnap.getBody().data().rankingRank()).isEqualTo(1L),
+                () -> assertThat(detailLive.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(detailLive.getBody()).isNotNull(),
+                () -> assertThat(detailLive.getBody().data().rankingRank()).isEqualTo(2L)
+        );
     }
 }

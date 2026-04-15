@@ -13,8 +13,12 @@ import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
 import java.time.ZonedDateTime;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.loopers.domain.product.QProductModel.productModel;
 import static com.loopers.domain.product.QProductStatsModel.productStatsModel;
@@ -41,6 +45,23 @@ public class ProductRepositoryImpl implements ProductRepository {
     @Override
     public Optional<ProductModel> findByIdAndNotDeleted(Long id) {
         return productJpaRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    /**
+     * ID 목록에 해당하는 미삭제 상품을 조회한다. 응답 맵의 키는 상품 ID다.
+     *
+     * @param ids 상품 ID 목록
+     * @return 미삭제 상품 목록
+     */
+    @Override
+    public Map<Long, ProductModel> findByIdInAndNotDeletedAsMap(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Map.of();
+        }
+        List<ProductModel> list = queryFactory.selectFrom(productModel)
+                .where(productModel.id.in(ids), productModel.deletedAt.isNull())
+                .fetch();
+        return list.stream().collect(Collectors.toMap(ProductModel::getId, Function.identity()));
     }
 
     @Override

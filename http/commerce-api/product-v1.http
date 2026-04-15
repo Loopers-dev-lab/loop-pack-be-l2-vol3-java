@@ -1,0 +1,14 @@
+### 신상품 목록 (등록 최신순, 인기 랭킹과 분리)
+GET http://localhost:8080/api/v1/products/new-arrivals?page=0&size=20
+
+### 상품 상세 (랭킹 일자 생략 → 오늘 Asia/Seoul 기준, ZSET 미등록 시 rankingRank null)
+GET http://localhost:8080/api/v1/products/1
+
+### 상품 상세 — 특정 일자 랭킹 순위(yyyyMMdd)
+GET http://localhost:8080/api/v1/products/1?date=20260408
+
+### 상품 상세 — 목록과 동일 스냅샷 순위(POST /api/v1/rankings/snapshots 로 받은 UUID)
+GET http://localhost:8080/api/v1/products/1?date=20260408&rankingSnapshotId={{rankingSnapshotId}}
+
+### 잘못된 date → 400
+GET http://localhost:8080/api/v1/products/1?date=not-a-date

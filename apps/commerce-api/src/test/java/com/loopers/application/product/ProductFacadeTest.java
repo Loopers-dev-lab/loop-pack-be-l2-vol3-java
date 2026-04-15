@@ -9,6 +9,8 @@ import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductSortOrder;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.StockQuantity;
+import com.loopers.domain.ranking.RankingQueryService;
+import com.loopers.support.error.CoreException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,11 +24,17 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -54,6 +62,8 @@ class ProductFacadeTest {
     private ApplicationEventPublisher eventPublisher;
     @Mock
     private ProductViewOutboxAsyncPublisher productViewOutboxAsyncPublisher;
+    @Mock
+    private RankingQueryService rankingQueryService;
 
     @InjectMocks
     private ProductFacade productFacade;
@@ -68,7 +78,7 @@ class ProductFacadeTest {
             when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
@@ -84,7 +94,7 @@ class ProductFacadeTest {
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isEmpty();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
@@ -102,8 +112,10 @@ class ProductFacadeTest {
             when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
             when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
             when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
+                    .thenReturn(OptionalLong.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).isPresent();
             ProductDetailInfo info = result.get();
@@ -113,24 +125,94 @@ class ProductFacadeTest {
             assertThat(info.price()).isEqualTo(PRICE);
             assertThat(info.stockQuantity()).isEqualTo(STOCK_QUANTITY);
             assertThat(info.likeCount()).isEqualTo(LIKE_COUNT);
+            assertThat(info.rankingRank()).isNull();
             verify(productService).findByIdAndNotDeleted(PRODUCT_ID);
             verify(brandService).findByIdAndNotDeleted(BRAND_ID);
             verify(likeService).getLikeCountFromStats(PRODUCT_ID);
+            verify(rankingQueryService).findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty()));
             verify(productViewOutboxAsyncPublisher).scheduleRecordProductViewed(PRODUCT_ID);
+        }
+
+        @Test
+        @DisplayName("ZSET에 순위가 있으면 rankingRank에 1-based 순위를 넣는다.")
+        void getProductDetail_whenRankingExists_shouldSetRankingRank() {
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
+            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
+                    StockQuantity.of(STOCK_QUANTITY));
+            BrandModel brand = BrandModel.create(BRAND_NAME);
+            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
+            when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
+            when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
+                    .thenReturn(OptionalLong.of(3L));
+
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
+
+            assertThat(result).isPresent();
+            assertThat(result.get().rankingRank()).isEqualTo(3L);
+        }
+
+        @Test
+        @DisplayName("rankingSnapshotId가 있으면 findOneBasedRank에 그대로 넘긴다.")
+        void getProductDetail_whenRankingSnapshotIdPassed_shouldCallFindOneBasedRankWithSnapshot() {
+            String sid = UUID.randomUUID().toString();
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.empty());
+            ProductModel product = ProductModel.create(BRAND_ID, PRODUCT_NAME, Money.of(PRICE),
+                    StockQuantity.of(STOCK_QUANTITY));
+            BrandModel brand = BrandModel.create(BRAND_NAME);
+            when(productService.findByIdAndNotDeleted(PRODUCT_ID)).thenReturn(Optional.of(product));
+            when(brandService.findByIdAndNotDeleted(BRAND_ID)).thenReturn(Optional.of(brand));
+            when(likeService.getLikeCountFromStats(PRODUCT_ID)).thenReturn(LIKE_COUNT);
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.of(sid))))
+                    .thenReturn(OptionalLong.of(1L));
+
+            Optional<ProductDetailInfo> result =
+                    productFacade.getProductDetail(PRODUCT_ID, null, Optional.of(sid));
+
+            assertThat(result).isPresent();
+            assertThat(result.get().rankingRank()).isEqualTo(1L);
+            verify(rankingQueryService).findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.of(sid)));
         }
 
         @Test
         @DisplayName("캐시 히트 시에도 상품 조회 Outbox 기록을 비동기로 예약한다.")
         void getProductDetail_whenCached_shouldScheduleViewOutbox() {
             ProductDetailInfo cached = new ProductDetailInfo(
-                    PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT);
+                    PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT, null);
             when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.of(cached));
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
+                    .thenReturn(OptionalLong.empty());
 
-            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID);
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
 
             assertThat(result).contains(cached);
             verify(productService, never()).findByIdAndNotDeleted(PRODUCT_ID);
             verify(productViewOutboxAsyncPublisher).scheduleRecordProductViewed(PRODUCT_ID);
+        }
+
+        @Test
+        @DisplayName("캐시 히트 시에도 Redis 순위 조회로 rankingRank를 응답에 합성한다 (E-CACHE-DETAIL / R5).")
+        void getProductDetail_whenCached_shouldMergeRankingRankFromQueryService() {
+            ProductDetailInfo cached = new ProductDetailInfo(
+                    PRODUCT_ID, BRAND_ID, BRAND_NAME, PRODUCT_NAME, PRICE, STOCK_QUANTITY, LIKE_COUNT, null);
+            when(productCacheService.getDetail(PRODUCT_ID)).thenReturn(Optional.of(cached));
+            when(rankingQueryService.findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty())))
+                    .thenReturn(OptionalLong.of(7L));
+
+            Optional<ProductDetailInfo> result = productFacade.getProductDetail(PRODUCT_ID, null, Optional.empty());
+
+            assertThat(result).isPresent();
+            assertThat(result.get().rankingRank()).isEqualTo(7L);
+            assertThat(result.get().stockQuantity()).isEqualTo(STOCK_QUANTITY);
+            verify(rankingQueryService).findOneBasedRank(any(LocalDate.class), eq(PRODUCT_ID), eq(Optional.empty()));
+            verify(productService, never()).findByIdAndNotDeleted(PRODUCT_ID);
+        }
+
+        @Test
+        @DisplayName("date 형식이 잘못되면 BAD_REQUEST")
+        void getProductDetail_whenInvalidDate_shouldThrow() {
+            assertThatThrownBy(() -> productFacade.getProductDetail(PRODUCT_ID, "not-a-date", Optional.empty()))
+                    .isInstanceOf(CoreException.class);
         }
     }
 
@@ -175,6 +257,18 @@ class ProductFacadeTest {
 
             assertThat(result.getContent()).isEmpty();
             verify(productService).findNotDeletedForList(ProductSortOrder.LATEST, BRAND_ID, 0, 20);
+        }
+
+        @Test
+        @DisplayName("getNewArrivals는 브랜드 없이 최신순으로 getProductList와 동일하게 조회한다.")
+        void getNewArrivals_shouldDelegateToLatestListWithoutBrand() {
+            when(productCacheService.getList(null, "latest", 20)).thenReturn(Optional.empty());
+            when(productService.findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20))
+                    .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+            productFacade.getNewArrivals(0, 20);
+
+            verify(productService).findNotDeletedForList(ProductSortOrder.LATEST, null, 0, 20);
         }
     }
 }

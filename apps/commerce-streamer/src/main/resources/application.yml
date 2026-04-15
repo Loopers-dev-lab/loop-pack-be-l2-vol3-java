@@ -61,6 +61,12 @@ collector:
   product:
     topic-name: product-events
     dlq-suffix: .DLQ
+    view-contribution:
+      daily-cap-per-partition-product: 0 # 0이면 비활성. >0 이면 (partitionKey, productId, day)별 조회 기여 상한.
+      key-ttl-days: 2
+    sold-contribution:
+      daily-cap-quantity-per-partition-product: 0 # 0이면 비활성. >0 이면 (partitionKey, productId, day)별 판매 수량 누적 상한.
+      key-ttl-days: 2
   order:
     topic-name: order-events
   user:
@@ -78,6 +84,21 @@ collector:
     batch-size: 500
     max-loops-per-run: 10
     max-rows-per-run: 100000
+  # DB product_metrics → Redis ZADD 보정 배치(로드맵 4단계). 운영에서만 enabled: true 검토.
+  ranking-reconciliation:
+    enabled: false
+    cron: "0 0 2 * * ?"
+    zone: Asia/Seoul
+    batch-size: 500
+  # 전일 Top N을 당일 키로 감쇠 복사(carryover)해 자정 직후 순위 급변 UX를 완화한다(기본 비활성).
+  # 이후 실시간/보정 경로의 매트릭 기반 ZADD로 점수는 DB 원장 기준으로 수렴한다.
+  ranking-carryover:
+    enabled: false
+    cron: "0 0 0 * * ?"
+    zone: Asia/Seoul
+    top-n: 50
+    weight: 0.1
+    only-when-today-empty: true
 
 ---
 spring:

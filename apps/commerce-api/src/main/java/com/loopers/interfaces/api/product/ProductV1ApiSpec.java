@@ -22,11 +22,25 @@ public interface ProductV1ApiSpec {
     );
 
     @Operation(
+        summary = "신상품 목록 조회",
+        description = "등록일 최신순 상품만 조회합니다. 인기 랭킹 API와 분리된 전용 노출(09-ranking-user-scenarios §4.1)입니다."
+    )
+    ResponseEntity<ApiResponse<ProductV1Dto.ListResponse>> getNewArrivals(
+        @Parameter(description = "페이지 (0부터)") @Min(0) int page,
+        @Parameter(description = "페이지 크기") @Min(0) int size
+    );
+
+    @Operation(
         summary = "상품 상세 조회",
-        description = "상품 ID로 상세 정보를 조회합니다. 브랜드명·좋아요 수 포함. 로그인 없이 조회 가능."
+        description = "상품 ID로 상세 정보를 조회합니다. 브랜드명·좋아요 수·일간 랭킹 순위(선택 일자) 포함. "
+                + "`rankingSnapshotId`를 주면 GET /rankings와 동일한 스냅샷 ZSET에서 순위를 조회합니다. 로그인 없이 조회 가능."
     )
     ResponseEntity<ApiResponse<ProductV1Dto.DetailResponse>> getProductDetail(
         @Parameter(description = "상품 ID", required = true)
-        Long productId
+        Long productId,
+        @Parameter(description = "랭킹 기준 일자 yyyyMMdd (생략 시 오늘, Asia/Seoul)")
+        String date,
+        @Parameter(description = "랭킹 스냅샷 UUID (선택, 목록 API와 동일 시 순위 일치)")
+        String rankingSnapshotId
     );
 }

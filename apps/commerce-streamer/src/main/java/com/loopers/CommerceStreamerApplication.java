@@ -2,7 +2,9 @@ package com.loopers;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
-import com.loopers.collector.metrics.CollectorLagProperties;
+import com.loopers.application.ranking.RankingCarryoverProperties;
+import com.loopers.application.ranking.RankingReconciliationProperties;
+import com.loopers.infrastructure.metrics.CollectorLagProperties;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -12,7 +14,11 @@ import java.util.TimeZone;
 
 @EnableScheduling
 @ConfigurationPropertiesScan
-@EnableConfigurationProperties(CollectorLagProperties.class)
+@EnableConfigurationProperties({
+        CollectorLagProperties.class,
+        RankingReconciliationProperties.class,
+        RankingCarryoverProperties.class
+})
 @SpringBootApplication
 public class CommerceStreamerApplication {
     @PostConstruct

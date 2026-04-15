@@ -50,7 +50,7 @@ apps/commerce-api/src/test/java/com/loopers/testcontainers/
 mentor/
 performance-*
 wil-*
-.docs/
 docs/
 
 .gitignore
+.cursor/

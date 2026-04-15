@@ -33,6 +33,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+# 랭킹: Redis 장애 시 DB 최신순 fallback (09-ranking-user-scenarios §4.2)
+app:
+  ranking:
+    fallback-on-redis-failure: true
+    snapshot-ttl-seconds: 600
+
 # Phase 1: PG 연동 Timeout
 feign:
   client:
