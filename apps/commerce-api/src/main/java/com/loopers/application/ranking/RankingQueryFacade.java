@@ -31,12 +31,12 @@ public class RankingQueryFacade {
         return toTopRankingProducts(rankingApplicationService.getHourlyPage(metricHour, page, size));
     }
 
-    public List<TopRankingProductView> getWeeklyPage(LocalDate periodStartDate, int page, int size) {
-        return toTopRankingProducts(rankingApplicationService.getWeeklyPage(periodStartDate, page, size));
+    public List<TopRankingProductView> getWeeklyPage(LocalDate snapshotDate, int page, int size) {
+        return toTopRankingProducts(rankingApplicationService.getWeeklyPage(snapshotDate, page, size));
     }
 
-    public List<TopRankingProductView> getMonthlyPage(LocalDate periodStartDate, int page, int size) {
-        return toTopRankingProducts(rankingApplicationService.getMonthlyPage(periodStartDate, page, size));
+    public List<TopRankingProductView> getMonthlyPage(LocalDate snapshotDate, int page, int size) {
+        return toTopRankingProducts(rankingApplicationService.getMonthlyPage(snapshotDate, page, size));
     }
 
     public RankingProductView getProductRank(UUID productId) {

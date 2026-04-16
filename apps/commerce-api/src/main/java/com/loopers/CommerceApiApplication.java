@@ -42,16 +42,16 @@ public class CommerceApiApplication {
             return;
         }
         LocalDate today = LocalDate.now(KOREA_ZONE);
-        List<LocalDate> weeklyStarts = IntStream.range(0, 10)
-                .mapToObj(week -> today.minusWeeks(week).with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)))
+        List<LocalDate> weeklySnapshotDates = IntStream.range(1, 11)
+                .mapToObj(day -> today.minusDays(day))
                 .distinct()
                 .toList();
-        List<LocalDate> monthlyStarts = IntStream.range(0, 12)
-                .mapToObj(month -> today.minusMonths(month).withDayOfMonth(1))
+        List<LocalDate> monthlySnapshotDates = IntStream.range(1, 31)
+                .mapToObj(day -> today.minusDays(day))
                 .distinct()
                 .toList();
-        redisProductRankingRepository.warmUpWeeklyRankings(weeklyStarts);
-        redisProductRankingRepository.warmUpMonthlyRankings(monthlyStarts);
+        redisProductRankingRepository.warmUpWeeklyRankings(weeklySnapshotDates);
+        redisProductRankingRepository.warmUpMonthlyRankings(monthlySnapshotDates);
     }
 
     public static void main(String[] args) {

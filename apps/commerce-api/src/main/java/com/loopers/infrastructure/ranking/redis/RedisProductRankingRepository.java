@@ -53,29 +53,29 @@ public class RedisProductRankingRepository implements RankingRepository {
     }
 
     @Override
-    public List<RankingProductView> findWeeklyPage(LocalDate periodStartDate, int page, int size) {
-        String rankingKey = buildWeeklyRankingKey(periodStartDate);
+    public List<RankingProductView> findWeeklyPage(LocalDate snapshotDate, int page, int size) {
+        String rankingKey = buildWeeklyRankingKey(snapshotDate);
         List<RankingProductView> cachedRankings = findPage(rankingKey, page, size);
         if (!cachedRankings.isEmpty() || exists(rankingKey)) {
             return cachedRankings;
         }
-        List<RankingProductView> loadedRankings = findWeeklyPageFromDatabase(periodStartDate, page, size);
+        List<RankingProductView> loadedRankings = findWeeklyPageFromDatabase(snapshotDate, page, size);
         if (!loadedRankings.isEmpty()) {
-            cacheWeeklyRanking(periodStartDate);
+            cacheWeeklyRanking(snapshotDate);
         }
         return loadedRankings;
     }
 
     @Override
-    public List<RankingProductView> findMonthlyPage(LocalDate periodStartDate, int page, int size) {
-        String rankingKey = buildMonthlyRankingKey(periodStartDate);
+    public List<RankingProductView> findMonthlyPage(LocalDate snapshotDate, int page, int size) {
+        String rankingKey = buildMonthlyRankingKey(snapshotDate);
         List<RankingProductView> cachedRankings = findPage(rankingKey, page, size);
         if (!cachedRankings.isEmpty() || exists(rankingKey)) {
             return cachedRankings;
         }
-        List<RankingProductView> loadedRankings = findMonthlyPageFromDatabase(periodStartDate, page, size);
+        List<RankingProductView> loadedRankings = findMonthlyPageFromDatabase(snapshotDate, page, size);
         if (!loadedRankings.isEmpty()) {
-            cacheMonthlyRanking(periodStartDate);
+            cacheMonthlyRanking(snapshotDate);
         }
         return loadedRankings;
     }
@@ -99,51 +99,51 @@ public class RedisProductRankingRepository implements RankingRepository {
         return "ranking:hourly:" + metricHour.format(KEY_HOUR_FORMATTER);
     }
 
-    public String buildWeeklyRankingKey(LocalDate periodStartDate) {
-        return WEEKLY_KEY_PREFIX + periodStartDate.format(KEY_DATE_FORMATTER);
+    public String buildWeeklyRankingKey(LocalDate snapshotDate) {
+        return WEEKLY_KEY_PREFIX + snapshotDate.format(KEY_DATE_FORMATTER);
     }
 
-    public String buildMonthlyRankingKey(LocalDate periodStartDate) {
-        return MONTHLY_KEY_PREFIX + periodStartDate.format(KEY_DATE_FORMATTER);
+    public String buildMonthlyRankingKey(LocalDate snapshotDate) {
+        return MONTHLY_KEY_PREFIX + snapshotDate.format(KEY_DATE_FORMATTER);
     }
 
-    public void warmUpWeeklyRankings(List<LocalDate> periodStartDates) {
-        periodStartDates.forEach(this::cacheWeeklyRanking);
+    public void warmUpWeeklyRankings(List<LocalDate> snapshotDates) {
+        snapshotDates.forEach(this::cacheWeeklyRanking);
     }
 
-    public void warmUpMonthlyRankings(List<LocalDate> periodStartDates) {
-        periodStartDates.forEach(this::cacheMonthlyRanking);
+    public void warmUpMonthlyRankings(List<LocalDate> snapshotDates) {
+        snapshotDates.forEach(this::cacheMonthlyRanking);
     }
 
     public boolean exists(String key) {
         return Boolean.TRUE.equals(redisTemplate.hasKey(key));
     }
 
-    public void replaceWeeklyRanking(LocalDate periodStartDate, Map<String, Double> rankingScores) {
-        replaceRanking(buildWeeklyRankingKey(periodStartDate), WEEKLY_RANKING_TTL, rankingScores);
+    public void replaceWeeklyRanking(LocalDate snapshotDate, Map<String, Double> rankingScores) {
+        replaceRanking(buildWeeklyRankingKey(snapshotDate), WEEKLY_RANKING_TTL, rankingScores);
     }
 
-    public void replaceMonthlyRanking(LocalDate periodStartDate, Map<String, Double> rankingScores) {
-        replaceRanking(buildMonthlyRankingKey(periodStartDate), MONTHLY_RANKING_TTL, rankingScores);
+    public void replaceMonthlyRanking(LocalDate snapshotDate, Map<String, Double> rankingScores) {
+        replaceRanking(buildMonthlyRankingKey(snapshotDate), MONTHLY_RANKING_TTL, rankingScores);
     }
 
-    public void cacheWeeklyRanking(LocalDate periodStartDate) {
-        if (exists(buildWeeklyRankingKey(periodStartDate))) {
+    public void cacheWeeklyRanking(LocalDate snapshotDate) {
+        if (exists(buildWeeklyRankingKey(snapshotDate))) {
             return;
         }
-        replaceWeeklyRanking(periodStartDate, loadTop100Scores(
+        replaceWeeklyRanking(snapshotDate, loadTop100Scores(
                 "product_ranking_weekly_batch",
-                periodStartDate
+                snapshotDate
         ));
     }
 
-    public void cacheMonthlyRanking(LocalDate periodStartDate) {
-        if (exists(buildMonthlyRankingKey(periodStartDate))) {
+    public void cacheMonthlyRanking(LocalDate snapshotDate) {
+        if (exists(buildMonthlyRankingKey(snapshotDate))) {
             return;
         }
-        replaceMonthlyRanking(periodStartDate, loadTop100Scores(
+        replaceMonthlyRanking(snapshotDate, loadTop100Scores(
                 "product_ranking_monthly_batch",
-                periodStartDate
+                snapshotDate
         ));
     }
 
@@ -165,27 +165,27 @@ public class RedisProductRankingRepository implements RankingRepository {
                 .toList();
     }
 
-    private List<RankingProductView> findWeeklyPageFromDatabase(LocalDate periodStartDate, int page, int size) {
-        return findPeriodPageFromDatabase("product_ranking_weekly_batch", periodStartDate, page, size);
+    private List<RankingProductView> findWeeklyPageFromDatabase(LocalDate snapshotDate, int page, int size) {
+        return findPeriodPageFromDatabase("product_ranking_weekly_batch", snapshotDate, page, size);
     }
 
-    private List<RankingProductView> findMonthlyPageFromDatabase(LocalDate periodStartDate, int page, int size) {
-        return findPeriodPageFromDatabase("product_ranking_monthly_batch", periodStartDate, page, size);
+    private List<RankingProductView> findMonthlyPageFromDatabase(LocalDate snapshotDate, int page, int size) {
+        return findPeriodPageFromDatabase("product_ranking_monthly_batch", snapshotDate, page, size);
     }
 
-    private List<RankingProductView> findPeriodPageFromDatabase(String tableName, LocalDate periodStartDate, int page, int size) {
+    private List<RankingProductView> findPeriodPageFromDatabase(String tableName, LocalDate snapshotDate, int page, int size) {
         int offset = (page - 1) * size;
         @SuppressWarnings("unchecked")
         List<Object[]> rows = entityManager.createNativeQuery(
                         """
                         SELECT product_id, ranking_score
                         FROM %s
-                        WHERE period_start_date = :periodStartDate
+                        WHERE period_end_date = :snapshotDate
                         ORDER BY ranking_score DESC, product_id ASC
                         LIMIT %d OFFSET %d
                         """.formatted(tableName, size, offset)
                 )
-                .setParameter("periodStartDate", periodStartDate)
+                .setParameter("snapshotDate", snapshotDate)
                 .getResultList();
 
         AtomicLong rank = new AtomicLong((long) offset + 1L);
@@ -198,18 +198,18 @@ public class RedisProductRankingRepository implements RankingRepository {
                 .toList();
     }
 
-    private Map<String, Double> loadTop100Scores(String tableName, LocalDate periodStartDate) {
+    private Map<String, Double> loadTop100Scores(String tableName, LocalDate snapshotDate) {
         @SuppressWarnings("unchecked")
         List<Object[]> rows = entityManager.createNativeQuery(
                         """
                         SELECT product_id, ranking_score
                         FROM %s
-                        WHERE period_start_date = :periodStartDate
+                        WHERE period_end_date = :snapshotDate
                         ORDER BY ranking_score DESC, product_id ASC
                         LIMIT 100
                         """.formatted(tableName)
                 )
-                .setParameter("periodStartDate", periodStartDate)
+                .setParameter("snapshotDate", snapshotDate)
                 .getResultList();
 
         Map<String, Double> rankingScores = new LinkedHashMap<>();

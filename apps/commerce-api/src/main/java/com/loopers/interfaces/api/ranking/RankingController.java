@@ -10,12 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAdjusters;
 
 @RestController
 @RequiredArgsConstructor
@@ -48,24 +46,23 @@ public class RankingController {
             ));
         }
         if (window == RankingWindow.WEEKLY) {
-            LocalDate periodStartDate = (date != null ? date : LocalDate.now(KOREA_ZONE))
-                    .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            LocalDate snapshotDate = date != null ? date : LocalDate.now(KOREA_ZONE).minusDays(1);
             return ApiResponse.success(RankingDto.TopRankingResponse.from(
                     window.name(),
-                    periodStartDate.format(DateTimeFormatter.BASIC_ISO_DATE),
+                    snapshotDate.format(DateTimeFormatter.BASIC_ISO_DATE),
                     page,
                     size,
-                    rankingQueryFacade.getWeeklyPage(periodStartDate, page, size)
+                    rankingQueryFacade.getWeeklyPage(snapshotDate, page, size)
             ));
         }
         if (window == RankingWindow.MONTHLY) {
-            LocalDate periodStartDate = (date != null ? date : LocalDate.now(KOREA_ZONE)).withDayOfMonth(1);
+            LocalDate snapshotDate = date != null ? date : LocalDate.now(KOREA_ZONE).minusDays(1);
             return ApiResponse.success(RankingDto.TopRankingResponse.from(
                     window.name(),
-                    periodStartDate.format(DateTimeFormatter.BASIC_ISO_DATE),
+                    snapshotDate.format(DateTimeFormatter.BASIC_ISO_DATE),
                     page,
                     size,
-                    rankingQueryFacade.getMonthlyPage(periodStartDate, page, size)
+                    rankingQueryFacade.getMonthlyPage(snapshotDate, page, size)
             ));
         }
         LocalDate metricDate = date != null ? date : LocalDate.now(KOREA_ZONE);

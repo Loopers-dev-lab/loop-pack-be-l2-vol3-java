@@ -10,9 +10,9 @@ public interface RankingRepository {
 
     List<RankingProductView> findHourlyPage(LocalDateTime metricHour, int page, int size);
 
-    List<RankingProductView> findWeeklyPage(LocalDate periodStartDate, int page, int size);
+    List<RankingProductView> findWeeklyPage(LocalDate snapshotDate, int page, int size);
 
-    List<RankingProductView> findMonthlyPage(LocalDate periodStartDate, int page, int size);
+    List<RankingProductView> findMonthlyPage(LocalDate snapshotDate, int page, int size);
 
     RankingProductView findProductRank(LocalDate metricDate, UUID productId);
 }

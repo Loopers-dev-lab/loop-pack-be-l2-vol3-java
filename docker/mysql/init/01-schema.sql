@@ -283,9 +283,9 @@ CREATE TABLE IF NOT EXISTS product_ranking_weekly_batch (
     view_count BIGINT NOT NULL DEFAULT 0,
     ranking_score DECIMAL(18,1) NOT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (period_start_date, product_id),
-    KEY idx_product_ranking_weekly_batch_start_date (period_start_date),
-    KEY idx_product_ranking_weekly_batch_score (period_start_date, ranking_score)
+    PRIMARY KEY (period_end_date, product_id),
+    KEY idx_product_ranking_weekly_batch_end_date (period_end_date),
+    KEY idx_product_ranking_weekly_batch_score (period_end_date, ranking_score)
 );
 
 CREATE TABLE IF NOT EXISTS product_ranking_monthly_batch (
@@ -298,9 +298,9 @@ CREATE TABLE IF NOT EXISTS product_ranking_monthly_batch (
     view_count BIGINT NOT NULL DEFAULT 0,
     ranking_score DECIMAL(18,1) NOT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    PRIMARY KEY (period_start_date, product_id),
-    KEY idx_product_ranking_monthly_batch_start_date (period_start_date),
-    KEY idx_product_ranking_monthly_batch_score (period_start_date, ranking_score)
+    PRIMARY KEY (period_end_date, product_id),
+    KEY idx_product_ranking_monthly_batch_end_date (period_end_date),
+    KEY idx_product_ranking_monthly_batch_score (period_end_date, ranking_score)
 );
 CREATE TABLE IF NOT EXISTS event_handled (
     id BIGINT NOT NULL AUTO_INCREMENT,

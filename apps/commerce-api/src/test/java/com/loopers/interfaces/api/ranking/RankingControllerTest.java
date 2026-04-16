@@ -134,8 +134,8 @@ class RankingControllerTest {
         void getWeeklyRankingsSuccess() throws Exception {
             UUID productId = UUID.randomUUID();
             UUID brandId = UUID.randomUUID();
-            LocalDate periodStartDate = LocalDate.of(2025, 9, 8);
-            given(rankingQueryFacade.getWeeklyPage(periodStartDate, 1, 1)).willReturn(List.of(
+            LocalDate snapshotDate = LocalDate.of(2025, 9, 10);
+            given(rankingQueryFacade.getWeeklyPage(snapshotDate, 1, 1)).willReturn(List.of(
                     new TopRankingProductView(productId, "사료A", 10000, brandId, "퍼피박스", 5, 1L, 4.2d)
             ));
 
@@ -147,7 +147,7 @@ class RankingControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
                     .andExpect(jsonPath("$.data.window").value("WEEKLY"))
-                    .andExpect(jsonPath("$.data.date").value("20250908"))
+                    .andExpect(jsonPath("$.data.date").value("20250910"))
                     .andExpect(jsonPath("$.data.items[0].productId").value(productId.toString()))
                     .andExpect(jsonPath("$.data.items[0].rank").value(1));
         }
@@ -157,8 +157,8 @@ class RankingControllerTest {
         void getMonthlyRankingsSuccess() throws Exception {
             UUID productId = UUID.randomUUID();
             UUID brandId = UUID.randomUUID();
-            LocalDate periodStartDate = LocalDate.of(2025, 9, 1);
-            given(rankingQueryFacade.getMonthlyPage(periodStartDate, 1, 1)).willReturn(List.of(
+            LocalDate snapshotDate = LocalDate.of(2025, 9, 17);
+            given(rankingQueryFacade.getMonthlyPage(snapshotDate, 1, 1)).willReturn(List.of(
                     new TopRankingProductView(productId, "사료A", 10000, brandId, "퍼피박스", 5, 1L, 5.3d)
             ));
 
@@ -170,7 +170,7 @@ class RankingControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.meta.result").value("SUCCESS"))
                     .andExpect(jsonPath("$.data.window").value("MONTHLY"))
-                    .andExpect(jsonPath("$.data.date").value("20250901"))
+                    .andExpect(jsonPath("$.data.date").value("20250917"))
                     .andExpect(jsonPath("$.data.items[0].productId").value(productId.toString()))
                     .andExpect(jsonPath("$.data.items[0].rank").value(1));
         }
