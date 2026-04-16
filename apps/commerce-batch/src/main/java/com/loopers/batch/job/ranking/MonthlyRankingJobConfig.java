@@ -1,5 +1,7 @@
 package com.loopers.batch.job.ranking;
 
+import com.loopers.batch.job.ranking.step.AggregatedMetricRow;
+import com.loopers.batch.job.ranking.step.RankingScoreProcessor;
 import com.loopers.batch.job.ranking.step.RankingScoreRow;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
@@ -12,6 +14,7 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
@@ -55,12 +58,14 @@ public class MonthlyRankingJobConfig {
     @Bean(STEP_NAME)
     public Step monthlyRankingStep(
             PlatformTransactionManager txManager,
-            JdbcCursorItemReader<RankingScoreRow> monthlyReader,
+            JdbcCursorItemReader<AggregatedMetricRow> monthlyReader,
+            ItemProcessor<AggregatedMetricRow, RankingScoreRow> monthlyProcessor,
             ItemWriter<RankingScoreRow> monthlyWriter
     ) {
         return new StepBuilder(STEP_NAME, jobRepository)
-                .<RankingScoreRow, RankingScoreRow>chunk(CHUNK_SIZE, txManager)
+                .<AggregatedMetricRow, RankingScoreRow>chunk(CHUNK_SIZE, txManager)
                 .reader(monthlyReader)
+                .processor(monthlyProcessor)
                 .writer(monthlyWriter)
                 .listener(stepMonitorListener)
                 .build();
@@ -68,51 +73,45 @@ public class MonthlyRankingJobConfig {
 
     @StepScope
     @Bean
-    public JdbcCursorItemReader<RankingScoreRow> monthlyReader(
+    public JdbcCursorItemReader<AggregatedMetricRow> monthlyReader(
             DataSource dataSource,
             @Value("#{jobParameters['targetDate']}") LocalDate targetDate
     ) {
         LocalDate firstDay = targetDate.withDayOfMonth(1);
         LocalDate lastDay = targetDate.with(TemporalAdjusters.lastDayOfMonth());
 
-        return new JdbcCursorItemReaderBuilder<RankingScoreRow>()
+        return new JdbcCursorItemReaderBuilder<AggregatedMetricRow>()
                 .name("monthlyMetricsReader")
                 .dataSource(dataSource)
                 .sql("""
                         SELECT
-                            sub.product_id,
-                            sub.total_views,
-                            sub.total_likes,
-                            sub.total_amount,
-                            sub.score,
-                            ROW_NUMBER() OVER (ORDER BY sub.score DESC) AS ranking
-                        FROM (
-                            SELECT
-                                product_id,
-                                SUM(view_count) AS total_views,
-                                SUM(like_count) AS total_likes,
-                                SUM(order_amount) AS total_amount,
-                                (SUM(view_count) * 0.1 + SUM(like_count) * 0.2 + LOG(1 + SUM(order_amount)) * 0.7) AS score
-                            FROM product_daily_metrics
-                            WHERE metric_date BETWEEN ? AND ?
-                            GROUP BY product_id
-                            ORDER BY score DESC
-                            LIMIT 100
-                        ) sub
+                            product_id,
+                            SUM(view_count)  AS total_views,
+                            SUM(like_count)  AS total_likes,
+                            SUM(order_amount) AS total_amount
+                        FROM product_daily_metrics
+                        WHERE metric_date BETWEEN ? AND ?
+                        GROUP BY product_id
+                        ORDER BY (SUM(view_count) * 0.1 + SUM(like_count) * 0.2 + LOG(1 + SUM(order_amount)) * 0.7) DESC
+                        LIMIT 100
                         """)
                 .preparedStatementSetter(ps -> {
                     ps.setDate(1, Date.valueOf(firstDay));
                     ps.setDate(2, Date.valueOf(lastDay));
                 })
-                .rowMapper((rs, rowNum) -> new RankingScoreRow(
+                .rowMapper((rs, rowNum) -> new AggregatedMetricRow(
                         rs.getLong("product_id"),
                         rs.getLong("total_views"),
                         rs.getLong("total_likes"),
-                        rs.getLong("total_amount"),
-                        rs.getDouble("score"),
-                        rs.getInt("ranking")
+                        rs.getLong("total_amount")
                 ))
                 .build();
+    }
+
+    @StepScope
+    @Bean
+    public ItemProcessor<AggregatedMetricRow, RankingScoreRow> monthlyProcessor() {
+        return new RankingScoreProcessor();
     }
 
     @StepScope
