@@ -1,0 +1,16 @@
+### Batch Admin API
+### 배치 Job 실행 관리 API
+
+### 주간 랭킹 집계 Job 실행
+### targetDate가 속한 주(월~일)의 product_metrics_daily 데이터를 집계하여 TOP 100 랭킹 생성
+POST http://localhost:8080/api-admin/v1/batch/weekly-ranking?targetDate=20250414
+Content-Type: application/json
+
+### 월간 랭킹 집계 Job 실행
+### targetDate가 속한 월(1일~말일)의 product_metrics_daily 데이터를 집계하여 TOP 100 랭킹 생성
+POST http://localhost:8080/api-admin/v1/batch/monthly-ranking?targetDate=20250401
+Content-Type: application/json
+
+### 잘못된 날짜 형식 테스트 (400 에러 예상)
+POST http://localhost:8080/api-admin/v1/batch/weekly-ranking?targetDate=2025-04-14
+Content-Type: application/json

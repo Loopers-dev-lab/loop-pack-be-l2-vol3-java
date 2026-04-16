@@ -1,13 +1,19 @@
-### Ranking API - 랭킹 관련 API
+### Ranking API - 랭킹 관련 API (기간별: DAILY/WEEKLY/MONTHLY)
 
-### 오늘 랭킹 조회 (기본값)
+### 오늘 일간 랭킹 조회 (기본값: period=DAILY)
 GET {{baseUrl}}/api/v1/rankings?size=20&page=1
 
-### 특정 날짜 랭킹 조회
-GET {{baseUrl}}/api/v1/rankings?date=20250407&size=20&page=1
+### 특정 날짜 일간 랭킹 조회
+GET {{baseUrl}}/api/v1/rankings?date=20250407&period=DAILY&size=20&page=1
+
+### 주간 랭킹 조회 (date가 속한 주의 월~일 데이터)
+GET {{baseUrl}}/api/v1/rankings?date=20250407&period=WEEKLY&size=20&page=1
+
+### 월간 랭킹 조회 (date가 속한 월의 1일~말일 데이터)
+GET {{baseUrl}}/api/v1/rankings?date=20250407&period=MONTHLY&size=20&page=1
 
 ### 랭킹 2페이지 조회
-GET {{baseUrl}}/api/v1/rankings?size=10&page=2
+GET {{baseUrl}}/api/v1/rankings?date=20250407&period=WEEKLY&size=10&page=2
 
 ###
 

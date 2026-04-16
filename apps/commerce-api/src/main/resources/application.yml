@@ -28,6 +28,7 @@ spring:
       - monitoring.yml
       - queue.yml
       - ranking.yml
+      - batch.yml
 
 springdoc:
   use-fqn: true
