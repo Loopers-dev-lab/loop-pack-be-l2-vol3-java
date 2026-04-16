@@ -16,38 +16,42 @@ import java.time.ZoneId;
 @Component
 public class JobListener {
 
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
+    private static final String START_TIME_KEY = "startTime";
+
     @BeforeJob
     void beforeJob(JobExecution jobExecution) {
-        log.info("Job '${jobExecution.jobInstance.jobName}' 시작");
-        jobExecution.getExecutionContext().putLong("startTime", System.currentTimeMillis());
+        String jobName = jobExecution.getJobInstance().getJobName();
+        log.info("Job '{}' 시작", jobName);
+        jobExecution.getExecutionContext().putLong(START_TIME_KEY, System.currentTimeMillis());
     }
 
     @AfterJob
     void afterJob(JobExecution jobExecution) {
-        var startTime = jobExecution.getExecutionContext().getLong("startTime");
+        String jobName = jobExecution.getJobInstance().getJobName();
+        var startTime = jobExecution.getExecutionContext().getLong(START_TIME_KEY);
         var endTime = System.currentTimeMillis();
 
         var startDateTime = Instant.ofEpochMilli(startTime)
-            .atZone(ZoneId.systemDefault())
+            .atZone(KST)
             .toLocalDateTime();
         var endDateTime = Instant.ofEpochMilli(endTime)
-            .atZone(ZoneId.systemDefault())
+            .atZone(KST)
             .toLocalDateTime();
 
-        var totalTime = endTime - startTime;
-        var duration = Duration.ofMillis(totalTime);
+        var duration = Duration.ofMillis(endTime - startTime);
         var hours = duration.toHours();
         var minutes = duration.toMinutes() % 60;
         var seconds = duration.getSeconds() % 60;
 
-        var message = String.format(
-            """
-                *Start Time:* %s
-                *End Time:* %s
-                *Total Time:* %d시간 %d분 %d초
-            """, startDateTime, endDateTime, hours, minutes, seconds
-        ).trim();
-
-        log.info(message);
+        log.info(
+            "Job '{}' 종료. batchStatus={}, exitStatus={}, startTime={}, endTime={}, duration={}시간 {}분 {}초",
+            jobName,
+            jobExecution.getStatus(),
+            jobExecution.getExitStatus().getExitCode(),
+            startDateTime,
+            endDateTime,
+            hours, minutes, seconds
+        );
     }
 }
