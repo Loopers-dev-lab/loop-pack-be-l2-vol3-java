@@ -49,7 +49,11 @@ class OrderServiceTest {
         OrderDomainService orderDomainService = new OrderDomainService(fakeProductRepository, fakeOrderRepository);
         // FakeQueueRepository: isEntered()가 항상 true → 테스트에서 대기열 검증 통과
         QueueService queueService = new QueueService(new FakeQueueRepository(), new QueueSseRegistry());
-        orderService = new OrderService(orderDomainService, fakeIssuedCouponRepository, fakeCouponTemplateRepository, queueService);
+        com.loopers.domain.outbox.OutboxEventRepository fakeOutboxEventRepository = new com.loopers.domain.outbox.OutboxEventRepository() {
+            @Override public com.loopers.domain.outbox.OutboxEvent save(com.loopers.domain.outbox.OutboxEvent event) { return event; }
+            @Override public List<com.loopers.domain.outbox.OutboxEvent> findPending() { return List.of(); }
+        };
+        orderService = new OrderService(orderDomainService, fakeIssuedCouponRepository, fakeCouponTemplateRepository, queueService, fakeOutboxEventRepository, new com.fasterxml.jackson.databind.ObjectMapper());
     }
 
     @DisplayName("주문 생성")
@@ -199,6 +203,14 @@ class OrderServiceTest {
         @Override
         public boolean existsById(Long id) {
             return store.containsKey(id);
+        }
+
+        @Override
+        public List<Product> findAllByIds(List<Long> ids) {
+            return ids.stream()
+                .map(store::get)
+                .filter(java.util.Objects::nonNull)
+                .toList();
         }
     }
 
