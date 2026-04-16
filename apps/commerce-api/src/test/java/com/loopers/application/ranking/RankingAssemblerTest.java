@@ -16,8 +16,7 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @DisplayName("RankingAssembler 단위 테스트")
@@ -100,7 +99,7 @@ class RankingAssemblerTest {
             assertThat(result.effectiveDate()).isEqualTo(BASE_DATE);
             assertThat(result.total()).isEqualTo(0L);
             assertThat(result.items()).isEmpty();
-            verify(productFacade, never()).findVisibleByIds(List.of());
+            verifyNoInteractions(productFacade);
         }
     }
 }
