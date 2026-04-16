@@ -2,7 +2,6 @@ package com.loopers.batch.job.ranking;
 
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
-import com.loopers.batch.job.ranking.step.ProductMetricsItemReader;
 import com.loopers.batch.job.ranking.step.RankedProductDto;
 import com.loopers.batch.job.ranking.step.RankingItemProcessor;
 import com.loopers.batch.job.ranking.step.WeeklyMvRankingItemWriter;
@@ -14,6 +13,7 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,7 +31,7 @@ public class RankingWeeklyJobConfig {
     private final JobListener jobListener;
     private final StepMonitorListener stepMonitorListener;
     private final PlatformTransactionManager transactionManager;
-    private final ProductMetricsItemReader productMetricsItemReader;
+    private final JdbcPagingItemReader<ProductMetricsAggregatedDto> productMetricsItemReader;
     private final RankingItemProcessor rankingItemProcessor;
     private final WeeklyMvRankingItemWriter weeklyMvRankingItemWriter;
     private final WeeklyRankAssignTasklet weeklyRankAssignTasklet;
@@ -49,7 +49,7 @@ public class RankingWeeklyJobConfig {
     public Step weeklyScoreCalculationStep() {
         return new StepBuilder("weeklyScoreCalculationStep", jobRepository)
                 .<ProductMetricsAggregatedDto, RankedProductDto>chunk(CHUNK_SIZE, transactionManager)
-                .reader(productMetricsItemReader.reader(null, null, null))
+                .reader(productMetricsItemReader)
                 .processor(rankingItemProcessor)
                 .writer(weeklyMvRankingItemWriter)
                 .listener(stepMonitorListener)
