@@ -1,9 +1,5 @@
 package com.loopers.application.ranking;
 
-import com.loopers.application.product.ProductFacade;
-import com.loopers.application.product.ProductInfo;
-import com.loopers.domain.product.ProductStatus;
-import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,13 +9,12 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -34,19 +29,14 @@ class RankingFacadeTest {
             Clock.fixed(TODAY.atStartOfDay(KST).plusHours(10).toInstant(), KST);
 
     private RankingRepository rankingRepository;
-    private ProductFacade productFacade;
+    private RankingAssembler rankingAssembler;
     private RankingFacade facade;
 
     @BeforeEach
     void setUp() {
         rankingRepository = mock(RankingRepository.class);
-        productFacade = mock(ProductFacade.class);
-        facade = new RankingFacade(rankingRepository, productFacade, FIXED);
-    }
-
-    private ProductInfo stubProduct(Long id) {
-        return new ProductInfo(id, 1L, "브랜드", "상품" + id, 10000, 9000, 2500, 0,
-                ProductStatus.ON_SALE, "Y", ZonedDateTime.now());
+        rankingAssembler = mock(RankingAssembler.class);
+        facade = new RankingFacade(rankingRepository, rankingAssembler, FIXED);
     }
 
     @Nested
@@ -54,57 +44,12 @@ class RankingFacadeTest {
     class GetDailyRanking {
 
         @Test
-        @DisplayName("ZSET Top-N 과 상품 정보를 Aggregation 하여 반환")
-        void happyPath() {
-            // given
-            List<RankingEntry> entries = List.of(
-                    new RankingEntry(1L, 1L, 5.0),
-                    new RankingEntry(2L, 2L, 3.0)
-            );
-            when(rankingRepository.getTopN("ranking:all:20260409", 1, 20)).thenReturn(entries);
-            when(productFacade.findVisibleByIds(List.of(1L, 2L))).thenReturn(Map.of(
-                    1L, stubProduct(1L),
-                    2L, stubProduct(2L)
-            ));
-
-            // when
-            List<RankingItemInfo> result = facade.getDailyRanking(TODAY, 1, 20);
-
-            // then
-            assertThat(result).hasSize(2);
-            assertThat(result.get(0).rank()).isEqualTo(1L);
-            assertThat(result.get(0).product().id()).isEqualTo(1L);
-            assertThat(result.get(1).rank()).isEqualTo(2L);
-            assertThat(result.get(1).product().id()).isEqualTo(2L);
-        }
-
-        @Test
-        @DisplayName("삭제/숨김 상품은 응답에서 제외되고 size 는 축소된다")
-        void visibilityFilter() {
-            // given — 3개 엔트리, 2번 상품만 visible
-            List<RankingEntry> entries = List.of(
-                    new RankingEntry(1L, 1L, 5.0),
-                    new RankingEntry(2L, 2L, 4.0),
-                    new RankingEntry(3L, 3L, 3.0)
-            );
-            when(rankingRepository.getTopN(any(), anyInt(), anyInt())).thenReturn(entries);
-            when(productFacade.findVisibleByIds(List.of(1L, 2L, 3L)))
-                    .thenReturn(Map.of(2L, stubProduct(2L)));
-
-            // when
-            List<RankingItemInfo> result = facade.getDailyRanking(TODAY, 1, 20);
-
-            // then — 2번만 남음
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).product().id()).isEqualTo(2L);
-            assertThat(result.get(0).rank()).isEqualTo(2L); // 원 rank 유지
-        }
-
-        @Test
-        @DisplayName("date 가 null 이면 KST 오늘 날짜로 조회")
+        @DisplayName("date 가 null 이면 KST 오늘 날짜 키로 저장소를 조회한다")
         void nullDateDefaultsToToday() {
             // given
             when(rankingRepository.getTopN(any(), anyInt(), anyInt())).thenReturn(List.of());
+            when(rankingAssembler.assemble(any(), anyLong(), any()))
+                    .thenReturn(new RankingPageResult(TODAY, 0L, List.of()));
 
             // when
             facade.getDailyRanking(null, 1, 20);
@@ -114,16 +59,20 @@ class RankingFacadeTest {
         }
 
         @Test
-        @DisplayName("ZSET 이 비어 있으면 빈 리스트")
-        void emptyRanking() {
+        @DisplayName("조회한 total 과 entries 를 RankingAssembler 에 위임한다")
+        void delegatesToAssembler() {
             // given
-            when(rankingRepository.getTopN(any(), anyInt(), anyInt())).thenReturn(List.of());
+            String key = "ranking:all:20260409";
+            when(rankingRepository.getTotal(key)).thenReturn(5L);
+            when(rankingRepository.getTopN(key, 1, 20)).thenReturn(List.of());
+            when(rankingAssembler.assemble(TODAY, 5L, List.of()))
+                    .thenReturn(new RankingPageResult(TODAY, 5L, List.of()));
 
             // when
-            List<RankingItemInfo> result = facade.getDailyRanking(TODAY, 1, 20);
+            facade.getDailyRanking(TODAY, 1, 20);
 
             // then
-            assertThat(result).isEmpty();
+            verify(rankingAssembler).assemble(TODAY, 5L, List.of());
         }
     }
 
@@ -175,7 +124,7 @@ class RankingFacadeTest {
             LocalDate kstDate = LocalDate.of(2026, 4, 8);
             Clock justBefore = Clock.fixed(
                     kstDate.atStartOfDay(KST).plusDays(1).minusSeconds(1).toInstant(), KST);
-            RankingFacade facadeBefore = new RankingFacade(rankingRepository, productFacade, justBefore);
+            RankingFacade facadeBefore = new RankingFacade(rankingRepository, rankingAssembler, justBefore);
             when(rankingRepository.getRank("ranking:all:20260408", 1L)).thenReturn(2L);
 
             // when
@@ -192,7 +141,7 @@ class RankingFacadeTest {
             // given — 2026-04-09 00:00:00 KST
             Clock atMidnight = Clock.fixed(
                     TODAY.atStartOfDay(KST).toInstant(), KST);
-            RankingFacade facadeAtMidnight = new RankingFacade(rankingRepository, productFacade, atMidnight);
+            RankingFacade facadeAtMidnight = new RankingFacade(rankingRepository, rankingAssembler, atMidnight);
             when(rankingRepository.getRank("ranking:all:20260409", 1L)).thenReturn(1L);
 
             // when
@@ -210,7 +159,7 @@ class RankingFacadeTest {
             LocalDate kstDate = LocalDate.of(2026, 4, 8);
             Clock justBefore = Clock.fixed(
                     kstDate.atStartOfDay(KST).plusDays(1).minusSeconds(1).toInstant(), KST);
-            RankingFacade f = new RankingFacade(rankingRepository, productFacade, justBefore);
+            RankingFacade f = new RankingFacade(rankingRepository, rankingAssembler, justBefore);
             when(rankingRepository.getTopN(any(), anyInt(), anyInt())).thenReturn(List.of());
 
             // when
@@ -225,7 +174,7 @@ class RankingFacadeTest {
         void getDailyRanking_atMidnight_usesNextDayKey() {
             // given — 2026-04-09 00:00:00 KST
             Clock atMidnight = Clock.fixed(TODAY.atStartOfDay(KST).toInstant(), KST);
-            RankingFacade f = new RankingFacade(rankingRepository, productFacade, atMidnight);
+            RankingFacade f = new RankingFacade(rankingRepository, rankingAssembler, atMidnight);
             when(rankingRepository.getTopN(any(), anyInt(), anyInt())).thenReturn(List.of());
 
             // when
