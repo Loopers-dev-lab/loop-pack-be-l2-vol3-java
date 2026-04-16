@@ -33,9 +33,6 @@ public class MonthlyRankingProcessor implements ItemProcessor<ProductAggregation
     @Override
     public MvProductRankMonthly process(ProductAggregation item) {
         int rank = rankCounter.incrementAndGet();
-        if (rank > 100) {
-            return null; // 101위 이후는 null 반환 → Writer 에서 제외
-        }
         double score = item.totalView() * 0.1
                 + item.totalLike() * 0.2
                 + 0.7 * Math.log1p(item.totalSales());

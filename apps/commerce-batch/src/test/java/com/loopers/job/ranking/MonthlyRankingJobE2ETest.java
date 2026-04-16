@@ -6,6 +6,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
+import org.springframework.batch.core.JobExecution;
+import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.test.JobLauncherTestUtils;
 import org.springframework.batch.test.context.SpringBatchTest;
@@ -46,7 +48,7 @@ class MonthlyRankingJobE2ETest {
     @Test
     void failsWithoutTargetDate() throws Exception {
         // arrange & act
-        var execution = jobLauncherTestUtils.launchJob();
+        JobExecution execution = jobLauncherTestUtils.launchJob();
 
         // assert
         assertThat(execution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.FAILED.getExitCode());
@@ -56,12 +58,12 @@ class MonthlyRankingJobE2ETest {
     @Test
     void emptyMetrics_noRankingStored() throws Exception {
         // arrange
-        var params = new JobParametersBuilder()
+        JobParameters params = new JobParametersBuilder()
                 .addString("targetYearMonth", "202604")
                 .toJobParameters();
 
         // act
-        var execution = jobLauncherTestUtils.launchJob(params);
+        JobExecution execution = jobLauncherTestUtils.launchJob(params);
 
         // assert
         assertAll(
@@ -77,12 +79,12 @@ class MonthlyRankingJobE2ETest {
         insertMetrics(1L, LocalDateTime.of(2026, 4, 16, 0, 0), 1, 1, 1, 1_000);
         insertMetrics(2L, LocalDateTime.of(2026, 4, 16, 0, 0), 5, 5, 5, 50_000);
 
-        var params = new JobParametersBuilder()
+        JobParameters params = new JobParametersBuilder()
                 .addString("targetYearMonth", "202604")
                 .toJobParameters();
 
         // act
-        var execution = jobLauncherTestUtils.launchJob(params);
+        JobExecution execution = jobLauncherTestUtils.launchJob(params);
 
         // assert
         Long rank1ProductId = jdbcTemplate.queryForObject(
@@ -102,12 +104,12 @@ class MonthlyRankingJobE2ETest {
             insertMetrics(i, LocalDateTime.of(2026, 4, 16, 0, 0), 1, 1, 1, i * 1_000);
         }
 
-        var params = new JobParametersBuilder()
+        JobParameters params = new JobParametersBuilder()
                 .addString("targetYearMonth", "202604")
                 .toJobParameters();
 
         // act
-        var execution = jobLauncherTestUtils.launchJob(params);
+        JobExecution execution = jobLauncherTestUtils.launchJob(params);
 
         // assert
         assertAll(

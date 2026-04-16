@@ -20,15 +20,16 @@ public class WeeklyRankingProcessor implements ItemProcessor<ProductAggregation,
     // Step 생명주기 동안 rank 순번을 유지 (@StepScope 이므로 Step 종료 시 폐기)
     private final AtomicInteger rankCounter = new AtomicInteger(0);
 
-    @Value("#{jobParameters['targetDate']}")
     private LocalDate targetDate;
+
+    @Value("#{jobParameters['targetDate']}")
+    public void setTargetDate(LocalDate targetDate) {
+        this.targetDate = targetDate;
+    }
 
     @Override
     public MvProductRankWeekly process(ProductAggregation item) {
         int rank = rankCounter.incrementAndGet();
-        if (rank > 100) {
-            return null; // 101위 이후는 null 반환 → Writer 에서 제외
-        }
         double score = item.totalView() * 0.1
                 + item.totalLike() * 0.2
                 + 0.7 * Math.log1p(item.totalSales());

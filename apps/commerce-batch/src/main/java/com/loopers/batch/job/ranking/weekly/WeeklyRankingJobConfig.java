@@ -58,6 +58,7 @@ public class WeeklyRankingJobConfig {
             GROUP BY product_id
             ORDER BY (SUM(like_count) * 0.2 + SUM(view_count) * 0.1
                       + 0.7 * LOG(1 + SUM(sales_amount))) DESC
+            LIMIT 100
             """;
 
     private final JobRepository jobRepository;

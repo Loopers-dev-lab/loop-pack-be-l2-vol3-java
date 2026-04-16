@@ -1,0 +1,21 @@
+### 일간 랭킹 조회 (오늘 날짜)
+GET http://localhost:8080/api/v1/rankings
+Accept: application/json
+
+###
+
+### 일간 랭킹 조회 (특정 날짜)
+GET http://localhost:8080/api/v1/rankings?date=20260416&period=DAILY&page=1&size=20
+Accept: application/json
+
+###
+
+### 주간 랭킹 조회 (date 가 속한 주의 월요일 기준 집계)
+GET http://localhost:8080/api/v1/rankings?date=20260416&period=WEEKLY&page=1&size=20
+Accept: application/json
+
+###
+
+### 월간 랭킹 조회 (date 가 속한 월의 1일 기준 집계)
+GET http://localhost:8080/api/v1/rankings?date=20260416&period=MONTHLY&page=1&size=20
+Accept: application/json
