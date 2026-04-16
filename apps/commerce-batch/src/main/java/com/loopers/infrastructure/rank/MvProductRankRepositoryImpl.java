@@ -19,6 +19,7 @@ public class MvProductRankRepositoryImpl implements MvProductRankRepository {
     private final JdbcTemplate jdbcTemplate;
     private final MvProductRankWeeklyJpaRepository weeklyJpaRepository;
     private final MvProductRankMonthlyJpaRepository monthlyJpaRepository;
+    private final MvProductRankQuarterlyJpaRepository quarterlyJpaRepository;
 
     @Override
     @Transactional
@@ -26,6 +27,7 @@ public class MvProductRankRepositoryImpl implements MvProductRankRepository {
         switch (type) {
             case WEEKLY -> weeklyJpaRepository.deleteByPeriodKey(periodKey);
             case MONTHLY -> monthlyJpaRepository.deleteByPeriodKey(periodKey);
+            case QUARTERLY -> quarterlyJpaRepository.deleteByPeriodKey(periodKey);
         }
     }
 
@@ -76,6 +78,7 @@ public class MvProductRankRepositoryImpl implements MvProductRankRepository {
         return switch (type) {
             case WEEKLY -> weeklyJpaRepository.countByPeriodKey(periodKey);
             case MONTHLY -> monthlyJpaRepository.countByPeriodKey(periodKey);
+            case QUARTERLY -> quarterlyJpaRepository.countByPeriodKey(periodKey);
         };
     }
 }

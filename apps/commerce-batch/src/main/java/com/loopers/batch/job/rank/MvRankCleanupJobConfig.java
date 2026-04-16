@@ -25,16 +25,18 @@ public class MvRankCleanupJobConfig {
     public static final String JOB_NAME = "mvRankCleanupJob";
     private static final String WEEKLY_STEP = "cleanupWeeklyMvStep";
     private static final String MONTHLY_STEP = "cleanupMonthlyMvStep";
+    private static final String QUARTERLY_STEP = "cleanupQuarterlyMvStep";
 
     private final RankJobFactory rankJobFactory;
     private final JobRepository jobRepository;
 
     @Bean(JOB_NAME)
-    public Job mvRankCleanupJob(Step cleanupWeeklyMvStep, Step cleanupMonthlyMvStep) {
+    public Job mvRankCleanupJob(Step cleanupWeeklyMvStep, Step cleanupMonthlyMvStep, Step cleanupQuarterlyMvStep) {
         return new JobBuilder(JOB_NAME, jobRepository)
                 .incrementer(new RunIdIncrementer())
                 .start(cleanupWeeklyMvStep)
                 .next(cleanupMonthlyMvStep)
+                .next(cleanupQuarterlyMvStep)
                 .build();
     }
 
@@ -57,6 +59,17 @@ public class MvRankCleanupJobConfig {
                 MONTHLY_STEP,
                 RankPeriodType.MONTHLY,
                 RankingKeyGenerator.monthlyPeriodKey(date)
+        );
+    }
+
+    @Bean(QUARTERLY_STEP)
+    @JobScope
+    public Step cleanupQuarterlyMvStep(@Value("#{jobParameters['date']}") String dateStr) {
+        LocalDate date = LocalDate.parse(dateStr, RankJobFactory.DATE_FMT);
+        return rankJobFactory.buildCleanupStep(
+                QUARTERLY_STEP,
+                RankPeriodType.QUARTERLY,
+                RankingKeyGenerator.quarterlyPeriodKey(date)
         );
     }
 }

@@ -2,7 +2,8 @@ package com.loopers.domain.rank;
 
 public enum RankPeriodType {
     WEEKLY("mv_product_rank_weekly"),
-    MONTHLY("mv_product_rank_monthly");
+    MONTHLY("mv_product_rank_monthly"),
+    QUARTERLY("mv_product_rank_quarterly");
 
     private final String tableName;
 

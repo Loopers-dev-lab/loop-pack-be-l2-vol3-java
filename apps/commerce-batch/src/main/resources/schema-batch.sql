@@ -44,6 +44,22 @@ CREATE TABLE IF NOT EXISTS mv_product_rank_monthly (
     UNIQUE KEY uk_period_version_product_monthly (period_key, version, ref_product_id)
 );
 
+-- MV: Phase 2 산출물 — 3개월 롤링 랭킹 TOP 100 (version-based)
+CREATE TABLE IF NOT EXISTS mv_product_rank_quarterly (
+    period_key     VARCHAR(8)     NOT NULL,
+    version        BIGINT         NOT NULL DEFAULT 1,
+    rank_no        INT            NOT NULL,
+    ref_product_id BIGINT         NOT NULL,
+    score          DOUBLE         NOT NULL,
+    view_count     BIGINT         NOT NULL DEFAULT 0,
+    like_count     BIGINT         NOT NULL DEFAULT 0,
+    order_amount   DECIMAL(15,2)  NOT NULL DEFAULT 0,
+    created_at     DATETIME       NOT NULL,
+    updated_at     DATETIME       NOT NULL,
+    PRIMARY KEY (period_key, version, rank_no),
+    UNIQUE KEY uk_period_version_product_quarterly (period_key, version, ref_product_id)
+);
+
 -- Publication pointer — periodKey별 current published_version 추적 (S2 원자 발행)
 CREATE TABLE IF NOT EXISTS mv_product_rank_publication (
     period_type       VARCHAR(20)  NOT NULL,
