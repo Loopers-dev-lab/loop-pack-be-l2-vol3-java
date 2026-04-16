@@ -11,11 +11,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Tag(name = "Ranking API", description = "실시간 랭킹 조회 API")
 public interface RankingV1ApiSpec {
 
-    @Operation(summary = "Top-N 랭킹 조회 (offset 기반)", description = "date, page, size 파라미터로 Top-N 랭킹을 조회합니다.")
+    @Operation(summary = "Top-N 랭킹 조회 (offset 기반)", description = "period, date, page, size 파라미터로 Top-N 랭킹을 조회합니다.")
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공 (빈 결과는 empty items)")
     })
     ResponseEntity<ApiResponse<RankingV1Dto.RankingPageResponse>> getRankingByOffset(
+            @Parameter(description = "랭킹 기간 (daily|weekly|monthly|quarterly). 생략 시 daily", example = "daily")
+            @RequestParam(required = false) String period,
             @Parameter(description = "랭킹 날짜 (yyyyMMdd). 생략 시 오늘", example = "20260405")
             @RequestParam(required = false) String date,
             @Parameter(description = "페이지 번호 (0부터)", example = "0")

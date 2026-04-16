@@ -14,8 +14,9 @@ public class ChunkListener {
     @AfterChunk
     void afterChunk(ChunkContext chunkContext) {
         log.info(
-            "청크 종료: readCount: ${chunkContext.stepContext.stepExecution.readCount}, " +
-                    "writeCount: ${chunkContext.stepContext.stepExecution.writeCount}"
+            "청크 종료: readCount: {}, writeCount: {}",
+            chunkContext.getStepContext().getStepExecution().getReadCount(),
+            chunkContext.getStepContext().getStepExecution().getWriteCount()
         );
     }
 }

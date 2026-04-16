@@ -1,6 +1,6 @@
 package com.loopers.infrastructure.ranking;
 
-import com.loopers.domain.ranking.RankingKeyGenerator;
+import com.loopers.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankingRepository;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ClassPathResource;

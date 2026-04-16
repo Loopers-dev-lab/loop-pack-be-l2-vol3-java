@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.MvProductRankRepository;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -11,7 +12,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,14 +27,16 @@ import static org.mockito.Mockito.when;
 class RankingAppTest {
 
     private RankingRepository rankingRepository;
+    private MvProductRankRepository mvProductRankRepository;
     private RankingProductCache productCache;
     private RankingApp rankingApp;
 
     @BeforeEach
     void setUp() {
         rankingRepository = mock(RankingRepository.class);
+        mvProductRankRepository = mock(MvProductRankRepository.class);
         productCache = mock(RankingProductCache.class);
-        rankingApp = new RankingApp(rankingRepository, productCache);
+        rankingApp = new RankingApp(rankingRepository, mvProductRankRepository, productCache);
     }
 
     @Nested
@@ -47,10 +52,12 @@ class RankingAppTest {
                     new RankingEntry(2L, 80.0)
             ));
             when(rankingRepository.countMembers(date)).thenReturn(2L);
-            when(productCache.findById(1L)).thenReturn(new CachedProductSnapshot(
+            Map<Long, CachedProductSnapshot> snapshots = new HashMap<>();
+            snapshots.put(1L, new CachedProductSnapshot(
                     1L, "P001", "상품 A", new BigDecimal("1000"), false, Instant.now().getEpochSecond()));
-            when(productCache.findById(2L)).thenReturn(new CachedProductSnapshot(
+            snapshots.put(2L, new CachedProductSnapshot(
                     2L, "P002", "상품 B", new BigDecimal("2000"), false, Instant.now().getEpochSecond()));
+            when(productCache.findAllByIds(any())).thenReturn(snapshots);
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 2);
 
@@ -64,39 +71,44 @@ class RankingAppTest {
         }
 
         @Test
-        @DisplayName("삭제된 상품은 랭킹에서 숨긴다 (멘토링 피드백: 부정적 피드백 미노출)")
-        void deletedProductIsHidden() {
+        @DisplayName("삭제된 상품은 DISCONTINUED 상태로 랭킹에 포함된다")
+        void deletedProductIsDiscontinued() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             when(rankingRepository.findTopN(eq(date), any(Long.class), any(Long.class))).thenReturn(List.of(
                     new RankingEntry(10L, 50.0),
                     new RankingEntry(11L, 40.0)
             ));
             when(rankingRepository.countMembers(date)).thenReturn(2L);
-            when(productCache.findById(10L)).thenReturn(new CachedProductSnapshot(
+            Map<Long, CachedProductSnapshot> snapshots = new HashMap<>();
+            snapshots.put(10L, new CachedProductSnapshot(
                     10L, "P010", "판매종료 상품", new BigDecimal("500"), true, Instant.now().getEpochSecond()));
-            when(productCache.findById(11L)).thenReturn(new CachedProductSnapshot(
+            snapshots.put(11L, new CachedProductSnapshot(
                     11L, "P011", "정상 상품", new BigDecimal("300"), false, Instant.now().getEpochSecond()));
+            when(productCache.findAllByIds(any())).thenReturn(snapshots);
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
-            assertThat(result.items()).hasSize(1);
-            assertThat(result.items().get(0).productName()).isEqualTo("정상 상품");
-            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
+            assertThat(result.items()).hasSize(2);
+            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
+            assertThat(result.items().get(1).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
+            assertThat(result.items().get(1).productName()).isEqualTo("정상 상품");
         }
 
         @Test
-        @DisplayName("캐시에 없는 상품(DB에서도 삭제)도 랭킹에서 숨긴다")
-        void missingProductIsHidden() {
+        @DisplayName("캐시에 없는 상품도 DISCONTINUED로 랭킹에 포함된다")
+        void missingProductIsDiscontinued() {
             LocalDate date = LocalDate.of(2026, 4, 5);
             when(rankingRepository.findTopN(eq(date), any(Long.class), any(Long.class))).thenReturn(List.of(
                     new RankingEntry(999L, 30.0)
             ));
             when(rankingRepository.countMembers(date)).thenReturn(1L);
-            when(productCache.findById(999L)).thenReturn(null);
+            when(productCache.findAllByIds(any())).thenReturn(Map.of());
 
             RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
-            assertThat(result.items()).isEmpty();
+            assertThat(result.items()).hasSize(1);
+            assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
+            assertThat(result.items().get(0).productDbId()).isEqualTo(999L);
         }
 
         @Test
@@ -120,8 +132,8 @@ class RankingAppTest {
                     new RankingEntry(11L, 5.0)
             ));
             when(rankingRepository.countMembers(date)).thenReturn(20L);
-            when(productCache.findById(11L)).thenReturn(new CachedProductSnapshot(
-                    11L, "P011", "상품 11", new BigDecimal("100"), false, Instant.now().getEpochSecond()));
+            when(productCache.findAllByIds(any())).thenReturn(Map.of(11L, new CachedProductSnapshot(
+                    11L, "P011", "상품 11", new BigDecimal("100"), false, Instant.now().getEpochSecond())));
 
             RankingPageResult result = rankingApp.getTopN(date, 1, 10);
 

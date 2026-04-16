@@ -89,8 +89,8 @@ class RankingAppIntegrationTest {
     }
 
     @Test
-    @DisplayName("삭제된 상품은 랭킹에서 숨긴다 (멘토링 피드백: 부정적 피드백 미노출)")
-    void deletedProductIsHidden() {
+    @DisplayName("삭제된 상품은 DISCONTINUED 상태로 랭킹에 포함된다")
+    void deletedProductIsDiscontinued() {
         // given: 상품 2개 중 1개 soft delete
         ProductModel p1 = productRepository.save(ProductModel.create("P001", 1L, "정상 상품", new BigDecimal("1000"), 10));
         ProductModel p2 = productRepository.save(ProductModel.create("P002", 1L, "삭제된 상품", new BigDecimal("1000"), 10));
@@ -105,10 +105,11 @@ class RankingAppIntegrationTest {
         // when
         RankingPageResult result = rankingApp.getTopN(date, 0, 10);
 
-        // then: 삭제 상품 필터링 → 정상 상품 1개만 반환
-        assertThat(result.items()).hasSize(1);
-        assertThat(result.items().get(0).productName()).isEqualTo("정상 상품");
-        assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
+        // then: 삭제 상품도 포함, DISCONTINUED 상태
+        assertThat(result.items()).hasSize(2);
+        assertThat(result.items().get(0).status()).isEqualTo(RankingInfo.STATUS_DISCONTINUED);
+        assertThat(result.items().get(1).status()).isEqualTo(RankingInfo.STATUS_ACTIVE);
+        assertThat(result.items().get(1).productName()).isEqualTo("정상 상품");
     }
 
     @Test

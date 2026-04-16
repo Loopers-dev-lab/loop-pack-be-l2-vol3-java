@@ -5,6 +5,7 @@ import com.loopers.application.ranking.RankingInfo;
 import com.loopers.application.ranking.RankingPageResult;
 
 import java.math.BigDecimal;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 public class RankingV1Dto {
@@ -35,13 +36,17 @@ public class RankingV1Dto {
             List<RankingItemResponse> items,
             long page,
             long size,
-            long totalElements
+            long totalElements,
+            ZonedDateTime lastUpdatedAt,
+            String periodKey,
+            boolean isFallback
     ) {
         public static RankingPageResponse from(RankingPageResult result) {
             List<RankingItemResponse> items = result.items().stream()
                     .map(RankingItemResponse::from)
                     .toList();
-            return new RankingPageResponse(items, result.page(), result.size(), result.totalElements());
+            return new RankingPageResponse(items, result.page(), result.size(), result.totalElements(),
+                    result.lastUpdatedAt(), result.periodKey(), result.isFallback());
         }
     }
 
