@@ -5,6 +5,8 @@ import com.loopers.application.ranking.RankingCursorResult;
 import com.loopers.application.ranking.RankingPageResult;
 import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.interfaces.api.ApiResponse;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 @RestController
 @RequestMapping("/api/v1/rankings")
@@ -91,7 +94,12 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         if (date == null || date.isBlank()) {
             return LocalDate.now();
         }
-        return LocalDate.parse(date, DATE_FORMATTER);
+        try {
+            return LocalDate.parse(date, DATE_FORMATTER);
+        } catch (DateTimeParseException e) {
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                    "지원하지 않는 date 형식: " + date + " (expected: yyyyMMdd)");
+        }
     }
 
     private int parseHourOrNow(Integer hour) {
