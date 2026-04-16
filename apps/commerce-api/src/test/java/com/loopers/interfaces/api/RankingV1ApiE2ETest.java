@@ -2,9 +2,12 @@ package com.loopers.interfaces.api;
 
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.product.Product;
+import com.loopers.domain.ranking.ProductRankSnapshot;
+import com.loopers.domain.ranking.RankingType;
 import com.loopers.event.ranking.RankingKeyGenerator;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
+import com.loopers.infrastructure.ranking.ProductRankSnapshotJpaRepository;
 import com.loopers.interfaces.api.product.dto.ProductV1Dto;
 import com.loopers.interfaces.api.ranking.dto.RankingV1Dto;
 import com.loopers.utils.DatabaseCleanUp;
@@ -51,6 +54,9 @@ class RankingV1ApiE2ETest {
 
     @Autowired
     private RedisCleanUp redisCleanUp;
+
+    @Autowired
+    private ProductRankSnapshotJpaRepository productRankSnapshotJpaRepository;
 
     @Autowired
     private Clock clock;
@@ -248,6 +254,157 @@ class RankingV1ApiE2ETest {
             List<RankingV1Dto.RankingResponse> items = response.getBody().data();
             assertThat(items).hasSize(1);
             assertThat(items.get(0).productId()).isEqualTo(active.getId());
+        }
+    }
+
+    @DisplayName("rankingType 파라미터로 조회시, ")
+    @Nested
+    class GetSnapshotRankings {
+
+        private ProductRankSnapshot saveSnapshot(RankingType type, LocalDate rankDate, int position,
+                                                 Long productId, String name, int price, String brandName, double score) {
+            return productRankSnapshotJpaRepository.save(ProductRankSnapshot.builder()
+                                                                            .rankingType(type)
+                                                                            .rankDate(rankDate)
+                                                                            .rankPosition(position)
+                                                                            .productId(productId)
+                                                                            .productName(name)
+                                                                            .price(price)
+                                                                            .brandName(brandName)
+                                                                            .totalViewCount(100L)
+                                                                            .totalLikeCount(50L)
+                                                                            .totalOrderLineCount(10L)
+                                                                            .totalOrderAmount(500000L)
+                                                                            .score(score)
+                                                                            .build());
+        }
+
+        @DisplayName("WEEKLY 지정 시 주간 랭킹을 점수 순으로 반환한다.")
+        @Test
+        void weeklyRanking_returnsSnapshotData() {
+            // arrange
+            LocalDate rankDate = LocalDate.of(2025, 4, 8);
+            Brand brand = saveBrand("나이키");
+            Product p1 = saveProduct(brand.getId(), "에어맥스", 200000, 10);
+            Product p2 = saveProduct(brand.getId(), "조던", 300000, 5);
+
+            saveSnapshot(RankingType.WEEKLY, rankDate, 1, p1.getId(), "에어맥스", 200000, "나이키", 700.0);
+            saveSnapshot(RankingType.WEEKLY, rankDate, 2, p2.getId(), "조던", 300000, "나이키", 500.0);
+
+            // act
+            ResponseEntity<ApiResponse<List<RankingV1Dto.RankingResponse>>> response =
+                    testRestTemplate.exchange(
+                            RANKING_ENDPOINT + "?rankingType=WEEKLY&size=10",
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            List<RankingV1Dto.RankingResponse> items = response.getBody().data();
+            assertThat(items).hasSize(2);
+            assertThat(items.get(0).productId()).isEqualTo(p1.getId());
+            assertThat(items.get(0).rank()).isEqualTo(1L);
+            assertThat(items.get(0).score()).isEqualTo(700.0);
+            assertThat(items.get(1).productId()).isEqualTo(p2.getId());
+            assertThat(items.get(1).rank()).isEqualTo(2L);
+        }
+
+        @DisplayName("MONTHLY 지정 시 월간 랭킹을 반환한다.")
+        @Test
+        void monthlyRanking_returnsSnapshotData() {
+            // arrange
+            LocalDate rankDate = LocalDate.of(2025, 4, 8);
+            Brand brand = saveBrand("아디다스");
+            Product p1 = saveProduct(brand.getId(), "슈퍼스타", 120000, 10);
+
+            saveSnapshot(RankingType.MONTHLY, rankDate, 1, p1.getId(), "슈퍼스타", 120000, "아디다스", 1500.0);
+
+            // act
+            ResponseEntity<ApiResponse<List<RankingV1Dto.RankingResponse>>> response =
+                    testRestTemplate.exchange(
+                            RANKING_ENDPOINT + "?rankingType=MONTHLY&size=10",
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            List<RankingV1Dto.RankingResponse> items = response.getBody().data();
+            assertThat(items).hasSize(1);
+            assertThat(items.get(0).productName()).isEqualTo("슈퍼스타");
+            assertThat(items.get(0).score()).isEqualTo(1500.0);
+        }
+
+        @DisplayName("rankingType 미지정 시 기존 Redis 일간 랭킹을 반환한다. (하위 호환)")
+        @Test
+        void defaultRankingType_returnsDailyFromRedis() {
+            // arrange
+            LocalDate today = LocalDate.now(clock);
+            String key = RankingKeyGenerator.keyOf(today);
+            Brand brand = saveBrand("뉴발란스");
+            Product product = saveProduct(brand.getId(), "990", 250000, 5);
+
+            seedRankingScore(key, product.getId(), 400.0);
+
+            // act
+            ResponseEntity<ApiResponse<List<RankingV1Dto.RankingResponse>>> response =
+                    testRestTemplate.exchange(
+                            RANKING_ENDPOINT + "?size=10",
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            List<RankingV1Dto.RankingResponse> items = response.getBody().data();
+            assertThat(items).hasSize(1);
+            assertThat(items.get(0).productId()).isEqualTo(product.getId());
+        }
+
+        @DisplayName("WEEKLY 지정 시 배치 결과가 없으면 빈 리스트를 반환한다.")
+        @Test
+        void weeklyRanking_returnsEmptyWhenNoData() {
+            // act
+            ResponseEntity<ApiResponse<List<RankingV1Dto.RankingResponse>>> response =
+                    testRestTemplate.exchange(
+                            RANKING_ENDPOINT + "?rankingType=WEEKLY",
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            assertThat(response.getBody().data()).isEmpty();
+        }
+
+        @DisplayName("WEEKLY 조회 시 page/size 기반 페이지네이션이 동작한다.")
+        @Test
+        void weeklyRanking_paginationWorks() {
+            // arrange
+            LocalDate rankDate = LocalDate.of(2025, 4, 8);
+            Brand brand = saveBrand("푸마");
+            Product p1 = saveProduct(brand.getId(), "상품1", 100000, 10);
+            Product p2 = saveProduct(brand.getId(), "상품2", 100000, 10);
+            Product p3 = saveProduct(brand.getId(), "상품3", 100000, 10);
+
+            saveSnapshot(RankingType.WEEKLY, rankDate, 1, p1.getId(), "상품1", 100000, "푸마", 300.0);
+            saveSnapshot(RankingType.WEEKLY, rankDate, 2, p2.getId(), "상품2", 100000, "푸마", 200.0);
+            saveSnapshot(RankingType.WEEKLY, rankDate, 3, p3.getId(), "상품3", 100000, "푸마", 100.0);
+
+            // act — page 2, size 2 → 3위만 반환
+            ResponseEntity<ApiResponse<List<RankingV1Dto.RankingResponse>>> response =
+                    testRestTemplate.exchange(
+                            RANKING_ENDPOINT + "?rankingType=WEEKLY&page=2&size=2",
+                            HttpMethod.GET, null,
+                            new ParameterizedTypeReference<>() {}
+                    );
+
+            // assert
+            List<RankingV1Dto.RankingResponse> items = response.getBody().data();
+            assertThat(items).hasSize(1);
+            assertThat(items.get(0).productId()).isEqualTo(p3.getId());
+            assertThat(items.get(0).rank()).isEqualTo(3L);
         }
     }
 
