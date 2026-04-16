@@ -57,4 +57,20 @@ public final class RankingKeyGenerator {
     public static String previousMonthlyPeriodKey(LocalDate date) {
         return monthlyPeriodKey(date.minusMonths(1));
     }
+
+    public static String quarterlyPeriodKey(LocalDate date) {
+        return date.format(DAILY_FMT);
+    }
+
+    public static LocalDate quarterlyStart(LocalDate date) {
+        return date.minusDays(89);
+    }
+
+    public static LocalDate quarterlyEnd(LocalDate date) {
+        return date;
+    }
+
+    public static String previousQuarterlyPeriodKey(LocalDate date) {
+        return quarterlyPeriodKey(date.minusDays(1));
+    }
 }
