@@ -2,6 +2,8 @@ package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductResult;
 import com.loopers.application.product.ProductService;
+import com.loopers.application.ranking.RankInfo;
+import com.loopers.application.ranking.RankingQueryService;
 import com.loopers.domain.product.ProductSort;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -13,12 +15,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/v1/products")
 public class ProductV1Controller implements ProductV1ApiSpec {
 
     private final ProductService productService;
+    private final RankingQueryService rankingQueryService;
 
     @GetMapping
     @Override
@@ -34,8 +39,9 @@ public class ProductV1Controller implements ProductV1ApiSpec {
 
     @GetMapping("/{productId}")
     @Override
-    public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
+    public ApiResponse<ProductV1Dto.ProductDetailResponse> getProduct(@PathVariable Long productId) {
         ProductResult result = productService.findById(productId);
-        return ApiResponse.success(ProductV1Dto.ProductResponse.from(result));
+        RankInfo rankInfo = rankingQueryService.getProductRank(productId, LocalDate.now());
+        return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(result, rankInfo));
     }
 }

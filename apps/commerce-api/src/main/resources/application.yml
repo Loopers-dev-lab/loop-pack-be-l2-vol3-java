@@ -27,6 +27,7 @@ spring:
       - logging.yml
       - monitoring.yml
       - queue.yml
+      - ranking.yml
 
 springdoc:
   use-fqn: true

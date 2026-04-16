@@ -1,0 +1,10 @@
+ranking:
+  key-prefix: "ranking:all:"
+  ttl-days: 2
+
+---
+spring.config.activate.on-profile: test
+
+ranking:
+  key-prefix: "ranking:all:"
+  ttl-days: 2

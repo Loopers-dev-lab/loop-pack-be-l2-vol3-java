@@ -1,0 +1,27 @@
+### Ranking API - 랭킹 관련 API
+
+### 오늘 랭킹 조회 (기본값)
+GET {{baseUrl}}/api/v1/rankings?size=20&page=1
+
+### 특정 날짜 랭킹 조회
+GET {{baseUrl}}/api/v1/rankings?date=20250407&size=20&page=1
+
+### 랭킹 2페이지 조회
+GET {{baseUrl}}/api/v1/rankings?size=10&page=2
+
+###
+
+### Hourly Ranking API - 시간별 랭킹 관련 API (TTL: 3시간)
+
+### 현재 시간 랭킹 조회 (기본값)
+GET {{baseUrl}}/api/v1/rankings/hourly?size=20&page=1
+
+### 특정 시간 랭킹 조회 (yyyyMMddHH 형식)
+GET {{baseUrl}}/api/v1/rankings/hourly?hour=2025040714&size=20&page=1
+
+###
+
+### Product API - 랭킹 정보 포함 상품 상세 조회
+
+### 상품 상세 조회 (랭킹 정보 포함)
+GET {{baseUrl}}/api/v1/products/1

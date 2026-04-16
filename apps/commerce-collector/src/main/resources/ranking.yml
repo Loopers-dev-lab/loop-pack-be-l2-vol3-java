@@ -1,0 +1,16 @@
+ranking:
+  view-weight: 0.1
+  like-weight: 0.2
+  order-weight: 0.7
+  key-prefix: "ranking:all:"
+  ttl-days: 2
+
+---
+spring.config.activate.on-profile: test
+
+ranking:
+  view-weight: 0.1
+  like-weight: 0.2
+  order-weight: 0.7
+  key-prefix: "ranking:all:"
+  ttl-days: 2

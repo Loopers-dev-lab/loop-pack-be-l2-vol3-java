@@ -8,6 +8,7 @@ import com.loopers.event.EventEnvelope;
 import com.loopers.event.EventType;
 import com.loopers.fake.FakeEventHandledRepository;
 import com.loopers.fake.FakeProductMetricsRepository;
+import com.loopers.fake.FakeRankingBatchProcessor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -26,6 +27,7 @@ class MetricsEventConsumerTest {
     private FakeEventHandledRepository eventHandledRepository;
     private FakeProductMetricsRepository productMetricsRepository;
     private ObjectMapper objectMapper;
+    private FakeRankingBatchProcessor rankingBatchProcessor;
     private MetricsEventConsumer consumer;
 
     @BeforeEach
@@ -34,7 +36,13 @@ class MetricsEventConsumerTest {
         productMetricsRepository = new FakeProductMetricsRepository();
         objectMapper = new ObjectMapper();
         objectMapper.findAndRegisterModules();
-        consumer = new MetricsEventConsumer(eventHandledRepository, productMetricsRepository, objectMapper);
+        rankingBatchProcessor = new FakeRankingBatchProcessor();
+        consumer = new MetricsEventConsumer(
+            eventHandledRepository,
+            productMetricsRepository,
+            objectMapper,
+            rankingBatchProcessor
+        );
     }
 
     private EventEnvelope createEnvelope(EventType eventType, AggregateType aggregateType, String aggregateId, String payload) {
@@ -176,6 +184,125 @@ class MetricsEventConsumerTest {
             assertThat(metrics).isPresent();
             assertThat(metrics.get().getOrderCount()).isEqualTo(3);
             assertThat(metrics.get().getOrderTotalAmount()).isEqualTo(30000);
+        }
+    }
+
+    @Nested
+    @DisplayName("배치 이벤트 처리")
+    class BatchProcessing {
+
+        @Test
+        @DisplayName("성공 - 여러 이벤트를 배치로 처리하면 product_metrics는 개별 처리된다")
+        void 배치_처리_메트릭스_개별_처리() {
+            // Arrange
+            List<EventEnvelope> envelopes = List.of(
+                createEnvelope(EventType.PRODUCT_VIEWED, AggregateType.PRODUCT, "100", "{}"),
+                createEnvelope(EventType.PRODUCT_VIEWED, AggregateType.PRODUCT, "100", "{}"),
+                createEnvelope(EventType.PRODUCT_VIEWED, AggregateType.PRODUCT, "200", "{}"),
+                createEnvelope(EventType.LIKE_CREATED, AggregateType.PRODUCT, "100", "{}")
+            );
+
+            // Act
+            consumer.processEventsBatch(envelopes);
+
+            // Assert - product_metrics는 개별 처리됨
+            Optional<ProductMetrics> metrics100 = productMetricsRepository.findByProductId(100L);
+            Optional<ProductMetrics> metrics200 = productMetricsRepository.findByProductId(200L);
+
+            assertThat(metrics100).isPresent();
+            assertThat(metrics100.get().getViewCount()).isEqualTo(2);
+            assertThat(metrics100.get().getLikeCount()).isEqualTo(1);
+
+            assertThat(metrics200).isPresent();
+            assertThat(metrics200.get().getViewCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("성공 - 배치 처리 시 랭킹은 RankingBatchProcessor로 일괄 처리된다")
+        void 배치_처리_랭킹_일괄_처리() {
+            // Arrange
+            List<EventEnvelope> envelopes = List.of(
+                createEnvelope(EventType.PRODUCT_VIEWED, AggregateType.PRODUCT, "100", "{}"),
+                createEnvelope(EventType.PRODUCT_VIEWED, AggregateType.PRODUCT, "100", "{}"),
+                createEnvelope(EventType.PRODUCT_VIEWED, AggregateType.PRODUCT, "200", "{}"),
+                createEnvelope(EventType.LIKE_CREATED, AggregateType.PRODUCT, "100", "{}")
+            );
+
+            // Act
+            consumer.processEventsBatch(envelopes);
+
+            // Assert - RankingBatchProcessor가 1회만 호출됨
+            assertThat(rankingBatchProcessor.getBatchCallCount()).isEqualTo(1);
+
+            // Assert - 배치 호출에 4개 엔트리가 전달됨
+            List<List<com.loopers.application.ranking.RankingBatchProcessor.ScoreEntry>> history =
+                rankingBatchProcessor.getBatchCallHistory();
+            assertThat(history.get(0)).hasSize(4);
+        }
+
+        @Test
+        @DisplayName("성공 - 배치 내 중복 이벤트는 멱등성 체크로 스킵된다")
+        void 배치_내_중복_이벤트_스킵() {
+            // Arrange
+            String eventId = UUID.randomUUID().toString();
+            EventEnvelope duplicateEnvelope = new EventEnvelope(
+                eventId,
+                EventType.PRODUCT_VIEWED.name(),
+                AggregateType.PRODUCT.name(),
+                "100",
+                Instant.now(),
+                "{}"
+            );
+
+            List<EventEnvelope> envelopes = List.of(
+                duplicateEnvelope,
+                duplicateEnvelope, // 동일 이벤트
+                createEnvelope(EventType.PRODUCT_VIEWED, AggregateType.PRODUCT, "200", "{}")
+            );
+
+            // Act
+            consumer.processEventsBatch(envelopes);
+
+            // Assert - 중복 이벤트는 1회만 처리됨
+            Optional<ProductMetrics> metrics100 = productMetricsRepository.findByProductId(100L);
+            assertThat(metrics100).isPresent();
+            assertThat(metrics100.get().getViewCount()).isEqualTo(1);
+
+            // Assert - 랭킹 배치에도 중복 제외된 2개만 포함
+            List<List<com.loopers.application.ranking.RankingBatchProcessor.ScoreEntry>> history =
+                rankingBatchProcessor.getBatchCallHistory();
+            assertThat(history.get(0)).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("성공 - ORDER_COMPLETED 배치 처리")
+        void 배치_처리_주문_이벤트() {
+            // Arrange
+            List<EventEnvelope> envelopes = List.of(
+                createEnvelope(EventType.ORDER_COMPLETED, AggregateType.ORDER, "1",
+                    "{\"orderId\":1,\"userId\":100,\"productId\":100,\"quantity\":2,\"totalAmount\":20000}"),
+                createEnvelope(EventType.ORDER_COMPLETED, AggregateType.ORDER, "2",
+                    "{\"orderId\":2,\"userId\":100,\"productId\":100,\"quantity\":3,\"totalAmount\":30000}"),
+                createEnvelope(EventType.ORDER_COMPLETED, AggregateType.ORDER, "3",
+                    "{\"orderId\":3,\"userId\":200,\"productId\":200,\"quantity\":1,\"totalAmount\":10000}")
+            );
+
+            // Act
+            consumer.processEventsBatch(envelopes);
+
+            // Assert - product_metrics 개별 처리
+            Optional<ProductMetrics> metrics100 = productMetricsRepository.findByProductId(100L);
+            assertThat(metrics100).isPresent();
+            assertThat(metrics100.get().getOrderCount()).isEqualTo(5); // 2 + 3
+            assertThat(metrics100.get().getOrderTotalAmount()).isEqualTo(50000); // 20000 + 30000
+
+            Optional<ProductMetrics> metrics200 = productMetricsRepository.findByProductId(200L);
+            assertThat(metrics200).isPresent();
+            assertThat(metrics200.get().getOrderCount()).isEqualTo(1);
+
+            // Assert - 랭킹 배치 1회 호출, 3개 엔트리
+            assertThat(rankingBatchProcessor.getBatchCallCount()).isEqualTo(1);
+            assertThat(rankingBatchProcessor.getBatchCallHistory().get(0)).hasSize(3);
         }
     }
 }

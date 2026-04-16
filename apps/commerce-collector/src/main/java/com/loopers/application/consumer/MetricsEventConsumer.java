@@ -3,6 +3,8 @@ package com.loopers.application.consumer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.loopers.application.ranking.RankingBatchProcessor;
+import com.loopers.application.ranking.RankingBatchProcessor.ScoreEntry;
 import com.loopers.domain.eventhandled.EventHandled;
 import com.loopers.domain.eventhandled.EventHandledRepository;
 import com.loopers.domain.metrics.ProductMetrics;
@@ -17,6 +19,9 @@ import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * 메트릭 수집을 위한 Kafka Consumer.
  * catalog-events, order-events 토픽에서 이벤트를 수신하여 메트릭을 집계.
@@ -29,61 +34,95 @@ public class MetricsEventConsumer {
     private final EventHandledRepository eventHandledRepository;
     private final ProductMetricsRepository productMetricsRepository;
     private final ObjectMapper objectMapper;
+    private final RankingBatchProcessor rankingBatchProcessor;
 
     @KafkaListener(
         topics = {KafkaTopics.CATALOG_EVENTS, KafkaTopics.ORDER_EVENTS},
-        groupId = "metrics-collector"
+        groupId = "metrics-collector",
+        batch = "true"
     )
     @Transactional
-    public void consume(EventEnvelope envelope, Acknowledgment ack) {
+    public void consumeBatch(List<EventEnvelope> envelopes, Acknowledgment ack) {
         try {
-            processEvent(envelope);
+            processEventsBatch(envelopes);
             ack.acknowledge();
+            log.debug("Batch processed: count={}", envelopes.size());
         } catch (Exception e) {
-            log.error("Failed to process event: eventId={}, type={}",
-                envelope.eventId(), envelope.eventType(), e);
+            log.error("Failed to process batch: count={}", envelopes.size(), e);
             // 처리 실패 시 acknowledge하지 않아 재처리됨
         }
     }
 
     /**
-     * 이벤트 처리 (테스트 가능하도록 분리)
+     * 단건 이벤트 처리 (테스트 가능하도록 분리)
+     * 내부적으로 배치 처리를 호출합니다.
      */
     @Transactional
     public void processEvent(EventEnvelope envelope) {
-        // 1. 멱등성 체크
-        if (eventHandledRepository.existsByEventId(envelope.eventId())) {
-            log.debug("Event already handled: eventId={}", envelope.eventId());
+        processEventsBatch(List.of(envelope));
+    }
+
+    /**
+     * 배치 이벤트 처리.
+     * product_metrics는 개별 처리하고, 랭킹 점수는 배치로 일괄 처리합니다.
+     *
+     * @param envelopes 이벤트 목록
+     */
+    @Transactional
+    public void processEventsBatch(List<EventEnvelope> envelopes) {
+        if (envelopes == null || envelopes.isEmpty()) {
             return;
         }
 
-        // 2. 이벤트 타입별 처리
-        EventType eventType = EventType.valueOf(envelope.eventType());
-        switch (eventType) {
-            case LIKE_CREATED -> handleLikeCreated(envelope);
-            case LIKE_CANCELED -> handleLikeCanceled(envelope);
-            case PRODUCT_VIEWED -> handleProductViewed(envelope);
-            case ORDER_COMPLETED -> handleOrderCompleted(envelope);
+        List<ScoreEntry> scoreEntries = new ArrayList<>();
+
+        for (EventEnvelope envelope : envelopes) {
+            // 1. 멱등성 체크
+            if (eventHandledRepository.existsByEventId(envelope.eventId())) {
+                log.debug("Event already handled: eventId={}", envelope.eventId());
+                continue;
+            }
+
+            // 2. 이벤트 타입별 처리 (product_metrics 개별 처리, 랭킹 점수 수집)
+            EventType eventType = EventType.valueOf(envelope.eventType());
+            ScoreEntry scoreEntry = switch (eventType) {
+                case LIKE_CREATED -> handleLikeCreated(envelope);
+                case LIKE_CANCELED -> handleLikeCanceled(envelope);
+                case PRODUCT_VIEWED -> handleProductViewed(envelope);
+                case ORDER_COMPLETED -> handleOrderCompleted(envelope);
+                default -> null;
+            };
+
+            if (scoreEntry != null) {
+                scoreEntries.add(scoreEntry);
+            }
+
+            // 3. 처리 완료 기록
+            eventHandledRepository.save(EventHandled.create(envelope.eventId(), envelope.eventType()));
+            log.debug("Event processed: eventId={}, type={}", envelope.eventId(), envelope.eventType());
         }
 
-        // 3. 처리 완료 기록
-        eventHandledRepository.save(EventHandled.create(envelope.eventId(), envelope.eventType()));
-        log.debug("Event processed: eventId={}, type={}", envelope.eventId(), envelope.eventType());
+        // 4. 랭킹 점수 배치 처리
+        if (!scoreEntries.isEmpty()) {
+            rankingBatchProcessor.addScoresBatch(scoreEntries);
+            log.debug("Batch ranking scores processed: count={}", scoreEntries.size());
+        }
     }
 
-    private void handleLikeCreated(EventEnvelope envelope) {
+    private ScoreEntry handleLikeCreated(EventEnvelope envelope) {
         Long productId = Long.parseLong(envelope.aggregateId());
         ProductMetrics metrics = productMetricsRepository.getOrCreate(productId);
 
-        // 이벤트 순서 검증 (delta 연산이므로 경고만 로그)
         validateEventOrder(metrics, envelope);
 
         metrics.incrementLikeCount();
         metrics.updateLastEventTimestamp(envelope.timestamp());
         productMetricsRepository.save(metrics);
+
+        return ScoreEntry.of(productId, EventType.LIKE_CREATED, 1.0);
     }
 
-    private void handleLikeCanceled(EventEnvelope envelope) {
+    private ScoreEntry handleLikeCanceled(EventEnvelope envelope) {
         Long productId = Long.parseLong(envelope.aggregateId());
         ProductMetrics metrics = productMetricsRepository.getOrCreate(productId);
 
@@ -92,9 +131,11 @@ public class MetricsEventConsumer {
         metrics.decrementLikeCount();
         metrics.updateLastEventTimestamp(envelope.timestamp());
         productMetricsRepository.save(metrics);
+
+        return ScoreEntry.of(productId, EventType.LIKE_CANCELED, 1.0);
     }
 
-    private void handleProductViewed(EventEnvelope envelope) {
+    private ScoreEntry handleProductViewed(EventEnvelope envelope) {
         Long productId = Long.parseLong(envelope.aggregateId());
         ProductMetrics metrics = productMetricsRepository.getOrCreate(productId);
 
@@ -103,9 +144,11 @@ public class MetricsEventConsumer {
         metrics.incrementViewCount();
         metrics.updateLastEventTimestamp(envelope.timestamp());
         productMetricsRepository.save(metrics);
+
+        return ScoreEntry.of(productId, EventType.PRODUCT_VIEWED, 1.0);
     }
 
-    private void handleOrderCompleted(EventEnvelope envelope) {
+    private ScoreEntry handleOrderCompleted(EventEnvelope envelope) {
         try {
             JsonNode payload = objectMapper.readTree(envelope.payload());
             Long productId = payload.get("productId").asLong();
@@ -119,6 +162,8 @@ public class MetricsEventConsumer {
             metrics.addOrder(quantity, totalAmount);
             metrics.updateLastEventTimestamp(envelope.timestamp());
             productMetricsRepository.save(metrics);
+
+            return ScoreEntry.of(productId, EventType.ORDER_COMPLETED, (double) totalAmount);
         } catch (JsonProcessingException e) {
             log.error("Failed to parse order completed event payload: eventId={}", envelope.eventId(), e);
             throw new RuntimeException("Failed to parse event payload", e);

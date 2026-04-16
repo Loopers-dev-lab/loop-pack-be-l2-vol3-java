@@ -1,7 +1,9 @@
 package com.loopers.interfaces.api.product;
 
 import com.loopers.application.product.ProductResult;
+import com.loopers.application.ranking.RankInfo;
 import com.loopers.domain.product.ProductInfo;
+import com.loopers.interfaces.api.ranking.RankingV1Dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -35,6 +37,36 @@ public class ProductV1Dto {
                 result.likeCount(),
                 result.createdAt(),
                 result.updatedAt()
+            );
+        }
+    }
+
+    public record ProductDetailResponse(
+        Long id,
+        Long brandId,
+        String name,
+        String description,
+        Long price,
+        Integer stock,
+        String imageUrl,
+        Long likeCount,
+        ZonedDateTime createdAt,
+        ZonedDateTime updatedAt,
+        RankingV1Dto.RankInfoResponse rankInfo
+    ) {
+        public static ProductDetailResponse from(ProductResult result, RankInfo rankInfo) {
+            return new ProductDetailResponse(
+                result.id(),
+                result.brandId(),
+                result.name(),
+                result.description(),
+                result.price(),
+                result.stock(),
+                result.imageUrl(),
+                result.likeCount(),
+                result.createdAt(),
+                result.updatedAt(),
+                rankInfo != null ? RankingV1Dto.RankInfoResponse.from(rankInfo) : null
             );
         }
     }

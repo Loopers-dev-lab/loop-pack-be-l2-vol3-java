@@ -22,6 +22,8 @@ spring:
     import:
       - jpa.yml
       - kafka.yml
+      - redis.yml
+      - ranking.yml
       - logging.yml
       - monitoring.yml
 
