@@ -228,9 +228,108 @@ MV (메트릭 합산 후 score):
 
 ---
 
-## 소재 5: (구현 후 추가 예정)
+## 소재 5: Score 계산과 TOP-N 필터링 — DB에서 하는가, Java에서 하는가
 
-- Chunk-Oriented에서 TOP-N 필터링을 어디서 하는가 (Reader vs Processor vs Writer)
+### 고민의 시작
+
+Chunk-Oriented 배치에서 "전체 상품의 score를 계산하고 TOP 100만 MV에 적재"해야 한다. 이 로직을 어디에 배치하느냐에 따라 효율이 크게 달라진다.
+
+### 검토한 방안
+
+| 방안 | Reader | Processor | Writer | 비효율 포인트 |
+|------|--------|-----------|--------|-------------|
+| **A. Java 전체 처리** | 전체 조회 (수만 건) | score 계산 | 정렬 + TOP 100 INSERT | 수만 건을 Java로 읽어와서 정렬/필터링 — DB가 이미 최적화된 작업을 애플리케이션에서 반복 |
+| **B. 전체 INSERT 후 삭제** | 전체 조회 | score 계산 | 전체 INSERT → Step 3에서 100위 밖 DELETE | 수만 건 INSERT 후 대부분 삭제 — 불필요한 I/O |
+| **C. SQL에서 완료 (채택)** | GROUP BY + score + ORDER BY + LIMIT 100 → **100건만 반환** | ranking 부여 | 100건 INSERT | DB가 집계, 계산, 정렬, 필터링을 한 번에 처리 |
+
+### 방안 C가 효율적인 이유: SQL 실행 순서
+
+```
+1. FROM / JOIN    → product_metrics × product 조인
+2. WHERE          → 날짜 범위 필터
+3. GROUP BY       → product_id별 그룹핑 + SUM 집계
+4. SELECT         → score 계산 (LOG10 등 수학 함수)
+5. ORDER BY       → score 내림차순 정렬 (전체 상품 대상)
+6. LIMIT 100      → 상위 100건만 반환
+```
+
+DB가 **전체 상품의 score를 계산하고 정렬한 후** 상위 100건만 네트워크로 전달한다. Reader는 100건만 받지만, 그 100건이 score 기준 TOP 100인 것은 DB가 보장한다.
+
+Reader SQL:
+
+```sql
+SELECT
+    pm.product_id,
+    SUM(pm.view_count) AS total_view_count,
+    SUM(pm.like_count - pm.unlike_count) AS total_net_like_count,
+    SUM(pm.sales_count) AS total_sales_count,
+    SUM(pm.sales_amount - pm.cancel_amount_by_event_date) AS total_net_sales_amount,
+    (
+        0.1 * LOG10(GREATEST(SUM(pm.view_count), 0) + 1) / 7.0
+      + 0.2 * LOG10(GREATEST(SUM(pm.like_count - pm.unlike_count), 0) + 1) / 7.0
+      + 0.7 * LOG10(GREATEST(SUM(pm.sales_amount - pm.cancel_amount_by_event_date), 0) + 1) / 7.0
+      + UNIX_TIMESTAMP() * 1e-16
+    ) AS score
+FROM product_metrics pm
+JOIN product p ON pm.product_id = p.id
+WHERE pm.metric_date BETWEEN :startDate AND :endDate
+  AND p.deleted_at IS NULL
+GROUP BY pm.product_id
+ORDER BY score DESC
+LIMIT 100
+```
+
+### 회사 배치 앱에서의 검증
+
+회사 코드를 분석한 결과, **score 계산 + TOP-N 필터링을 SQL에서 처리하는 것이 실무 표준**이었다:
+
+**GoodsBestMapper.xml** — 상품 베스트 TOP 100:
+
+```sql
+RANK() OVER (ORDER BY SUM(ORD_QTY) DESC) AS DT_RNK
+...
+WHERE DT_RNK <= 100
+```
+
+- Java(GoodsBestServiceImpl)는 파라미터만 전달. 랭킹 로직 없음
+- DELETE → INSERT 패턴. SQL이 모든 계산을 처리
+
+**GoodsNewMapper.xml** — 카테고리별 신상품 TOP 50:
+
+```sql
+DENSE_RANK() OVER (PARTITION BY DISP_CTG_NO ORDER BY SYS_REG_DTM DESC) AS DT_RNK
+WHERE DT_RNK <= 50
+```
+
+**EtEntrEvltAgrtTrxMapper.xml** — 입점사 매출 상위 10%:
+
+```sql
+PERCENT_RANK() OVER (ORDER BY SUM(ORD_AMT - CNCL_AMT) DESC) AS PERCENT_RNK
+WHERE PERCENT_RNK <= 0.1
+```
+
+**12개 매퍼에서 `RANK()`, `DENSE_RANK()`, `ROW_NUMBER()`, `PERCENT_RANK()` 윈도우 함수 사용.** Java에서 랭킹/스코어링을 처리하는 배치 Job은 없었다.
+
+### 트레이드오프: Score 공식의 이중 관리
+
+SQL에 score 공식을 넣으면, RankingCorrectionJob(Java)과 MV Job(SQL)에 같은 공식이 두 곳에 존재한다.
+
+| 관점 | 분석 |
+|------|------|
+| **왜 허용 가능한가** | 두 Job은 입력이 다르다. RankingCorrectionJob은 **일간 메트릭**(CURDATE() 1일)을 읽고, MV Job은 **기간 합산 메트릭**(7일/30일 SUM)을 읽는다. 같은 공식이지만 적용 대상이 다르므로 하나의 Java 메서드를 공유하는 것이 오히려 부자연스럽다 |
+| **변경 시 위험** | 가중치(0.1/0.2/0.7)나 MAX_LOG(7.0) 변경 시 두 곳 모두 수정 필요. 하지만 가중치는 `application.yml`에 정의되어 있으므로, SQL에서도 파라미터로 주입 가능 |
+| **회사 코드 참고** | 회사는 score 공식이 SQL에만 존재(Java에 없음). 우리 프로젝트는 RankingCorrectionJob이 이미 Java에 공식을 가지고 있어서 이중 관리가 발생하지만, 이것은 두 Job의 역할이 다르기 때문에 합리적인 중복이다 |
+
+### 이 판단에서 배운 것
+
+- **"어디서 계산하느냐"는 효율의 문제이지 패턴의 문제가 아니다.** Chunk-Oriented에서 Processor가 비즈니스 로직을 담당해야 한다는 것은 일반론이지, 모든 경우에 적용해야 하는 규칙이 아니다
+- **DB가 잘하는 일(집계, 정렬, 필터링)은 DB에서 끝내야 한다.** 수만 건을 Java로 읽어와서 정렬하는 것은 DB가 이미 최적화된 실행 계획으로 한 번에 처리할 수 있는 일을 애플리케이션에서 반복하는 것이다
+- **회사 코드가 이 판단을 뒷받침한다.** 12개 매퍼에서 윈도우 함수로 TOP-N을 처리하고, Java는 오케스트레이션만 하는 것이 이 회사의 실무 표준이다
+
+---
+
+## 소재 6: (구현 후 추가 예정)
+
 - 멱등성을 DELETE+INSERT로 보장하는 실무 패턴
 - Spring Batch 파라미터 설계와 Job Instance 동일성
 - MV vs Redis 실제 랭킹 비교 결과 (score 차이 분석)
