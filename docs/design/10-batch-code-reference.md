@@ -742,7 +742,191 @@ public Step mileageRemoveStep(@Value("#{jobParameters[batchDate]}") String batch
 
 ---
 
-## 10. 내 과제에 적용할 패턴 요약
+## 10. Composite VO Processor 패턴 (mbod/MileageRemoveConfig)
+
+> Reader 결과 1건 → Processor에서 여러 도메인 객체 생성 → CompositeItemWriter가 각각 처리
+
+### 구조
+
+```
+[Reader: MbrAsstResponse]          ← 만료 마일리지 1건 읽기
+        │
+[Processor: 복합 변환]
+        │  ├── EtMbrAstMgrHist (INSERT용) ← 소멸 이력 생성
+        │  ├── EtMbrAstMgrHist (UPDATE용) ← 기존 이력 마감
+        │  └── MeMbrAstSum               ← 잔액 합계 갱신
+        │
+[MileageExpireRequestVo]           ← 3개 객체를 감싸는 Composite VO
+        │
+[CompositeItemWriter]
+        ├── Writer1: UPDATE (기존 이력 마감)
+        ├── Writer2: INSERT (소멸 이력 생성)
+        └── Writer3: UPDATE (잔액 합계)
+```
+
+### Composite VO
+
+```java
+@Getter @Setter
+public class MileageExpireRequestVo extends BaseCommonEntity {
+    private MeMbrAstSum meMbrAstSum;                      // 잔액 합계
+    private EtMbrAstMgrHist insertEtMbrAstMgrHist;        // INSERT용
+    private EtMbrAstMgrHist updateEtMbrAstMgrHist;        // UPDATE용
+}
+```
+
+### Processor 핵심 로직
+
+```java
+@Bean
+public ItemProcessor<MbrAsstResponse, MileageExpireRequestVo> mileageExpireListItemProcessor() {
+    return item -> {
+        // 1. 트랜잭션 ID 생성
+        String astMgrNo = DateUtil.getToday("yyyyMMdd")
+            .concat("E")
+            .concat(DateTimeUtil.getFormatString("HHmmss.SSS"));
+
+        // 2. INSERT 엔티티 생성 (소멸 이력)
+        EtMbrAstMgrHist insertHist = new EtMbrAstMgrHist(item.getValiStrDt(), item.getValiEndDt());
+        insertHist.createInsertUseMlg(
+            item.getMbrNo(),
+            item.createMileageSaveUse(ME015.MILEAGE, ME016.USE, ME020.EXPIRE, astMgrNo),
+            item.getAstMgrSeq());
+
+        // 3. UPDATE 엔티티 생성 (기존 이력 마감)
+        EtMbrAstMgrHist updateHist = EtMbrAstMgrHist.createUpdateUseMlg(item);
+
+        // 4. 잔액 합계 갱신 엔티티
+        MeMbrAstSum summary = new MeMbrAstSum().createUptMeMbrAstSum(insertHist);
+
+        // 5. Composite VO에 래핑
+        MileageExpireRequestVo vo = new MileageExpireRequestVo();
+        vo.setSysRegId("BATCH");
+        vo.setSysModId("BATCH");
+        vo.setInsertEtMbrAstMgrHist(insertHist);
+        vo.setUpdateEtMbrAstMgrHist(updateHist);
+        vo.setMeMbrAstSum(summary);
+        return vo;
+    };
+}
+```
+
+**내 과제 시사점**:
+- 내 과제에서는 Reader 결과(메트릭 합계) → Processor(score 계산) → 단일 Writer(INSERT)이므로 Composite VO까지는 불필요
+- 하지만 향후 "MV 적재 + Redis 갱신"을 동시에 해야 한다면 이 패턴이 유용
+
+---
+
+## 11. ExecutionContext 기반 재시작/재개 패턴 (gddp/SearchProductIndex)
+
+> 대량 데이터 처리 시 장애가 발생하면, 처리 완료된 청크를 건너뛰고 실패 지점부터 재개하는 패턴
+
+### 커스텀 MyBatisPagingItemReader
+
+```java
+MyBatisPagingItemReader<SearchProductIndexInfo> reader = new MyBatisPagingItemReader<>() {
+    private int currentPage = 0;
+    private Map<String, Object> parameterValues;
+
+    @Override
+    public void open(ExecutionContext executionContext) {
+        super.open(executionContext);
+        // 재시작 시 이전 위치 복원
+        if (executionContext.containsKey("currentPage")) {
+            currentPage = executionContext.getInt("currentPage");
+        }
+        if (parameterValues == null) {
+            parameterValues = new HashMap<>();
+            parameterValues.put("limit", DEFAULT_PAGE_SIZE);    // 10,000
+            parameterValues.put("offset", currentPage * DEFAULT_PAGE_SIZE);
+            setParameterValues(parameterValues);
+        }
+    }
+
+    @Override
+    protected void doReadPage() {
+        parameterValues.put("offset", currentPage * DEFAULT_PAGE_SIZE);
+        currentPage++;
+        super.doReadPage();
+    }
+
+    @Override
+    public void update(ExecutionContext executionContext) {
+        super.update(executionContext);
+        // 청크 완료 후 현재 페이지 저장
+        executionContext.putInt("currentPage", currentPage);
+    }
+};
+```
+
+### 재시작 흐름
+
+```
+최초 실행:
+  Chunk 1: offset=0      → 0~9,999     ✓  → save currentPage=1
+  Chunk 2: offset=10,000 → 10,000~19,999 ✓ → save currentPage=2
+  Chunk 3: offset=20,000 → 20,000~29,999 ✗ FAILURE (DB 커넥션 에러)
+           → ExecutionContext에 currentPage=2 저장됨
+
+재시작:
+  open() → executionContext에서 currentPage=2 복원
+  Chunk 3: offset=20,000 → 20,000~29,999 ✓ → 실패 지점부터 재개
+  Chunk 4: offset=30,000 → ...
+```
+
+### 페이지네이션 SQL
+
+```sql
+SELECT ... FROM PR_GOODS_SEARCH_INTF PGSI
+WHERE INDEX_YN = 'N' AND DISP_CTG_NO IS NOT NULL
+ORDER BY SYS_MOD_DTM, ID          -- 결정적 정렬: 재시작 시 동일 결과 보장
+LIMIT #{limit} OFFSET #{offset}
+```
+
+**내 과제 시사점**:
+- 내 과제의 MV 적재는 상품 수가 수천~수만 수준이므로 재시작 패턴까지는 불필요
+- 하지만 `JdbcCursorItemReader`는 기본적으로 ExecutionContext에 read count를 저장하므로, Spring Batch의 재시작 메커니즘이 자동으로 동작함
+- 상품 10만 건 이상 규모에서는 이 패턴을 고려할 가치 있음
+
+---
+
+## 12. 회사 vs 내 프로젝트 application.yml 비교
+
+### 핵심 차이점
+
+| 설정 | 회사 배치 앱 | commerce-batch | 조치 필요 여부 |
+|------|------------|---------------|--------------|
+| **spring.batch.job.enabled** | `false` (수동 트리거) | 미설정 (기본값 true) | 기존 Job이 있으므로 이미 `${job.name:NONE}`으로 제어 중. 현행 유지 |
+| **graceful shutdown** | `server.shutdown: graceful`, 타임아웃 24h | 미설정 | 배치 Job이 중간에 끊기면 데이터 정합성 문제. 설정 추가 권장 |
+| **thread pool** | max-size: 50, queue: 100 | 미설정 (기본 8스레드) | 현재 단일 Job 실행이므로 당장은 불필요. 병렬 Step 사용 시 필요 |
+| **connection-timeout** | 30~90s (환경별), 검색 500~800s | 3s (jpa.yml) | 집계 쿼리가 3초 이내면 문제없음. GROUP BY 성능 테스트 후 판단 |
+| **RODB/RWDB 분리** | 5~6쌍 | 단일 DataSource | 현재 규모에서 불필요. 설계 문서에 스케일아웃 시 분리 방안 언급만 |
+| **@EnableBatchProcessing** | 명시적 DataSource 지정 | 자동 구성 | Spring Boot 3.x는 자동 구성이 기본. 현행 유지 |
+
+### commerce-batch 현재 설정 (확인된 내용)
+
+```yaml
+spring:
+  batch:
+    job:
+      names: ${job.name:NONE}     # Job 이름으로 실행 제어
+    jdbc:
+      initialize-schema: never    # 운영: 수동 관리
+      # local/test: always        # 프로파일별 분기
+
+  config:
+    import:
+      - jpa.yml                   # HikariCP, JPA 설정
+      - redis.yml                 # Redis Master-Replica
+      - logging.yml               # 로깅
+      - monitoring.yml            # Prometheus + Actuator
+```
+
+**결론**: 현재 설정으로 과제 수행에 문제 없음. graceful shutdown만 선택적으로 추가.
+
+---
+
+## 13. 내 과제에 적용할 패턴 요약
 
 | 내 과제 구성 요소 | 참고할 회사 코드 | 핵심 패턴 |
 |------------------|----------------|----------|
@@ -754,3 +938,5 @@ public Step mileageRemoveStep(@Value("#{jobParameters[batchDate]}") String batch
 | **파라미터 주입** | SearchProductChunkLoadConfig | `@StepScope` + `@Value("#{jobParameters[...]}")` |
 | **중복 실행 방지** | SingleJobExecutionListener | `JobExplorer.findRunningJobExecutions()` |
 | **Score 계산** | RankingCorrectionJobConfig (기존) | Score v2 공식 재활용 |
+| **Composite VO** | MileageRemoveConfig | 여러 엔티티를 하나의 VO에 래핑 (향후 확장 시) |
+| **재시작/재개** | SearchProductIndexConfig | ExecutionContext에 진행 상태 저장 (대량 데이터 시) |
