@@ -3,6 +3,7 @@ package com.loopers.infrastructure.ranking;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,8 @@ public class RankingRedisRepository implements RankingRepository {
 
     private final RedisTemplate<String, String> redisTemplate;
     private final ProductMetricsJpaRepository productMetricsJpaRepository;
+    private final MvProductRankWeeklyJpaRepository weeklyJpaRepository;
+    private final MvProductRankMonthlyJpaRepository monthlyJpaRepository;
 
     @Override
     public List<RankingEntry> getTopN(String key, int offset, int size) {
@@ -51,6 +54,24 @@ public class RankingRedisRepository implements RankingRepository {
                 .map(row -> new RankingEntry(
                         ((Number) row[0]).longValue(),
                         ((Number) row[1]).doubleValue()))
+                .toList();
+    }
+
+    @Override
+    public List<RankingEntry> getTopNWeekly(String yearWeek, int offset, int size) {
+        int page = offset / size;
+        return weeklyJpaRepository.findByYearWeekOrderByRankingAsc(yearWeek, PageRequest.of(page, size))
+                .stream()
+                .map(mv -> new RankingEntry(mv.getProductId(), mv.getScore()))
+                .toList();
+    }
+
+    @Override
+    public List<RankingEntry> getTopNMonthly(String yearMonth, int offset, int size) {
+        int page = offset / size;
+        return monthlyJpaRepository.findByYearMonthOrderByRankingAsc(yearMonth, PageRequest.of(page, size))
+                .stream()
+                .map(mv -> new RankingEntry(mv.getProductId(), mv.getScore()))
                 .toList();
     }
 }

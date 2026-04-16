@@ -12,4 +12,10 @@ public interface RankingRepository {
 
     /** DB ORDER BY 기반 Top-N 조회 — ZSET 성능 비교용 */
     List<RankingEntry> getTopNFromDB(int offset, int size);
+
+    /** MV 주간 랭킹 조회 — yearWeek(예: "2026W15") 기준 */
+    List<RankingEntry> getTopNWeekly(String yearWeek, int offset, int size);
+
+    /** MV 월간 랭킹 조회 — yearMonth(예: "202604") 기준 */
+    List<RankingEntry> getTopNMonthly(String yearMonth, int offset, int size);
 }
