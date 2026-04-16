@@ -6,6 +6,7 @@ import com.loopers.batch.listener.ChunkListener;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
 import com.loopers.domain.ranking.MvProductRankMonthly;
+import com.loopers.domain.ranking.RankingScoreCalculator;
 import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
@@ -99,13 +100,17 @@ public class MonthlyRankingJobConfig {
                        SUM(view_count) AS view_count,
                        SUM(like_count) AS like_count,
                        SUM(order_count) AS order_count,
-                       (SUM(view_count) * 1 + SUM(like_count) * 2 + SUM(order_count) * 7) AS total_score
+                       (SUM(view_count) * %d + SUM(like_count) * %d + SUM(order_count) * %d) AS total_score
                 FROM product_metrics_daily
                 WHERE metric_date BETWEEN ? AND ?
                 GROUP BY product_id
                 ORDER BY total_score DESC
                 LIMIT 100
-                """)
+                """.formatted(
+                RankingScoreCalculator.VIEW_WEIGHT,
+                RankingScoreCalculator.LIKE_WEIGHT,
+                RankingScoreCalculator.ORDER_WEIGHT
+            ))
             .preparedStatementSetter(ps -> {
                 ps.setObject(1, start);
                 ps.setObject(2, end);

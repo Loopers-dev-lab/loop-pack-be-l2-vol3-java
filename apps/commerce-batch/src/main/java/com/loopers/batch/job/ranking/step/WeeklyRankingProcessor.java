@@ -3,6 +3,7 @@ package com.loopers.batch.job.ranking.step;
 import com.loopers.batch.job.ranking.ProductScoreRow;
 import com.loopers.batch.job.ranking.WeeklyRankingJobConfig;
 import com.loopers.domain.ranking.MvProductRankWeekly;
+import com.loopers.domain.ranking.RankingScoreCalculator;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,11 @@ public class WeeklyRankingProcessor implements ItemProcessor<ProductScoreRow, Mv
 
     @Override
     public MvProductRankWeekly process(ProductScoreRow item) {
+        RankingScoreCalculator.assertConsistent(
+            item.getTotalScore(),
+            item.getViewCount(), item.getLikeCount(), item.getOrderCount()
+        );
+
         LocalDate startDate = LocalDate.parse(weekStartDate, DateTimeFormatter.BASIC_ISO_DATE);
         return MvProductRankWeekly.of(
             item.getProductId(), startDate, item.getTotalScore(),
