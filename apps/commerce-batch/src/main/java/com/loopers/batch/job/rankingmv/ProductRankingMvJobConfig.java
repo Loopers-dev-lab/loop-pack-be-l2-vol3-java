@@ -106,18 +106,14 @@ public class ProductRankingMvJobConfig {
         @Value("#{jobParameters['scope']}") String scope
     ) {
         return new StepBuilder("partitionedAggregateStep", jobRepository)
-            .partitioner("workerStep", productIdPartitioner(targetDate, scope))
+            .partitioner("workerStep", createPartitioner(targetDate, scope))
             .step(workerStep())
             .gridSize(GRID_SIZE)
             .taskExecutor(new SimpleAsyncTaskExecutor("mv-worker-"))
             .build();
     }
 
-    @Bean
-    public Partitioner productIdPartitioner(
-        @Value("#{jobParameters['targetDate']}") String targetDate,
-        @Value("#{jobParameters['scope']}") String scope
-    ) {
+    private Partitioner createPartitioner(String targetDate, String scope) {
         return gridSize -> {
             int days = "weekly".equals(scope) ? 6 : 29;
             LocalDate endDate = LocalDate.parse(targetDate, DATE_FORMATTER);
