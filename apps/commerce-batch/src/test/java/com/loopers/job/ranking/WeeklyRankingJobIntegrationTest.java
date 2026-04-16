@@ -8,8 +8,9 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParametersBuilder;
+import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.test.JobLauncherTestUtils;
-import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -35,13 +36,11 @@ import static org.assertj.core.api.Assertions.within;
  * - Period isolation: W16 배치가 W15 기존 데이터를 건드리지 않음
  */
 @SpringBootTest
-@SpringBatchTest
 @TestPropertySource(properties = "spring.batch.job.name=" + WeeklyRankingJobConfig.JOB_NAME)
 class WeeklyRankingJobIntegrationTest {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
-    @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
 
     @Autowired
@@ -49,10 +48,21 @@ class WeeklyRankingJobIntegrationTest {
     private Job job;
 
     @Autowired
+    private JobLauncher jobLauncher;
+
+    @Autowired
+    private JobRepository jobRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
-    void cleanup() {
+    void setup() {
+        jobLauncherTestUtils = new JobLauncherTestUtils();
+        jobLauncherTestUtils.setJob(job);
+        jobLauncherTestUtils.setJobLauncher(jobLauncher);
+        jobLauncherTestUtils.setJobRepository(jobRepository);
+
         jdbcTemplate.update("DELETE FROM mv_product_rank_weekly");
         jdbcTemplate.update("DELETE FROM ranking_event");
     }
@@ -66,18 +76,18 @@ class WeeklyRankingJobIntegrationTest {
         //   product 3: view 1 (×0.1) = 0.1                                → rank 3
         ZonedDateTime eventTime = LocalDate.of(2026, 4, 15).atStartOfDay(KST);
         for (int i = 0; i < 10; i++) {
-            seedEvent("ob-p1-v" + i, 1L, "ProductViewedEvent", eventTime);
+            seedEvent("ob-p1-v" + i, 1L, "VIEW", eventTime);
         }
         for (int i = 0; i < 5; i++) {
-            seedEvent("ob-p1-l" + i, 1L, "ProductLikedEvent", eventTime);
+            seedEvent("ob-p1-l" + i, 1L, "LIKE", eventTime);
         }
         for (int i = 0; i < 3; i++) {
-            seedEvent("ob-p2-o" + i, 2L, "OrderItemSoldEvent", eventTime);
+            seedEvent("ob-p2-o" + i, 2L, "ORDER", eventTime);
         }
-        seedEvent("ob-p3-v1", 3L, "ProductViewedEvent", eventTime);
+        seedEvent("ob-p3-v1", 3L, "VIEW", eventTime);
 
         // act
-        JobExecution exec = launchJob("20260415", 1L);
+        JobExecution exec = runJob("20260415", 1L);
 
         // assert
         assertThat(exec.getExitStatus().getExitCode()).isEqualTo(ExitStatus.COMPLETED.getExitCode());
@@ -103,12 +113,12 @@ class WeeklyRankingJobIntegrationTest {
     void tieBreak() throws Exception {
         // arrange: product 5, 2, 9 모두 주문 1건씩 = 각 0.6점
         ZonedDateTime eventTime = LocalDate.of(2026, 4, 15).atStartOfDay(KST);
-        seedEvent("ob-p5", 5L, "OrderItemSoldEvent", eventTime);
-        seedEvent("ob-p2", 2L, "OrderItemSoldEvent", eventTime);
-        seedEvent("ob-p9", 9L, "OrderItemSoldEvent", eventTime);
+        seedEvent("ob-p5", 5L, "ORDER", eventTime);
+        seedEvent("ob-p2", 2L, "ORDER", eventTime);
+        seedEvent("ob-p9", 9L, "ORDER", eventTime);
 
         // act
-        launchJob("20260415", 10L);
+        runJob("20260415", 10L);
 
         // assert: product_id ASC = 2, 5, 9
         List<MvRow> rows = fetchMv("2026-W16");
@@ -127,15 +137,15 @@ class WeeklyRankingJobIntegrationTest {
         // arrange
         ZonedDateTime eventTime = LocalDate.of(2026, 4, 15).atStartOfDay(KST);
         for (int i = 0; i < 3; i++) {
-            seedEvent("ob-p1-o" + i, 1L, "OrderItemSoldEvent", eventTime);
+            seedEvent("ob-p1-o" + i, 1L, "ORDER", eventTime);
         }
-        seedEvent("ob-p2-v1", 2L, "ProductViewedEvent", eventTime);
+        seedEvent("ob-p2-v1", 2L, "VIEW", eventTime);
 
         // act: 두 번 실행 (run.id로 JobInstance 유일성 확보)
-        launchJob("20260415", 100L);
+        runJob("20260415", 100L);
         List<MvRow> firstRun = fetchMv("2026-W16");
 
-        launchJob("20260415", 101L);
+        runJob("20260415", 101L);
         List<MvRow> secondRun = fetchMv("2026-W16");
 
         // assert
@@ -165,10 +175,10 @@ class WeeklyRankingJobIntegrationTest {
 
         // 새 배치는 W16 대상
         ZonedDateTime eventTime = LocalDate.of(2026, 4, 15).atStartOfDay(KST);
-        seedEvent("ob-p1-o1", 1L, "OrderItemSoldEvent", eventTime);
+        seedEvent("ob-p1-o1", 1L, "ORDER", eventTime);
 
         // act
-        launchJob("20260415", 200L);
+        runJob("20260415", 200L);
 
         // assert: W15 row 변하지 않음
         List<MvRow> w15 = fetchMv("2026-W15");
@@ -198,8 +208,7 @@ class WeeklyRankingJobIntegrationTest {
                 Timestamp.from(ZonedDateTime.now(KST).toInstant()));
     }
 
-    private JobExecution launchJob(String targetDate, long runId) throws Exception {
-        jobLauncherTestUtils.setJob(job);
+    private JobExecution runJob(String targetDate, long runId) throws Exception {
         return jobLauncherTestUtils.launchJob(
                 new JobParametersBuilder()
                         .addString("targetDate", targetDate)

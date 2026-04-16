@@ -8,6 +8,8 @@ import com.loopers.domain.common.vo.Money;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStatus;
+import com.loopers.infrastructure.ranking.MvProductRankMonthlyJpaRepository;
+import com.loopers.infrastructure.ranking.MvProductRankWeeklyJpaRepository;
 import com.loopers.infrastructure.ranking.RankingRedisRepository;
 import com.loopers.infrastructure.ranking.RankingRedisRepository.RankingEntry;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,8 @@ import static org.mockito.Mockito.when;
 class RankingFacadeTest {
 
     private RankingRedisRepository rankingRedisRepository;
+    private MvProductRankWeeklyJpaRepository mvWeeklyRepository;
+    private MvProductRankMonthlyJpaRepository mvMonthlyRepository;
     private ProductService productService;
     private BrandService brandService;
     private RankingProperties rankingProperties;
@@ -51,6 +55,8 @@ class RankingFacadeTest {
     @BeforeEach
     void setUp() {
         rankingRedisRepository = Mockito.mock(RankingRedisRepository.class);
+        mvWeeklyRepository = Mockito.mock(MvProductRankWeeklyJpaRepository.class);
+        mvMonthlyRepository = Mockito.mock(MvProductRankMonthlyJpaRepository.class);
         productService = Mockito.mock(ProductService.class);
         brandService = Mockito.mock(BrandService.class);
 
@@ -61,7 +67,8 @@ class RankingFacadeTest {
         rankingProperties.setHourlyTtlHours(4);
 
         rankingFacade = new RankingFacade(
-                rankingRedisRepository, productService, brandService, rankingProperties);
+                rankingRedisRepository, mvWeeklyRepository, mvMonthlyRepository,
+                productService, brandService, rankingProperties);
     }
 
     @DisplayName("일간 랭킹 페이지 조회")

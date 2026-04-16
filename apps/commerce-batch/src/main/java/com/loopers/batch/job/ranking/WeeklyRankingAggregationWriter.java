@@ -70,6 +70,11 @@ public class WeeklyRankingAggregationWriter
 
     @Override
     public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
+        if (stepExecution.getStatus() != org.springframework.batch.core.BatchStatus.COMPLETED) {
+            log.warn("[WeeklyRanking] Step failed — skip MV swap. status={}", stepExecution.getStatus());
+            return stepExecution.getExitStatus();
+        }
+
         LocalDate runDate = IsoPeriodMath.parseTargetDate(targetDate);
         String yearWeek = IsoPeriodMath.yearWeekOf(runDate);
         LocalDate periodStart = IsoPeriodMath.startOfIsoWeek(runDate);

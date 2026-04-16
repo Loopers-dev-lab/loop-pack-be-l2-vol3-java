@@ -61,6 +61,11 @@ public class MonthlyRankingAggregationWriter
 
     @Override
     public ExitStatus afterStep(@Nonnull StepExecution stepExecution) {
+        if (stepExecution.getStatus() != org.springframework.batch.core.BatchStatus.COMPLETED) {
+            log.warn("[MonthlyRanking] Step failed — skip MV swap. status={}", stepExecution.getStatus());
+            return stepExecution.getExitStatus();
+        }
+
         LocalDate runDate = IsoPeriodMath.parseTargetDate(targetDate);
         String periodMonth = IsoPeriodMath.periodMonthOf(runDate);
         LocalDate periodStart = IsoPeriodMath.startOfMonth(runDate);

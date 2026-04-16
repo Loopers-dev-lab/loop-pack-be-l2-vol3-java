@@ -27,6 +27,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 import javax.sql.DataSource;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.util.Calendar;
+import java.util.TimeZone;
 
 /**
  * 주간 랭킹 배치 Job 설정.
@@ -107,8 +109,9 @@ public class WeeklyRankingJobConfig {
                         ORDER BY id ASC
                         """)
                 .preparedStatementSetter(ps -> {
-                    ps.setTimestamp(1, fromTs);
-                    ps.setTimestamp(2, toTs);
+                    Calendar utcCal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+                    ps.setTimestamp(1, fromTs, utcCal);
+                    ps.setTimestamp(2, toTs, utcCal);
                 })
                 .rowMapper((rs, rowNum) -> new RankingEventRow(
                         rs.getLong("id"),

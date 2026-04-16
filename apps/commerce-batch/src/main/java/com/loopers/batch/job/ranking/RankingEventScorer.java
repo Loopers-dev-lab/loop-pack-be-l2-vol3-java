@@ -24,10 +24,10 @@ public class RankingEventScorer {
     public double calculateDelta(String eventType) {
         RankingBatchProperties.Weights w = properties.getWeights();
         return switch (eventType) {
-            case "ProductViewedEvent" -> w.getView();
-            case "ProductLikedEvent" -> w.getLike();
-            case "ProductUnlikedEvent" -> w.getUnlike();
-            case "OrderItemSoldEvent" -> w.getOrder();
+            case "VIEW" -> w.getView();
+            case "LIKE" -> w.getLike();
+            case "UNLIKE" -> w.getUnlike();
+            case "ORDER" -> w.getOrder();
             default -> 0.0;
         };
     }
