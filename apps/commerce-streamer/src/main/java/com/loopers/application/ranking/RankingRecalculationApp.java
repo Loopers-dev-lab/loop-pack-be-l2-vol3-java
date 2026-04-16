@@ -3,7 +3,7 @@ package com.loopers.application.ranking;
 import com.loopers.domain.ranking.ProductDailySignalModel;
 import com.loopers.domain.ranking.ProductDailySignalRepository;
 import com.loopers.domain.ranking.RankingRepository;
-import com.loopers.domain.ranking.ScoreAggregator;
+import com.loopers.ranking.ScoreCalculator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -19,7 +19,7 @@ import java.util.Map;
 public class RankingRecalculationApp {
 
     private final ProductDailySignalRepository productDailySignalRepository;
-    private final ScoreAggregator scoreAggregator;
+    private final ScoreCalculator scoreCalculator;
     private final RankingRepository rankingRepository;
 
     public long recalculate(LocalDate date) {
@@ -31,7 +31,7 @@ public class RankingRecalculationApp {
 
         Map<Long, Double> productScores = new HashMap<>();
         for (ProductDailySignalModel signal : signals) {
-            double score = scoreAggregator.calculateTotal(
+            double score = scoreCalculator.calculateTotal(
                     signal.getViewCount(),
                     signal.getLikeCount(),
                     signal.getOrderAmount().doubleValue()

@@ -1,15 +1,14 @@
-package com.loopers.domain.ranking;
-
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+package com.loopers.ranking;
 
 import java.math.BigDecimal;
 
-@Service
-@RequiredArgsConstructor
-public class ScoreAggregator {
+public class ScoreCalculator {
 
     private final RankingWeightProperties weights;
+
+    public ScoreCalculator(RankingWeightProperties weights) {
+        this.weights = weights;
+    }
 
     public double scoreForView() {
         return weights.view();
@@ -27,5 +26,9 @@ public class ScoreAggregator {
         return weights.view() * viewCount
                 + weights.like() * likeCount
                 + weights.order() * orderAmount;
+    }
+
+    public double calculateTotal(long viewCount, long likeCount, BigDecimal orderAmount) {
+        return calculateTotal(viewCount, likeCount, orderAmount.doubleValue());
     }
 }
