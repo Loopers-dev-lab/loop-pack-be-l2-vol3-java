@@ -117,18 +117,25 @@ class QuarterlyRankJobIntegrationTest {
         assertThat(results.get(0).score()).isCloseTo(100.0, within(0.01));
     }
 
-    @DisplayName("Approach A 멱등성: 2회 실행 후 결과 동일")
+    @DisplayName("Approach A 멱등성: 2회 실행 후 version만 증가하고 product·score는 동일")
     @Test
     void idempotency() throws Exception {
         LocalDate endDate = LocalDate.of(2026, 4, 16);
         for (int day = 0; day < 7; day++) {
             insertScoreDaily(1L, endDate.minusDays(day), 100.0, 10, 5, BigDecimal.valueOf(1000));
         }
+        double expectedScore = 100.0 * 7;
 
         JobParameters params1 = new JobParametersBuilder()
                 .addString("date", "20260416")
                 .toJobParameters();
         jobLauncherTestUtils.launchJob(params1);
+
+        List<MvProductRankRow> afterRun1 = mvProductRankRepository.findByPeriodKey(RankPeriodType.QUARTERLY, "20260416", 0, 10);
+        assertThat(afterRun1).hasSize(1);
+        assertThat(afterRun1.get(0).refProductId()).isEqualTo(1L);
+        assertThat(afterRun1.get(0).score()).isCloseTo(expectedScore, within(0.01));
+        long versionAfterRun1 = afterRun1.get(0).version();
 
         cleanBatchMetaTables();
 
@@ -137,8 +144,13 @@ class QuarterlyRankJobIntegrationTest {
                 .toJobParameters();
         jobLauncherTestUtils.launchJob(params2);
 
-        long count = mvProductRankRepository.countByPeriodKey(RankPeriodType.QUARTERLY, "20260416");
-        assertThat(count).isGreaterThanOrEqualTo(1);
+        List<MvProductRankRow> afterRun2 = mvProductRankRepository.findByPeriodKey(RankPeriodType.QUARTERLY, "20260416", 0, 10);
+        assertThat(afterRun2).hasSize(2);
+        assertThat(afterRun2).extracting(MvProductRankRow::refProductId).containsOnly(1L);
+        assertThat(afterRun2).extracting(MvProductRankRow::score)
+                .allSatisfy(score -> assertThat(score).isCloseTo(expectedScore, within(0.01)));
+        assertThat(afterRun2).extracting(MvProductRankRow::version)
+                .anyMatch(v -> v > versionAfterRun1);
     }
 
     @DisplayName("Approach A 빈 데이터: 스코어 없으면 COMPLETED, MV 0행")
