@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.ArgumentCaptor;
 import org.springframework.kafka.support.Acknowledgment;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -56,7 +58,7 @@ class OrderEventConsumerTest {
             ConsumerRecord<String, OrderEventConsumer.OrderEventMessage> record = new ConsumerRecord<>("order-events", 0, 0L, "1", message);
             Acknowledgment acknowledgment = mock(Acknowledgment.class);
             when(eventHandledJpaRepository.existsByTopicAndEventId("order-events", "evt-1")).thenReturn(false);
-            when(productMetricsJpaRepository.findByProductId(100L)).thenReturn(Optional.empty());
+            when(productMetricsJpaRepository.findByProductIdAndDate(eq(100L), any(LocalDate.class))).thenReturn(Optional.empty());
 
             // act
             orderEventConsumer.handleOrderEvents(List.of(record), acknowledgment);
@@ -75,9 +77,9 @@ class OrderEventConsumerTest {
             OrderEventConsumer.OrderEventMessage message = new OrderEventConsumer.OrderEventMessage("ORDER_CREATED", 100L, 1L, 50000, "evt-2");
             ConsumerRecord<String, OrderEventConsumer.OrderEventMessage> record = new ConsumerRecord<>("order-events", 0, 0L, "1", message);
             Acknowledgment acknowledgment = mock(Acknowledgment.class);
-            ProductMetrics existing = new ProductMetrics(100L, 5, 3);
+            ProductMetrics existing = new ProductMetrics(100L, LocalDate.now(), 5, 3);
             when(eventHandledJpaRepository.existsByTopicAndEventId("order-events", "evt-2")).thenReturn(false);
-            when(productMetricsJpaRepository.findByProductId(100L)).thenReturn(Optional.of(existing));
+            when(productMetricsJpaRepository.findByProductIdAndDate(eq(100L), any(LocalDate.class))).thenReturn(Optional.of(existing));
 
             // act
             orderEventConsumer.handleOrderEvents(List.of(record), acknowledgment);
@@ -117,7 +119,7 @@ class OrderEventConsumerTest {
                 new ConsumerRecord<>("order-events", 0, 0L, "1", message);
             Acknowledgment acknowledgment = mock(Acknowledgment.class);
             when(eventHandledJpaRepository.existsByTopicAndEventId("order-events", "evt-r1")).thenReturn(false);
-            when(productMetricsJpaRepository.findByProductId(100L)).thenReturn(Optional.empty());
+            when(productMetricsJpaRepository.findByProductIdAndDate(eq(100L), any(LocalDate.class))).thenReturn(Optional.empty());
 
             // act
             orderEventConsumer.handleOrderEvents(List.of(record), acknowledgment);
