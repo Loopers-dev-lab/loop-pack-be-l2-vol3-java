@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
+import java.time.LocalDate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -28,11 +30,12 @@ class ProductMetricsOptimisticLockTest {
     @Test
     void concurrentUpdate_throwsOptimisticLockException() {
         // arrange: 초기 ProductMetrics 저장 (version=0)
-        productMetricsJpaRepository.save(new ProductMetrics(9999L, 0));
+        LocalDate today = LocalDate.now();
+        productMetricsJpaRepository.save(new ProductMetrics(9999L, today, 0));
 
         // 두 스레드가 각각 같은 row를 읽는다 (version=0)
-        ProductMetrics metrics1 = productMetricsJpaRepository.findByProductId(9999L).orElseThrow();
-        ProductMetrics metrics2 = productMetricsJpaRepository.findByProductId(9999L).orElseThrow();
+        ProductMetrics metrics1 = productMetricsJpaRepository.findByProductIdAndDate(9999L, today).orElseThrow();
+        ProductMetrics metrics2 = productMetricsJpaRepository.findByProductIdAndDate(9999L, today).orElseThrow();
 
         // 첫 번째 스레드가 먼저 저장 (version: 0 → 1)
         metrics1.increaseLikeCount();
@@ -44,7 +47,7 @@ class ProductMetricsOptimisticLockTest {
             .isInstanceOf(ObjectOptimisticLockingFailureException.class);
 
         // DB에는 첫 번째 저장 결과만 반영됨
-        ProductMetrics result = productMetricsJpaRepository.findByProductId(9999L).orElseThrow();
+        ProductMetrics result = productMetricsJpaRepository.findByProductIdAndDate(9999L, today).orElseThrow();
         assertThat(result.getLikeCount()).isEqualTo(1);
     }
 }

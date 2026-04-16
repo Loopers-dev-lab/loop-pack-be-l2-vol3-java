@@ -30,6 +30,7 @@ public class RankingV1Dto {
 
     public record RankingPageResponse(
         List<RankingResponse> content,
+        String period,
         String date,
         int page,
         int size

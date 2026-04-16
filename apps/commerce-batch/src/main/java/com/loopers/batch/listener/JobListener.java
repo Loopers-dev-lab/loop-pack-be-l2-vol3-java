@@ -7,6 +7,8 @@ import org.springframework.batch.core.annotation.AfterJob;
 import org.springframework.batch.core.annotation.BeforeJob;
 import org.springframework.stereotype.Component;
 
+import org.springframework.batch.core.ExitStatus;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -18,7 +20,7 @@ public class JobListener {
 
     @BeforeJob
     void beforeJob(JobExecution jobExecution) {
-        log.info("Job '${jobExecution.jobInstance.jobName}' 시작");
+        log.info("Job '{}' 시작", jobExecution.getJobInstance().getJobName());
         jobExecution.getExecutionContext().putLong("startTime", System.currentTimeMillis());
     }
 
@@ -49,5 +51,13 @@ public class JobListener {
         ).trim();
 
         log.info(message);
+
+        if (ExitStatus.FAILED.getExitCode().equals(jobExecution.getExitStatus().getExitCode())) {
+            log.error("[{}] Job FAILED — ExitCode: {}, Exceptions: {}",
+                jobExecution.getJobInstance().getJobName(),
+                jobExecution.getExitStatus().getExitCode(),
+                jobExecution.getAllFailureExceptions());
+            // TODO: Slack 알람 연동
+        }
     }
 }

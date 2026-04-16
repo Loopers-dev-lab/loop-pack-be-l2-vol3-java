@@ -71,8 +71,8 @@ public class LikeEventConsumer {
         }
 
         ProductMetrics metrics = productMetricsJpaRepository
-            .findByProductId(message.productId())
-            .orElseGet(() -> new ProductMetrics(message.productId(), 0));
+            .findByProductIdAndDate(message.productId(), eventDate)
+            .orElseGet(() -> new ProductMetrics(message.productId(), eventDate, 0));
 
         double rankingIncrement;
         if ("LIKED".equals(message.type())) {
