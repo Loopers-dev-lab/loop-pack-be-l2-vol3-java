@@ -104,7 +104,9 @@ public class PaymentFacade {
                     "type", "ORDER_CONFIRMED",
                     "orderId", order.getId(),
                     "userId", order.getRefUserId(),
-                    "productIds", order.getItems().stream().map(OrderItem::refProductId).toList(),
+                    "products", order.getItems().stream()
+                        .map(item -> Map.of("productId", item.refProductId(), "quantity", item.quantity()))
+                        .toList(),
                     "occurredAt", ZonedDateTime.now().toString()
                 )),
                 String.valueOf(order.getId())
