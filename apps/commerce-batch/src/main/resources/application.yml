@@ -17,6 +17,25 @@ spring:
     jdbc:
       initialize-schema: never
 
+ranking:
+  weight:
+    view: 0.1
+    like: 0.2
+    order: 0.7
+
+batch:
+  rank:
+    top-n: 100
+    chunk-size: 20
+    validation:
+      fail-on-incomplete: false
+    health-check:
+      min-rows: 1
+      max-variance-pct: 0.5
+      fail-on-anomaly: false
+    cleanup:
+      batch-limit: 1000
+
 management:
   health:
     defaults:
