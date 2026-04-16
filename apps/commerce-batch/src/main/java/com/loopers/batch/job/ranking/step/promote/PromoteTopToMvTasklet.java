@@ -3,7 +3,6 @@ package com.loopers.batch.job.ranking.step.promote;
 import com.loopers.batch.job.ranking.param.RankingJobParametersListener;
 import com.loopers.batch.job.ranking.step.stage.StagingAggregationProcessor;
 import com.loopers.domain.ranking.weight.WeightConfig;
-import com.loopers.domain.ranking.weight.WeightConfigRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.StepContribution;
@@ -44,7 +43,6 @@ public class PromoteTopToMvTasklet implements Tasklet {
     private static final String SQL_LAST_30D = sqlFor("mv_product_rank_last_30d");
 
     private final JdbcTemplate jdbcTemplate;
-    private final WeightConfigRepository weightConfigRepository;
 
     @Value("#{jobExecutionContext['" + RankingJobParametersListener.CTX_ANCHOR_DATE_KEY + "']}")
     private String anchorDateKey;
@@ -53,10 +51,8 @@ public class PromoteTopToMvTasklet implements Tasklet {
     @Transactional
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
         LocalDate anchorDate = LocalDate.parse(anchorDateKey, KEY_FORMAT);
-        List<WeightConfig> configs = weightConfigRepository.findAllByActiveTrue();
-        if (configs.isEmpty()) {
-            configs = List.of(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
-        }
+        List<WeightConfig> configs = RankingJobParametersListener.restoreWeightConfigs(
+                chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext());
 
         Timestamp createdAt = Timestamp.valueOf(LocalDateTime.now());
         int totalInserted = 0;

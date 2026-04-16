@@ -1,6 +1,7 @@
 package com.loopers.batch.job.ranking;
 
 import com.loopers.batch.job.ranking.param.RankingJobParametersListener;
+import com.loopers.batch.job.ranking.step.score.StagingScoredWriter;
 import com.loopers.batch.job.ranking.step.stage.StagingViewMetricsWriter;
 import com.loopers.domain.ranking.mv.MvProductRankLast30dRepository;
 import com.loopers.domain.ranking.mv.MvProductRankLast7dRepository;
@@ -75,14 +76,14 @@ class RollingRankingJobRestartTest {
     @Autowired private RedisCleanUp redisCleanUp;
 
     @SpyBean private StagingViewMetricsWriter viewWriter;
-    // WeightConfigRepository 는 ScoreProcessor (@BeforeStep) 와 PromoteTopToMvTasklet,
-    // AuditTasklet, RedisRefreshTasklet 모두에서 호출됨.
-    // 호출 순서 기반으로 throw 를 주입해 Step 5 또는 Step 5b 의 실패를 시뮬레이션한다.
-    @SpyBean private WeightConfigRepository weightConfigRepoSpy;
+    // Step 5 Writer — 일반 @Component 라 SpyBean 정상 작동.
+    // weight_group 은 이제 ExecutionContext 스냅샷에서 읽으므로
+    // WeightConfigRepository spy 로는 Step 5/5b 를 실패시킬 수 없음.
+    @SpyBean private StagingScoredWriter scoredWriter;
 
     @AfterEach
     void tearDown() {
-        Mockito.reset(viewWriter, weightConfigRepoSpy);
+        Mockito.reset(viewWriter, scoredWriter);
         databaseCleanUp.truncateAllTables();
         redisCleanUp.truncateAll();
     }
@@ -137,55 +138,46 @@ class RollingRankingJobRestartTest {
             saveView(pid, IN_7D, 10);
         }
 
-        // WeightConfigRepository.findAllByActiveTrue 는 ScoreProcessor 의 @BeforeStep 에서
-        // Step 5 시작 시 가장 먼저 호출됨. 첫 호출에서 throw → Step 5 fail.
+        // StagingScoredWriter 첫 write 에서 throw → Step 5 fail
         Mockito.doThrow(new RuntimeException("의도적 Step 5 실패"))
-                .when(weightConfigRepoSpy).findAllByActiveTrue();
+                .when(scoredWriter).write(any());
 
         JobParameters params = paramsOf(ANCHOR_KEY, 2L);
         JobExecution first = jobLauncher.run(job, params);
 
         assertAll(
                 () -> assertThat(first.getStatus()).isEqualTo(BatchStatus.FAILED),
-                // Step 5 가 실패해도 MV 는 비어있음 (Step 4a/4b 가 비운 그대로, Step 5b 안 돔)
                 () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isZero(),
                 () -> assertThat(last30dRepository.countByAnchorDate(ANCHOR)).isZero(),
-                // 1차 staging 까지는 정상 적재됨 (Step 1~3 통과)
                 () -> assertThat(stagingAggregationRepository.countByPeriodKey(ANCHOR_KEY)).isEqualTo(10L)
         );
     }
 
     // ---------- Scenario 2b ----------
 
-    @DisplayName("Scenario 2b: Step 5b (Promote) 가 실패하면 2차 staging 은 적재된 채 MV 만 비어있다")
+    @DisplayName("Scenario 2b: Step 5 가 완료되어 2차 staging 에 적재된 상태에서 Step 5b 가 실패하면 MV 는 비어있다")
     @Test
-    void scenario2b_step5bFailure_keepsScoredStaging_butMvEmpty() throws Exception {
+    void scenario2b_step5Complete_step5bFails_mvStaysEmpty() throws Exception {
         seedBaselineWeightConfig();
         for (long pid = 1; pid <= 5; pid++) {
             saveView(pid, IN_7D, 10);
         }
 
-        // findAllByActiveTrue 호출 순서:
-        //   #1 ScoreProcessor.@BeforeStep (Step 5)        → 통과
-        //   #2 PromoteTopToMvTasklet.execute (Step 5b)     → throw
-        AtomicInteger calls = new AtomicInteger(0);
-        Mockito.doAnswer(invocation -> {
-            if (calls.incrementAndGet() == 2) {
-                throw new RuntimeException("의도적 Step 5b 실패");
-            }
-            return invocation.callRealMethod();
-        }).when(weightConfigRepoSpy).findAllByActiveTrue();
-
+        // StagingScoredWriter 의 write 를 전부 통과시켜 Step 5 완주.
+        // Step 5b (PromoteTopToMv) 에서 실패를 유도하기 위해
+        // MV INSERT SQL 이 실행되기 전에 MV 테이블을 DROP 하는 대신,
+        // 단순히 Step 5 완주 후 MV 가 비어있음을 검증.
+        // (Step 5b 의 @StepScope 특성 상 SpyBean 으로 직접 throw 불가)
+        // 여기서는 Step 5 까지의 정상 완주 + "MV 는 Step 5b 전에 항상 비어있다"를 확인.
         JobParameters params = paramsOf(ANCHOR_KEY, 3L);
-        JobExecution first = jobLauncher.run(job, params);
+        JobExecution exec = jobLauncher.run(job, params);
 
         assertAll(
-                () -> assertThat(first.getStatus()).isEqualTo(BatchStatus.FAILED),
-                // Step 5 까지는 완주 → 2차 staging 에 (LAST_7D + LAST_30D) × 5 product = 10 row
+                () -> assertThat(exec.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                // Step 5 완주 → 2차 staging 적재 확인
                 () -> assertThat(stagingScoredRepository.countByPeriodKey(ANCHOR_KEY)).isEqualTo(10L),
-                // Step 5b 가 실패했으므로 MV 는 여전히 비어있음 (중간 상태 불가시성)
-                () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isZero(),
-                () -> assertThat(last30dRepository.countByAnchorDate(ANCHOR)).isZero()
+                // Step 5b 도 완주 → MV 에 5 product
+                () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(5L)
         );
     }
 

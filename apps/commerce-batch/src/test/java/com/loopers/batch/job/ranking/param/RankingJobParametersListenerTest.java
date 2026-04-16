@@ -1,10 +1,14 @@
 package com.loopers.batch.job.ranking.param;
 
+import com.loopers.domain.ranking.weight.WeightConfig;
+import com.loopers.domain.ranking.weight.WeightConfigRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParametersBuilder;
 import org.springframework.batch.test.MetaDataInstanceFactory;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -12,7 +16,14 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 class RankingJobParametersListenerTest {
 
-    private final RankingJobParametersListener listener = new RankingJobParametersListener();
+    private final WeightConfigRepository stubRepo = new WeightConfigRepository() {
+        @Override public WeightConfig save(WeightConfig entity) { return entity; }
+        @Override public List<WeightConfig> findAllByActiveTrue() {
+            return List.of(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
+        }
+    };
+
+    private final RankingJobParametersListener listener = new RankingJobParametersListener(stubRepo);
 
     @DisplayName("beforeJob 은 anchorDate 파라미터로부터 ExecutionContext 에 경계 값 5개를 주입한다.")
     @Test
