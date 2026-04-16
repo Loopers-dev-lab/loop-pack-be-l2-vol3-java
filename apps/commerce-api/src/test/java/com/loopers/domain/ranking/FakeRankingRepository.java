@@ -10,14 +10,22 @@ import java.util.Optional;
 public class FakeRankingRepository implements RankingRepository {
 
     private final Map<String, Map<Long, Double>> store = new HashMap<>();
+    private RuntimeException forcedFailure;
 
     public void addScore(String key, Long productId, double score) {
         store.computeIfAbsent(key, k -> new HashMap<>())
             .merge(productId, score, Double::sum);
     }
 
+    public void failWith(RuntimeException exception) {
+        this.forcedFailure = exception;
+    }
+
     @Override
     public List<ProductRanking> getTopN(String key, long start, long stop) {
+        if (forcedFailure != null) {
+            throw forcedFailure;
+        }
         Map<Long, Double> scores = store.getOrDefault(key, Map.of());
         List<Map.Entry<Long, Double>> sorted = scores.entrySet().stream()
             .sorted(Map.Entry.<Long, Double>comparingByValue(Comparator.reverseOrder()))
@@ -33,6 +41,9 @@ public class FakeRankingRepository implements RankingRepository {
 
     @Override
     public Optional<Long> getRank(String key, Long productId) {
+        if (forcedFailure != null) {
+            throw forcedFailure;
+        }
         Map<Long, Double> scores = store.getOrDefault(key, Map.of());
         if (!scores.containsKey(productId)) {
             return Optional.empty();
@@ -52,6 +63,9 @@ public class FakeRankingRepository implements RankingRepository {
 
     @Override
     public long getTotalCount(String key) {
+        if (forcedFailure != null) {
+            throw forcedFailure;
+        }
         return store.getOrDefault(key, Map.of()).size();
     }
 }
