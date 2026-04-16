@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.ranking;
 
 import com.loopers.application.ranking.RankingFacade;
 import com.loopers.application.ranking.RankingInfo;
+import com.loopers.application.ranking.RankingType;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,13 +26,15 @@ public class RankingV1Controller {
     @GetMapping
     public ApiResponse<RankingV1Dto.RankingPageResponse> getRankings(
         @RequestParam(required = false) String date,
+        @RequestParam(defaultValue = "daily") String type,
         @RequestParam(defaultValue = "20") int size,
         @RequestParam(defaultValue = "1") int page
     ) {
         String rankingDate = (date != null) ? date : LocalDate.now().format(DATE_FORMATTER);
+        RankingType rankingType = RankingType.valueOf(type.toUpperCase());
 
-        List<RankingInfo> rankings = rankingFacade.getRankings(rankingDate, page, size);
-        long totalElements = rankingFacade.getTotalCount(rankingDate);
+        List<RankingInfo> rankings = rankingFacade.getRankings(rankingDate, page, size, rankingType);
+        long totalElements = rankingFacade.getTotalCount(rankingDate, rankingType);
 
         List<RankingV1Dto.RankingItemResponse> content = rankings.stream()
             .map(RankingV1Dto.RankingItemResponse::from)

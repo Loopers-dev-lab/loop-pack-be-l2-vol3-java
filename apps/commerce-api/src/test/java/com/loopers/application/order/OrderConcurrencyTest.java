@@ -11,6 +11,7 @@ import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.coupon.CouponTemplateJpaRepository;
 import com.loopers.infrastructure.coupon.IssuedCouponJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
+import com.loopers.infrastructure.queue.QueueCacheService;
 import com.loopers.infrastructure.user.UserJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -54,6 +55,9 @@ class OrderConcurrencyTest {
     private IssuedCouponJpaRepository issuedCouponJpaRepository;
 
     @Autowired
+    private QueueCacheService queueCacheService;
+
+    @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
     @Autowired
@@ -90,6 +94,7 @@ class OrderConcurrencyTest {
             IssuedCoupon issuedCoupon = issuedCouponJpaRepository.save(
                 new IssuedCoupon(savedUser.getId(), template.getId())
             );
+            String entryToken = queueCacheService.issueToken(savedUser.getId());
 
             int threadCount = 2;
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -104,7 +109,7 @@ class OrderConcurrencyTest {
                     try {
                         latch.await();
                         orderFacade.createOrder(
-                            "couponuser", RAW_PASSWORD,
+                            "couponuser", RAW_PASSWORD, entryToken,
                             List.of(new OrderRequest.OrderItemRequest(product.getId(), 1)),
                             issuedCoupon.getId()
                         );
@@ -142,12 +147,14 @@ class OrderConcurrencyTest {
             int threadCount = 10;
             String encodedPassword = passwordEncoder.encode(RAW_PASSWORD);
             List<String> loginIds = new ArrayList<>();
+            List<String> entryTokens = new ArrayList<>();
             for (int i = 0; i < threadCount; i++) {
                 String loginId = "stockuser" + i;
                 User user = new User(loginId, encodedPassword, "재고유저" + i, "19900101", "stock" + i + "@test.com");
                 user.restoreBalance(100_000L);
-                userJpaRepository.save(user);
+                User savedUser = userJpaRepository.save(user);
                 loginIds.add(loginId);
+                entryTokens.add(queueCacheService.issueToken(savedUser.getId()));
             }
 
             ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -158,12 +165,13 @@ class OrderConcurrencyTest {
             // Act
             for (int i = 0; i < threadCount; i++) {
                 final String loginId = loginIds.get(i);
+                final String entryToken = entryTokens.get(i);
                 executor.submit(() -> {
                     latch.countDown();
                     try {
                         latch.await();
                         orderFacade.createOrder(
-                            loginId, RAW_PASSWORD,
+                            loginId, RAW_PASSWORD, entryToken,
                             List.of(new OrderRequest.OrderItemRequest(product.getId(), 1)),
                             null
                         );

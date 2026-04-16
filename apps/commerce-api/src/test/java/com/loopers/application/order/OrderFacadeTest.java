@@ -13,6 +13,7 @@ import com.loopers.domain.product.ProductService;
 import com.loopers.domain.user.User;
 import com.loopers.domain.user.UserService;
 import com.loopers.infrastructure.preorder.PreOrderCacheService;
+import com.loopers.infrastructure.queue.QueueCacheService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,11 +54,25 @@ class OrderFacadeTest {
     @Mock
     private OutboxEventPublisher outboxEventPublisher;
 
+    @Mock
+    private QueueCacheService queueCacheService;
+
+    @Mock
+    private IssuedCouponRepository issuedCouponRepository;
+
+    @Mock
+    private CouponTemplateRepository couponTemplateRepository;
+
+    @Mock
+    private PreOrderCacheService preOrderCacheService;
+
     private OrderFacade orderFacade;
 
     @BeforeEach
     void setUp() {
-        orderFacade = new OrderFacade(orderService, productService, userService, brandService, eventPublisher, outboxEventPublisher);
+        orderFacade = new OrderFacade(orderService, productService, userService, brandService,
+            eventPublisher, outboxEventPublisher, queueCacheService,
+            issuedCouponRepository, couponTemplateRepository, preOrderCacheService);
     }
 
     @DisplayName("주문 생성")
@@ -78,6 +93,7 @@ class OrderFacadeTest {
             List<OrderRequest.OrderItemRequest> items = List.of(new OrderRequest.OrderItemRequest(1L, 1));
 
             given(userService.authenticate(loginId, rawPassword)).willReturn(user);
+            given(queueCacheService.validateToken(any(), any())).willReturn(true);
             given(productService.getProduct(1L)).willReturn(product);
             given(brandService.getBrandsByIds(any())).willReturn(List.of(brand));
             given(orderService.generateOrderNumber()).willReturn("ORD-20240101-TEST");
@@ -86,7 +102,7 @@ class OrderFacadeTest {
             given(orderService.getOrderItems(any())).willReturn(List.of());
 
             // Act
-            orderFacade.createOrder(loginId, rawPassword, items);
+            orderFacade.createOrder(loginId, rawPassword, "MOCK_TOKEN", items, null);
 
             // Assert
             verify(eventPublisher).publishEvent(any(OrderCreatedEvent.class));
