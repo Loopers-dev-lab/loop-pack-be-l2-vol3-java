@@ -504,17 +504,36 @@ apps/commerce-batch/src/test/resources/
 
 | # | 작업 | 상태 | 산출물 |
 |---|------|------|--------|
-| 2-1 | MV 엔티티/리포지토리 | | MvProductRank, MvProductRankRepository, JPA 구현체 |
-| 2-2 | RankingFacade 수정 | | weekly/monthly → MV 조회 + 전일 MV fallback |
+| 2-1 | MV 엔티티/리포지토리 | ✅ | `MvProductRank` (MappedSuperclass) + Weekly/Monthly 엔티티 + Repository + JPA 구현체 |
+| 2-2 | RankingFacade 수정 | ✅ | daily→Redis, weekly/monthly→MV 단일 소스 + 전일 MV fallback |
 
 ### Phase 3: 테스트
 
 | # | 작업 | 상태 | 산출물 |
 |---|------|------|--------|
-| 3-1 | Job 통합 테스트 | | 시드 → Job → MV 결과 검증 (@SpringBatchTest) |
-| 3-2 | 멱등성 테스트 | | 같은 파라미터 2회 실행 → MV 결과 동일 |
-| 3-3 | 엣지 케이스 | | 데이터 없는 날짜, 7일 미만 데이터 |
-| 3-4 | API 통합 테스트 | | MV 조회 + 전일 fallback 동작 검증 |
+| 3-1 | Job 통합 테스트 | ✅ 코드 작성 | `ProductRankingMvJobE2ETest` — 시드 → Job → MV 결과 검증 |
+| 3-2 | 멱등성 테스트 | ✅ 코드 작성 | 같은 파라미터 2회 실행 → MV 결과 동일 |
+| 3-3 | 엣지 케이스 | ✅ 코드 작성 | 데이터 없음, 7일 미만, 100개 미만, 취소 반영 |
+| 3-4 | 테스트 실행 | ⏳ 보류 | 메모리 부족으로 실행 보류. 아래 실행 가이드 참조 |
+| 3-5 | API 통합 테스트 | | MV 조회 + 전일 fallback 동작 검증 (Phase 4에서 수동 검증 가능) |
+
+**테스트 실행 가이드**:
+
+```bash
+# 사전 조건: Docker 실행 중 (Testcontainers가 MySQL + Redis 컨테이너를 자동 생성)
+# JVM 메모리: 최소 1GB 여유 필요
+
+# 전체 MV Job 테스트
+./gradlew :apps:commerce-batch:test --tests "com.loopers.job.rankingmv.ProductRankingMvJobE2ETest"
+
+# 개별 테스트 (메모리 절약)
+./gradlew :apps:commerce-batch:test --tests "com.loopers.job.rankingmv.ProductRankingMvJobE2ETest\$WeeklyJob\$success"
+```
+
+테스트가 실패하면 확인할 것:
+- `schema-batch-test.sql`에 product_metrics, MV, staging DDL이 있는지
+- product 테이블에 `category_id` 컬럼이 있는지 (이번에 추가함)
+- Testcontainers Docker 접근 가능한지
 
 ### Phase 4: 시나리오 검증 & 모니터링
 
@@ -524,6 +543,38 @@ apps/commerce-batch/src/test/resources/
 | 4-2 | MV vs Redis 비교 | | 같은 기간 TOP 20 대조, score 차이 분석 |
 | 4-3 | 성능 측정 | | Job 실행 시간, 처리 건수, Partitioning 효과 |
 
+**시나리오 검증 절차**:
+
+```bash
+# 1. 인프라 기동
+docker-compose -f docker/infra-compose.yml up -d
+
+# 2. commerce-api 실행
+./gradlew :apps:commerce-api:bootRun
+
+# 3. 시드 데이터 생성
+./scripts/seed-test-data.sh
+
+# 4. MV 배치 실행 (별도 터미널)
+./gradlew :apps:commerce-batch:bootRun --args="--job.name=productRankingMvJob targetDate=20260416 scope=weekly"
+./gradlew :apps:commerce-batch:bootRun --args="--job.name=productRankingMvJob targetDate=20260416 scope=monthly"
+
+# 5. API 검증
+curl "http://localhost:8080/api/v1/rankings?scope=weekly&date=20260416&size=20"
+curl "http://localhost:8080/api/v1/rankings?scope=monthly&date=20260416&size=20"
+curl "http://localhost:8080/api/v1/rankings?scope=daily&size=20"  # 기존 Redis 경로
+
+# 6. MV vs Redis 비교 (MySQL 직접 조회)
+mysql -u root -p loopers -e "SELECT product_id, ranking, score FROM mv_product_rank_weekly WHERE period_key='20260416' ORDER BY ranking LIMIT 20;"
+
+# 7. 멱등성 검증: 같은 명령 2회 실행 후 MV 건수 확인
+mysql -u root -p loopers -e "SELECT COUNT(*) FROM mv_product_rank_weekly WHERE period_key='20260416';"
+
+# 8. 전일 fallback 검증: 존재하지 않는 날짜로 조회
+curl "http://localhost:8080/api/v1/rankings?scope=weekly&date=20260417&size=20"
+# → 20260417 데이터 없으면 20260416 데이터가 반환되어야 함
+```
+
 ### Phase 5: 문서 & PR → R4 충족
 
 | # | 작업 | 상태 | 산출물 |
@@ -531,3 +582,35 @@ apps/commerce-batch/src/test/resources/
 | 5-1 | 설계 문서 갱신 | | 구현 결과, 성능 수치, 트레이드오프 반영 |
 | 5-2 | PR 작성 | | 변경 요약 + 리뷰 포인트 2~3개 |
 | 5-3 | 블로그 + 10주 회고 | | TL;DR 포함, 설계 판단 중심 |
+
+**PR 리뷰 포인트 후보**:
+
+1. **Partitioning + CursorReader 조합**: GROUP BY 집계에서 PagingReader 대신 Partitioning을 선택한 이유. CursorReader의 멀티스레드 한계를 어떻게 극복했는가?
+2. **MV 단일 소스 원칙**: Redis fallback을 제거하고 전일 MV fallback으로 대체한 판단. 다른 공식의 결과를 같은 API의 fallback으로 쓰면 왜 안 되는가?
+3. **전체 재계산 vs 증분 계산**: Late-Arriving Fact(지연 취소)로 인해 증분이 부적합한 이유. 성능 차이(10초 vs 3초)가 1일 1회 배치에서 의미 없는 이유는?
+
+**블로그 구조 가이드** (소재 문서 `10-technical-writing-topics.md` 기반):
+
+```
+TL;DR: (1줄 요약)
+
+1. 도입 — "Redis에 이미 랭킹이 있는데 왜 MV를 만드는가?"
+   → 소재 4 (Lambda Architecture)
+
+2. Score 설계 — 균등 합산 vs 지수 감쇠
+   → 소재 1 + 전시 기간 편향 분석
+
+3. Chunk vs Tasklet — 언제 무엇을 쓰는가
+   → 소재 3 (Spring Batch 운영 기능 5가지)
+
+4. Reader 선택 — CursorReader + Partitioning
+   → 소재 8, 9 (GROUP BY에서 Paging이 치명적인 이유)
+
+5. 전체 재계산 vs 증분 — Late-Arriving Fact
+   → 소재 12 (취소가 과거 데이터를 변경하는 문제)
+
+6. 데이터 소스 설계 — 단일 소스 원칙
+   → 소재 4 하단 (Redis fallback 제거 판단)
+
+7. 마무리 — 10주 회고
+```
