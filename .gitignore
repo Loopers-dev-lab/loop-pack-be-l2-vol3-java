@@ -38,3 +38,10 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### k6 load test outputs ###
+tests/k6/results/
+
+### Claude Code workspace ###
+.claude/
+infra.md

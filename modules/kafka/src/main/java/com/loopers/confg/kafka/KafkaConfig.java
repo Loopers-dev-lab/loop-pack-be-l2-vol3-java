@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.config.TopicBuilder;
@@ -51,20 +52,43 @@ public class KafkaConfig {
 
     // 토픽은 KafkaAdmin이 기동 시 자동 생성 (없으면 생성, 있으면 스킵)
     @Bean
+    @Profile("!cluster")
     public org.apache.kafka.clients.admin.NewTopic catalogEventsTopic() {
         return TopicBuilder.name(KafkaTopics.CATALOG_EVENTS)
             .partitions(3)
-            .replicas(1)  // 로컬 단일 브로커 기본값 (cluster 프로파일에서는 3으로 override)
+            .replicas(1)
             .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "1")
             .build();
     }
 
     @Bean
+    @Profile("!cluster")
     public org.apache.kafka.clients.admin.NewTopic couponIssueRequestsTopic() {
         return TopicBuilder.name(KafkaTopics.COUPON_ISSUE_REQUESTS)
             .partitions(1)  // 쿠폰 발급은 순서 보장 필요 → 파티션 1개
             .replicas(1)
             .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "1")
+            .build();
+    }
+
+    // cluster 프로파일: 3-broker 클러스터 환경 — replicas=3, min.isr=2
+    @Bean
+    @Profile("cluster")
+    public org.apache.kafka.clients.admin.NewTopic catalogEventsTopicCluster() {
+        return TopicBuilder.name(KafkaTopics.CATALOG_EVENTS)
+            .partitions(3)
+            .replicas(3)
+            .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2")
+            .build();
+    }
+
+    @Bean
+    @Profile("cluster")
+    public org.apache.kafka.clients.admin.NewTopic couponIssueRequestsTopicCluster() {
+        return TopicBuilder.name(KafkaTopics.COUPON_ISSUE_REQUESTS)
+            .partitions(1)
+            .replicas(3)
+            .config(TopicConfig.MIN_IN_SYNC_REPLICAS_CONFIG, "2")
             .build();
     }
 

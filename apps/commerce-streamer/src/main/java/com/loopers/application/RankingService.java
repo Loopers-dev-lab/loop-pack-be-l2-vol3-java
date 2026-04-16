@@ -9,6 +9,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.concurrent.TimeUnit;
 
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 public class RankingService {
 
     private static final DateTimeFormatter KEY_DATE_FMT = DateTimeFormatter.BASIC_ISO_DATE; // yyyyMMdd
+    private static final ZoneId ZONE = ZoneId.of("Asia/Seoul");
     private static final long TTL_DAYS = 2;
 
     private final RedisTemplate<String, String> redisTemplate;
@@ -50,17 +52,17 @@ public class RankingService {
             case VIEWED -> 1;
             case LIKED -> 2;
             case UNLIKED -> -2;
-            case ORDERED -> 7 * Math.log(safeOrderValue(event) + 1);
+            case ORDERED -> 7 * Math.log1p(safeOrderValue(event));
         };
     }
 
-    private long safeOrderValue(CatalogEvent event) {
-        long price = event.price() != null ? event.price() : 0;
-        int quantity = event.quantity() != null ? event.quantity() : 0;
-        return price * quantity;
+    private double safeOrderValue(CatalogEvent event) {
+        long price = Math.max(event.price() != null ? event.price() : 0, 0);
+        int quantity = Math.max(event.quantity() != null ? event.quantity() : 0, 0);
+        return (double) price * quantity;
     }
 
     private String rankingKey() {
-        return "ranking:all:" + LocalDate.now().format(KEY_DATE_FMT);
+        return "ranking:all:" + LocalDate.now(ZONE).format(KEY_DATE_FMT);
     }
 }

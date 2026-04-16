@@ -1,11 +1,12 @@
 version: '3'
 services:
   kafka-1:
-    image: bitnami/kafka:3.5.1
+    image: bitnamilegacy/kafka:3.5.1
     container_name: kafka-1
     ports:
       - "19092:19092"
     environment:
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
       - KAFKA_CFG_NODE_ID=1
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:19092,CONTROLLER://:9093
@@ -26,11 +27,12 @@ services:
       retries: 10
 
   kafka-2:
-    image: bitnami/kafka:3.5.1
+    image: bitnamilegacy/kafka:3.5.1
     container_name: kafka-2
     ports:
       - "29092:29092"
     environment:
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
       - KAFKA_CFG_NODE_ID=2
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:29092,CONTROLLER://:9093
@@ -51,11 +53,12 @@ services:
       retries: 10
 
   kafka-3:
-    image: bitnami/kafka:3.5.1
+    image: bitnamilegacy/kafka:3.5.1
     container_name: kafka-3
     ports:
       - "39092:39092"
     environment:
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
       - KAFKA_CFG_NODE_ID=3
       - KAFKA_CFG_PROCESS_ROLES=broker,controller
       - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:39092,CONTROLLER://:9093
