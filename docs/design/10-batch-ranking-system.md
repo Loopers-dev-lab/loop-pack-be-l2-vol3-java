@@ -35,10 +35,11 @@
 |------|------|------|
 | 시간 윈도우 | **슬라이딩 윈도우 (매일 갱신)** | Redis weekly와 동일한 시간 범위. 무신사 방식. 사용자에게 매일 갱신되는 랭킹 제공 |
 | Score 계산 방식 | **방식 A — 메트릭 균등 합산 후 score 1회 계산** | MV는 "기간 총 실적" 관점. Redis(지수 감쇠)와 다른 관점을 제공하는 것이 MV의 존재 이유 |
-| Reader | **JdbcCursorItemReader** | 기존 RankingCorrectionJob과 일관성 유지. GROUP BY 결과(수천 행)는 커서로 충분 |
-| 비즈니스 로직 위치 | **Reader SQL에서 집계, Processor에서 score 계산** | DB가 잘하는 것(GROUP BY)은 DB에, score 공식(log₁₀)은 Java에 |
-| Writer 전략 | **DELETE + INSERT** | TOP 100은 기간마다 대상이 바뀜. UPSERT는 빠진 상품 잔여 데이터 문제 |
-| 멱등성 | **DELETE WHERE period_key = ? → INSERT로 자연 멱등** | 같은 파라미터로 몇 번 실행해도 결과 동일 |
+| Reader | **JdbcCursorItemReader + Partitioning** | GROUP BY 집계에서 Paging은 페이지마다 재실행하므로 부적합. Cursor의 멀티스레드 한계를 Partitioning으로 극복 |
+| 비즈니스 로직 위치 | **Reader SQL에서 집계 + score 계산** | DB의 LOG10/GROUP BY/ORDER BY를 활용. Processor는 pass-through |
+| Writer 전략 | **DELETE + INSERT (스테이징 경유)** | 병렬 집계 → 스테이징 → mergeStep에서 Global TOP 100 |
+| 멱등성 | **cleanup(DELETE MV + 스테이징) → 전체 재실행** | 스테이징 정합성을 위해 부분 재실행보다 전체 재실행이 안전 |
+| Job Instance 동일성 | **RunIdIncrementer** | targetDate, scope 파라미터 보존 + run.id 증가로 재실행 허용. cleanupStep이 멱등성 보장 |
 | Redis vs MV 역할 | **daily → Redis, weekly/monthly → MV primary + Redis fallback** | MV가 정확값. Redis 장애 시에도 주간/월간 조회 가능 |
 | Job 구조 | **scope 파라미터로 주간/월간 분기하는 단일 Job** | Job Config 중복 방지. 회사 코드의 batchTyp 패턴 참고 |
 

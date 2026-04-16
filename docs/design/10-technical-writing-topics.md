@@ -827,9 +827,77 @@ Step 3 (merge):      ~2초   (스테이징 100만 행 정렬 + TOP 100)
 
 ---
 
-## 소재 10: (구현 후 추가 예정)
+## 소재 10: Partitioning 도입 후 멱등성은 어떻게 보장하는가?
 
-- 멱등성을 DELETE+INSERT로 보장하는 패턴
-- Spring Batch 파라미터 설계와 Job Instance 동일성
+### 이 고민이 시작된 맥락
+
+단일 CursorReader에서는 멱등성이 단순했다:
+
+```
+Step 1: DELETE WHERE period_key = ?  → 기존 MV 데이터 삭제
+Step 2: INSERT TOP 100               → 새 데이터 적재
+→ 몇 번을 실행해도 결과 동일
+```
+
+Partitioning을 도입하면서 **스테이징 테이블이 추가**되었다. 이제 멱등성 시나리오가 복잡해진다:
+
+### Step 2에서 일부 Worker만 실패하면?
+
+```
+Step 1: DELETE MV + DELETE 스테이징  ✓
+Step 2: Worker 1 ✓, Worker 2 ✓, Worker 3 ✗ (DB 에러), Worker 4 ✓
+  → 스테이징에 Worker 1,2,4의 데이터만 존재 (Worker 3 누락)
+  → Step 2 FAILED → Step 3 미실행
+```
+
+재실행 시 Spring Batch는 **이미 COMPLETED된 파티션은 건너뛰고 실패한 파티션만 재실행**할 수 있다. 하지만 Step 1의 `allowStartIfComplete(true)`가 스테이징을 전부 DELETE하면, 성공한 Worker 1,2,4의 데이터도 사라진다.
+
+### 해결: 전체 재실행이 가장 단순하고 안전
+
+```
+재실행:
+  Step 1: DELETE MV + DELETE 스테이징 (전부 정리)
+  Step 2: Worker 1~4 전체 재실행 (전체 재적재)
+  Step 3: 스테이징 → MV TOP 100
+```
+
+수십 초 수준의 작업이므로 전체 재실행 비용이 문제되지 않는다. "실패한 파티션만 재실행"하는 최적화보다 "전부 정리하고 처음부터"가 운영상 안전하다. 부분 재실행은 스테이징의 정합성을 보장하기 어렵다.
+
+---
+
+## 소재 11: 같은 날짜로 Job을 두 번 돌리면 어떻게 되는가? — Job Instance 동일성
+
+### 이 고민이 시작된 맥락
+
+```
+01:00 주간 MV Job 실행 (targetDate=20260416, scope=weekly)  → 성공
+01:30 데이터 오류 발견 → 수정 후 같은 파라미터로 재실행하고 싶다
+```
+
+Spring Batch는 `jobName + identifying JobParameters`로 Job Instance를 식별한다. 같은 파라미터로 재실행하면 "이미 완료된 Instance"라고 거부할 수 있다.
+
+### RunIdIncrementer가 해결
+
+```java
+.incrementer(new RunIdIncrementer())
+```
+
+RunIdIncrementer는 기존 파라미터를 보존하면서 `run.id`를 1씩 증가시킨다. `run.id`는 non-identifying이므로 Job Instance 식별에 영향을 주지 않는다:
+
+```
+실행 1: targetDate=20260416, scope=weekly, run.id=1 → Instance A, Execution 1
+실행 2: targetDate=20260416, scope=weekly, run.id=2 → Instance A, Execution 2 (재실행 허용)
+```
+
+cleanupStep이 DELETE로 시작하므로, 재실행 시 이전 결과를 덮어쓴다 → 멱등성 보장.
+
+### 배치 프로젝트의 UniqueRunIdIncrementer와의 차이
+
+배치 프로젝트의 UniqueRunIdIncrementer는 **모든 파라미터를 버리고 run.id만 남겼다**. 이 방식은 targetDate, scope를 `@Value("#{jobParameters[...]}")`로 주입받을 수 없다. 우리는 파라미터 보존이 필요하므로 기본 RunIdIncrementer를 사용한다.
+
+---
+
+## 소재 12: (구현 후 추가 예정)
+
 - MV vs Redis 실제 랭킹 비교 결과 (score 차이 분석)
 - Partitioning 실제 성능 측정 결과
