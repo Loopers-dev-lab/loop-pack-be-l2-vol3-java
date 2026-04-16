@@ -87,6 +87,20 @@ class RankingAppPeriodTest {
         verify(mvProductRankRepository).findByPeriodKey(eq(RankPeriodType.MONTHLY), anyString(), eq(0L), eq(20L));
     }
 
+    @DisplayName("period=QUARTERLY → MvProductRankRepository(QUARTERLY) 호출")
+    @Test
+    void quarterly_usesMvRepository() {
+        LocalDate date = LocalDate.of(2026, 4, 16);
+        when(mvProductRankRepository.findByPeriodKey(eq(RankPeriodType.QUARTERLY), anyString(), eq(0L), eq(20L)))
+                .thenReturn(List.of());
+        when(mvProductRankRepository.countByPeriodKey(eq(RankPeriodType.QUARTERLY), anyString())).thenReturn(0L);
+
+        rankingApp.getTopN(RankingPeriod.QUARTERLY, date, 0, 20);
+
+        verify(mvProductRankRepository).findByPeriodKey(eq(RankPeriodType.QUARTERLY), anyString(), eq(0L), eq(20L));
+        verify(rankingRepository, never()).findTopN(any(), anyLong(), anyLong());
+    }
+
     @DisplayName("period 없는 기존 메서드는 DAILY로 동작한다")
     @Test
     void legacyMethod_defaultsToDaily() {

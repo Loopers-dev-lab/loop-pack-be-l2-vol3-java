@@ -42,6 +42,13 @@ class RankingV1ControllerPeriodTest {
         assertThat(RankingPeriod.fromString("monthly")).isEqualTo(RankingPeriod.MONTHLY);
     }
 
+    @DisplayName("quarterly → QUARTERLY")
+    @Test
+    void quarterly() {
+        assertThat(RankingPeriod.fromString("quarterly")).isEqualTo(RankingPeriod.QUARTERLY);
+        assertThat(RankingPeriod.fromString("QUARTERLY")).isEqualTo(RankingPeriod.QUARTERLY);
+    }
+
     @DisplayName("invalid → IllegalArgumentException")
     @Test
     void invalid_throwsException() {
