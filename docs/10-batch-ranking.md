@@ -202,6 +202,26 @@ log1p(3) + log1p(4) ≠ log1p(7)
 **결론**
 `product_metrics`(일별 원본)에서 weekly, monthly가 각자 독립적으로 집계하는 구조(fan-out)를 채택했다. 단일 원천에서 파생되므로 재집계가 단순하고 스케줄러 간 의존성이 없다.
 
+### MV Entity를 modules/jpa 대신 각 모듈에 별도 정의한 이유
+
+`commerce-batch`와 `commerce-api`가 같은 MV 테이블을 사용하므로, Entity를 공유 모듈에 두는 방안을 고려했다.
+
+**modules/jpa에 넣지 않은 이유**
+`modules/jpa`는 JPA 설정(DataSource, QueryDSL)과 공통 기반(BaseEntity)만 담당하는 모듈이다. 비즈니스 도메인 Entity를 넣으면 설정 모듈과 도메인 모듈의 책임이 섞인다.
+
+**결론**
+`commerce-batch`(쓰기용)와 `commerce-api`(읽기용) 각각에 Entity를 별도 정의했다. 같은 테이블을 가리키지만 사용 목적이 다르고, 두 모듈이 서로 의존하지 않는 구조를 유지하기 위해서다. 스키마 변경 시 두 곳을 모두 수정해야 한다는 단점이 있다.
+
+### RankingRepository 인터페이스에 period 파라미터를 통합하지 않은 이유
+
+`getTopN(LocalDate date, String period, int size, int page)` 형태로 통합하는 방안을 고려했다.
+
+**통합하지 않은 이유**
+기존 `RankingRepositoryImpl`은 Redis 기반으로 daily만 처리한다. `period` 파라미터를 받으면 Redis 구현체가 weekly/monthly 케이스를 처리해야 하는데, Redis는 daily 전용이라 구현체 내에서 분기가 어색해진다.
+
+**결론**
+`getTopN`(daily), `getWeeklyTopN`, `getMonthlyTopN`으로 메서드를 분리했다. 각 메서드가 명확한 저장소(Redis / MV 테이블)와 1:1 대응되어 구현체의 책임이 명확해진다.
+
 ### product_metrics Reader에 JPA 대신 JDBC를 사용한 이유
 
 `commerce-batch`는 `commerce-streamer`를 의존하지 않는다. `ProductMetricsEntity`는 `commerce-streamer` 모듈에 정의되어 있어 batch 모듈의 클래스패스에 존재하지 않는다.
@@ -253,6 +273,6 @@ batch 모듈에 `ProductMetricsEntity`를 중복 정의하는 방법도 있으�
 
 ### Phase 4. Ranking API 확장
 
-- [ ] `RankingV1Controller` — `period` 파라미터 추가
-- [ ] `RankingFacade` — period별 분기 처리
-- [ ] `RankingRepository` — 주간/월간 MV 조회 메서드 추가
+- [x] `RankingV1Controller` — `period` 파라미터 추가
+- [x] `RankingFacade` — period별 분기 처리
+- [x] `RankingRepository` — 주간/월간 MV 조회 메서드 추가
