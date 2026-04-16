@@ -381,7 +381,70 @@ SQL에 score 공식을 넣으면, RankingCorrectionJob(Java)과 MV Job(SQL)에 �
 
 ---
 
-## 소재 6: (구현 후 추가 예정)
+## 소재 6: Chunk vs Tasklet — 도구를 쓸 줄 아는 것과, 언제 써야 하는지 아는 것
+
+### 핵심 통찰: 사전 집계는 입력을, Chunk는 출력을 다룬다
+
+```
+사전 집계 파이프라인 (Kafka → Flink/Spark → product_metrics):
+  수억 건 이벤트 → 일간 집계 테이블
+  → Reader의 입력 볼륨을 줄이는 것
+
+Chunk-Oriented:
+  대량의 행을 chunk 단위로 읽고-변환하고-적재
+  → Writer의 출력 볼륨이 클 때 가치가 있는 것
+
+둘은 서로 다른 문제를 해결한다.
+```
+
+사전 집계가 있어야 Chunk가 유용한 것이 아니다. Chunk의 진짜 가치는 **"SQL로 불가능한 변환을 대량의 행에 적용해야 할 때"** 발휘된다.
+
+### Chunk가 진짜 필요한 실무 시나리오
+
+실무 배치 앱에서 Chunk-Oriented를 쓰는 Job들의 공통점:
+
+| Job | 처리 건수 | Chunk를 쓰는 이유 |
+|-----|----------|-----------------|
+| memberGradeChangeJob | 회원 100만 명 | 등급 산정 로직이 복잡 (구매 이력 조회 + 등급 기준 비교 + 쿠폰 발급). SQL 한 문장 불가. 100만 건을 메모리에 올리면 OOM |
+| mileageRemoveJob | 만료 마일리지 수만 건 | 1건 읽기 → 3개 엔티티 생성 (소멸 이력 + 기존 마감 + 잔액 갱신). CompositeItemWriter로 3개 테이블 동시 갱신 |
+| searchProductChunkLoadJob | 상품 10만 건 | 적재 대상이 DB가 아니라 **외부 검색 API**. SQL INSERT 불가능 |
+
+공통점: **출력이 대량이고, 행 단위 Java 변환이 필수**
+
+### 대규모 이커머스에서도 Tasklet이 유리한가?
+
+쿠팡급(상품 100만, product_metrics 30일치 3,000만 행) 기준:
+
+| 단계 | Tasklet | Chunk |
+|------|---------|-------|
+| DB에서 3,000만 행 GROUP BY | 동일 (SQL 실행) | 동일 (Reader SQL 실행) |
+| 100만 행 정렬 + TOP 100 | DB 내부 처리 | DB 내부 처리 (LIMIT 100) |
+| 결과 전송 | 네트워크 왕복 0 | 100건 Java 경유 (네트워크 왕복 2) |
+| **총 소요 시간 차이** | — | **< 1ms** (100건 × ~100바이트 = 10KB) |
+
+**집계 쿼리의 DB 부하는 Tasklet이든 Chunk든 동일하다.** Chunk가 추가하는 것은 100건에 대한 네트워크 왕복뿐이고, 이것은 측정 불가능한 수준이다.
+
+대규모에서 진짜 해결해야 할 문제는 Tasklet vs Chunk가 아니라 **"이 집계를 서비스 DB에서 할 것인가"**이다. 답은 Replica DB 또는 DW에서 집계하는 것이고, 이것은 두 방식 모두에 적용된다.
+
+### 과제에서 Chunk를 요구한 의도
+
+요구사항: "Chunk-Oriented 방식을 통해 **대량의 데이터를 읽고 처리**할 수 있도록 구성해 보세요"
+
+이 작업에서 Tasklet이 더 효율적이라는 것을 출제진도 알고 있을 것이다. 그럼에도 Chunk를 요구한 의도는:
+
+1. **Chunk-Oriented 패턴을 직접 구현해봐야** Reader/Processor/Writer의 역할 분리, chunk 단위 트랜잭션, StepScope 등을 체감할 수 있다
+2. **"이 상황에서 왜 Chunk가 최선이 아닌가"를 분석하는 능력** 자체가 시니어의 역량이다
+3. 면접에서 **"Chunk로 구현했지만, Tasklet이 더 효율적인 이유와 전환 시점을 설명할 수 있습니다"**가 훨씬 강력한 답변이다
+
+### 우리의 접근: Chunk의 비효율을 최소화
+
+Chunk를 쓰되, Reader SQL에서 GROUP BY + score 계산 + ORDER BY + LIMIT 100까지 처리하여 **Java로 넘어오는 데이터를 100건으로 제한**했다. Processor는 ranking 번호 부여만 담당한다.
+
+이것은 "Chunk 패턴을 따르면서도 DB의 강점(집계, 정렬, 필터링)을 활용하는 실용적 타협"이다. 도구(Chunk)를 쓸 줄 아는 것과, 언제 써야 하는지(대량 출력 + Java 변환 필수) 아는 것은 다르다.
+
+---
+
+## 소재 7: (구현 후 추가 예정)
 
 - 멱등성을 DELETE+INSERT로 보장하는 실무 패턴
 - Spring Batch 파라미터 설계와 Job Instance 동일성
