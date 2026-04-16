@@ -188,6 +188,10 @@ class ErrorTypeTest {
 			Arguments.of(ErrorType.PG_TIMEOUT, HttpStatus.GATEWAY_TIMEOUT,
 				"PG_TIMEOUT", "PG 응답 시간이 초과되었습니다."),
 
+			// Ranking
+			Arguments.of(ErrorType.INVALID_RANKING_PERIOD, HttpStatus.BAD_REQUEST,
+				"INVALID_RANKING_PERIOD", "지원하지 않는 랭킹 기간입니다. 허용값: daily, weekly, monthly"),
+
 			// Queue
 			Arguments.of(ErrorType.INVALID_QUEUE_TOKEN, HttpStatus.UNAUTHORIZED,
 				"INVALID_QUEUE_TOKEN", "유효하지 않은 대기열 토큰입니다."),
@@ -204,10 +208,10 @@ class ErrorTypeTest {
 
 
 	@Test
-	@DisplayName("[ErrorType] enum 상수 개수가 70개임을 보장")
+	@DisplayName("[ErrorType] enum 상수 개수가 71개임을 보장")
 	void enumConstantCount() {
 		// Assert
-		assertThat(ErrorType.values()).hasSize(70);
+		assertThat(ErrorType.values()).hasSize(71);
 	}
 
 

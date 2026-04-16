@@ -14,9 +14,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * product_metrics vs product_read_model drift 보정 Tasklet
- * - product_metrics.like_count와 product_read_model.like_count 불일치 감지
- * - 불일치 발견 시 product_read_model을 product_metrics 기준으로 보정
- * - metrics_version도 함께 보정
+ * - product_metrics (일간 grain) 전체 누계 like_count와 product_read_model.like_count 불일치 감지
+ * - 불일치 발견 시 product_read_model을 product_metrics 합산 기준으로 보정
  */
 
 @StepScope
@@ -32,12 +31,17 @@ public class ProductMetricsReconciliationTasklet implements Tasklet {
 	@Override
 	public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
 
-		// product_metrics와 product_read_model의 like_count 불일치 보정
+		// product_metrics 일간 grain 전체 합산 → product_read_model 보정
+		// 일간 grain 전환으로 product_id별 SUM(like_count) = 누적 총 좋아요 수
 		int updated = jdbcTemplate.update(
 			"UPDATE product_read_model rm " +
-			"INNER JOIN product_metrics pm ON rm.id = pm.product_id " +
-			"SET rm.like_count = pm.like_count, rm.metrics_version = pm.version " +
-			"WHERE rm.like_count != pm.like_count OR rm.metrics_version != pm.version"
+			"INNER JOIN (" +
+			"    SELECT product_id, SUM(like_count) AS total_like_count, MAX(version) AS max_version " +
+			"    FROM product_metrics " +
+			"    GROUP BY product_id" +
+			") pm ON rm.id = pm.product_id " +
+			"SET rm.like_count = pm.total_like_count, rm.metrics_version = pm.max_version " +
+			"WHERE rm.like_count != pm.total_like_count OR rm.metrics_version != pm.max_version"
 		);
 
 		if (updated > 0) {

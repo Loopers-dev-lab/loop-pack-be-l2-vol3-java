@@ -107,6 +107,9 @@ public enum ErrorType {
 	PG_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "PG_SERVICE_UNAVAILABLE", "PG 서비스를 일시적으로 사용할 수 없습니다."),
 	PG_TIMEOUT(HttpStatus.GATEWAY_TIMEOUT, "PG_TIMEOUT", "PG 응답 시간이 초과되었습니다."),
 
+	/** Ranking 도메인 에러 */
+	INVALID_RANKING_PERIOD(HttpStatus.BAD_REQUEST, "INVALID_RANKING_PERIOD", "지원하지 않는 랭킹 기간입니다. 허용값: daily, weekly, monthly"),
+
 	/** Queue 도메인 에러 */
 	INVALID_QUEUE_TOKEN(HttpStatus.UNAUTHORIZED, "INVALID_QUEUE_TOKEN", "유효하지 않은 대기열 토큰입니다."),
 	QUEUE_NOT_ENTERED(HttpStatus.NOT_FOUND, "QUEUE_NOT_ENTERED", "대기열에 진입하지 않았거나 아직 처리 중입니다."),

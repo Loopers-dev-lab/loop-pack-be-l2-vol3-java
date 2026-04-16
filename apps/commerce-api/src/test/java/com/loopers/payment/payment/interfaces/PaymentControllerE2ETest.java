@@ -49,7 +49,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(
 	webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT,
-	properties = "payment.pg.base-url=http://localhost:8080/test-pg"
+	properties = {
+		"server.port=18082",
+		"payment.pg.base-url=http://localhost:18082/test-pg"
+	}
 )
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -87,7 +90,7 @@ class PaymentControllerE2ETest {
 
 	private Long orderId;
 
-	// payment.pg.base-url=http://localhost:8080/test-pg (properties에서 설정)
+	// payment.pg.base-url=http://localhost:18082/test-pg (properties에서 설정)
 	// TestPgSimulatorController가 /test-pg/api/v1/payments 경로로 매핑되어 PG 역할 수행
 
 

@@ -25,6 +25,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import org.springframework.jdbc.core.JdbcTemplate;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -63,6 +65,9 @@ class RankingQueryControllerE2ETest {
 	@Autowired
 	@Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
 	private RedisTemplate<String, String> redisTemplate;
+
+	@Autowired
+	private JdbcTemplate jdbcTemplate;
 
 	private static final String ADMIN_LDAP_HEADER = "X-Loopers-Ldap";
 	private static final String ADMIN_LDAP_VALUE = "loopers.admin";
@@ -196,6 +201,158 @@ class RankingQueryControllerE2ETest {
 					.param("size", "200"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.size").value(100));
+		}
+
+
+		@Test
+		@DisplayName("[GET /api/v1/rankings] period=invalid -> 400 Bad Request. INVALID_RANKING_PERIOD 오류 코드")
+		void rankingsWithInvalidPeriod() throws Exception {
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/rankings")
+					.param("period", "invalid"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.code").value("INVALID_RANKING_PERIOD"));
+		}
+	}
+
+
+	@Nested
+	@DisplayName("GET /api/v1/rankings?period=weekly - 주간 랭킹 조회")
+	class GetWeeklyRankingsTest {
+
+		// 2024-04-15(월) 기준: weekStart=2024-04-15, weekEnd=2024-04-21
+		private static final String DATE_PARAM = "20240415";
+		private static final LocalDate WEEK_START = LocalDate.of(2024, 4, 15);
+		private static final LocalDate WEEK_END = LocalDate.of(2024, 4, 21);
+
+		@Test
+		@DisplayName("[GET /api/v1/rankings?period=weekly] MV에 데이터 있음 -> 200 OK. 랭킹 목록 반환, 1위 상품 정보 포함")
+		void weeklyRankings_withData() throws Exception {
+			// Arrange — mv_product_rank_weekly에 직접 적재
+			jdbcTemplate.update(
+				"INSERT INTO mv_product_rank_weekly " +
+				"(week_start_date, week_end_date, scorer_type, rank_position, score, like_count, sales_count, view_count, " +
+				"product_id, product_name, brand_id, brand_name, price, created_at, updated_at) " +
+				"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+				WEEK_START, WEEK_END, "SATURATION", 1, new BigDecimal("0.85000000"),
+				20L, 5L, 100L, 101L, "에어맥스", 1L, "나이키", new BigDecimal("129000.00")
+			);
+			jdbcTemplate.update(
+				"INSERT INTO mv_product_rank_weekly " +
+				"(week_start_date, week_end_date, scorer_type, rank_position, score, like_count, sales_count, view_count, " +
+				"product_id, product_name, brand_id, brand_name, price, created_at, updated_at) " +
+				"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+				WEEK_START, WEEK_END, "SATURATION", 2, new BigDecimal("0.60000000"),
+				5L, 1L, 50L, 102L, "에어포스", 1L, "나이키", new BigDecimal("139000.00")
+			);
+
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/rankings")
+					.param("period", "weekly")
+					.param("date", DATE_PARAM))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content", hasSize(2)))
+				.andExpect(jsonPath("$.content[0].rank").value(1))
+				.andExpect(jsonPath("$.content[0].productId").value(101))
+				.andExpect(jsonPath("$.content[0].name").value("에어맥스"))
+				.andExpect(jsonPath("$.content[0].brandName").value("나이키"))
+				.andExpect(jsonPath("$.content[0].price").value(129000))
+				.andExpect(jsonPath("$.content[1].rank").value(2))
+				.andExpect(jsonPath("$.totalElements").value(2));
+		}
+
+
+		@Test
+		@DisplayName("[GET /api/v1/rankings?period=weekly] MV 비어있음 -> 200 OK. 빈 목록, totalElements=0")
+		void weeklyRankings_empty() throws Exception {
+			// Act & Assert — MV 데이터 없음 (아무것도 적재 안 함)
+			mockMvc.perform(get("/api/v1/rankings")
+					.param("period", "weekly")
+					.param("date", DATE_PARAM))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content", hasSize(0)))
+				.andExpect(jsonPath("$.totalElements").value(0));
+		}
+
+
+		@Test
+		@DisplayName("[GET /api/v1/rankings?period=weekly] date 미전달 -> 200 OK. 어제 기준 주간 랭킹 반환 (빈 목록)")
+		void weeklyRankings_noDateParam() throws Exception {
+			// Act & Assert — date 없을 때 어제 기준, MV 비어있으면 빈 목록
+			mockMvc.perform(get("/api/v1/rankings")
+					.param("period", "weekly"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content").isArray());
+		}
+	}
+
+
+	@Nested
+	@DisplayName("GET /api/v1/rankings?period=monthly - 월간 랭킹 조회")
+	class GetMonthlyRankingsTest {
+
+		// 2024-04-15 기준: monthStart=2024-04-01, monthKey="2024-04"
+		private static final String DATE_PARAM = "20240415";
+		private static final LocalDate MONTH_START = LocalDate.of(2024, 4, 1);
+
+		@Test
+		@DisplayName("[GET /api/v1/rankings?period=monthly] MV에 데이터 있음 -> 200 OK. 랭킹 목록 반환, 1위 상품 정보 포함")
+		void monthlyRankings_withData() throws Exception {
+			// Arrange — mv_product_rank_monthly에 직접 적재
+			jdbcTemplate.update(
+				"INSERT INTO mv_product_rank_monthly " +
+				"(month_start_date, month_key, scorer_type, rank_position, score, like_count, sales_count, view_count, " +
+				"product_id, product_name, brand_id, brand_name, price, created_at, updated_at) " +
+				"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+				MONTH_START, "2024-04", "SATURATION", 1, new BigDecimal("0.90000000"),
+				60L, 15L, 300L, 201L, "에어맥스", 1L, "나이키", new BigDecimal("129000.00")
+			);
+			jdbcTemplate.update(
+				"INSERT INTO mv_product_rank_monthly " +
+				"(month_start_date, month_key, scorer_type, rank_position, score, like_count, sales_count, view_count, " +
+				"product_id, product_name, brand_id, brand_name, price, created_at, updated_at) " +
+				"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())",
+				MONTH_START, "2024-04", "SATURATION", 2, new BigDecimal("0.55000000"),
+				15L, 3L, 100L, 202L, "에어포스", 1L, "나이키", new BigDecimal("139000.00")
+			);
+
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/rankings")
+					.param("period", "monthly")
+					.param("date", DATE_PARAM))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content", hasSize(2)))
+				.andExpect(jsonPath("$.content[0].rank").value(1))
+				.andExpect(jsonPath("$.content[0].productId").value(201))
+				.andExpect(jsonPath("$.content[0].name").value("에어맥스"))
+				.andExpect(jsonPath("$.content[0].brandName").value("나이키"))
+				.andExpect(jsonPath("$.content[0].price").value(129000))
+				.andExpect(jsonPath("$.content[1].rank").value(2))
+				.andExpect(jsonPath("$.totalElements").value(2));
+		}
+
+
+		@Test
+		@DisplayName("[GET /api/v1/rankings?period=monthly] MV 비어있음 -> 200 OK. 빈 목록, totalElements=0")
+		void monthlyRankings_empty() throws Exception {
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/rankings")
+					.param("period", "monthly")
+					.param("date", DATE_PARAM))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content", hasSize(0)))
+				.andExpect(jsonPath("$.totalElements").value(0));
+		}
+
+
+		@Test
+		@DisplayName("[GET /api/v1/rankings?period=monthly] date 미전달 -> 200 OK. 어제 기준 월간 랭킹 반환 (빈 목록)")
+		void monthlyRankings_noDateParam() throws Exception {
+			// Act & Assert
+			mockMvc.perform(get("/api/v1/rankings")
+					.param("period", "monthly"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content").isArray());
 		}
 	}
 
