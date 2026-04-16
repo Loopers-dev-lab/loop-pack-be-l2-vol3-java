@@ -35,7 +35,7 @@ public class MvRankAdminV1Controller {
     @Operation(summary = "periodType별 MV 상태 목록", description = "published_version/total/orphan row 수 페이징 조회")
     public ResponseEntity<ApiResponse<List<MvRankAdminV1Dto.StatusResponse>>> listStatus(
             @RequestHeader(value = "X-Loopers-Ldap", required = false) String ldapHeader,
-            @Parameter(description = "WEEKLY or MONTHLY") @PathVariable String periodType,
+            @Parameter(description = "WEEKLY | MONTHLY | QUARTERLY") @PathVariable String periodType,
             @Parameter(description = "페이징 offset (기본 0)") @RequestParam(defaultValue = "0") int offset,
             @Parameter(description = "페이지 크기 (기본 50, 최대 500)") @RequestParam(defaultValue = "50") int size
     ) {
