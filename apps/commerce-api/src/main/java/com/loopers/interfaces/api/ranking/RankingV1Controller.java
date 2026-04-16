@@ -3,6 +3,7 @@ package com.loopers.interfaces.api.ranking;
 import com.loopers.application.ranking.RankingPageInfo;
 import com.loopers.application.ranking.RankingQueryService;
 import com.loopers.application.ranking.HourlyRankingPageInfo;
+import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.interfaces.api.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,12 +28,20 @@ public class RankingV1Controller implements RankingV1ApiSpec {
     @GetMapping
     @Override
     public ApiResponse<RankingV1Dto.RankingPageResponse> getRankings(
+        @RequestParam(defaultValue = "DAILY") String period,
         @RequestParam(required = false) String date,
         @RequestParam(defaultValue = "20") int size,
         @RequestParam(defaultValue = "1") int page
     ) {
         LocalDate targetDate = date == null || date.isBlank() ? null : LocalDate.parse(date, BASIC_DATE);
-        RankingPageInfo pageInfo = rankingQueryService.getDailyRanking(targetDate, page, size);
+        RankingPeriod rankingPeriod = RankingPeriod.valueOf(period.toUpperCase());
+
+        RankingPageInfo pageInfo = switch (rankingPeriod) {
+            case DAILY -> rankingQueryService.getDailyRanking(targetDate, page, size);
+            case WEEKLY -> rankingQueryService.getWeeklyRanking(targetDate, page, size);
+            case MONTHLY -> rankingQueryService.getMonthlyRanking(targetDate, page, size);
+        };
+
         return ApiResponse.success(RankingV1Dto.RankingPageResponse.from(pageInfo));
     }
 

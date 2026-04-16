@@ -10,9 +10,10 @@ public interface RankingV1ApiSpec {
 
     @Operation(
         summary = "랭킹 페이지 조회",
-        description = "일자별 랭킹을 페이지 단위로 조회합니다. page는 1부터 시작합니다."
+        description = "일자별/주간/월간 랭킹을 페이지 단위로 조회합니다. page는 1부터 시작합니다."
     )
     ApiResponse<RankingV1Dto.RankingPageResponse> getRankings(
+        @Parameter(description = "조회 기간 (DAILY, WEEKLY, MONTHLY). 기본값: DAILY", example = "DAILY") String period,
         @Parameter(description = "조회 일자 (yyyyMMdd). 미입력 시 오늘", example = "20260405") String date,
         @Parameter(description = "페이지 크기", example = "20") int size,
         @Parameter(description = "페이지 번호(1-base)", example = "1") int page
