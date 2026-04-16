@@ -43,4 +43,60 @@ class RankingV1ControllerE2ETest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.meta.result").value("SUCCESS"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings — size=0이면 400 반환")
+    void list_SizeZero_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings").param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.meta.result").value("FAIL"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings — size가 음수면 400 반환")
+    void list_SizeNegative_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings").param("size", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.meta.result").value("FAIL"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings — page가 음수면 400 반환")
+    void list_PageNegative_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.meta.result").value("FAIL"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/hourly — size=0이면 400 반환")
+    void hourly_SizeZero_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings/hourly").param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.meta.result").value("FAIL"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/hourly — size가 음수면 400 반환")
+    void hourly_SizeNegative_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings/hourly").param("size", "-2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.meta.result").value("FAIL"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings — size가 상한(100)을 초과하면 400 반환")
+    void list_SizeExceedsMax_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.meta.result").value("FAIL"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings/hourly — size가 상한(100)을 초과하면 400 반환")
+    void hourly_SizeExceedsMax_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings/hourly").param("size", "1000"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.meta.result").value("FAIL"));
+    }
 }

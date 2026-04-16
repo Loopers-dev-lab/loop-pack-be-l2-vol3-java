@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -107,6 +108,8 @@ public class OrderEventProcessor {
         List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
         if (items == null || items.isEmpty()) return;
 
+        LocalDate metricDate = occurredAt.toLocalDate();  // JVM TZ = Asia/Seoul
+
         for (Map<String, Object> item : items) {
             Number productIdNum = (Number) item.get("productId");
             Number finalAmountNum = (Number) item.get("finalAmount");
@@ -114,7 +117,7 @@ public class OrderEventProcessor {
             if (productIdNum != null && finalAmountNum != null) {
                 long productId = productIdNum.longValue();
                 long amount = new BigDecimal(finalAmountNum.toString()).longValue();
-                productMetricsService.incrementOrderCount(productId, amount);
+                productMetricsService.incrementOrderCount(productId, amount, metricDate);
 
                 try {
                     double orderScore = RankingWeight.orderScore(amount);

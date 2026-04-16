@@ -109,6 +109,20 @@ public class CacheConfig implements CachingConfigurer {
         return manager;
     }
 
+    /**
+     * 주·월간 MV 랭킹 전용 Caffeine 캐시 매니저 (TTL 10분, 최대 200 엔트리).
+     * MV는 일 1회 갱신이라 10분 TTL이 무해하다.
+     */
+    @Bean("mvRankingCacheManager")
+    public CaffeineCacheManager mvRankingCacheManager() {
+        CaffeineCacheManager manager = new CaffeineCacheManager("mvRankings");
+        manager.setCaffeine(Caffeine.newBuilder()
+                .maximumSize(200)
+                .expireAfterWrite(10, TimeUnit.MINUTES)
+                .recordStats());
+        return manager;
+    }
+
     private GenericJackson2JsonRedisSerializer redisSerializer() {
         ObjectMapper om = new ObjectMapper();
         om.registerModule(new JavaTimeModule());

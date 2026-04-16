@@ -47,8 +47,8 @@ public class CatalogEventProcessor {
      * LIKED/UNLIKED는 멱등 처리(SADD)가 필요하므로 1건씩 처리.</p>
      */
     public void processBatch(List<ConsumerRecord<Object, Object>> records) {
-        Map<Long, Double> viewScores = new HashMap<>();
-        Map<Long, Integer> viewCounts = new HashMap<>();
+        Map<Long, Double> viewScores = new HashMap<>();                       // Redis: productId별 점수 합산
+        Map<ProductDateKey, Integer> viewCounts = new HashMap<>();            // DB: (productId, metricDate)별 카운트
         List<ParsedEvent> likeEvents = new ArrayList<>();
 
         // Phase 1: 파싱 + VIEWED 합산
@@ -58,8 +58,9 @@ public class CatalogEventProcessor {
 
             switch (event.eventType) {
                 case "PRODUCT_VIEWED" -> {
+                    LocalDate metricDate = event.occurredAt.toLocalDate();    // JVM TZ = Asia/Seoul
                     viewScores.merge(event.productId, RankingWeight.VIEW, Double::sum);
-                    viewCounts.merge(event.productId, 1, Integer::sum);
+                    viewCounts.merge(new ProductDateKey(event.productId, metricDate), 1, Integer::sum);
                 }
                 case "PRODUCT_LIKED", "PRODUCT_UNLIKED" -> likeEvents.add(event);
                 default -> log.warn("[CatalogProcessor] 알 수 없는 eventType: {}", event.eventType);
@@ -68,39 +69,53 @@ public class CatalogEventProcessor {
 
         // Phase 2: VIEWED — DB 배치 + Redis Pipeline
         if (!viewScores.isEmpty()) {
-            // DB: 조회수 배치 합산 증가 (productId당 1회 upsert)
-            viewCounts.forEach((productId, count) ->
-                    productMetricsService.incrementViewCountBy(productId, count));
+            long totalViewEvents = viewCounts.values().stream().mapToInt(Integer::intValue).sum();
 
-            // Redis: Pipeline 배치 처리
+            // DB: 조회수 배치 합산 증가 (productId × metricDate당 1회 upsert, 누적 + daily 동일 TX)
+            viewCounts.forEach((key, count) ->
+                    productMetricsService.incrementViewCountBy(key.productId(), count, key.metricDate()));
+
+            // Redis: Pipeline 배치 처리 — 실패 시 메시지는 이미 ack되므로 메트릭으로 손실 가시화
             try {
                 rankingService.incrementScoreBatch(viewScores);
+                consumerMetrics.recordCatalogProcessed(totalViewEvents);
             } catch (Exception e) {
-                log.warn("[CatalogProcessor] 랭킹 배치 적재 실패 — PRODUCT_VIEWED, products={}", viewScores.keySet(), e);
+                consumerMetrics.recordCatalogFailed(totalViewEvents);
+                log.warn("[CatalogProcessor] 랭킹 배치 적재 실패 — PRODUCT_VIEWED, products={}, lostEvents={}",
+                        viewScores.keySet(), totalViewEvents, e);
             }
 
-            log.debug("[CatalogProcessor] VIEWED 배치 처리 완료 — {}개 상품, {}건 이벤트",
-                    viewScores.size(), viewCounts.values().stream().mapToInt(i -> i).sum());
+            log.debug("[CatalogProcessor] VIEWED 배치 처리 완료 — {}개 버킷, {}건 이벤트",
+                    viewCounts.size(), totalViewEvents);
         }
 
         // Phase 3: LIKED/UNLIKED — 1건씩 처리 (멱등 보장)
         for (ParsedEvent event : likeEvents) {
             try {
+                LocalDate metricDate = event.occurredAt.toLocalDate();
                 if ("PRODUCT_LIKED".equals(event.eventType)) {
-                    productMetricsService.incrementLikeCount(event.productId);
+                    productMetricsService.incrementLikeCount(event.productId, metricDate);
                     rankingService.incrementLikeScoreIfAbsent(
                             event.productId, event.userId, RankingWeight.LIKE, event.occurredAt);
                 } else {
-                    productMetricsService.decrementLikeCount(event.productId);
+                    productMetricsService.decrementLikeCount(event.productId, metricDate);
                     rankingService.decrementLikeScoreIfPresent(
                             event.productId, event.userId, RankingWeight.LIKE, event.occurredAt);
                 }
+                consumerMetrics.recordCatalogProcessed();
             } catch (Exception e) {
+                consumerMetrics.recordCatalogFailed();
                 log.warn("[CatalogProcessor] 처리 실패 — {}, productId={}",
                         event.eventType, event.productId, e);
             }
         }
     }
+
+    /**
+     * Phase 1 압착 집계용 복합 키. (productId, metricDate) 단위로 카운트를 합산하여
+     * 자정 경계 이벤트가 서로 다른 버킷으로 올바르게 분리되도록 한다.
+     */
+    private record ProductDateKey(Long productId, LocalDate metricDate) {}
 
     @SuppressWarnings("unchecked")
     private ParsedEvent parseRecord(ConsumerRecord<Object, Object> record) {
