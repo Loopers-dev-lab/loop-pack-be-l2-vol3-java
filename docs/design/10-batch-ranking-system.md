@@ -40,7 +40,7 @@
 | Writer 전략 | **DELETE + INSERT (스테이징 경유)** | 병렬 집계 → 스테이징 → mergeStep에서 Global TOP 100 |
 | 멱등성 | **cleanup(DELETE MV + 스테이징) → 전체 재실행** | 스테이징 정합성을 위해 부분 재실행보다 전체 재실행이 안전 |
 | Job Instance 동일성 | **RunIdIncrementer** | targetDate, scope 파라미터 보존 + run.id 증가로 재실행 허용. cleanupStep이 멱등성 보장 |
-| Redis vs MV 역할 | **daily → Redis, weekly/monthly → MV primary + Redis fallback** | MV가 정확값. Redis 장애 시에도 주간/월간 조회 가능 |
+| Redis vs MV 역할 | **daily → Redis, weekly/monthly → MV 단일 소스 (Redis fallback 없음)** | 다른 공식(감쇠 vs 균등)으로 계산한 결과를 fallback으로 쓰면 데이터 일관성이 깨짐. MV 배치 실패 시에는 "빈 결과 + 알림"이 "다른 순위 노출"보다 안전 |
 | Job 구조 | **scope 파라미터로 주간/월간 분기하는 단일 Job** | Job Config 중복 방지. 회사 코드의 batchTyp 패턴 참고 |
 
 ---
@@ -147,19 +147,21 @@ MV가 Redis와 동일한 지수 감쇠를 쓰면 MV를 만들 이유가 없다. 
 [클라이언트]
 ```
 
-### Redis와 MV의 역할 분담
+### Redis와 MV의 역할 분담 — 단일 소스 원칙
 
 ```
 [API 요청]
   │
-  ├── scope=daily  → Redis ZSET (기존, primary)
+  ├── scope=daily   → Redis ZSET (단일 소스)
   │
-  ├── scope=weekly → MV 테이블 (primary, 균등 합산)
-  │                   └── Redis ZSET (fallback, 일별 score 합산)
+  ├── scope=weekly  → MV 테이블 (단일 소스, 균등 합산)
   │
-  └── scope=monthly → MV 테이블 (primary, 균등 합산)
-                       └── Redis ZSET (fallback, 지수 감쇠)
+  └── scope=monthly → MV 테이블 (단일 소스, 균등 합산)
 ```
+
+**Redis fallback을 두지 않는 이유**: Redis(지수 감쇠)와 MV(균등 합산)는 다른 공식으로 계산하므로 같은 기간에 대해 순위가 다르다. MV 배치 실패 시 Redis fallback으로 전환하면 "어제는 A가 1위, 오늘은 B가 1위"라는 데이터 불일치가 발생한다. 잘못된 순위를 보여주는 것보다 "현재 랭킹을 준비 중입니다"가 더 안전하다.
+
+기존 Redis weekly/monthly(carry-over + ZUNIONSTORE)는 제거하거나 내부 모니터링용으로만 유지한다.
 
 ---
 
@@ -369,19 +371,19 @@ return switch (scope) {
 };
 ```
 
-### 변경 후 구조 (weekly/monthly → MV primary)
+### 변경 후 구조 (weekly/monthly → MV 단일 소스)
 
 ```java
 return switch (scope) {
     case "daily" -> getFromRedis(DAILY_ZSET_PREFIX, ...);
-    case "weekly" -> getFromMvWithRedisFallback("weekly", ...);
-    case "monthly" -> getFromMvWithRedisFallback("monthly", ...);
+    case "weekly" -> getFromMv("weekly", ...);
+    case "monthly" -> getFromMv("monthly", ...);
 };
 ```
 
 **MV 조회 흐름**:
 1. `MvProductRankRepository.findByPeriodKey(periodKey, pageable)` → MV 테이블 조회
-2. MV 결과가 없으면 → 기존 Redis ZSET 조회 (fallback)
+2. MV 결과가 없으면 → 빈 결과 반환 (Redis fallback 없음)
 3. Product 상세 정보 조합 → 응답
 
 **기존 API 시그니처 변경 없음**: `/api/v1/rankings?scope=weekly&date=20260416&size=20&page=0`
