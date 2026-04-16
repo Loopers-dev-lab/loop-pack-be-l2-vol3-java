@@ -262,33 +262,197 @@ Tasklet에서는 이 지표들을 직접 카운팅하고 로깅해야 한다. Ch
 
 Chunk의 네트워크 왕복 비용(100건 × ~10KB < 1ms)보다 이 운영 기능의 가치가 크므로, **Chunk를 쓰되 Reader SQL에서 비효율을 최소화하는 것**이 우리의 접근이다.
 
-### Tasklet 구현 시 SQL 참고
+### 실무 배치 프로젝트에서는 이 운영 기능을 쓰고 있는가?
 
-동일한 작업을 Tasklet으로 구현할 경우의 SQL:
+실무 배치 앱 2개(Spring Boot 3.3.4 + Batch 5.x, 총 90개 Job)를 분석한 결과:
 
-```sql
--- Step 1: DELETE
-DELETE FROM mv_product_rank_weekly WHERE period_key = :periodKey
+| 운영 기능 | 사용 여부 |
+|----------|----------|
+| `.faultTolerant()` | ❌ 없음 |
+| `.retry()` / `retryLimit` | ❌ 없음 |
+| `.skip()` / `skipLimit` | ❌ 없음 |
+| `ItemReadListener` / `ItemWriteListener` | ❌ 없음 |
+| `ChunkListener` / `SkipListener` | ❌ 없음 |
+| `allowStartIfComplete` (restart) | ❌ 없음 |
 
--- Step 2: INSERT INTO...SELECT (SQL 한 문장)
-INSERT INTO mv_product_rank_weekly
-    (product_id, ranking, score, view_count, like_count, sales_count, sales_amount, period_key)
-SELECT product_id, DT_RNK, score, total_view_count, ...
-FROM (
-    SELECT pm.product_id,
-           SUM(pm.view_count) AS total_view_count,
-           ...
-           (0.1 * LOG10(...) / 7.0 + ...) AS score,
-           RANK() OVER (ORDER BY score DESC) AS DT_RNK
-    FROM product_metrics pm
-    JOIN product p ON pm.product_id = p.id
-    WHERE pm.metric_date BETWEEN :startDate AND :endDate
-    GROUP BY pm.product_id
-) ranked
-WHERE DT_RNK <= 100
+**90개 Job 중 단 하나도 retry, skip, restart를 사용하지 않는다.**
+
+사용하는 Listener는 딱 2종류:
+- `SingleJobExecutionListener` — 중복 실행 방지 (JobExecutionListener)
+- `StepExecutionListener` — 검색 인덱스 Job 2개에서 다른 배치 실행 중인지 체크
+
+이것은 **retry/skip 없이도 실무 운영이 가능하다**는 뜻이다. 그러나 좋은 설계인지는 별개의 문제다:
+- retry 없이 운영 = 1건의 일시적 DB 에러가 전체 배치를 실패시킴
+- skip 없이 운영 = 1건의 데이터 오류가 나머지 수만 건의 처리를 막음
+- 이것은 **운영 리스크를 감수하는 것**이지, 모범 사례가 아니다
+
+우리 프로젝트에서는 이 부분을 개선하여 `faultTolerant + retry`를 적용한다. 실무에서 빠져 있는 것을 보완하는 것도 의미 있는 설계 판단이다.
+
+### 코드 레벨 비교: Chunk vs Tasklet
+
+#### Tasklet 방식 (SQL 중심)
+
+```java
+@Configuration
+@RequiredArgsConstructor
+public class ProductRankingMvTaskletJobConfig {
+
+    public static final String JOB_NAME = "productRankingMvJob";
+    private final JobRepository jobRepository;
+    private final PlatformTransactionManager transactionManager;
+    private final JdbcTemplate jdbcTemplate;
+
+    @Bean(JOB_NAME)
+    public Job productRankingMvJob() {
+        return new JobBuilder(JOB_NAME, jobRepository)
+            .incrementer(new RunIdIncrementer())
+            .start(cleanupStep()).on("FAILED").end()
+            .from(cleanupStep()).on("*").to(aggregateStep())
+            .end()
+            .build();
+    }
+
+    @Bean
+    @JobScope
+    public Step cleanupStep() {
+        return new StepBuilder("cleanupStep", jobRepository)
+            .tasklet((contribution, chunkContext) -> {
+                String scope = chunkContext.getStepContext()
+                    .getJobParameters().get("scope").toString();
+                String targetDate = chunkContext.getStepContext()
+                    .getJobParameters().get("targetDate").toString();
+                String table = "weekly".equals(scope)
+                    ? "mv_product_rank_weekly" : "mv_product_rank_monthly";
+                jdbcTemplate.update(
+                    "DELETE FROM " + table + " WHERE period_key = ?", targetDate);
+                return RepeatStatus.FINISHED;
+            }, transactionManager)
+            .build();
+    }
+
+    @Bean
+    @JobScope
+    public Step aggregateStep() {
+        return new StepBuilder("aggregateStep", jobRepository)
+            .tasklet((contribution, chunkContext) -> {
+                String scope = chunkContext.getStepContext()
+                    .getJobParameters().get("scope").toString();
+                String targetDate = chunkContext.getStepContext()
+                    .getJobParameters().get("targetDate").toString();
+                String table = "weekly".equals(scope)
+                    ? "mv_product_rank_weekly" : "mv_product_rank_monthly";
+                int days = "weekly".equals(scope) ? 6 : 29;
+
+                jdbcTemplate.update("""
+                    INSERT INTO %s
+                        (product_id, ranking, score, view_count, like_count,
+                         sales_count, sales_amount, period_key)
+                    SELECT product_id, DT_RNK, score,
+                           total_view_count, total_net_like_count,
+                           total_sales_count, total_net_sales_amount, ?
+                    FROM (
+                        SELECT pm.product_id,
+                            SUM(pm.view_count) AS total_view_count,
+                            SUM(pm.like_count - pm.unlike_count) AS total_net_like_count,
+                            SUM(pm.sales_count) AS total_sales_count,
+                            SUM(pm.sales_amount - pm.cancel_amount_by_event_date)
+                                AS total_net_sales_amount,
+                            (0.1 * LOG10(GREATEST(SUM(pm.view_count),0)+1) / 7.0
+                           + 0.2 * LOG10(GREATEST(SUM(pm.like_count - pm.unlike_count),0)+1) / 7.0
+                           + 0.7 * LOG10(GREATEST(SUM(pm.sales_amount
+                               - pm.cancel_amount_by_event_date),0)+1) / 7.0
+                           + UNIX_TIMESTAMP() * 1e-16) AS score,
+                            RANK() OVER (ORDER BY
+                                (0.1 * LOG10(GREATEST(SUM(pm.view_count),0)+1) / 7.0
+                               + 0.2 * LOG10(GREATEST(SUM(pm.like_count - pm.unlike_count),0)+1) / 7.0
+                               + 0.7 * LOG10(GREATEST(SUM(pm.sales_amount
+                                   - pm.cancel_amount_by_event_date),0)+1) / 7.0
+                               + UNIX_TIMESTAMP() * 1e-16) DESC) AS DT_RNK
+                        FROM product_metrics pm
+                        JOIN product p ON pm.product_id = p.id
+                        WHERE pm.metric_date BETWEEN DATE_SUB(STR_TO_DATE(?, '%%Y%%m%%d'),
+                            INTERVAL %d DAY) AND STR_TO_DATE(?, '%%Y%%m%%d')
+                          AND p.deleted_at IS NULL
+                        GROUP BY pm.product_id
+                    ) ranked
+                    WHERE DT_RNK <= 100
+                    """.formatted(table, days),
+                    targetDate, targetDate, targetDate);
+                return RepeatStatus.FINISHED;
+            }, transactionManager)
+            .build();
+    }
+}
 ```
 
-Java 코드는 파라미터 전달과 DELETE/INSERT 호출뿐. 네트워크 왕복 0. 실무 배치 앱의 GoodsBest(TOP 100)도 동일한 Tasklet 패턴을 사용한다.
+- **장점**: 네트워크 왕복 0. 코드가 짧다. SQL 한 문장으로 집계+정렬+적재 완료
+- **단점**: retry/skip 없음. SQL이 비대함. score 공식 단위 테스트 불가
+
+#### Chunk 방식 (우리 구현)
+
+```java
+@Configuration
+@RequiredArgsConstructor
+public class ProductRankingMvJobConfig {
+
+    public static final String JOB_NAME = "productRankingMvJob";
+    private static final int CHUNK_SIZE = 100;
+
+    @Bean(JOB_NAME)
+    public Job productRankingMvJob(Step cleanupStep, Step aggregateStep) {
+        return new JobBuilder(JOB_NAME, jobRepository)
+            .incrementer(new RunIdIncrementer())
+            .start(cleanupStep).on("FAILED").end()
+            .from(cleanupStep).on("*").to(aggregateStep)
+            .end()
+            .listener(jobListener)
+            .build();
+    }
+
+    @Bean
+    @StepScope
+    public JdbcCursorItemReader<RankedProductRow> mvMetricsReader(
+            @Value("#{jobParameters['targetDate']}") String targetDate,
+            @Value("#{jobParameters['scope']}") String scope) {
+        int days = "weekly".equals(scope) ? 6 : 29;
+        return new JdbcCursorItemReaderBuilder<RankedProductRow>()
+            .name("mvMetricsReader")
+            .dataSource(dataSource)
+            .sql("""
+                SELECT pm.product_id, ... ,
+                    (0.1 * LOG10(...) + ...) AS score
+                FROM product_metrics pm
+                JOIN product p ON pm.product_id = p.id
+                WHERE pm.metric_date BETWEEN ? AND ?
+                  AND p.deleted_at IS NULL
+                GROUP BY pm.product_id
+                ORDER BY score DESC
+                LIMIT 100
+                """)
+            .preparedStatementSetter(ps -> { /* 날짜 파라미터 바인딩 */ })
+            .rowMapper((rs, rowNum) -> new RankedProductRow(...))
+            .build();
+    }
+
+    @Bean
+    public Step aggregateStep(JdbcCursorItemReader<RankedProductRow> reader,
+                              ItemWriter<RankedProductRow> writer) {
+        return new StepBuilder("aggregateStep", jobRepository)
+            .<RankedProductRow, RankedProductRow>chunk(CHUNK_SIZE, transactionManager)
+            .reader(reader)
+            .processor(rankingProcessor())      // ranking 번호 부여
+            .writer(writer)
+            .faultTolerant()
+                .retry(DeadlockLoserDataAccessException.class)
+                .retryLimit(3)
+            .listener(stepMonitorListener)
+            .build();
+    }
+}
+```
+
+- **장점**: retry로 일시적 DB 에러 자동 재시도. StepExecution에 read/write count 자동 기록. StepMonitorListener로 실패 시 알림
+- **단점**: 네트워크 왕복 2회 (100건, < 1ms). Processor가 ranking 부여만 하므로 역할이 가벼움
 
 ---
 
