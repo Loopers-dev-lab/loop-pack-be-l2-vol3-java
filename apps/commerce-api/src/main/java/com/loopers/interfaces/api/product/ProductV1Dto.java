@@ -74,6 +74,7 @@ public class ProductV1Dto {
         private String imageUrl;
         private int availableStock;
         private long likeCount;
+        private Long rank;
 
         /**
          * {@link ProductInfo}를 상품 상세 응답 DTO로 변환하는 팩토리 메서드.
@@ -96,6 +97,7 @@ public class ProductV1Dto {
                     .imageUrl(info.getImageUrl())
                     .availableStock(info.getAvailableStock())
                     .likeCount(info.getLikeCount())
+                    .rank(info.getRank())
                     .build();
         }
     }

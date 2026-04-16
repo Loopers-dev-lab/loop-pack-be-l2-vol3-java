@@ -6,6 +6,8 @@ import com.loopers.domain.idempotency.EventHandledRepository;
 import com.loopers.domain.idempotency.EventLogModel;
 import com.loopers.domain.idempotency.EventLogRepository;
 import com.loopers.domain.metrics.ProductMetricsService;
+import com.loopers.domain.ranking.RankingService;
+import com.loopers.domain.ranking.RankingWeight;
 import com.loopers.infrastructure.monitoring.ConsumerMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +38,7 @@ public class OrderEventProcessor {
     private final EventHandledRepository eventHandledRepository;
     private final EventLogRepository eventLogRepository;
     private final ProductMetricsService productMetricsService;
+    private final RankingService rankingService;
     private final ConsumerMetrics consumerMetrics;
     private final ObjectMapper objectMapper;
 
@@ -76,9 +81,10 @@ public class OrderEventProcessor {
 
         try {
             Map<String, Object> payload = (Map<String, Object>) envelope.get("payload");
+            LocalDateTime occurredAt = parseOccurredAt(envelope);
 
             switch (eventType) {
-                case "ORDER_CREATED" -> handleOrderCreated(payload);
+                case "ORDER_CREATED" -> handleOrderCreated(payload, occurredAt);
                 case "ORDER_CANCELLED" -> handleOrderCancelled(payload);
                 case "ORDER_EXPIRED" -> handleOrderExpired(payload);
                 default -> log.warn("[OrderProcessor] 알 수 없는 eventType: {}", eventType);
@@ -96,11 +102,13 @@ public class OrderEventProcessor {
     }
 
     @SuppressWarnings("unchecked")
-    private void handleOrderCreated(Map<String, Object> payload) {
+    private void handleOrderCreated(Map<String, Object> payload, LocalDateTime occurredAt) {
         if (payload == null) return;
 
         List<Map<String, Object>> items = (List<Map<String, Object>>) payload.get("items");
         if (items == null || items.isEmpty()) return;
+
+        LocalDate metricDate = occurredAt.toLocalDate();  // JVM TZ = Asia/Seoul
 
         for (Map<String, Object> item : items) {
             Number productIdNum = (Number) item.get("productId");
@@ -109,8 +117,24 @@ public class OrderEventProcessor {
             if (productIdNum != null && finalAmountNum != null) {
                 long productId = productIdNum.longValue();
                 long amount = new BigDecimal(finalAmountNum.toString()).longValue();
-                productMetricsService.incrementOrderCount(productId, amount);
+                productMetricsService.incrementOrderCount(productId, amount, metricDate);
+
+                try {
+                    double orderScore = RankingWeight.orderScore(amount);
+                    rankingService.incrementScore(productId, orderScore, occurredAt);
+                } catch (Exception e) {
+                    log.warn("[OrderProcessor] 랭킹 적재 실패 — productId={}", productId, e);
+                }
             }
+        }
+    }
+
+    private LocalDateTime parseOccurredAt(Map<String, Object> envelope) {
+        try {
+            String occurredAtStr = (String) envelope.get("occurredAt");
+            return occurredAtStr != null ? LocalDateTime.parse(occurredAtStr) : LocalDateTime.now();
+        } catch (Exception e) {
+            return LocalDateTime.now();
         }
     }
 

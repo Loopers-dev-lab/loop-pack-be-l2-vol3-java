@@ -158,6 +158,53 @@ RUSH_COUPON_ID=1 k6 run k6/scripts/session7/full-mixed-load.js
 
 ---
 
+## scripts/session9/ — 실시간 랭킹 시스템
+
+> **주제**: Redis ZSET 기반 인기 상품 랭킹, 가중치 합산, 이벤트 파이프라인 정확성
+> **시드**: `seed-session9.sh` (100유저, 기존 상품/브랜드 재사용)
+> **전제**: commerce-api, commerce-streamer, Kafka, Redis, MySQL 모두 실행 중
+
+| 스크립트 | 유형 | VU | 시간 | 설명 |
+|----------|------|-----|------|------|
+| `ranking-e2e-accuracy.js` | E2E 정확성 | 1 | 2분 | 이벤트 → Kafka → Streamer → ZSET → API 전체 파이프라인 정확성. 가중치 반영, 좋아요 멱등, rank 필드 포함 검증 |
+| `ranking-api-load.js` | API 부하 | 50 | 3분 | 랭킹 페이지 조회 부하. p95<50ms, p99<100ms 기준. 페이지네이션 page=0~4 균등 |
+| `ranking-event-throughput.js` | 처리량 | 30+10 | 3분 | 이벤트 30VU(쓰기) + 랭킹 조회 10VU(읽기) 동시. Kafka consumer lag, 읽기/쓰기 격리 검증 |
+| `ranking-weight-accuracy.js` | 가중치 정확성 | 10+10+1 | 2분 | 좋아요 10건(3.0점) vs 조회 500건(5.0점) 순위 관계 검증. Phase별 순차 실행 |
+| `ranking-mixed-load.js` | 운영 시뮬레이션 | 10→100→50 | 9분 | 조회 50% + 랭킹 25% + 상세 15% + 좋아요 10%. Spike(100VU) 포함 장시간 안정성 |
+
+### 실행 순서 (권장)
+
+```bash
+# 1. 시드 데이터 생성
+bash k6/seed-session9.sh
+
+# 2. E2E 파이프라인 정확성 (먼저 단일 VU로 흐름 검증)
+k6 run k6/scripts/session9/ranking-e2e-accuracy.js
+
+# 3. 가중치 정확성 (점수 관계 검증)
+k6 run k6/scripts/session9/ranking-weight-accuracy.js
+
+# 4. API 부하 (랭킹 API 단독 성능)
+k6 run k6/scripts/session9/ranking-api-load.js
+
+# 5. 이벤트 처리량 (쓰기+읽기 동시 부하)
+k6 run k6/scripts/session9/ranking-event-throughput.js
+
+# 6. 운영 시뮬레이션 (전체 Mixed, Spike 포함)
+k6 run k6/scripts/session9/ranking-mixed-load.js
+```
+
+### 검증 포인트
+
+- 랭킹 API p95 < 50ms (API 단독), p95 < 100ms (Mixed 부하)
+- 이벤트 → ZSET 점수 반영 정확성 (가중치 0.01/0.3/1.0+ε)
+- 좋아요 SET 멱등: 중복 이벤트 시 점수 미변동
+- 랭킹 정렬 순서: score 내림차순 보장
+- 상품 상세 API에 rank 필드 포함 (null 허용)
+- Spike(100VU) 구간에서 에러율 < 0.5%
+
+---
+
 ## 시드 데이터 스크립트
 
 | 스크립트 | 대상 세션 | 생성 데이터 |
@@ -166,3 +213,4 @@ RUSH_COUPON_ID=1 k6 run k6/scripts/session7/full-mixed-load.js
 | `create-k6-users.sh` | Session 6 | 50 테스트 유저 (k6user1~k6user50) |
 | `seed-session7.sh` | Session 7 | 1000 유저, 5 브랜드, 100 상품 (재고 10000), 쿠폰 1장 (100개), Redis 잔여수량 초기화 |
 | `reset-rush-coupon.sh` | Session 7 | 쿠폰 issued_count 리셋, user_coupons/issue_result 삭제, Redis dedup 키 정리 |
+| `seed-session9.sh` | Session 9 | 100 유저 (k6rank1~k6rank100, 기존 상품/브랜드 재사용) |

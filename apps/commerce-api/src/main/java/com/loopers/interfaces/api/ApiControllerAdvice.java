@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -140,6 +141,20 @@ public class ApiControllerAdvice {
         } else {
             return failureResponse(ErrorType.BAD_REQUEST, null);
         }
+    }
+
+    /**
+     * {@code @RequestParam}/{@code @PathVariable}에 걸린 Bean Validation 위반을 처리한다.
+     *
+     * @param e 제약 조건 위반 예외
+     * @return 위반 메시지를 포함한 BAD_REQUEST 응답
+     */
+    @ExceptionHandler
+    public ResponseEntity<ApiResponse<?>> handleBadRequest(ConstraintViolationException e) {
+        String message = e.getConstraintViolations().stream()
+            .map(v -> v.getMessage())
+            .collect(Collectors.joining(", "));
+        return failureResponse(ErrorType.BAD_REQUEST, message.isBlank() ? null : message);
     }
 
     /**

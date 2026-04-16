@@ -59,8 +59,10 @@ public class ConsumerMetrics {
 
     // catalog
     public void recordCatalogProcessed() { catalogProcessedCounter.increment(); }
+    public void recordCatalogProcessed(long count) { catalogProcessedCounter.increment(count); }
     public void recordCatalogSkipped() { catalogSkippedCounter.increment(); }
     public void recordCatalogFailed() { catalogFailedCounter.increment(); }
+    public void recordCatalogFailed(long count) { catalogFailedCounter.increment(count); }
     public Timer.Sample startCatalogTimer() { return Timer.start(meterRegistry); }
     public void stopCatalogTimer(Timer.Sample sample) { sample.stop(catalogProcessTimer); }
 

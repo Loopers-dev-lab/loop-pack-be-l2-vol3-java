@@ -82,7 +82,10 @@ public enum ErrorType {
     /** Entry Token */
     ENTRY_TOKEN_REQUIRED(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_REQUIRED", "입장 토큰이 필요합니다."),
     ENTRY_TOKEN_INVALID(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_INVALID", "유효하지 않은 입장 토큰입니다."),
-    ENTRY_TOKEN_EXPIRED(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_EXPIRED", "입장 토큰이 만료되었습니다.");
+    ENTRY_TOKEN_EXPIRED(HttpStatus.FORBIDDEN, "ENTRY_TOKEN_EXPIRED", "입장 토큰이 만료되었습니다."),
+
+    /** Ranking */
+    INVALID_DATE_FORMAT(HttpStatus.BAD_REQUEST, "INVALID_DATE_FORMAT", "날짜 형식이 올바르지 않습니다 (yyyyMMdd)");
 
     private final HttpStatus status;
     private final String code;

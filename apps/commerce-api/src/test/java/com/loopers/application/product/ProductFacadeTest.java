@@ -7,10 +7,12 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStockModel;
 import com.loopers.domain.product.StockService;
+import com.loopers.domain.ranking.RankingService;
 import com.loopers.support.page.PagedResult;
 import com.loopers.support.enums.ProductSortType;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,10 +23,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -42,10 +46,18 @@ class ProductFacadeTest {
     BrandService brandService;
 
     @Mock
+    RankingService rankingService;
+
+    @Mock
     ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     ProductFacade productFacade;
+
+    @BeforeEach
+    void setUp() {
+        lenient().when(rankingService.getRank(any(), anyLong())).thenReturn(null);
+    }
 
     @Test
     @DisplayName("고객용 상품 목록 LATEST 정렬 시 페이징된 결과에 브랜드명, 좋아요 수가 포함된다")
@@ -230,5 +242,73 @@ class ProductFacadeTest {
         assertThat(result.content()).hasSize(1);
         // 개별 productDetail 캐시 경로를 통해 findById가 호출됨
         verify(productService).findById(1L);
+    }
+
+    @Test
+    @DisplayName("getProductDetailForCustomer — 랭킹에 있는 상품은 rank가 포함된다")
+    void getProductDetailForCustomer_WithRank() {
+        ProductModel product = mock(ProductModel.class);
+        when(product.getProductId()).thenReturn(101L);
+        when(product.getBrandId()).thenReturn(1L);
+        when(product.getLikeCount()).thenReturn(10L);
+        ProductStockModel stock = mock(ProductStockModel.class);
+        when(stock.getAvailableQty()).thenReturn(70);
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getBrandName()).thenReturn("테스트브랜드");
+
+        when(productService.findById(101L)).thenReturn(product);
+        when(stockService.findByProductId(101L)).thenReturn(stock);
+        when(brandService.findById(1L)).thenReturn(brand);
+        when(rankingService.getRank(LocalDate.now(), 101L)).thenReturn(3L);
+
+        ProductInfo result = productFacade.getProductDetailForCustomer(101L);
+
+        assertThat(result.getRank()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("getProductDetailForCustomer — 랭킹에 없는 상품은 rank가 null이다")
+    void getProductDetailForCustomer_WithoutRank() {
+        ProductModel product = mock(ProductModel.class);
+        when(product.getProductId()).thenReturn(101L);
+        when(product.getBrandId()).thenReturn(1L);
+        when(product.getLikeCount()).thenReturn(10L);
+        ProductStockModel stock = mock(ProductStockModel.class);
+        when(stock.getAvailableQty()).thenReturn(70);
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getBrandName()).thenReturn("테스트브랜드");
+
+        when(productService.findById(101L)).thenReturn(product);
+        when(stockService.findByProductId(101L)).thenReturn(stock);
+        when(brandService.findById(1L)).thenReturn(brand);
+        when(rankingService.getRank(LocalDate.now(), 101L)).thenReturn(null);
+
+        ProductInfo result = productFacade.getProductDetailForCustomer(101L);
+
+        assertThat(result.getRank()).isNull();
+    }
+
+    @Test
+    @DisplayName("getProductDetailForCustomer — Redis 장애 시 rank=null, 나머지 정상")
+    void getProductDetailForCustomer_RedisFailure_GracefulDegradation() {
+        ProductModel product = mock(ProductModel.class);
+        when(product.getProductId()).thenReturn(101L);
+        when(product.getBrandId()).thenReturn(1L);
+        when(product.getLikeCount()).thenReturn(10L);
+        when(product.getProductName()).thenReturn("테스트상품");
+        ProductStockModel stock = mock(ProductStockModel.class);
+        when(stock.getAvailableQty()).thenReturn(70);
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getBrandName()).thenReturn("테스트브랜드");
+
+        when(productService.findById(101L)).thenReturn(product);
+        when(stockService.findByProductId(101L)).thenReturn(stock);
+        when(brandService.findById(1L)).thenReturn(brand);
+        when(rankingService.getRank(any(), anyLong())).thenThrow(new RuntimeException("Redis down"));
+
+        ProductInfo result = productFacade.getProductDetailForCustomer(101L);
+
+        assertThat(result.getRank()).isNull();
+        assertThat(result.getProductName()).isNotNull();
     }
 }

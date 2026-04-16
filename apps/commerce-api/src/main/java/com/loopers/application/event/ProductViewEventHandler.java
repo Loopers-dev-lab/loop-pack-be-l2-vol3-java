@@ -11,6 +11,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -36,12 +37,11 @@ public class ProductViewEventHandler {
         log.info("[ProductViewed] productId={}, userId={}", event.productId(), event.userId());
 
         try {
-            Map<String, Object> message = Map.of(
-                "eventType", "PRODUCT_VIEWED",
-                "productId", event.productId(),
-                "userId", event.userId(),
-                "occurredAt", LocalDateTime.now().toString()
-            );
+            Map<String, Object> message = new HashMap<>();
+            message.put("eventType", "PRODUCT_VIEWED");
+            message.put("productId", event.productId());
+            message.put("userId", event.userId());
+            message.put("occurredAt", LocalDateTime.now().toString());
             String jsonMessage = objectMapper.writeValueAsString(message);
             kafkaTemplate.send("catalog-events", String.valueOf(event.productId()), jsonMessage)
                 .whenComplete((result, ex) -> {

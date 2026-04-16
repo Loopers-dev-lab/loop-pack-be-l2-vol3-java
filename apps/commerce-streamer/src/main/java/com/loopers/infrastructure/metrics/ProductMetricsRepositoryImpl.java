@@ -34,6 +34,11 @@ public class ProductMetricsRepositoryImpl implements ProductMetricsRepository {
     }
 
     @Override
+    public void incrementViewCountBy(Long productId, int count) {
+        jpaRepository.incrementViewCountBy(productId, count);
+    }
+
+    @Override
     public void incrementLikeCount(Long productId) {
         jpaRepository.incrementLikeCount(productId);
     }

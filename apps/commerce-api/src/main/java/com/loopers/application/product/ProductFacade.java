@@ -7,16 +7,19 @@ import com.loopers.domain.product.ProductService;
 import com.loopers.domain.product.ProductStockModel;
 import com.loopers.domain.product.StockService;
 import com.loopers.domain.product.event.ProductViewedEvent;
+import com.loopers.domain.ranking.RankingService;
 import com.loopers.support.enums.ProductSortType;
 import com.loopers.support.page.PageQuery;
 import com.loopers.support.page.PagedResult;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -44,12 +47,14 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class ProductFacade {
 
     private final ProductService productService;
     private final StockService stockService;
     private final BrandService brandService;
+    private final RankingService rankingService;
     private final ApplicationEventPublisher eventPublisher;
 
     /**
@@ -137,9 +142,18 @@ public class ProductFacade {
         ProductStockModel stock = stockService.findByProductId(productId);
         BrandModel brand = brandService.findById(product.getBrandId());
 
+        Long rank;
+        try {
+            rank = rankingService.getRank(LocalDate.now(), productId);
+        } catch (Exception e) {
+            log.warn("[ProductFacade] 순위 조회 실패, rank=null 처리. productId={}", productId, e);
+            rank = null;
+        }
+
         eventPublisher.publishEvent(new ProductViewedEvent(productId, null));
 
-        return ProductInfo.from(product, stock, brand.getBrandName(), product.getLikeCount());
+        return ProductInfo.from(product, stock, brand.getBrandName(),
+                product.getLikeCount(), rank);
     }
 
     /**
