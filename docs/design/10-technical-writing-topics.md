@@ -623,9 +623,44 @@ Chunk를 쓰되, Reader SQL에서 GROUP BY + score 계산 + ORDER BY + LIMIT 100
 
 ---
 
-## 소재 7: (구현 후 추가 예정)
+## 소재 7: Best Practice 대조 — 이론 vs 우리 설계 vs 배치 프로젝트 분석
 
-- 멱등성을 DELETE+INSERT로 보장하는 실무 패턴
+### Spring Batch Chunk Best Practice를 3가지 관점에서 비교
+
+| Best Practice | 이론적 권장 | 우리 설계 | 배치 프로젝트 분석 (90개 Job) |
+|-------------|-----------|----------|--------------------------|
+| **faultTolerant + retry** | 일시적 에러(데드락, 타임아웃) 자동 재시도. ExponentialBackOffPolicy로 간격 확보 | ✅ 적용. retry(3) + ExponentialBackOffPolicy | ❌ 90개 Job 전부 미사용. 1건 에러 = 전체 실패 |
+| **skip policy** | 데이터 오류 시 건너뛰고 나머지 처리. SkipListener로 누락 추적 필수 | 미적용 (의도적). 100건이므로 skip 시 chunk scan(100번 재실행) 비용이 더 큼 | ❌ 미사용 |
+| **ExponentialBackOffPolicy** | retry 시 100ms→200ms→400ms 간격. 즉시 재시도는 데드락 상태에서 반복 실패 | ✅ 적용 | ❌ retry 자체가 없으므로 해당 없음 |
+| **Writer 벌크 처리** | JdbcBatchItemWriter로 JDBC batch INSERT. 개별 INSERT 루프는 안티패턴 | ✅ JdbcBatchItemWriter 사용 | ⚠️ Chunk Job(2개)은 MyBatisBatchItemWriter 사용. 하지만 GoodsReviewTotal은 행 단위 UPSERT 루프 (안티패턴) |
+| **Cursor vs Paging 선택** | 단일 스레드 순차 → Cursor. 멀티스레드/재시작 → Paging | ✅ JdbcCursorItemReader (단일 스레드). 병렬화 시 전환 필요 명시 | Cursor(2개), Paging(2개) 혼용 |
+| **Processor에서 DB 수정 금지** | 쓰기는 Writer에서만. 트랜잭션 경계 명확화 | ✅ Processor는 ranking 부여만 | ✅ 준수 (Processor에서 DB 수정하는 Job 없음) |
+| **cleanupStep allowStartIfComplete** | 멱등한 Step은 재시작 시에도 항상 실행 허용 | ✅ 적용 | ❌ 해당 설정 없음 |
+| **saveState(false)** | 재시작 불필요한 Step은 상태 저장 오버헤드 제거 | 미적용. 100건이므로 오버헤드 무시 가능 | ❌ 해당 설정 없음 |
+| **SkipListener.onSkipInWrite** | skip된 아이템을 별도 기록하여 데이터 정합성 추적 | 해당 없음 (skip 미적용) | ❌ skip 자체가 없음 |
+| **StepExecutionListener** | Step 시작/종료/실패 시 모니터링, 알림 | ✅ StepMonitorListener (기존 인프라) | ⚠️ 2개 Job에서만 사용 (검색 인덱스). 나머지 88개 Job은 미사용 |
+
+### 이 비교에서 드러나는 것
+
+**배치 프로젝트 90개 Job이 retry/skip/restart를 하나도 쓰지 않는다는 것은 주목할 만하다.** 이것은 두 가지로 해석할 수 있다:
+
+1. **"운영에서 문제가 없었다"**: 배치 데이터가 안정적이고, 실패 빈도가 낮아서 전체 재실행으로 충분히 대응 가능했을 수 있다. 실제로 통계/집계 Job은 대부분 수초~수분 내 완료되므로 전체 재실행 비용이 낮다.
+
+2. **"운영 리스크를 감수하고 있다"**: 1건의 일시적 에러가 전체 배치를 실패시키는 구조다. 야간 배치가 데드락으로 실패하면 아침에 출근해서 수동 재실행해야 한다. retry를 걸어두면 자동으로 복구됐을 에러다.
+
+**우리 프로젝트에서 retry + ExponentialBackOffPolicy를 적용하는 것은, 배치 프로젝트에서 빠져 있는 운영 안정성을 보완하는 설계 판단이다.** "남들이 안 쓰니까 안 써도 된다"가 아니라, "프레임워크가 제공하는 운영 기능을 활용하여 야간 배치의 자동 복구 가능성을 높인다"는 근거다.
+
+### Writer skip 시 chunk scan 문제
+
+Best Practice에서 중요한 경고: **Writer에서 skip이 발생하면 해당 chunk 전체가 롤백되고, 아이템을 1개씩 재실행하는 "chunk scan"이 발생한다.** chunkSize=1000이면 최악의 경우 1000번 개별 실행.
+
+이것이 우리가 skip을 적용하지 않는 이유 중 하나다. 100건에서 skip이 발생하면 100번 개별 INSERT가 실행되는데, 벌크 INSERT의 이점이 사라진다. 100건이라 성능 차이는 미미하지만, skip의 목적(불량 레코드 건너뛰기)이 이 시나리오에서 의미가 없다 — 100건 모두 같은 SQL로 계산된 결과이므로, 1건이 실패하면 SQL 자체의 문제이지 데이터 오류가 아니다.
+
+---
+
+## 소재 8: (구현 후 추가 예정)
+
+- 멱등성을 DELETE+INSERT로 보장하는 패턴
 - Spring Batch 파라미터 설계와 Job Instance 동일성
 - MV vs Redis 실제 랭킹 비교 결과 (score 차이 분석)
 - 대량 데이터 성능 테스트 결과

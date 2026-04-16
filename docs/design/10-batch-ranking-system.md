@@ -220,24 +220,45 @@ ProductRankingMvJob
   ├── Step 1: cleanupStep (Tasklet)
   │   └── DELETE FROM mv_product_rank_{scope} WHERE period_key = :periodKey
   │   └── on("FAILED").end()  ← 삭제 실패 시 적재 Step 미실행
+  │   └── allowStartIfComplete(true)  ← 재시작 시에도 항상 실행 (멱등)
   │
   └── Step 2: aggregateStep (Chunk, chunkSize=100)
       ├── Reader: JdbcCursorItemReader (GROUP BY + score + ORDER BY + LIMIT 100)
-      ├── Processor: ranking 번호 부여 (AtomicInteger)
-      ├── Writer: JdbcBatchItemWriter (INSERT 100건)
-      └── 운영 기능: faultTolerant + retry + StepMonitorListener
+      │   └── 제약: 단일 스레드 전용. 병렬화 시 JdbcPagingItemReader로 전환 필요
+      ├── Processor: ranking 번호 부여 (AtomicInteger, @StepScope)
+      ├── Writer: JdbcBatchItemWriter (INSERT 100건, assertUpdates=false)
+      └── 운영 기능:
+          ├── faultTolerant + retry(3) + ExponentialBackOffPolicy
+          ├── StepExecution 자동 기록 (readCount, writeCount)
+          └── StepMonitorListener (실패 시 알림)
 ```
 
 ### 왜 Chunk인가 — 프레임워크 운영 기능 활용
 
 이 작업은 Tasklet(INSERT INTO...SELECT)으로도 가능하고, 네트워크 효율만 따지면 Tasklet이 우위다. 그러나 Chunk를 선택하면 Spring Batch가 제공하는 운영 기능을 활용할 수 있다:
 
-- **faultTolerant + retry**: 일시적 DB 에러(데드락, 커넥션 타임아웃) 시 자동 재시도
-- **StepExecution 자동 기록**: readCount, writeCount, skipCount 등 처리 지표
+- **faultTolerant + retry + ExponentialBackOffPolicy**: 일시적 DB 에러(데드락, 커넥션 타임아웃) 시 자동 재시도. 100ms → 200ms → 400ms 간격으로 재시도하여 락 해소 시간 확보
+- **StepExecution 자동 기록**: readCount, writeCount, skipCount 등 처리 지표를 Spring Batch가 자동 기록
 - **StepMonitorListener**: 실패 시 알림 (기존 인프라 재활용)
 - **restart**: 메타 테이블 기반 실패 지점 복구 (이 규모에서는 불필요하지만 프레임워크가 무료로 제공)
 
 100건에 대한 네트워크 왕복 비용(< 1ms)보다 이 운영 기능의 가치가 크다.
+
+### Best Practice 대조 점검
+
+| Best Practice | 적용 | 상세 |
+|-------------|------|------|
+| chunkSize = pageSize 일치 | 해당 없음 | CursorReader는 pageSize 개념 없음. 결과 100건 = chunkSize 100 |
+| @StepScope + Late Binding | ✅ | Reader/Processor에 targetDate, scope 주입 |
+| Reader name 설정 | ✅ | ExecutionContext 저장 시 key로 사용 |
+| Processor에서 DB 수정 금지 | ✅ | ranking 부여만 (DB 접근 없음) |
+| Writer 벌크 처리 | ✅ | JdbcBatchItemWriter (JDBC batch INSERT) |
+| assertUpdates | ✅ | INSERT이므로 false |
+| ExponentialBackOffPolicy | ✅ | 데드락 시 간격을 두고 재시도 |
+| cleanupStep allowStartIfComplete | ✅ | DELETE는 멱등. 재시작 시에도 항상 실행 |
+| Cursor Reader 멀티스레드 금지 | ⚠️ 제약 명시 | 현재 단일 스레드. 병렬화 시 PagingReader 전환 또는 SynchronizedItemStreamReader 필요 |
+| skip policy | 미적용 (의도적) | 100건이므로 1건 에러 시 전체 실패가 적절. skip 시 chunk scan(100번 재실행) 비용이 오히려 큼 |
+| saveState(false) | 미적용 | Reader 100건이므로 상태 저장 오버헤드 무시 가능 |
 
 ### Reader SQL
 
