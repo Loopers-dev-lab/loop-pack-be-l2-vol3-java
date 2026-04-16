@@ -1,5 +1,7 @@
 package com.loopers.infrastructure.ranking;
 
+import com.loopers.domain.ranking.MvMonthlyRankId;
+import com.loopers.domain.ranking.MvMonthlyRankModel;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
