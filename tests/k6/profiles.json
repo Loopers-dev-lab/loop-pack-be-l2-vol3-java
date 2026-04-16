@@ -1,0 +1,28 @@
+{
+  "profiles": {
+    "smoke": {
+      "vus": 5,
+      "duration": "10s",
+      "pattern": "constant",
+      "thresholds": { "p95": 500, "p99": 1000, "errorRate": 0.01 }
+    },
+    "load": {
+      "vus": 100,
+      "duration": "30s",
+      "pattern": "stages",
+      "thresholds": { "p95": 500, "p99": 1000, "errorRate": 0.01 }
+    },
+    "stress": {
+      "vus": 500,
+      "duration": "60s",
+      "pattern": "stages",
+      "thresholds": { "p95": 1000, "p99": 2000, "errorRate": 0.05 }
+    },
+    "spike": {
+      "vus": 1000,
+      "duration": "30s",
+      "pattern": "spike",
+      "thresholds": { "p95": 2000, "p99": 5000, "errorRate": 0.10 }
+    }
+  }
+}
