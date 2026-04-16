@@ -23,16 +23,15 @@ set -euo pipefail
 
 JAR_PATH="${JAR_PATH:-apps/commerce-batch/build/libs/commerce-batch.jar}"
 SPRING_PROFILE="${SPRING_PROFILE:-prd}"
-TARGET_DATE="${1:-$(date +%Y-%m-%d)}"
+BATCH_TZ="${BATCH_TZ:-Asia/Seoul}"
+TARGET_DATE="${1:-$(TZ="${BATCH_TZ}" date +%Y-%m-%d)}"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting weeklyRankingJob | targetDate=${TARGET_DATE}"
 
 java -jar "${JAR_PATH}" \
   --spring.profiles.active="${SPRING_PROFILE}" \
   --job.name=weeklyRankingJob \
-  targetDate="${TARGET_DATE}"
-
-EXIT_CODE=$?
+  targetDate="${TARGET_DATE}" && EXIT_CODE=0 || EXIT_CODE=$?
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] weeklyRankingJob finished | exitCode=${EXIT_CODE}"
 exit ${EXIT_CODE}
