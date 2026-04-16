@@ -20,12 +20,13 @@ public class RankingV1Controller {
 
     @GetMapping
     public ApiResponse<RankingV1Dto.PageResponse> getRankings(
+            @RequestParam(defaultValue = "daily") String period,
             @RequestParam(required = false) String date,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         String targetDate = (date != null && !date.isBlank()) ? date : LocalDate.now().format(DATE_FORMAT);
-        RankingPageInfo pageInfo = rankingFacade.getRankings(targetDate, page, size);
+        RankingPageInfo pageInfo = rankingFacade.getRankings(period, targetDate, page, size);
         return ApiResponse.success(RankingV1Dto.PageResponse.from(pageInfo));
     }
 }
