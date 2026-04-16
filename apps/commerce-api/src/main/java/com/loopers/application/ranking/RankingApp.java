@@ -1,7 +1,6 @@
 package com.loopers.application.ranking;
 
 import com.loopers.domain.ranking.MvProductRankRepository;
-import com.loopers.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankPeriodType;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingPeriod;
@@ -30,16 +29,15 @@ public class RankingApp {
 
     public RankingPageResult getTopN(RankingPeriod period, LocalDate date, long page, long size) {
         long offset = page * size;
-        if (period == RankingPeriod.DAILY) {
+        if (!period.isMvBased()) {
             return getDailyTopN(date, page, size, offset);
         }
-        RankPeriodType type = (period == RankingPeriod.WEEKLY) ? RankPeriodType.WEEKLY : RankPeriodType.MONTHLY;
-        String currentKey = periodKey(period, date, false);
-        RankingPageResult primary = queryMvPeriod(type, currentKey, page, size, offset, false);
+        RankPeriodType type = period.toMvType();
+        RankingPageResult primary = queryMvPeriod(type, period.periodKey(date, false), page, size, offset, false);
         if (primary.totalElements() > 0 || !coldStartFallbackEnabled) {
             return primary;
         }
-        return queryMvPeriod(type, periodKey(period, date, true), page, size, offset, true);
+        return queryMvPeriod(type, period.periodKey(date, true), page, size, offset, true);
     }
 
     public RankingPageResult getTopN(LocalDate date, long page, long size) {
@@ -77,15 +75,6 @@ public class RankingApp {
                 (i, e) -> rankingRepository.findHourlyRank(date, hour, e.productDbId()).orElse(0L));
         Double nextCursor = items.isEmpty() ? null : entries.get(entries.size() - 1).score();
         return new RankingCursorResult(items, nextCursor);
-    }
-
-    private String periodKey(RankingPeriod period, LocalDate date, boolean previous) {
-        if (period == RankingPeriod.WEEKLY) {
-            return previous ? RankingKeyGenerator.previousWeeklyPeriodKey(date)
-                    : RankingKeyGenerator.weeklyPeriodKey(date);
-        }
-        return previous ? RankingKeyGenerator.previousMonthlyPeriodKey(date)
-                : RankingKeyGenerator.monthlyPeriodKey(date);
     }
 
     private RankingPageResult queryMvPeriod(RankPeriodType type, String periodKey, long page, long size, long offset, boolean isFallback) {
