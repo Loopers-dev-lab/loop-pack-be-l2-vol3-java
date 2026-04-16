@@ -256,7 +256,7 @@ ProductRankingMvJob
 | assertUpdates | ✅ | INSERT이므로 false |
 | ExponentialBackOffPolicy | ✅ | 데드락 시 간격을 두고 재시도 |
 | cleanupStep allowStartIfComplete | ✅ | DELETE는 멱등. 재시작 시에도 항상 실행 |
-| Cursor Reader 멀티스레드 금지 | ⚠️ 제약 명시 | 현재 단일 스레드. 병렬화 시 PagingReader 전환 또는 SynchronizedItemStreamReader 필요 |
+| Cursor Reader 선택 근거 | ✅ | GROUP BY 집계 쿼리에서 Paging은 매 페이지마다 집계를 재실행하므로 부적합. Cursor는 1회 실행 후 스트리밍. 단, 멀티스레드 불가(ResultSet 공유 상태) — 병렬화 시 Partitioning 전환 |
 | skip policy | 미적용 (의도적) | 100건이므로 1건 에러 시 전체 실패가 적절. skip 시 chunk scan(100번 재실행) 비용이 오히려 큼 |
 | saveState(false) | 미적용 | Reader 100건이므로 상태 저장 오버헤드 무시 가능 |
 

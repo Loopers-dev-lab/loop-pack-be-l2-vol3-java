@@ -658,7 +658,84 @@ Best Practice에서 중요한 경고: **Writer에서 skip이 발생하면 해당
 
 ---
 
-## 소재 8: (구현 후 추가 예정)
+## 소재 8: CursorReader vs PagingReader — GROUP BY 집계 쿼리에서의 선택
+
+### 핵심: PagingReader는 GROUP BY 집계 쿼리에서 치명적이다
+
+PagingReader는 페이지마다 **독립된 쿼리를 재실행**한다. 단순 WHERE + ORDER BY 쿼리에서는 문제없지만, GROUP BY가 포함된 집계 쿼리에서는 **매 페이지마다 전체 데이터를 다시 집계**한다:
+
+```
+CursorReader:
+  GROUP BY 3,000만 행 → 1번 실행 → 결과 스트리밍
+  총 집계 실행: 1회
+
+PagingReader (pageSize=1000, 상품 100만 건 = 1,000페이지):
+  페이지 1: GROUP BY 3,000만 행 → 정렬 → OFFSET 0 LIMIT 1000     (30초)
+  페이지 2: GROUP BY 3,000만 행 → 정렬 → OFFSET 1000 LIMIT 1000  (30초)
+  ...
+  페이지 1000: GROUP BY 3,000만 행 → 정렬 → OFFSET 999000 LIMIT 1000 (30초+)
+  총 집계 실행: 1,000회 → 8시간 이상
+```
+
+### 대규모 이커머스 기준 비교
+
+| 관점 | CursorReader | PagingReader |
+|------|-------------|-------------|
+| **GROUP BY 집계 쿼리** | ✅ 1회 실행 후 결과 스트리밍 | ❌ 페이지마다 집계 재실행. 대규모에서 치명적 |
+| **커넥션 점유** | ❌ Step 전체 동안 1개 점유 | ✅ 페이지 조회 시만 점유, 사이에 반환 |
+| **OFFSET 성능** | 해당 없음 | ❌ 뒤쪽 페이지일수록 스캔량 증가 |
+| **데이터 변경 안전성** | ✅ 쿼리 시점 스냅샷 (커서 유지) | ❌ 페이지 간 데이터 변경 시 누락/중복 |
+| **멀티스레드** | ❌ ResultSet 공유 상태 → 데이터 오염 | ✅ 각 스레드가 독립 쿼리 실행 |
+| **재시작** | ⚠️ read count 기반 (제한적) | ✅ 페이지 번호 자동 저장 |
+
+### CursorReader가 멀티스레드에서 불가능한 이유
+
+CursorReader는 하나의 DB 커넥션에서 **하나의 ResultSet을 열어두고 `next()`로 한 행씩 이동**한다. ResultSet은 "지금 커서가 가리키는 행"이라는 상태를 가지고 있다:
+
+```
+Thread A: reader.read() → resultSet.next() → row 3 반환
+Thread B: reader.read() → resultSet.next() → row 4 반환  ← 동시 호출
+
+→ 커서가 2칸 전진하여 row 누락
+→ 또는 Thread A가 읽으려던 행을 Thread B가 밀어버림 (데이터 오염)
+```
+
+PagingReader는 페이지마다 **별도 쿼리를 별도 커넥션으로 실행**하므로 공유 상태가 없어 안전하다.
+
+### 커넥션 점유 문제의 해법
+
+CursorReader의 커넥션 점유가 문제가 되는 것은 **여러 Job이 동시에 실행되어 커넥션 풀이 고갈**될 때다. 이것을 해결하기 위해 PagingReader로 전환하면 GROUP BY 반복 실행이라는 더 큰 문제가 생긴다.
+
+**정석적 해법은 배치 전용 DataSource(Replica) 분리다.** 배치가 Replica에서 읽으면 서비스 DB의 커넥션 풀과 독립되므로, CursorReader의 커넥션 점유가 서비스에 영향을 주지 않는다. 분석한 배치 프로젝트 2개도 RODB/RWDB를 5~6쌍으로 분리하여 이 문제를 해결하고 있었다.
+
+### 병렬화가 필요해지면: Partitioning
+
+상품이 수백만 건으로 늘어나 병렬 처리가 필요해지면, PagingReader로 전환하는 대신 **Partitioning**이 적합하다:
+
+```
+Master Step: product_id 범위를 파티션으로 분할
+  ├── Partition 1: product_id 1~100,000     → CursorReader (독립 커넥션)
+  ├── Partition 2: product_id 100,001~200,000 → CursorReader (독립 커넥션)
+  ├── Partition 3: product_id 200,001~300,000 → CursorReader (독립 커넥션)
+  └── ...
+
+각 파티션이 독립 커넥션 + 독립 CursorReader → GROUP BY 1회 + 병렬 처리
+```
+
+CursorReader의 장점(1회 쿼리)을 유지하면서 병렬화를 달성한다.
+
+### 우리 설계에서의 결론
+
+| 판단 | 근거 |
+|------|------|
+| **CursorReader 선택** | GROUP BY 집계 쿼리에서 PagingReader는 페이지마다 집계를 재실행하므로 부적합 |
+| **현재 단일 스레드** | 결과 100건, 수초 완료. 멀티스레드 불필요 |
+| **병렬화 시 전환 경로** | PagingReader가 아닌 Partitioning으로 전환. CursorReader 유지 가능 |
+| **커넥션 점유 대응** | 현재 단일 Job 실행이므로 문제없음. 다중 Job 동시 실행 시 Replica DataSource 분리 |
+
+---
+
+## 소재 9: (구현 후 추가 예정)
 
 - 멱등성을 DELETE+INSERT로 보장하는 패턴
 - Spring Batch 파라미터 설계와 Job Instance 동일성
