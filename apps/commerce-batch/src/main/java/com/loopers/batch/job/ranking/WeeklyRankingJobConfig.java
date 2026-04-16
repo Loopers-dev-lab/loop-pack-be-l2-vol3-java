@@ -93,7 +93,7 @@ public class WeeklyRankingJobConfig {
                         FROM product_daily_metrics
                         WHERE metric_date BETWEEN ? AND ?
                         GROUP BY product_id
-                        ORDER BY (SUM(view_count) * 0.1 + SUM(like_count) * 0.2 + LOG(1 + SUM(order_amount)) * 0.7) DESC
+                        ORDER BY (SUM(view_count) * 0.1 + SUM(like_count) * 0.2 + LOG(1 + SUM(order_amount)) * 0.7) DESC, product_id ASC
                         LIMIT 100
                         """)
                 .preparedStatementSetter(ps -> {
@@ -126,18 +126,16 @@ public class WeeklyRankingJobConfig {
         String yearWeek = String.format("%d-W%02d", year, week);
 
         return items -> {
+            jdbcTemplate.update(
+                    "DELETE FROM mv_product_rank_weekly WHERE ranking_week = :yearWeek",
+                    new org.springframework.jdbc.core.namedparam.MapSqlParameterSource("yearWeek", yearWeek)
+            );
+
             String sql = """
                     INSERT INTO mv_product_rank_weekly
                         (product_id, ranking_week, view_count, like_count, order_amount, score, ranking, updated_at)
                     VALUES
                         (:productId, :yearWeek, :viewCount, :likeCount, :orderAmount, :score, :ranking, :updatedAt)
-                    ON DUPLICATE KEY UPDATE
-                        view_count = VALUES(view_count),
-                        like_count = VALUES(like_count),
-                        order_amount = VALUES(order_amount),
-                        score = VALUES(score),
-                        ranking = VALUES(ranking),
-                        updated_at = VALUES(updated_at)
                     """;
 
             SqlParameterSource[] batchParams = items.getItems().stream()

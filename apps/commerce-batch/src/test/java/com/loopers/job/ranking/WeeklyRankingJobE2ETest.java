@@ -159,6 +159,76 @@ class WeeklyRankingJobE2ETest {
         assertThat(results).hasSize(1);
     }
 
+    @DisplayName("동일 점수의 상품은 product_id 오름차순으로 안정적 정렬된다")
+    @Test
+    void weeklyRankingJob_tieBreakByProductId() throws Exception {
+        LocalDate targetDate = LocalDate.of(2026, 5, 6); // 2026-W19 (월)
+        LocalDate monday = LocalDate.of(2026, 5, 4);
+
+        insertMetrics(99L, monday, 100, 50, 10000);
+        insertMetrics(11L, monday, 100, 50, 10000);
+        insertMetrics(55L, monday, 100, 50, 10000);
+
+        var jobParameters = new JobParametersBuilder()
+                .addLocalDate("targetDate", targetDate)
+                .addLong("run.id", 30L)
+                .toJobParameters();
+        JobExecution jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
+
+        assertThat(jobExecution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.COMPLETED.getExitCode());
+
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(
+                "SELECT * FROM mv_product_rank_weekly WHERE ranking_week = '2026-W19' ORDER BY ranking"
+        );
+
+        assertAll(
+                () -> assertThat(results).hasSize(3),
+                () -> assertThat(results.get(0).get("product_id")).isEqualTo(11L),
+                () -> assertThat(results.get(1).get("product_id")).isEqualTo(55L),
+                () -> assertThat(results.get(2).get("product_id")).isEqualTo(99L)
+        );
+    }
+
+    @DisplayName("재실행 시 이전 실행의 탈락 상품이 제거된다")
+    @Test
+    void weeklyRankingJob_removesStaleEntries() throws Exception {
+        LocalDate targetDate = LocalDate.of(2026, 6, 3); // 2026-W23 (수)
+        LocalDate monday = LocalDate.of(2026, 6, 1);
+
+        // 1차: 상품 A, B
+        insertMetrics(1L, monday, 100, 50, 10000);
+        insertMetrics(2L, monday, 80, 40, 8000);
+
+        var jobParameters1 = new JobParametersBuilder()
+                .addLocalDate("targetDate", targetDate)
+                .addLong("run.id", 40L)
+                .toJobParameters();
+        jobLauncherTestUtils.launchJob(jobParameters1);
+
+        List<Map<String, Object>> firstRun = jdbcTemplate.queryForList(
+                "SELECT * FROM mv_product_rank_weekly WHERE ranking_week = '2026-W23'"
+        );
+        assertThat(firstRun).hasSize(2);
+
+        // 2차: 상품 B의 metrics 제거 → 상품 A만 남아야 함
+        jdbcTemplate.execute("TRUNCATE TABLE product_daily_metrics");
+        insertMetrics(1L, monday, 100, 50, 10000);
+
+        var jobParameters2 = new JobParametersBuilder()
+                .addLocalDate("targetDate", targetDate)
+                .addLong("run.id", 41L)
+                .toJobParameters();
+        jobLauncherTestUtils.launchJob(jobParameters2);
+
+        List<Map<String, Object>> secondRun = jdbcTemplate.queryForList(
+                "SELECT * FROM mv_product_rank_weekly WHERE ranking_week = '2026-W23'"
+        );
+        assertAll(
+                () -> assertThat(secondRun).hasSize(1),
+                () -> assertThat(secondRun.get(0).get("product_id")).isEqualTo(1L)
+        );
+    }
+
     private void insertMetrics(Long productId, LocalDate date, long views, long likes, long orderAmount) {
         jdbcTemplate.update("""
                 INSERT INTO product_daily_metrics (product_id, metric_date, view_count, like_count, order_amount, updated_at)

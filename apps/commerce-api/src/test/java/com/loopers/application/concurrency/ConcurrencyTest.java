@@ -278,11 +278,27 @@ class ConcurrencyTest {
             assertThat(successCount.get()).isEqualTo(10);
             assertThat(failCount.get()).isZero();
 
-            // LikeCountEventListener가 @Async + AFTER_COMMIT으로 비동기 처리되므로 대기
-            Thread.sleep(2000);
+            // LikeCountEventListener가 @Async + AFTER_COMMIT으로 비동기 처리되므로 polling 대기
+            int expectedLikeCount = successCount.get();
+            long timeoutMillis = 10_000;
+            long pollIntervalMillis = 100;
+            long deadline = System.currentTimeMillis() + timeoutMillis;
 
-            Product updatedProduct = productRepository.findById(productId).orElseThrow();
-            assertThat(updatedProduct.getLikeCount()).isEqualTo(successCount.get());
+            Product updatedProduct;
+            while (true) {
+                updatedProduct = productRepository.findById(productId).orElseThrow();
+                if (updatedProduct.getLikeCount() == expectedLikeCount) {
+                    break;
+                }
+                if (System.currentTimeMillis() >= deadline) {
+                    assertThat(updatedProduct.getLikeCount())
+                            .as("likeCount가 %d초 내에 %d에 도달하지 못함 (현재: %d)",
+                                    timeoutMillis / 1000, expectedLikeCount, updatedProduct.getLikeCount())
+                            .isEqualTo(expectedLikeCount);
+                }
+                Thread.sleep(pollIntervalMillis);
+            }
+            assertThat(updatedProduct.getLikeCount()).isEqualTo(expectedLikeCount);
         }
     }
 
