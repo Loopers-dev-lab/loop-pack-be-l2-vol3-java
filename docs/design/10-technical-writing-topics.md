@@ -172,13 +172,66 @@ Chunk-Oriented가 필요한 경우:
 - **외부 시스템 연동**: REST API 호출, Redis 쓰기 등 SQL만으로 불가능
 - **메모리 제어**: 수억 건을 한 번에 SELECT하면 OOM → chunk 단위 처리
 
-### 우리 과제에서 Chunk를 쓰는 이유
+### 이 작업을 Tasklet으로 했다면?
 
-1. **과제 요구사항**: Chunk-Oriented 학습이 목적
-2. **Score 계산이 Java 로직**: log₁₀ 정규화 + 가중치 + tiebreaker 공식을 SQL로 표현하면 가독성이 떨어지고, 기존 RankingCorrectionJob의 공식과 일관성 유지가 어려움
-3. **TOP-N 필터링**: score 계산 후 정렬+필터링이 필요한데, SQL 서브쿼리로도 가능하지만 Processor에서 처리하는 것이 테스트 가능성이 높음
+회사의 GoodsBestMapper와 동일한 패턴으로 구현 가능하다:
 
-만약 score 공식이 단순하여 SQL로 표현 가능하다면, 실무에서는 Tasklet + `INSERT INTO mv_table SELECT ... ORDER BY score DESC LIMIT 100`이 정답이었을 것이다.
+```sql
+-- Step 1: DELETE
+DELETE FROM mv_product_rank_weekly WHERE period_key = :periodKey
+
+-- Step 2: INSERT INTO...SELECT (SQL 한 문장)
+INSERT INTO mv_product_rank_weekly
+    (product_id, ranking, score, view_count, like_count, sales_count, sales_amount, period_key)
+SELECT product_id, DT_RNK, score, total_view_count, ...
+FROM (
+    SELECT pm.product_id,
+           SUM(pm.view_count) AS total_view_count,
+           ...
+           (0.1 * LOG10(...) / 7.0 + ...) AS score,
+           RANK() OVER (ORDER BY score DESC) AS DT_RNK
+    FROM product_metrics pm
+    JOIN product p ON pm.product_id = p.id
+    WHERE pm.metric_date BETWEEN :startDate AND :endDate
+    GROUP BY pm.product_id
+) ranked
+WHERE DT_RNK <= 100
+```
+
+Java 코드는 파라미터 전달과 DELETE/INSERT 호출뿐. 네트워크 왕복 0.
+
+#### Tasklet의 장점
+
+| 장점 | 상세 |
+|------|------|
+| **네트워크 왕복 0** | DB 내부에서 SELECT → INSERT 완료. Java로 데이터가 나오지 않음 |
+| **Score 공식 단일 관리** | SQL에만 존재 |
+| **코드량 최소** | JobConfig + Tasklet 하나. Reader/Processor/Writer 분리 불필요 |
+| **트랜잭션 단순** | SQL 한 문장이 하나의 트랜잭션. chunk 경계 고민 없음 |
+| **회사 실무 검증** | 90개 Job 중 88%가 이 방식. GoodsBest(TOP 100)도 동일 패턴 |
+
+#### Tasklet의 단점
+
+| 단점 | 실운영 영향 |
+|------|-----------|
+| **Score 공식 단위 테스트 불가** | SQL 내부의 LOG10 공식을 단위 테스트할 수 없음. 통합 테스트(DB 필요)로만 검증 가능. 하지만 공식이 단순하고 변경 빈도가 낮으므로 실질적 위험은 낮음 |
+| **SQL 복잡도 증가** | GROUP BY + LOG10 + RANK() + 서브쿼리가 한 문장. 현재는 감당 가능하지만, 카테고리별 가중치/A/B 테스트 등 조건이 추가되면 SQL이 비대해질 수 있음. 단, 회사의 GoodsBestMapper도 200줄 넘는 SQL을 운영하고 있으므로 SQL 복잡도 자체가 문제는 아님 |
+| **장애 시 전체 롤백** | SQL 한 문장 실패 → 전체 롤백, 부분 재시작 불가. 하지만 TOP 100 INSERT는 수초 내 완료되므로 전체 재실행해도 부담 없음 |
+
+#### Chunk-Oriented가 Tasklet보다 유리해지는 전환점
+
+| 조건 | 설명 |
+|------|------|
+| **상품 수백만 건** | GROUP BY 결과가 메모리에 안 올라갈 때 → chunk 단위 처리 필요 |
+| **Score 공식 복잡화** | 외부 API 호출, ML 모델 추론, 다차원 가중치 등 SQL로 표현 불가능할 때 |
+| **적재 대상이 DB가 아닐 때** | Redis, Elasticsearch, 외부 API 등 SQL INSERT로 불가능할 때 |
+| **부분 재시작이 필요할 때** | 수시간 걸리는 대규모 배치에서 장애 시 처리 완료 구간을 건너뛰어야 할 때 |
+
+#### 결론
+
+**현재 규모(상품 수만 건, TOP 100 적재)에서는 Tasklet이 효율적이다.** 하지만 과제 요구사항이 Chunk-Oriented이므로 Chunk로 구현하되, Reader SQL에서 score 계산 + ORDER BY + LIMIT 100까지 처리하여 **Chunk의 비효율을 최소화**한다. Processor는 ranking 번호 부여만 담당하고, Writer는 100건만 INSERT한다.
+
+이 판단은 블로그에서 "Tasklet이 더 효율적인 상황에서 왜 Chunk를 썼는가, Tasklet으로 전환하면 무엇이 달라지는가"로 기록할 소재다.
 
 ### 참고할 패턴
 
