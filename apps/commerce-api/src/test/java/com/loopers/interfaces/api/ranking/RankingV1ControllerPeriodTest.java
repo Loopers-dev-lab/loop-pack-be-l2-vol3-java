@@ -1,6 +1,8 @@
 package com.loopers.interfaces.api.ranking;
 
 import com.loopers.domain.ranking.RankingPeriod;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -49,11 +51,12 @@ class RankingV1ControllerPeriodTest {
         assertThat(RankingPeriod.fromString("QUARTERLY")).isEqualTo(RankingPeriod.QUARTERLY);
     }
 
-    @DisplayName("invalid → IllegalArgumentException")
+    @DisplayName("invalid → CoreException(BAD_REQUEST)")
     @Test
     void invalid_throwsException() {
         assertThatThrownBy(() -> RankingPeriod.fromString("invalid"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Invalid ranking period");
+                .isInstanceOfSatisfying(CoreException.class,
+                        e -> assertThat(e.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST))
+                .hasMessageContaining("지원하지 않는 ranking period");
     }
 }

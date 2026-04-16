@@ -1,6 +1,8 @@
 package com.loopers.domain.ranking;
 
 import com.loopers.ranking.RankingKeyGenerator;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 
 import java.time.LocalDate;
 
@@ -17,7 +19,8 @@ public enum RankingPeriod {
         try {
             return valueOf(value.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid ranking period: " + value + ". Allowed: daily, weekly, monthly, quarterly");
+            throw new CoreException(ErrorType.BAD_REQUEST,
+                    "지원하지 않는 ranking period: " + value + " (allowed: daily, weekly, monthly, quarterly)");
         }
     }
 
