@@ -43,8 +43,8 @@ public class ScoreAggregationStepConfig {
                 .name("stagingAggregationCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
-                // saveState=false: 2차 staging 도 UPSERT 라 멱등. restart 시 처음부터.
-                .saveState(false)
+                // Step 5 는 1:1 row 변환 (streaming aggregation 없음) 이므로
+                // saveState=true (기본값) 로 chunk-mid restart 가 정상 작동
                 .sql("""
                         SELECT period_type, period_key, product_id,
                                view_count, like_count, sales_amount

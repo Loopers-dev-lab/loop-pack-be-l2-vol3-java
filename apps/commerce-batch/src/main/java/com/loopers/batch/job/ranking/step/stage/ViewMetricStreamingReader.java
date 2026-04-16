@@ -19,7 +19,11 @@ import java.time.LocalDateTime;
  * product_view_metrics 를 (product_id, bucket_time) 순 cursor 로 스트리밍 읽고,
  * App 측 StreamingMetricAggregator 로 product 경계마다 AggregatedMetric 을 흘려보낸다.
  *
- * DB 는 단순 range scan 만 수행한다 (GROUP BY 없음). 집계는 App 책임.
+ * <p>DB 는 단순 range scan 만 수행한다 (GROUP BY 없음). 집계는 App 책임.</p>
+ *
+ * <p>streaming aggregator 의 lookahead (다음 product 의 첫 row) 를
+ * ExecutionContext 에 직렬화하여 chunk-mid restart 시에도 누락 없이 이어갈 수 있다.
+ * 이는 Spring Batch 의 ItemStream 정석 패턴이다 (Common Batch Patterns 참고).</p>
  */
 @Slf4j
 @Component
@@ -27,6 +31,10 @@ import java.time.LocalDateTime;
 public class ViewMetricStreamingReader implements ItemStreamReader<AggregatedMetric> {
 
     private static final int FETCH_SIZE = 2000;
+
+    private static final String CTX_LOOKAHEAD_PRODUCT_ID  = "lookahead.productId";
+    private static final String CTX_LOOKAHEAD_BUCKET_TIME = "lookahead.bucketTime";
+    private static final String CTX_LOOKAHEAD_COUNT       = "lookahead.count";
 
     private final JdbcCursorItemReader<RawMetricRow> delegate;
     private final LocalDateTime last7dStart;
@@ -46,10 +54,6 @@ public class ViewMetricStreamingReader implements ItemStreamReader<AggregatedMet
                 .name("viewMetricCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
-                // saveState=false: streaming aggregator 의 lookahead 와 chunk-mid restart 가
-                // 충돌하므로 cursor 위치를 ExecutionContext 에 저장하지 않는다.
-                // 재시작 시 처음부터 다시 read → UPSERT 의 멱등성으로 결정적 결과 보장.
-                .saveState(false)
                 .sql("""
                         SELECT product_id, bucket_time, view_count
                           FROM product_view_metrics
@@ -73,11 +77,33 @@ public class ViewMetricStreamingReader implements ItemStreamReader<AggregatedMet
     public void open(ExecutionContext executionContext) throws ItemStreamException {
         delegate.open(executionContext);
         this.aggregator = new StreamingMetricAggregator(delegate::read, last7dStart);
+
+        // restart 시 이전 chunk 종료 시점의 lookahead 복원
+        if (executionContext.containsKey(CTX_LOOKAHEAD_PRODUCT_ID)) {
+            RawMetricRow restored = new RawMetricRow(
+                    executionContext.getLong(CTX_LOOKAHEAD_PRODUCT_ID),
+                    LocalDateTime.parse(executionContext.getString(CTX_LOOKAHEAD_BUCKET_TIME)),
+                    executionContext.getLong(CTX_LOOKAHEAD_COUNT)
+            );
+            aggregator.setLookahead(restored);
+        }
     }
 
     @Override
     public void update(ExecutionContext executionContext) throws ItemStreamException {
         delegate.update(executionContext);
+
+        // chunk commit 시점에 lookahead 를 primitive 3개로 직렬화
+        RawMetricRow lookahead = aggregator.getLookahead();
+        if (lookahead != null) {
+            executionContext.putLong(CTX_LOOKAHEAD_PRODUCT_ID, lookahead.productId());
+            executionContext.putString(CTX_LOOKAHEAD_BUCKET_TIME, lookahead.bucketTime().toString());
+            executionContext.putLong(CTX_LOOKAHEAD_COUNT, lookahead.count());
+        } else {
+            executionContext.remove(CTX_LOOKAHEAD_PRODUCT_ID);
+            executionContext.remove(CTX_LOOKAHEAD_BUCKET_TIME);
+            executionContext.remove(CTX_LOOKAHEAD_COUNT);
+        }
     }
 
     @Override

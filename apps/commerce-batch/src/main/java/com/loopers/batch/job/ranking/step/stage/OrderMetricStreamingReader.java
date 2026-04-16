@@ -16,13 +16,16 @@ import java.time.LocalDateTime;
 
 /**
  * product_order_metrics 의 sales_amount 를 cursor 로 스트리밍 + App 집계.
- * 랭킹 스코어에 쓰이는 것은 salesAmount 이므로 여기서는 그 컬럼만 집계 대상으로 삼는다.
+ * {@link ViewMetricStreamingReader} 와 동일한 패턴 (lookahead 직렬화 포함).
  */
 @Component
 @StepScope
 public class OrderMetricStreamingReader implements ItemStreamReader<AggregatedMetric> {
 
     private static final int FETCH_SIZE = 2000;
+    private static final String CTX_LOOKAHEAD_PRODUCT_ID  = "lookahead.productId";
+    private static final String CTX_LOOKAHEAD_BUCKET_TIME = "lookahead.bucketTime";
+    private static final String CTX_LOOKAHEAD_COUNT       = "lookahead.count";
 
     private final JdbcCursorItemReader<RawMetricRow> delegate;
     private final LocalDateTime last7dStart;
@@ -42,7 +45,6 @@ public class OrderMetricStreamingReader implements ItemStreamReader<AggregatedMe
                 .name("orderMetricCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
-                .saveState(false)  // ViewMetricStreamingReader 주석 참고
                 .sql("""
                         SELECT product_id, bucket_time, sales_amount
                           FROM product_order_metrics
@@ -66,11 +68,27 @@ public class OrderMetricStreamingReader implements ItemStreamReader<AggregatedMe
     public void open(ExecutionContext executionContext) throws ItemStreamException {
         delegate.open(executionContext);
         this.aggregator = new StreamingMetricAggregator(delegate::read, last7dStart);
+        if (executionContext.containsKey(CTX_LOOKAHEAD_PRODUCT_ID)) {
+            aggregator.setLookahead(new RawMetricRow(
+                    executionContext.getLong(CTX_LOOKAHEAD_PRODUCT_ID),
+                    LocalDateTime.parse(executionContext.getString(CTX_LOOKAHEAD_BUCKET_TIME)),
+                    executionContext.getLong(CTX_LOOKAHEAD_COUNT)));
+        }
     }
 
     @Override
     public void update(ExecutionContext executionContext) throws ItemStreamException {
         delegate.update(executionContext);
+        RawMetricRow lookahead = aggregator.getLookahead();
+        if (lookahead != null) {
+            executionContext.putLong(CTX_LOOKAHEAD_PRODUCT_ID, lookahead.productId());
+            executionContext.putString(CTX_LOOKAHEAD_BUCKET_TIME, lookahead.bucketTime().toString());
+            executionContext.putLong(CTX_LOOKAHEAD_COUNT, lookahead.count());
+        } else {
+            executionContext.remove(CTX_LOOKAHEAD_PRODUCT_ID);
+            executionContext.remove(CTX_LOOKAHEAD_BUCKET_TIME);
+            executionContext.remove(CTX_LOOKAHEAD_COUNT);
+        }
     }
 
     @Override

@@ -64,4 +64,14 @@ public final class StreamingMetricAggregator {
         }
         return new AggregatedMetric(productId, sum7d, sum30d);
     }
+
+    /** restart 시 ExecutionContext 직렬화/복원을 위한 lookahead 접근자. */
+    public RawMetricRow getLookahead() {
+        return lookahead;
+    }
+
+    /** restart 시 ExecutionContext 에서 복원한 lookahead 를 주입한다. */
+    public void setLookahead(RawMetricRow lookahead) {
+        this.lookahead = lookahead;
+    }
 }
