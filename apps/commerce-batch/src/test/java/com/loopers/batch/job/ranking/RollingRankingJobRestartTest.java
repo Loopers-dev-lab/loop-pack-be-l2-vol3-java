@@ -221,6 +221,45 @@ class RollingRankingJobRestartTest {
         );
     }
 
+    // ---------- Scenario 4 ----------
+
+    @DisplayName("Scenario 4: Hot product 가 bucket 1,000개를 소유해도 상품 중간 절단 없이 정확히 집계된다")
+    @Test
+    void scenario4_hotProductLongChain_noMidProductTruncation() throws Exception {
+        seedBaselineWeightConfig();
+
+        // product 1: bucket 1,000개 (chunk size=500 보다 큰 raw row 체인)
+        // chunk 는 product 수 기준이므로 raw row 1,000개가 한 read() 호출에 전부 소비됨
+        LocalDateTime baseTime = IN_7D;
+        long expectedSum = 0;
+        for (int i = 0; i < 1_000; i++) {
+            long count = i + 1;
+            saveView(1L, baseTime.plusMinutes(5L * i), count);
+            expectedSum += count;
+        }
+        // product 2, 3: bucket 5개씩 (정상 크기)
+        for (int i = 0; i < 5; i++) {
+            saveView(2L, baseTime.plusMinutes(5L * i), 10);
+            saveView(3L, baseTime.plusMinutes(5L * i), 10);
+        }
+
+        JobParameters params = paramsOf(ANCHOR_KEY, 4L);
+        JobExecution execution = jobLauncher.run(job, params);
+
+        long finalExpectedSum = expectedSum;
+        assertAll(
+                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                // product 1 의 view_count 가 1+2+...+1000 = 1,000개 bucket 합계 (중간 절단 없음)
+                () -> assertThat(viewCount("LAST_7D",  ANCHOR_KEY, 1L)).isEqualTo(finalExpectedSum),
+                () -> assertThat(viewCount("LAST_30D", ANCHOR_KEY, 1L)).isEqualTo(finalExpectedSum),
+                // product 2, 3 도 정상
+                () -> assertThat(viewCount("LAST_7D", ANCHOR_KEY, 2L)).isEqualTo(50L),
+                () -> assertThat(viewCount("LAST_7D", ANCHOR_KEY, 3L)).isEqualTo(50L),
+                // 총 3 product × 2 period = 6 row
+                () -> assertThat(stagingAggregationRepository.countByPeriodKey(ANCHOR_KEY)).isEqualTo(6L)
+        );
+    }
+
     // ---------- helpers ----------
 
     private void seedBaselineWeightConfig() {
