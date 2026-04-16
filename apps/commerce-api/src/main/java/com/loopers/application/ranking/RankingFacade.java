@@ -147,11 +147,15 @@ public class RankingFacade {
     }
 
     private Map<Long, Brand> fetchBrandMap(Map<Long, Product> productMap) {
-        return productMap.values().stream()
+        List<Long> brandIds = productMap.values().stream()
             .map(Product::getBrandId)
             .filter(id -> id != null)
             .distinct()
-            .flatMap(id -> brandRepository.findById(id).stream())
+            .toList();
+        if (brandIds.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return brandRepository.findAllByIds(brandIds).stream()
             .collect(Collectors.toMap(Brand::getId, b -> b));
     }
 
