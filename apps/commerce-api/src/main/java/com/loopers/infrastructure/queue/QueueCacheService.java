@@ -102,6 +102,19 @@ public class QueueCacheService {
         masterRedisTemplate.delete(tokenKey(userId));
     }
 
+    /**
+     * 오래된 대기열 항목 정리.
+     * ZADD 항목은 TTL이 없으므로, 서버 장애 등으로 처리되지 못한 항목이 잔류할 수 있음.
+     * score(진입 시각) 기준으로 maxAgeMs 이상 경과한 항목을 제거.
+     *
+     * @return 제거된 항목 수
+     */
+    public long cleanStaleEntries(long maxAgeMs) {
+        double maxScore = System.currentTimeMillis() - maxAgeMs;
+        Long removed = masterRedisTemplate.opsForZSet().removeRangeByScore(QUEUE_KEY, 0, maxScore);
+        return removed != null ? removed : 0L;
+    }
+
     private String tokenKey(Long userId) {
         return TOKEN_KEY_PREFIX + userId;
     }

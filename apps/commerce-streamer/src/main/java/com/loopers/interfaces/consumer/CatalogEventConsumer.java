@@ -8,6 +8,7 @@ import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.outbox.EventHandled;
 import com.loopers.infrastructure.metrics.ProductMetricsJpaRepository;
 import com.loopers.infrastructure.outbox.EventHandledJpaRepository;
+import com.loopers.infrastructure.ranking.RankingCacheService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Slf4j
@@ -24,8 +26,14 @@ import java.util.List;
 @Component
 public class CatalogEventConsumer {
 
+    private static final double WEIGHT_VIEW = 0.1;
+    private static final double WEIGHT_LIKE = 0.2;
+    private static final double WEIGHT_ORDER = 0.7;
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+
     private final EventHandledJpaRepository eventHandledRepository;
     private final ProductMetricsJpaRepository productMetricsRepository;
+    private final RankingCacheService rankingCacheService;
     private final ObjectMapper objectMapper;
 
     @KafkaListener(
@@ -59,8 +67,8 @@ public class CatalogEventConsumer {
             return;
         }
 
-        // occurredAt 기반 최신 이벤트만 반영 — ProductMetrics 내부에서 isAfter 비교
         ZonedDateTime occurredAt = objectMapper.treeToValue(node.get("occurredAt"), ZonedDateTime.class);
+        String dateKey = occurredAt.format(DATE_FORMATTER);
         JsonNode data = node.get("data");
         Long productId = data.get("productId").asLong();
 
@@ -70,11 +78,26 @@ public class CatalogEventConsumer {
         switch (eventType) {
             case "LIKE_ADDED" -> {
                 metrics.increaseLikeCount(occurredAt);
+                rankingCacheService.incrementScore(dateKey, productId, WEIGHT_LIKE);
                 log.info("[CatalogConsumer] 좋아요 증가 처리: productId={}", productId);
             }
             case "LIKE_REMOVED" -> {
                 metrics.decreaseLikeCount(occurredAt);
+                rankingCacheService.incrementScore(dateKey, productId, -WEIGHT_LIKE);
                 log.info("[CatalogConsumer] 좋아요 감소 처리: productId={}", productId);
+            }
+            case "PRODUCT_VIEWED" -> {
+                metrics.increaseViewCount(occurredAt);
+                rankingCacheService.incrementScore(dateKey, productId, WEIGHT_VIEW);
+                log.info("[CatalogConsumer] 조회 처리: productId={}", productId);
+            }
+            case "PRODUCT_ORDERED" -> {
+                metrics.increaseOrderCount(occurredAt);
+                int price = data.get("price").asInt();
+                int quantity = data.get("quantity").asInt();
+                double orderScore = WEIGHT_ORDER * price * quantity;
+                rankingCacheService.incrementScore(dateKey, productId, orderScore);
+                log.info("[CatalogConsumer] 주문 처리: productId={}, score={}", productId, orderScore);
             }
             default -> log.warn("[CatalogConsumer] 알 수 없는 이벤트 타입: {}", eventType);
         }

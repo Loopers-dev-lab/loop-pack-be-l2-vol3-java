@@ -134,6 +134,19 @@ public class OrderFacade {
             "ORDER_CREATED",
             Map.of("orderId", order.getId(), "userId", order.getUserId(), "totalAmount", order.getTotalAmount())
         );
+
+        // 상품별 랭킹 점수 적재를 위한 이벤트 발행
+        for (int i = 0; i < sortedItems.size(); i++) {
+            OrderRequest.OrderItemRequest item = sortedItems.get(i);
+            Product product = products.get(i);
+            outboxEventPublisher.publish(
+                KafkaTopics.CATALOG_EVENTS,
+                product.getId().toString(),
+                "PRODUCT_ORDERED",
+                Map.of("productId", product.getId(), "price", product.getPrice(), "quantity", item.quantity())
+            );
+        }
+
         eventPublisher.publishEvent(OrderCreatedEvent.from(order));
         return OrderInfo.from(order, orderItems.stream().map(OrderItemInfo::from).toList());
     }

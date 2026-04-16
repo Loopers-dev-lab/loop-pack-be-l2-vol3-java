@@ -1,5 +1,7 @@
 package com.loopers.interfaces.api.product;
 
+import com.loopers.application.product.ProductDetailInfo;
+import com.loopers.application.product.ProductEventFacade;
 import com.loopers.application.product.ProductFacade;
 import com.loopers.application.product.ProductInfo;
 import com.loopers.interfaces.api.ApiResponse;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductV1Controller {
 
     private final ProductFacade productFacade;
+    private final ProductEventFacade productEventFacade;
 
     @PostMapping
     public ApiResponse<ProductV1Dto.ProductResponse> createProduct(
@@ -46,9 +49,9 @@ public class ProductV1Controller {
     }
 
     @GetMapping("/{productId}")
-    public ApiResponse<ProductV1Dto.ProductResponse> getProduct(@PathVariable Long productId) {
-        ProductInfo info = productFacade.getProductDetail(productId);
-        return ApiResponse.success(ProductV1Dto.ProductResponse.from(info));
+    public ApiResponse<ProductV1Dto.ProductDetailResponse> getProduct(@PathVariable Long productId) {
+        ProductDetailInfo info = productEventFacade.getProductDetail(productId);
+        return ApiResponse.success(ProductV1Dto.ProductDetailResponse.from(info));
     }
 
     @PatchMapping("/{productId}")

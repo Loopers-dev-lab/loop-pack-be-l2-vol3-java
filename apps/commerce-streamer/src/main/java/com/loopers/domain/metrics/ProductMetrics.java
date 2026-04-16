@@ -55,6 +55,13 @@ public class ProductMetrics {
         }
     }
 
+    public void increaseViewCount(ZonedDateTime eventTime) {
+        if (eventTime.isAfter(this.updatedAt)) {
+            this.viewCount++;
+            this.updatedAt = eventTime;
+        }
+    }
+
     public void increaseOrderCount(ZonedDateTime eventTime) {
         if (eventTime.isAfter(this.updatedAt)) {
             this.orderCount++;
