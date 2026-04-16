@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * MvProductRankRepository JDBC 구현체.
@@ -47,7 +48,8 @@ public class JdbcMvProductRankRepository implements MvProductRankRepository {
     @Transactional
     @Override
     public void replaceWeeklyRanking(LocalDate baseDate, List<MvProductRankRow> rows) {
-        // 해당 base_date 의 기존 랭킹 전체 삭제 후 새 데이터 삽입
+        Objects.requireNonNull(baseDate, "baseDate must not be null");
+        Objects.requireNonNull(rows, "rows must not be null");
         jdbcTemplate.update(DELETE_WEEKLY, baseDate);
         insertBatch(INSERT_WEEKLY, baseDate, rows);
     }
@@ -55,8 +57,24 @@ public class JdbcMvProductRankRepository implements MvProductRankRepository {
     @Transactional
     @Override
     public void replaceMonthlyRanking(LocalDate baseDate, List<MvProductRankRow> rows) {
+        Objects.requireNonNull(baseDate, "baseDate must not be null");
+        Objects.requireNonNull(rows, "rows must not be null");
         jdbcTemplate.update(DELETE_MONTHLY, baseDate);
         insertBatch(INSERT_MONTHLY, baseDate, rows);
+    }
+
+    @Transactional
+    @Override
+    public void deleteWeeklyByBaseDate(LocalDate baseDate) {
+        Objects.requireNonNull(baseDate, "baseDate must not be null");
+        jdbcTemplate.update(DELETE_WEEKLY, baseDate);
+    }
+
+    @Transactional
+    @Override
+    public void deleteMonthlyByBaseDate(LocalDate baseDate) {
+        Objects.requireNonNull(baseDate, "baseDate must not be null");
+        jdbcTemplate.update(DELETE_MONTHLY, baseDate);
     }
 
     /**
