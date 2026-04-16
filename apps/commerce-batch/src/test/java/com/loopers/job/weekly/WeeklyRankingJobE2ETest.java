@@ -44,7 +44,7 @@ class WeeklyRankingJobE2ETest {
         jdbcTemplate.execute("DELETE FROM product_metrics_hourly");
     }
 
-    @DisplayName("targetDate 파라미터 없이 실행하면 배치가 실패한다.")
+    @DisplayName("targetDate 파라미터 없이 실행하면 명시적 오류 메시지와 함께 배치가 실패한다.")
     @Test
     void failsWithoutTargetDate() throws Exception {
         // given
@@ -54,8 +54,12 @@ class WeeklyRankingJobE2ETest {
         var jobExecution = jobLauncherTestUtils.launchJob();
 
         // then
-        assertThat(jobExecution.getExitStatus().getExitCode())
-                .isEqualTo(ExitStatus.FAILED.getExitCode());
+        assertAll(
+                () -> assertThat(jobExecution.getExitStatus().getExitCode())
+                        .isEqualTo(ExitStatus.FAILED.getExitCode()),
+                () -> assertThat(jobExecution.getAllFailureExceptions())
+                        .anyMatch(e -> e.getMessage() != null && e.getMessage().contains("targetDate"))
+        );
     }
 
     @DisplayName("집계 대상 데이터가 없을 때 배치가 COMPLETED 되고 MV 테이블에 데이터가 없다.")
@@ -205,6 +209,31 @@ class WeeklyRankingJobE2ETest {
                 () -> assertThat(rows).hasSize(2),
                 () -> assertThat(((Number) rows.get(0).get("product_id")).longValue()).isEqualTo(1L),
                 () -> assertThat(((Number) rows.get(0).get("rank")).intValue()).isEqualTo(1)
+        );
+    }
+
+    @DisplayName("기존 MV 데이터 존재 + 동일 targetDate 재실행 시 metrics 0건이면 MV도 0건이 된다.")
+    @Test
+    void clearsStaleDataWhenMetricsEmpty() throws Exception {
+        // given — 이전 배치 실행 결과 시뮬레이션: baseDate 에 stale 데이터 직접 삽입
+        LocalDate targetDate = LocalDate.of(2026, 4, 23);
+        LocalDate baseDate = targetDate.minusDays(1);
+        jdbcTemplate.update(
+                "INSERT INTO mv_product_rank_weekly (product_id, base_date, `rank`, score, updated_at) VALUES (?, ?, ?, ?, ?)",
+                1L, baseDate, 1, 5.0, LocalDateTime.now()
+        );
+        jobLauncherTestUtils.setJob(job);
+
+        // when — metrics 없이 동일 targetDate 로 재실행
+        var jobExecution = jobLauncherTestUtils.launchJob(new JobParametersBuilder()
+                .addLocalDate("targetDate", targetDate)
+                .toJobParameters());
+
+        // then — stale 데이터가 제거되어 MV 에 0건
+        assertAll(
+                () -> assertThat(jobExecution.getExitStatus().getExitCode())
+                        .isEqualTo(ExitStatus.COMPLETED.getExitCode()),
+                () -> assertThat(countByBaseDate("mv_product_rank_weekly", baseDate)).isZero()
         );
     }
 

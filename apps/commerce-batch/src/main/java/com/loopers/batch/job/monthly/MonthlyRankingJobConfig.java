@@ -2,7 +2,9 @@ package com.loopers.batch.job.monthly;
 
 import com.loopers.batch.job.monthly.step.MonthlyRankingItemWriter;
 import com.loopers.batch.listener.JobListener;
+import com.loopers.batch.listener.RankingMvCleanupListener;
 import com.loopers.batch.listener.StepMonitorListener;
+import com.loopers.domain.ranking.MvProductRankRepository;
 import com.loopers.domain.ranking.ProductMetricsAggregate;
 import com.loopers.config.RankingWeightsConfig.RankingWeights;
 import lombok.RequiredArgsConstructor;
@@ -95,6 +97,7 @@ public class MonthlyRankingJobConfig {
     private final StepMonitorListener stepMonitorListener;
     private final PlatformTransactionManager transactionManager;
     private final MonthlyRankingItemWriter monthlyRankingItemWriter;
+    private final MvProductRankRepository mvProductRankRepository;
 
     @Bean(JOB_NAME)
     public Job monthlyRankingJob() {
@@ -113,6 +116,11 @@ public class MonthlyRankingJobConfig {
      *
      * @JobScope 를 적용하여 Job 실행마다 독립적인 Step 인스턴스를 생성한다.
      */
+    @Bean
+    public RankingMvCleanupListener monthlyRankingCleanupListener() {
+        return new RankingMvCleanupListener(mvProductRankRepository::deleteMonthlyByBaseDate);
+    }
+
     @JobScope
     @Bean(STEP_NAME)
     public Step monthlyRankingStep() {
@@ -121,6 +129,8 @@ public class MonthlyRankingJobConfig {
                 .reader(monthlyRankingReader(null, null, null))
                 .writer(monthlyRankingItemWriter)
                 .listener(stepMonitorListener)
+                .listener(monthlyRankingCleanupListener())
+                .listener(monthlyRankingItemWriter)
                 .build();
     }
 

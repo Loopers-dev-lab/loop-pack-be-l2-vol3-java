@@ -2,7 +2,9 @@ package com.loopers.batch.job.weekly;
 
 import com.loopers.batch.job.weekly.step.WeeklyRankingItemWriter;
 import com.loopers.batch.listener.JobListener;
+import com.loopers.batch.listener.RankingMvCleanupListener;
 import com.loopers.batch.listener.StepMonitorListener;
+import com.loopers.domain.ranking.MvProductRankRepository;
 import com.loopers.domain.ranking.ProductMetricsAggregate;
 import com.loopers.config.RankingWeightsConfig.RankingWeights;
 import lombok.RequiredArgsConstructor;
@@ -98,6 +100,7 @@ public class WeeklyRankingJobConfig {
     private final StepMonitorListener stepMonitorListener;
     private final PlatformTransactionManager transactionManager;
     private final WeeklyRankingItemWriter weeklyRankingItemWriter;
+    private final MvProductRankRepository mvProductRankRepository;
 
     @Bean(JOB_NAME)
     public Job weeklyRankingJob() {
@@ -116,6 +119,11 @@ public class WeeklyRankingJobConfig {
      *
      * @JobScope 를 적용하여 Job 실행마다 독립적인 Step 인스턴스를 생성한다.
      */
+    @Bean
+    public RankingMvCleanupListener weeklyRankingCleanupListener() {
+        return new RankingMvCleanupListener(mvProductRankRepository::deleteWeeklyByBaseDate);
+    }
+
     @JobScope
     @Bean(STEP_NAME)
     public Step weeklyRankingStep() {
@@ -124,6 +132,8 @@ public class WeeklyRankingJobConfig {
                 .reader(weeklyRankingReader(null, null, null))
                 .writer(weeklyRankingItemWriter)
                 .listener(stepMonitorListener)
+                .listener(weeklyRankingCleanupListener())
+                .listener(weeklyRankingItemWriter)
                 .build();
     }
 
