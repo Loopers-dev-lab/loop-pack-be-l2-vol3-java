@@ -23,7 +23,7 @@ public class MySqlTestContainersConfig {
         mySqlContainer.start();
 
         String mySqlJdbcUrl = String.format(
-            "jdbc:mysql://%s:%d/%s",
+            "jdbc:mysql://%s:%d/%s?serverTimezone=UTC",
             mySqlContainer.getHost(),
             mySqlContainer.getFirstMappedPort(),
             mySqlContainer.getDatabaseName()
