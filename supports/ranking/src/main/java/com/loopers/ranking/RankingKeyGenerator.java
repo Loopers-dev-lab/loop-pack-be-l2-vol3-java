@@ -11,6 +11,7 @@ public final class RankingKeyGenerator {
     private static final DateTimeFormatter DAILY_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter WEEK_FMT = DateTimeFormatter.ofPattern("YYYY'W'ww");
     private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyyMM");
+    private static final int QUARTERLY_WINDOW_DAYS = 90;
 
     private RankingKeyGenerator() {}
 
@@ -63,7 +64,7 @@ public final class RankingKeyGenerator {
     }
 
     public static LocalDate quarterlyStart(LocalDate date) {
-        return date.minusDays(89);
+        return date.minusDays(QUARTERLY_WINDOW_DAYS - 1);
     }
 
     public static LocalDate quarterlyEnd(LocalDate date) {

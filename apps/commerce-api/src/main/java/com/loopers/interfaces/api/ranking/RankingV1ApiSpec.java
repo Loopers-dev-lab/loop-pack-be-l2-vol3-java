@@ -16,7 +16,7 @@ public interface RankingV1ApiSpec {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "조회 성공 (빈 결과는 empty items)")
     })
     ResponseEntity<ApiResponse<RankingV1Dto.RankingPageResponse>> getRankingByOffset(
-            @Parameter(description = "랭킹 기간 (daily|weekly|monthly). 생략 시 daily", example = "daily")
+            @Parameter(description = "랭킹 기간 (daily|weekly|monthly|quarterly). 생략 시 daily", example = "daily")
             @RequestParam(required = false) String period,
             @Parameter(description = "랭킹 날짜 (yyyyMMdd). 생략 시 오늘", example = "20260405")
             @RequestParam(required = false) String date,
