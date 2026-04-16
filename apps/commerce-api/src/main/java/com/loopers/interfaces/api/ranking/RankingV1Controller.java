@@ -23,26 +23,29 @@ public class RankingV1Controller {
     private final RankingFacade rankingFacade;
 
     /**
-     * 날짜 기반 상품 랭킹 목록을 페이징으로 조회한다.
-     * - date 미입력 시 오늘 날짜 기준
+     * 기간(period) 기반 상품 랭킹 목록을 페이징으로 조회한다.
+     * - period: "daily"(기본) | "weekly" | "monthly"
+     * - date: yyyyMMdd 형식. period=daily 일 때 사용. 미입력 시 오늘 날짜.
      * - page는 0-based
      * - 인증 불필요 (공개 API)
      */
     @GetMapping
     public ApiResponse<RankingV1Dto.RankingPageResponse> getRankings(
+        @RequestParam(required = false) String period,
         @RequestParam(required = false) String date,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        String targetDate = (date == null || date.isBlank())
-            ? LocalDate.now().format(DATE_FORMATTER)
-            : date;
+        String resolvedPeriod = (period == null || period.isBlank()) ? "daily" : period;
+        String targetDate = "daily".equalsIgnoreCase(resolvedPeriod)
+            ? (date == null || date.isBlank() ? LocalDate.now().format(DATE_FORMATTER) : date)
+            : null;
 
-        List<RankingInfo> rankings = rankingFacade.findRankings(targetDate, page, size);
+        List<RankingInfo> rankings = rankingFacade.findRankings(resolvedPeriod, targetDate, page, size);
         List<RankingV1Dto.RankingResponse> content = rankings.stream()
             .map(RankingV1Dto.RankingResponse::from)
             .toList();
 
-        return ApiResponse.success(new RankingV1Dto.RankingPageResponse(content, targetDate, page, size));
+        return ApiResponse.success(new RankingV1Dto.RankingPageResponse(content, resolvedPeriod, targetDate, page, size));
     }
 }
