@@ -13,13 +13,12 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.ExecutionContext;
 import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemStreamReader;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
-import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
-import org.springframework.batch.item.database.builder.JdbcPagingItemReaderBuilder;
-import org.springframework.batch.item.database.support.MySqlPagingQueryProvider;
-import org.springframework.batch.item.database.Order;
+import org.springframework.batch.item.support.AbstractItemStreamItemReader;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,16 +28,19 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Date;
-import java.time.DayOfWeek;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.temporal.TemporalAdjusters;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +66,9 @@ public class ProductMetricsDailyAggregationJobConfig {
     private static final int MAX_RANKING_ITEMS = 100;
     private static final Duration WEEKLY_RANKING_TTL = Duration.ofDays(90);
     private static final Duration MONTHLY_RANKING_TTL = Duration.ofDays(400);
+    private static final BigDecimal VIEW_WEIGHT = BigDecimal.valueOf(0.1d);
+    private static final BigDecimal LIKE_WEIGHT = BigDecimal.valueOf(0.2d);
+    private static final BigDecimal SALES_AMOUNT_WEIGHT = BigDecimal.valueOf(0.7d);
 
     private final JobRepository jobRepository;
     private final JobListener jobListener;
@@ -73,6 +78,7 @@ public class ProductMetricsDailyAggregationJobConfig {
     private final PlatformTransactionManager transactionManager;
     @Qualifier(RedisConfig.REDIS_TEMPLATE_MASTER)
     private final RedisTemplate<String, String> redisTemplate;
+    private final Clock clock;
 
     @Bean(WEEKLY_JOB_NAME)
     @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = WEEKLY_JOB_NAME)
@@ -98,13 +104,33 @@ public class ProductMetricsDailyAggregationJobConfig {
             .build();
     }
 
+    public LocalDate productMetricsReferenceDate(
+        @Value("#{jobParameters['requestDate']}") LocalDate requestDate
+    ) {
+        if (requestDate != null) {
+            return requestDate;
+        }
+        return LocalDate.now(clock).minusDays(1);
+    }
+
+    public PeriodRange productMetricsWeeklyPeriodRange(LocalDate referenceDate) {
+        return new PeriodRange(referenceDate.minusDays(6), referenceDate);
+    }
+
+    public PeriodRange productMetricsMonthlyPeriodRange(LocalDate referenceDate) {
+        return new PeriodRange(referenceDate.minusDays(29), referenceDate);
+    }
+
     @JobScope
     @Bean(WEEKLY_CLEANUP_STEP_NAME)
     public Step productMetricsWeeklyCleanupStep(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange weeklyRange = weeklyRange(requestDate);
-        return createCleanupStep(WEEKLY_CLEANUP_STEP_NAME, "product_ranking_weekly_batch", weeklyRange);
+        return createCleanupStep(
+                WEEKLY_CLEANUP_STEP_NAME,
+                "product_ranking_weekly_batch",
+                productMetricsWeeklyPeriodRange(productMetricsReferenceDate(requestDate))
+        );
     }
 
     @JobScope
@@ -112,8 +138,11 @@ public class ProductMetricsDailyAggregationJobConfig {
     public Step productMetricsMonthlyCleanupStep(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange monthlyRange = monthlyRange(requestDate);
-        return createCleanupStep(MONTHLY_CLEANUP_STEP_NAME, "product_ranking_monthly_batch", monthlyRange);
+        return createCleanupStep(
+                MONTHLY_CLEANUP_STEP_NAME,
+                "product_ranking_monthly_batch",
+                productMetricsMonthlyPeriodRange(productMetricsReferenceDate(requestDate))
+        );
     }
 
     @JobScope
@@ -147,13 +176,13 @@ public class ProductMetricsDailyAggregationJobConfig {
     public Step productMetricsWeeklyRedisSyncStep(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange weeklyRange = weeklyRange(requestDate);
+        PeriodRange weeklyRange = productMetricsWeeklyPeriodRange(productMetricsReferenceDate(requestDate));
         return createRedisSyncStep(
                 WEEKLY_SYNC_STEP_NAME,
                 "product_ranking_weekly_batch",
-                buildWeeklyRankingKey(weeklyRange.startDate()),
+                buildWeeklyRankingKey(weeklyRange.endDate()),
                 WEEKLY_RANKING_TTL,
-                weeklyRange.startDate()
+                weeklyRange.endDate()
         );
     }
 
@@ -162,32 +191,36 @@ public class ProductMetricsDailyAggregationJobConfig {
     public Step productMetricsMonthlyRedisSyncStep(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange monthlyRange = monthlyRange(requestDate);
+        PeriodRange monthlyRange = productMetricsMonthlyPeriodRange(productMetricsReferenceDate(requestDate));
         return createRedisSyncStep(
                 MONTHLY_SYNC_STEP_NAME,
                 "product_ranking_monthly_batch",
-                buildMonthlyRankingKey(monthlyRange.startDate()),
+                buildMonthlyRankingKey(monthlyRange.endDate()),
                 MONTHLY_RANKING_TTL,
-                monthlyRange.startDate()
+                monthlyRange.endDate()
         );
     }
 
     @StepScope
     @Bean(WEEKLY_READER_NAME)
-    public JdbcPagingItemReader<AggregatedProductMetricsRow> productMetricsWeeklyAggregationReader(
+    public ItemStreamReader<AggregatedProductMetricsRow> productMetricsWeeklyAggregationReader(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange weeklyRange = weeklyRange(requestDate);
-        return createAggregationReader(WEEKLY_READER_NAME, weeklyRange);
+        return createAggregationReader(
+                WEEKLY_READER_NAME,
+                productMetricsWeeklyPeriodRange(productMetricsReferenceDate(requestDate))
+        );
     }
 
     @StepScope
     @Bean(MONTHLY_READER_NAME)
-    public JdbcPagingItemReader<AggregatedProductMetricsRow> productMetricsMonthlyAggregationReader(
+    public ItemStreamReader<AggregatedProductMetricsRow> productMetricsMonthlyAggregationReader(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange monthlyRange = monthlyRange(requestDate);
-        return createAggregationReader(MONTHLY_READER_NAME, monthlyRange);
+        return createAggregationReader(
+                MONTHLY_READER_NAME,
+                productMetricsMonthlyPeriodRange(productMetricsReferenceDate(requestDate))
+        );
     }
 
     @StepScope
@@ -195,7 +228,7 @@ public class ProductMetricsDailyAggregationJobConfig {
     public ItemProcessor<AggregatedProductMetricsRow, ProductRankingPeriodBatchRow> productMetricsWeeklyAggregationProcessor(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange weeklyRange = weeklyRange(requestDate);
+        PeriodRange weeklyRange = productMetricsWeeklyPeriodRange(productMetricsReferenceDate(requestDate));
         return item -> new ProductRankingPeriodBatchRow(
             weeklyRange.startDate(),
             weeklyRange.endDate(),
@@ -213,7 +246,7 @@ public class ProductMetricsDailyAggregationJobConfig {
     public ItemProcessor<AggregatedProductMetricsRow, ProductRankingPeriodBatchRow> productMetricsMonthlyAggregationProcessor(
         @Value("#{jobParameters['requestDate']}") LocalDate requestDate
     ) {
-        PeriodRange monthlyRange = monthlyRange(requestDate);
+        PeriodRange monthlyRange = productMetricsMonthlyPeriodRange(productMetricsReferenceDate(requestDate));
         return item -> new ProductRankingPeriodBatchRow(
             monthlyRange.startDate(),
             monthlyRange.endDate(),
@@ -241,8 +274,8 @@ public class ProductMetricsDailyAggregationJobConfig {
         return new StepBuilder(stepName, jobRepository)
             .tasklet((contribution, chunkContext) -> {
                 jdbcTemplate.update(
-                    "DELETE FROM %s WHERE period_start_date = ?".formatted(tableName),
-                    Date.valueOf(periodRange.startDate())
+                    "DELETE FROM %s WHERE period_end_date = ?".formatted(tableName),
+                    Date.valueOf(periodRange.endDate())
                 );
                 return RepeatStatus.FINISHED;
             }, transactionManager)
@@ -250,7 +283,7 @@ public class ProductMetricsDailyAggregationJobConfig {
             .build();
     }
 
-    private Step createRedisSyncStep(String stepName, String tableName, String rankingKey, Duration ttl, LocalDate periodStartDate) {
+    private Step createRedisSyncStep(String stepName, String tableName, String rankingKey, Duration ttl, LocalDate snapshotDate) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         return new StepBuilder(stepName, jobRepository)
                 .tasklet((contribution, chunkContext) -> {
@@ -260,11 +293,11 @@ public class ProductMetricsDailyAggregationJobConfig {
                             """
                             SELECT product_id, ranking_score
                             FROM %s
-                            WHERE period_start_date = ?
+                            WHERE period_end_date = ?
                             ORDER BY ranking_score DESC, product_id ASC
                             LIMIT 100
                             """.formatted(tableName),
-                            Date.valueOf(periodStartDate)
+                            Date.valueOf(snapshotDate)
                     );
                     if (rows.isEmpty()) {
                         redisTemplate.delete(rankingKey);
@@ -286,52 +319,8 @@ public class ProductMetricsDailyAggregationJobConfig {
                 .build();
     }
 
-    private JdbcPagingItemReader<AggregatedProductMetricsRow> createAggregationReader(String readerName, PeriodRange periodRange) {
-        var queryProvider = new MySqlPagingQueryProvider();
-        queryProvider.setSelectClause("""
-            SELECT product_id,
-                   SUM(like_count) AS like_count,
-                   SUM(sales_count) AS sales_count,
-                   SUM(sales_amount) AS sales_amount,
-                   SUM(view_count) AS view_count,
-                   ROUND(
-                       SUM(view_count) * 0.1
-                       + SUM(like_count) * 0.2
-                       + SUM(sales_amount) * 0.7,
-                       1
-                   ) AS ranking_score
-            """);
-        queryProvider.setFromClause("FROM product_metrics_daily");
-        queryProvider.setWhereClause("WHERE metric_date BETWEEN :startDate AND :endDate");
-        queryProvider.setGroupClause("GROUP BY product_id");
-
-        var sortKeys = new LinkedHashMap<String, Order>();
-        sortKeys.put("ranking_score", Order.DESCENDING);
-        sortKeys.put("product_id", Order.ASCENDING);
-        queryProvider.setSortKeys(sortKeys);
-
-        Map<String, Object> parameterValues = Map.of(
-            "startDate", Date.valueOf(periodRange.startDate()),
-            "endDate", Date.valueOf(periodRange.endDate())
-        );
-
-        return new JdbcPagingItemReaderBuilder<AggregatedProductMetricsRow>()
-            .name(readerName)
-            .dataSource(dataSource)
-            .pageSize(CHUNK_SIZE)
-            .fetchSize(CHUNK_SIZE)
-            .maxItemCount(MAX_RANKING_ITEMS)
-            .queryProvider(queryProvider)
-            .parameterValues(parameterValues)
-            .rowMapper((rs, rowNum) -> new AggregatedProductMetricsRow(
-                rs.getString("product_id"),
-                rs.getLong("like_count"),
-                rs.getLong("sales_count"),
-                rs.getLong("sales_amount"),
-                rs.getLong("view_count"),
-                rs.getBigDecimal("ranking_score")
-            ))
-            .build();
+    private ItemStreamReader<AggregatedProductMetricsRow> createAggregationReader(String readerName, PeriodRange periodRange) {
+        return new ApplicationAggregatingProductMetricsReader(readerName, dataSource, periodRange);
     }
 
     private JdbcBatchItemWriter<ProductRankingPeriodBatchRow> createAggregationWriter(String tableName) {
@@ -358,7 +347,7 @@ public class ProductMetricsDailyAggregationJobConfig {
                     :rankingScore
                 )
                 ON DUPLICATE KEY UPDATE
-                    period_end_date = VALUES(period_end_date),
+                    period_start_date = VALUES(period_start_date),
                     like_count = VALUES(like_count),
                     sales_count = VALUES(sales_count),
                     sales_amount = VALUES(sales_amount),
@@ -369,31 +358,20 @@ public class ProductMetricsDailyAggregationJobConfig {
             .build();
     }
 
-    private PeriodRange weeklyRange(LocalDate requestDate) {
-        LocalDate baseDate = requiredRequestDate(requestDate);
-        LocalDate startDate = baseDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        return new PeriodRange(startDate, startDate.plusDays(6));
+    private String buildWeeklyRankingKey(LocalDate snapshotDate) {
+        return "ranking:weekly:" + snapshotDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
     }
 
-    private PeriodRange monthlyRange(LocalDate requestDate) {
-        LocalDate baseDate = requiredRequestDate(requestDate);
-        LocalDate startDate = baseDate.withDayOfMonth(1);
-        return new PeriodRange(startDate, startDate.with(TemporalAdjusters.lastDayOfMonth()));
+    private String buildMonthlyRankingKey(LocalDate snapshotDate) {
+        return "ranking:monthly:" + snapshotDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
     }
 
-    private String buildWeeklyRankingKey(LocalDate periodStartDate) {
-        return "ranking:weekly:" + periodStartDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-    }
-
-    private String buildMonthlyRankingKey(LocalDate periodStartDate) {
-        return "ranking:monthly:" + periodStartDate.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-    }
-
-    private LocalDate requiredRequestDate(LocalDate requestDate) {
-        if (requestDate == null) {
-            throw new IllegalArgumentException("requestDate job parameter is required");
-        }
-        return requestDate;
+    private static BigDecimal calculateRankingScore(MutableAggregation aggregation) {
+        return BigDecimal.valueOf(aggregation.viewCount)
+                .multiply(VIEW_WEIGHT)
+                .add(BigDecimal.valueOf(aggregation.likeCount).multiply(LIKE_WEIGHT))
+                .add(BigDecimal.valueOf(aggregation.salesAmount).multiply(SALES_AMOUNT_WEIGHT))
+                .setScale(1, RoundingMode.HALF_UP);
     }
 
     public record PeriodRange(
@@ -422,5 +400,95 @@ public class ProductMetricsDailyAggregationJobConfig {
         long viewCount,
         BigDecimal rankingScore
     ) {
+    }
+
+    private static final class ApplicationAggregatingProductMetricsReader extends AbstractItemStreamItemReader<AggregatedProductMetricsRow> {
+        private static final String CURRENT_INDEX_KEY = ".currentIndex";
+        private static final String RAW_METRICS_QUERY = """
+                SELECT product_id,
+                       like_count,
+                       sales_count,
+                       sales_amount,
+                       view_count
+                FROM product_metrics_daily
+                WHERE metric_date BETWEEN ? AND ?
+                """;
+
+        private final JdbcTemplate jdbcTemplate;
+        private final PeriodRange periodRange;
+        private List<AggregatedProductMetricsRow> items = List.of();
+        private int currentIndex;
+
+        private ApplicationAggregatingProductMetricsReader(String readerName, DataSource dataSource, PeriodRange periodRange) {
+            this.jdbcTemplate = new JdbcTemplate(dataSource);
+            this.periodRange = periodRange;
+            setName(readerName);
+        }
+
+        @Override
+        public void open(ExecutionContext executionContext) {
+            items = loadAggregatedItems();
+            currentIndex = executionContext.getInt(getExecutionContextKey(CURRENT_INDEX_KEY), 0);
+        }
+
+        @Override
+        public AggregatedProductMetricsRow read() {
+            if (currentIndex >= items.size()) {
+                return null;
+            }
+            AggregatedProductMetricsRow item = items.get(currentIndex);
+            currentIndex++;
+            return item;
+        }
+
+        @Override
+        public void update(ExecutionContext executionContext) {
+            executionContext.putInt(getExecutionContextKey(CURRENT_INDEX_KEY), currentIndex);
+        }
+
+        @Override
+        public void close() {
+            items = List.of();
+            currentIndex = 0;
+        }
+
+        private List<AggregatedProductMetricsRow> loadAggregatedItems() {
+            Map<String, MutableAggregation> aggregationMap = new HashMap<>();
+            jdbcTemplate.query(
+                    RAW_METRICS_QUERY,
+                    (RowCallbackHandler) rs -> {
+                        String productId = rs.getString("product_id");
+                        MutableAggregation aggregation = aggregationMap.computeIfAbsent(productId, key -> new MutableAggregation());
+                        aggregation.likeCount += rs.getLong("like_count");
+                        aggregation.salesCount += rs.getLong("sales_count");
+                        aggregation.salesAmount += rs.getLong("sales_amount");
+                        aggregation.viewCount += rs.getLong("view_count");
+                    },
+                    Date.valueOf(periodRange.startDate()),
+                    Date.valueOf(periodRange.endDate())
+            );
+
+            return aggregationMap.entrySet().stream()
+                    .map(entry -> new AggregatedProductMetricsRow(
+                            entry.getKey(),
+                            entry.getValue().likeCount,
+                            entry.getValue().salesCount,
+                            entry.getValue().salesAmount,
+                            entry.getValue().viewCount,
+                            calculateRankingScore(entry.getValue())
+                    ))
+                    .sorted(Comparator
+                            .comparing(AggregatedProductMetricsRow::rankingScore, Comparator.reverseOrder())
+                            .thenComparing(AggregatedProductMetricsRow::productId))
+                    .limit(MAX_RANKING_ITEMS)
+                    .collect(Collectors.toCollection(ArrayList::new));
+        }
+    }
+
+    private static final class MutableAggregation {
+        private long likeCount;
+        private long salesCount;
+        private long salesAmount;
+        private long viewCount;
     }
 }
