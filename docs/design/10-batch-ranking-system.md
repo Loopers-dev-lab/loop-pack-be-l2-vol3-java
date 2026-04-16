@@ -221,13 +221,27 @@ ProductRankingMvJob
   │   └── DELETE FROM mv_product_rank_{scope} WHERE period_key = :periodKey
   │   └── on("FAILED").end()  ← 삭제 실패 시 적재 Step 미실행
   │
-  └── Step 2: aggregateStep (Chunk, chunkSize=1000)
-      ├── Reader: JdbcCursorItemReader (GROUP BY 집계)
-      ├── Processor: score 계산 + TOP 100 필터링 + 순위 부여
-      └── Writer: JdbcBatchItemWriter (INSERT)
+  └── Step 2: aggregateStep (Chunk, chunkSize=100)
+      ├── Reader: JdbcCursorItemReader (GROUP BY + score + ORDER BY + LIMIT 100)
+      ├── Processor: ranking 번호 부여 (AtomicInteger)
+      ├── Writer: JdbcBatchItemWriter (INSERT 100건)
+      └── 운영 기능: faultTolerant + retry + StepMonitorListener
 ```
 
+### 왜 Chunk인가 — 프레임워크 운영 기능 활용
+
+이 작업은 Tasklet(INSERT INTO...SELECT)으로도 가능하고, 네트워크 효율만 따지면 Tasklet이 우위다. 그러나 Chunk를 선택하면 Spring Batch가 제공하는 운영 기능을 활용할 수 있다:
+
+- **faultTolerant + retry**: 일시적 DB 에러(데드락, 커넥션 타임아웃) 시 자동 재시도
+- **StepExecution 자동 기록**: readCount, writeCount, skipCount 등 처리 지표
+- **StepMonitorListener**: 실패 시 알림 (기존 인프라 재활용)
+- **restart**: 메타 테이블 기반 실패 지점 복구 (이 규모에서는 불필요하지만 프레임워크가 무료로 제공)
+
+100건에 대한 네트워크 왕복 비용(< 1ms)보다 이 운영 기능의 가치가 크다.
+
 ### Reader SQL
+
+DB에서 집계 + score 계산 + 정렬 + TOP 100 필터링을 모두 처리하고, 100건만 반환한다:
 
 ```sql
 SELECT
@@ -236,31 +250,34 @@ SELECT
     SUM(pm.like_count - pm.unlike_count) AS total_net_like_count,
     SUM(pm.sales_count) AS total_sales_count,
     SUM(pm.sales_amount - pm.cancel_amount_by_event_date) AS total_net_sales_amount,
-    p.category_id
+    p.category_id,
+    (
+        0.1 * LOG10(GREATEST(SUM(pm.view_count), 0) + 1) / 7.0
+      + 0.2 * LOG10(GREATEST(SUM(pm.like_count - pm.unlike_count), 0) + 1) / 7.0
+      + 0.7 * LOG10(GREATEST(SUM(pm.sales_amount - pm.cancel_amount_by_event_date), 0) + 1) / 7.0
+      + UNIX_TIMESTAMP() * 1e-16
+    ) AS score
 FROM product_metrics pm
 JOIN product p ON pm.product_id = p.id
 WHERE pm.metric_date BETWEEN :startDate AND :endDate
   AND p.deleted_at IS NULL
 GROUP BY pm.product_id, p.category_id
+ORDER BY score DESC
+LIMIT 100
 ```
 
 - **주간**: `startDate = targetDate - 6`, `endDate = targetDate` (7일)
 - **월간**: `startDate = targetDate - 29`, `endDate = targetDate` (30일)
-- Additive Measure 원칙 준수: 취소는 별도 컬럼이므로 조회 시 차감
+- SQL 실행 순서(GROUP BY → SELECT → ORDER BY → LIMIT)에 의해 **DB가 전체 상품의 score를 계산하고 정렬한 후 상위 100건만 반환**. TOP 100은 DB가 보장
 
 ### Processor
 
-기존 RankingCorrectionJobConfig의 Score v2 공식 재활용:
+Reader가 score와 정렬을 완료했으므로, Processor는 ranking 번호만 부여한다:
 
+```java
+// AtomicInteger counter로 순위 부여
+// Reader가 score DESC로 정렬하여 반환하므로 순서대로 1, 2, 3... 부여
 ```
-score = categoryPriority
-      + 0.1 × log₁₀(totalViewCount + 1) / 7.0
-      + 0.2 × log₁₀(totalNetLikeCount + 1) / 7.0
-      + 0.7 × log₁₀(totalNetSalesAmount + 1) / 7.0
-      + epochSeconds × 1e-16  (tiebreaker)
-```
-
-**TOP 100 필터링 + 순위 부여**: Reader에서 전체 상품을 조회하고, Processor에서 score를 계산한 후, Writer 직전에 전체 결과를 score 내림차순 정렬하여 TOP 100만 Writer에 전달. 상품 수가 수천~수만 수준이므로 메모리 부담 없음.
 
 ### Writer
 

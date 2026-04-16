@@ -152,29 +152,119 @@ score = f(SUM(메트릭) / COUNT(DISTINCT 전시일수))
 
 ---
 
-## 소재 3: 회사 배치 앱 분석에서 배운 것
+## 소재 3: Chunk vs Tasklet — 언제 무엇을 쓰는가
 
-### 발견
+### Spring Batch가 Chunk-Oriented에 제공하는 운영 기능
 
-회사 실무 배치 앱 2개 (90개 Job)를 분석한 결과:
-- **통계/집계 Job의 88%가 Tasklet** (SQL 한 방 처리)
-- **Chunk-Oriented는 12%** — "행 단위 변환"이 필요한 경우에만 사용
-- 통계 Job의 50%가 **DELETE + INSERT...SELECT** 패턴 (멱등성 자동 보장)
+Chunk-Oriented는 단순히 "Reader → Processor → Writer"의 패턴이 아니다. Spring Batch 프레임워크가 Chunk에 대해 제공하는 **운영 레벨의 기능**이 Chunk를 보편적 선택으로 만드는 핵심이다.
 
-### 왜 실무에서 Tasklet이 압도적인가
+#### 1. 자동 Retry (Transient Failure 재시도)
 
-통계/집계 업무의 본질은 **"데이터 이동"**이다:
-- 원천 테이블에서 GROUP BY → 집계 테이블에 적재
-- 이 과정에 Java 코드가 개입할 필요가 없으면 SQL 한 방(`INSERT INTO...SELECT`)이 가장 빠르고 안전
+```java
+@Bean
+public Step step() {
+    return new StepBuilder("step", jobRepository)
+        .<In, Out>chunk(1000, transactionManager)
+        .reader(reader())
+        .processor(processor())
+        .writer(writer())
+        .faultTolerant()
+        .retry(DeadlockLoserDataAccessException.class)   // DB 데드락 시 재시도
+        .retry(OptimisticLockingFailureException.class)   // 낙관적 락 충돌 시 재시도
+        .retryLimit(3)                                     // 최대 3회
+        .build();
+}
+```
 
-Chunk-Oriented가 필요한 경우:
-- **행 단위 변환이 필요할 때**: score 계산, 등급 산정 등 Java 로직이 필요 (우리 과제가 이 경우)
-- **외부 시스템 연동**: REST API 호출, Redis 쓰기 등 SQL만으로 불가능
-- **메모리 제어**: 수억 건을 한 번에 SELECT하면 OOM → chunk 단위 처리
+대규모 이커머스에서 배치가 수백만 건을 처리하는 동안 **일시적 DB 데드락, 네트워크 타임아웃**이 발생할 수 있다. Chunk는 해당 chunk만 재시도하고, Tasklet에서는 이 로직을 직접 구현해야 한다.
 
-### 이 작업을 Tasklet으로 했다면?
+#### 2. Skip Policy (불량 레코드 건너뛰기)
 
-회사의 GoodsBestMapper와 동일한 패턴으로 구현 가능하다:
+```java
+.faultTolerant()
+.skip(DataIntegrityViolationException.class)  // PK 중복 등 → 건너뛰기
+.skipLimit(100)                                // 최대 100건까지 허용
+.noSkip(OutOfMemoryError.class)               // OOM은 절대 건너뛰지 않음
+```
+
+100만 건 중 3건의 데이터 오류 때문에 전체 배치가 실패하면 운영 부담이 크다. Skip Policy로 불량 레코드를 건너뛰고 나머지를 계속 처리할 수 있다. Tasklet의 SQL 한 방에서는 1건의 에러가 전체를 롤백시킨다.
+
+#### 3. Restart (실패 지점부터 재시작)
+
+```
+최초 실행:
+  Chunk 1: 1~1,000건     ✓ 커밋 완료
+  Chunk 2: 1,001~2,000건 ✓ 커밋 완료
+  Chunk 3: 2,001~3,000건 ✗ 실패 (DB 커넥션 에러)
+  → ExecutionContext에 진행 상태 저장
+
+재시작:
+  Chunk 1~2: 건너뜀 (이미 커밋됨)
+  Chunk 3: 2,001~3,000건부터 재시작
+```
+
+수시간 걸리는 배치가 80% 진행 후 실패하면, 처음부터 재실행하는 것은 비용이 크다. Chunk는 Spring Batch의 메타 테이블(`BATCH_STEP_EXECUTION_CONTEXT`)에 진행 상태를 저장하여 실패 지점부터 재시작할 수 있다.
+
+#### 4. 자동 모니터링 (처리 건수 추적)
+
+```
+StepExecution 자동 기록:
+  - readCount: 읽은 건수
+  - writeCount: 쓴 건수
+  - skipCount: 건너뛴 건수
+  - commitCount: 커밋 횟수
+  - rollbackCount: 롤백 횟수
+  - readSkipCount / writeSkipCount / processSkipCount
+```
+
+Tasklet에서는 이 지표들을 직접 카운팅하고 로깅해야 한다. Chunk는 Spring Batch가 자동으로 기록하고, `BATCH_STEP_EXECUTION` 테이블에서 조회할 수 있다.
+
+#### 5. Listener 기반 확장
+
+```java
+.listener(new ItemReadListener<>() {
+    public void onReadError(Exception ex) { alertService.send("Reader 에러: " + ex); }
+})
+.listener(new ItemWriteListener<>() {
+    public void afterWrite(Chunk<? extends Out> items) { metrics.increment("batch.write", items.size()); }
+})
+```
+
+읽기/쓰기/처리 각 단계에 Listener를 붙여 모니터링, 알림, 메트릭 수집을 할 수 있다.
+
+### Chunk가 보편적 선택인 이유
+
+위 기능들은 **프레임워크가 무료로 제공하는 것**이다. Tasklet으로 동일한 수준의 운영 안정성을 확보하려면 retry 루프, skip 카운터, 진행 상태 저장, 처리 건수 추적을 모두 직접 구현해야 한다. 대부분의 배치 작업에서 이 운영 기능의 가치가 네트워크 왕복의 비용보다 크기 때문에 Chunk가 보편적 선택이 된다.
+
+### Tasklet이 Chunk보다 효율적인 경우
+
+그럼에도 Tasklet이 맞는 **특정 조건**이 있다:
+
+| 조건 | 설명 | 예시 |
+|------|------|------|
+| **SQL 한 문장으로 완결** | Java 변환이 전혀 없고 DB→DB 이동 | `INSERT INTO...SELECT...GROUP BY` |
+| **retry/skip이 불필요** | 실패 시 전체 재실행해도 수초 내 완료 | TOP 100 적재 (100건 INSERT) |
+| **중간 상태가 없음** | 처리 중 실패해도 "부분 완료" 상태가 의미 없음 | DELETE + INSERT 패턴 (어차피 전체 교체) |
+
+실무 배치 앱 분석에서 관찰한 통계/집계 Job이 Tasklet을 쓰는 것은 **이 세 조건을 모두 충족하기 때문**이지, Tasklet이 일반적으로 우월하기 때문이 아니다.
+
+### 이 작업에서의 판단
+
+우리의 MV TOP 100 적재는 Tasklet의 세 조건을 모두 충족한다:
+- SQL 한 문장(INSERT INTO...SELECT + RANK() + LIMIT 100)으로 완결 가능
+- 100건 INSERT는 수초 내 완료 → 실패 시 전체 재실행해도 부담 없음
+- DELETE + INSERT 패턴이므로 부분 완료 상태가 의미 없음
+
+**그러나 Chunk로 구현하면서 프레임워크의 운영 기능을 활용하는 것도 합리적이다:**
+- `.faultTolerant().retry()`로 일시적 DB 에러에 대한 자동 재시도
+- `StepExecution`의 read/write count로 자동 모니터링
+- `StepMonitorListener`와 결합하여 실패 시 알림
+
+Chunk의 네트워크 왕복 비용(100건 × ~10KB < 1ms)보다 이 운영 기능의 가치가 크므로, **Chunk를 쓰되 Reader SQL에서 비효율을 최소화하는 것**이 우리의 접근이다.
+
+### Tasklet 구현 시 SQL 참고
+
+동일한 작업을 Tasklet으로 구현할 경우의 SQL:
 
 ```sql
 -- Step 1: DELETE
@@ -198,47 +288,7 @@ FROM (
 WHERE DT_RNK <= 100
 ```
 
-Java 코드는 파라미터 전달과 DELETE/INSERT 호출뿐. 네트워크 왕복 0.
-
-#### Tasklet의 장점
-
-| 장점 | 상세 |
-|------|------|
-| **네트워크 왕복 0** | DB 내부에서 SELECT → INSERT 완료. Java로 데이터가 나오지 않음 |
-| **Score 공식 단일 관리** | SQL에만 존재 |
-| **코드량 최소** | JobConfig + Tasklet 하나. Reader/Processor/Writer 분리 불필요 |
-| **트랜잭션 단순** | SQL 한 문장이 하나의 트랜잭션. chunk 경계 고민 없음 |
-| **회사 실무 검증** | 90개 Job 중 88%가 이 방식. GoodsBest(TOP 100)도 동일 패턴 |
-
-#### Tasklet의 단점
-
-| 단점 | 실운영 영향 |
-|------|-----------|
-| **Score 공식 단위 테스트 불가** | SQL 내부의 LOG10 공식을 단위 테스트할 수 없음. 통합 테스트(DB 필요)로만 검증 가능. 하지만 공식이 단순하고 변경 빈도가 낮으므로 실질적 위험은 낮음 |
-| **SQL 복잡도 증가** | GROUP BY + LOG10 + RANK() + 서브쿼리가 한 문장. 현재는 감당 가능하지만, 카테고리별 가중치/A/B 테스트 등 조건이 추가되면 SQL이 비대해질 수 있음. 단, 회사의 GoodsBestMapper도 200줄 넘는 SQL을 운영하고 있으므로 SQL 복잡도 자체가 문제는 아님 |
-| **장애 시 전체 롤백** | SQL 한 문장 실패 → 전체 롤백, 부분 재시작 불가. 하지만 TOP 100 INSERT는 수초 내 완료되므로 전체 재실행해도 부담 없음 |
-
-#### Chunk-Oriented가 Tasklet보다 유리해지는 전환점
-
-| 조건 | 설명 |
-|------|------|
-| **상품 수백만 건** | GROUP BY 결과가 메모리에 안 올라갈 때 → chunk 단위 처리 필요 |
-| **Score 공식 복잡화** | 외부 API 호출, ML 모델 추론, 다차원 가중치 등 SQL로 표현 불가능할 때 |
-| **적재 대상이 DB가 아닐 때** | Redis, Elasticsearch, 외부 API 등 SQL INSERT로 불가능할 때 |
-| **부분 재시작이 필요할 때** | 수시간 걸리는 대규모 배치에서 장애 시 처리 완료 구간을 건너뛰어야 할 때 |
-
-#### 결론
-
-**현재 규모(상품 수만 건, TOP 100 적재)에서는 Tasklet이 효율적이다.** 하지만 과제 요구사항이 Chunk-Oriented이므로 Chunk로 구현하되, Reader SQL에서 score 계산 + ORDER BY + LIMIT 100까지 처리하여 **Chunk의 비효율을 최소화**한다. Processor는 ranking 번호 부여만 담당하고, Writer는 100건만 INSERT한다.
-
-이 판단은 블로그에서 "Tasklet이 더 효율적인 상황에서 왜 Chunk를 썼는가, Tasklet으로 전환하면 무엇이 달라지는가"로 기록할 소재다.
-
-### 참고할 패턴
-
-- **DELETE + INSERT...SELECT** (회사 통계 Job 50%) — MV 갱신의 실무 표준
-- **CompositeItemWriter** (mbod) — 하나의 Chunk에서 여러 테이블 동시 갱신
-- **UniqueRunIdIncrementer** — 파라미터를 전부 버리는 구현. 파라미터 보존이 필요한 경우 부적합
-- **GoodsReviewTotal의 행 단위 UPSERT 루프** — 안티패턴. 10만 건 = 10만 번 DB 호출. 벌크 처리로 대체해야 함
+Java 코드는 파라미터 전달과 DELETE/INSERT 호출뿐. 네트워크 왕복 0. 실무 배치 앱의 GoodsBest(TOP 100)도 동일한 Tasklet 패턴을 사용한다.
 
 ---
 
@@ -381,7 +431,7 @@ SQL에 score 공식을 넣으면, RankingCorrectionJob(Java)과 MV Job(SQL)에 �
 
 ---
 
-## 소재 6: Chunk vs Tasklet — 도구를 쓸 줄 아는 것과, 언제 써야 하는지 아는 것
+## 소재 6: 사전 집계 파이프라인과 Chunk의 관계
 
 ### 핵심 통찰: 사전 집계는 입력을, Chunk는 출력을 다룬다
 
@@ -392,55 +442,20 @@ SQL에 score 공식을 넣으면, RankingCorrectionJob(Java)과 MV Job(SQL)에 �
 
 Chunk-Oriented:
   대량의 행을 chunk 단위로 읽고-변환하고-적재
-  → Writer의 출력 볼륨이 클 때 가치가 있는 것
+  → Writer의 출력 볼륨이 클 때 + 운영 안정성이 필요할 때 가치가 있는 것
 
 둘은 서로 다른 문제를 해결한다.
 ```
 
-사전 집계가 있어야 Chunk가 유용한 것이 아니다. Chunk의 진짜 가치는 **"SQL로 불가능한 변환을 대량의 행에 적용해야 할 때"** 발휘된다.
+사전 집계가 있어야 Chunk가 유용한 것이 아니다. Chunk의 가치는 **"프레임워크가 제공하는 retry, skip, restart, 모니터링을 활용하면서 대량의 행을 안정적으로 처리할 때"** 발휘된다.
 
-### Chunk가 진짜 필요한 실무 시나리오
+### 대규모 이커머스에서의 DB 부하 문제
 
-실무 배치 앱에서 Chunk-Oriented를 쓰는 Job들의 공통점:
+쿠팡급(상품 100만, product_metrics 30일치 3,000만 행) 기준으로, Chunk든 Tasklet이든 **집계 쿼리의 DB 부하는 동일하다.** 진짜 해결해야 할 문제는 처리 모델 선택이 아니라 **"이 집계를 서비스 DB에서 할 것인가"**이다. 답은 Replica DB 또는 DW에서 집계하는 것이고, 이것은 두 방식 모두에 적용된다.
 
-| Job | 처리 건수 | Chunk를 쓰는 이유 |
-|-----|----------|-----------------|
-| memberGradeChangeJob | 회원 100만 명 | 등급 산정 로직이 복잡 (구매 이력 조회 + 등급 기준 비교 + 쿠폰 발급). SQL 한 문장 불가. 100만 건을 메모리에 올리면 OOM |
-| mileageRemoveJob | 만료 마일리지 수만 건 | 1건 읽기 → 3개 엔티티 생성 (소멸 이력 + 기존 마감 + 잔액 갱신). CompositeItemWriter로 3개 테이블 동시 갱신 |
-| searchProductChunkLoadJob | 상품 10만 건 | 적재 대상이 DB가 아니라 **외부 검색 API**. SQL INSERT 불가능 |
+### 우리의 접근
 
-공통점: **출력이 대량이고, 행 단위 Java 변환이 필수**
-
-### 대규모 이커머스에서도 Tasklet이 유리한가?
-
-쿠팡급(상품 100만, product_metrics 30일치 3,000만 행) 기준:
-
-| 단계 | Tasklet | Chunk |
-|------|---------|-------|
-| DB에서 3,000만 행 GROUP BY | 동일 (SQL 실행) | 동일 (Reader SQL 실행) |
-| 100만 행 정렬 + TOP 100 | DB 내부 처리 | DB 내부 처리 (LIMIT 100) |
-| 결과 전송 | 네트워크 왕복 0 | 100건 Java 경유 (네트워크 왕복 2) |
-| **총 소요 시간 차이** | — | **< 1ms** (100건 × ~100바이트 = 10KB) |
-
-**집계 쿼리의 DB 부하는 Tasklet이든 Chunk든 동일하다.** Chunk가 추가하는 것은 100건에 대한 네트워크 왕복뿐이고, 이것은 측정 불가능한 수준이다.
-
-대규모에서 진짜 해결해야 할 문제는 Tasklet vs Chunk가 아니라 **"이 집계를 서비스 DB에서 할 것인가"**이다. 답은 Replica DB 또는 DW에서 집계하는 것이고, 이것은 두 방식 모두에 적용된다.
-
-### 과제에서 Chunk를 요구한 의도
-
-요구사항: "Chunk-Oriented 방식을 통해 **대량의 데이터를 읽고 처리**할 수 있도록 구성해 보세요"
-
-이 작업에서 Tasklet이 더 효율적이라는 것을 출제진도 알고 있을 것이다. 그럼에도 Chunk를 요구한 의도는:
-
-1. **Chunk-Oriented 패턴을 직접 구현해봐야** Reader/Processor/Writer의 역할 분리, chunk 단위 트랜잭션, StepScope 등을 체감할 수 있다
-2. **"이 상황에서 왜 Chunk가 최선이 아닌가"를 분석하는 능력** 자체가 시니어의 역량이다
-3. 면접에서 **"Chunk로 구현했지만, Tasklet이 더 효율적인 이유와 전환 시점을 설명할 수 있습니다"**가 훨씬 강력한 답변이다
-
-### 우리의 접근: Chunk의 비효율을 최소화
-
-Chunk를 쓰되, Reader SQL에서 GROUP BY + score 계산 + ORDER BY + LIMIT 100까지 처리하여 **Java로 넘어오는 데이터를 100건으로 제한**했다. Processor는 ranking 번호 부여만 담당한다.
-
-이것은 "Chunk 패턴을 따르면서도 DB의 강점(집계, 정렬, 필터링)을 활용하는 실용적 타협"이다. 도구(Chunk)를 쓸 줄 아는 것과, 언제 써야 하는지(대량 출력 + Java 변환 필수) 아는 것은 다르다.
+Chunk를 쓰되, Reader SQL에서 GROUP BY + score 계산 + ORDER BY + LIMIT 100까지 처리하여 **Java로 넘어오는 데이터를 100건으로 제한**했다. Chunk의 네트워크 왕복 비용(100건 × ~10KB < 1ms)보다 프레임워크가 제공하는 운영 기능(retry, 모니터링, restart)의 가치가 크므로, Chunk 선택은 합리적이다.
 
 ---
 
