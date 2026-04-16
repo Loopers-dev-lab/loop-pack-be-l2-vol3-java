@@ -26,6 +26,7 @@ ranking:
 batch:
   rank:
     top-n: 100
+    chunk-size: 20
     validation:
       fail-on-incomplete: false
     health-check:

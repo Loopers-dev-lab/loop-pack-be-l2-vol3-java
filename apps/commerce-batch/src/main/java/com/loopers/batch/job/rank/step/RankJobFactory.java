@@ -31,7 +31,6 @@ import java.time.format.DateTimeFormatter;
 public class RankJobFactory {
 
     public static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
-    public static final int CHUNK_SIZE = 20;
 
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
@@ -60,6 +59,9 @@ public class RankJobFactory {
 
     @Value("${batch.rank.top-n:100}")
     private int topN;
+
+    @Value("${batch.rank.chunk-size:20}")
+    private int chunkSize;
 
     public Job buildJob(String jobName, Step step) {
         return new JobBuilder(jobName, jobRepository)
@@ -161,7 +163,7 @@ public class RankJobFactory {
         );
 
         return new StepBuilder(stepName, jobRepository)
-                .<AggregatedScoreRow, AggregatedScoreRow>chunk(CHUNK_SIZE, transactionManager)
+                .<AggregatedScoreRow, AggregatedScoreRow>chunk(chunkSize, transactionManager)
                 .reader(buildReader(stepName + "Reader", periodStart, periodEnd))
                 .writer(writer)
                 .listener(writer)
