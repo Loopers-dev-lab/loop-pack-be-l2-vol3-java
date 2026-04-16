@@ -724,20 +724,112 @@ Master Step: product_id 범위를 파티션으로 분할
 
 CursorReader의 장점(1회 쿼리)을 유지하면서 병렬화를 달성한다.
 
-### 우리 설계에서의 결론
+### 결론: CursorReader + Partitioning으로 두 가지를 모두 해결
 
 | 판단 | 근거 |
 |------|------|
 | **CursorReader 선택** | GROUP BY 집계 쿼리에서 PagingReader는 페이지마다 집계를 재실행하므로 부적합 |
-| **현재 단일 스레드** | 결과 100건, 수초 완료. 멀티스레드 불필요 |
-| **병렬화 시 전환 경로** | PagingReader가 아닌 Partitioning으로 전환. CursorReader 유지 가능 |
-| **커넥션 점유 대응** | 현재 단일 Job 실행이므로 문제없음. 다중 Job 동시 실행 시 Replica DataSource 분리 |
+| **Partitioning 적용** | CursorReader의 장점(1회 쿼리)을 유지하면서 멀티스레드 한계를 극복. 각 Worker가 독립 커넥션 + 독립 CursorReader |
+| **커넥션 점유 대응** | 다중 Job 동시 실행 시 Replica DataSource 분리 |
 
 ---
 
-## 소재 9: (구현 후 추가 예정)
+## 소재 9: CursorReader는 병렬화할 수 없는데, 대규모 집계를 어떻게 빠르게 처리하는가?
+
+### 이 고민이 시작된 맥락
+
+```
+"CursorReader가 GROUP BY에 적합하다"
+  → "그런데 CursorReader는 멀티스레드에서 사용 불가하다"
+    → "대규모(상품 100만)에서 단일 스레드로 30초 걸리면?"
+      → "PagingReader로 바꾸면 페이지마다 GROUP BY 재실행 (더 느림)"
+        → "CursorReader를 유지하면서 병렬화하는 방법은?"
+          → Partitioning
+```
+
+### Partitioning으로 해결하는 구조
+
+```
+Step 2: partitionedAggregateStep
+
+  [Partitioner] product_id MIN~MAX를 gridSize(4)개 범위로 분할
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  [Worker 1]              [Worker 2]                     │
+  │  id: 1~250,000          id: 250,001~500,000            │  ← 병렬 실행
+  │  독립 CursorReader       독립 CursorReader               │
+  │  독립 DB 커넥션          독립 DB 커넥션                   │
+  │  GROUP BY 750만 행       GROUP BY 750만 행               │
+  │  → 스테이징 INSERT       → 스테이징 INSERT               │
+  ├─────────────────────────────────────────────────────────┤
+  │  [Worker 3]              [Worker 4]                     │
+  │  id: 500,001~750,000    id: 750,001~1,000,000          │  ← 병렬 실행
+  │  ...                     ...                            │
+  └─────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+  Step 3: mergeStep (Tasklet)
+  SELECT ... FROM staging ORDER BY score DESC LIMIT 100
+  → INSERT INTO mv_product_rank_{scope}
+```
+
+각 Worker가 **독립 커넥션 + 독립 CursorReader**를 가지므로 ResultSet 공유 문제가 없다. CursorReader의 장점(GROUP BY 1회 실행)을 유지하면서 병렬 처리를 달성한다.
+
+### 왜 PagingReader 병렬화가 아닌 Partitioning인가
+
+| 방식 | GROUP BY 실행 횟수 | 소요 시간 (상품 100만) |
+|------|-----------------|---------------------|
+| 단일 CursorReader | 1회 (3,000만 행) | ~30초 |
+| PagingReader 멀티스레드 | 페이지 수 × 스레드 수 (매번 3,000만 행 GROUP BY) | **수 시간** |
+| **Partitioning + CursorReader** | Worker 수 (각 750만 행) | **~10초** |
+
+PagingReader를 멀티스레드로 돌리면 각 스레드가 **전체 3,000만 행에 대한 GROUP BY를 매 페이지마다 재실행**한다. Partitioning은 데이터를 범위로 분할하여 각 Worker가 **자기 범위의 데이터만 GROUP BY**하므로 근본적으로 다르다.
+
+### Global TOP 100 문제와 Map-Reduce 패턴
+
+Partitioning만으로는 Global TOP 100을 구할 수 없다:
+
+```
+Worker 1의 로컬 1위: score 0.85  → 글로벌에서는 50위일 수 있음
+Worker 4의 로컬 3위: score 0.92  → 글로벌에서는 1위일 수 있음
+```
+
+이것은 분산 시스템의 전형적인 **Map-Reduce** 문제다:
+- **Map** (병렬): 각 Worker가 자기 범위를 집계 → 스테이징 테이블에 적재
+- **Reduce** (단일): 스테이징 전체에서 글로벌 정렬 → TOP 100 추출
+
+스테이징 테이블이 이 두 단계를 연결하는 중간 저장소 역할을 한다.
+
+### 성능 산정 (쿠팡급)
+
+```
+상품 100만, product_metrics 30일치 3,000만 행, Worker 4개:
+
+Step 1 (cleanup):    ~0.1초 (DELETE 2개)
+Step 2 (partition):  ~10초  (각 Worker GROUP BY 750만 행 × 4 병렬)
+Step 3 (merge):      ~2초   (스테이징 100만 행 정렬 + TOP 100)
+────────────────────────────
+총 소요:             ~12초  (단일 스레드 대비 3배 빠름)
+```
+
+### 트레이드오프
+
+| 관점 | 단일 CursorReader | Partitioning |
+|------|-------------------|-------------|
+| **성능** | ~30초 | ~12초 (3배 향상) |
+| **구현 복잡도** | 낮음 (2 Step) | 높음 (3 Step + Partitioner + 스테이징) |
+| **스테이징 테이블** | 불필요 | 필요 (상품 수만큼 행) |
+| **커넥션 사용** | 1개 | Worker 수만큼 (4~10개) |
+| **장애 복구** | 전체 재실행 | 실패한 파티션만 재실행 가능 |
+| **스케일 아웃** | 불가 (단일 스레드) | gridSize 조정으로 선형 확장 |
+
+구현 복잡도가 높아지지만, **"대량의 데이터를 읽고 처리할 수 있도록 구성"**이라는 요구사항에 부합하고, 쿠팡급 스케일에서 실제로 동작 가능한 구조다.
+
+---
+
+## 소재 10: (구현 후 추가 예정)
 
 - 멱등성을 DELETE+INSERT로 보장하는 패턴
 - Spring Batch 파라미터 설계와 Job Instance 동일성
 - MV vs Redis 실제 랭킹 비교 결과 (score 차이 분석)
-- 대량 데이터 성능 테스트 결과
+- Partitioning 실제 성능 측정 결과

@@ -211,7 +211,14 @@ CREATE TABLE mv_product_rank_monthly (
 
 ## Spring Batch Job 설계
 
-### Job 구조
+### 설계 판단의 흐름
+
+1. Chunk vs Tasklet → **Chunk**: 프레임워크 운영 기능(retry, 모니터링, restart) 활용
+2. CursorReader vs PagingReader → **CursorReader**: GROUP BY 집계 쿼리에서 Paging은 페이지마다 집계를 재실행하므로 부적합
+3. CursorReader는 멀티스레드 불가(ResultSet 공유 상태) → **Partitioning**: CursorReader의 장점(1회 쿼리)을 유지하면서 병렬 처리
+4. Partitioning + Global TOP 100 → **3-Step 구조**: 병렬 집계(스테이징) → 글로벌 머지(TOP 100)
+
+### Job 구조 (Partitioning + Map-Reduce)
 
 ```
 ProductRankingMvJob
@@ -219,50 +226,75 @@ ProductRankingMvJob
   │
   ├── Step 1: cleanupStep (Tasklet)
   │   └── DELETE FROM mv_product_rank_{scope} WHERE period_key = :periodKey
-  │   └── on("FAILED").end()  ← 삭제 실패 시 적재 Step 미실행
-  │   └── allowStartIfComplete(true)  ← 재시작 시에도 항상 실행 (멱등)
+  │   └── DELETE FROM mv_product_rank_staging WHERE period_key = :periodKey
+  │   └── allowStartIfComplete(true)
+  │   └── on("FAILED").end()
   │
-  └── Step 2: aggregateStep (Chunk, chunkSize=100)
-      ├── Reader: JdbcCursorItemReader (GROUP BY + score + ORDER BY + LIMIT 100)
-      │   └── 제약: 단일 스레드 전용. 병렬화 시 JdbcPagingItemReader로 전환 필요
-      ├── Processor: ranking 번호 부여 (AtomicInteger, @StepScope)
-      ├── Writer: JdbcBatchItemWriter (INSERT 100건, assertUpdates=false)
-      └── 운영 기능:
-          ├── faultTolerant + retry(3) + ExponentialBackOffPolicy
-          ├── StepExecution 자동 기록 (readCount, writeCount)
-          └── StepMonitorListener (실패 시 알림)
+  ├── Step 2: partitionedAggregateStep (Partitioned Chunk, 병렬)
+  │   │
+  │   │  [Partitioner] product_id 범위를 gridSize(기본 4)개로 분할
+  │   │  TaskExecutor: SimpleAsyncTaskExecutor (gridSize 스레드)
+  │   │
+  │   ├── [Worker 1] product_id :minId ~ :maxId
+  │   │   ├── Reader: JdbcCursorItemReader (GROUP BY + score, 해당 범위만, LIMIT 없음)
+  │   │   ├── Processor: pass-through
+  │   │   ├── Writer: JdbcBatchItemWriter → 스테이징 테이블 INSERT
+  │   │   └── faultTolerant + retry(3) + ExponentialBackOffPolicy
+  │   │
+  │   ├── [Worker 2] ... (동일 구조, 다른 범위)
+  │   ├── [Worker 3] ...
+  │   └── [Worker N] ...
+  │
+  └── Step 3: mergeStep (Tasklet)
+      └── INSERT INTO mv_product_rank_{scope}
+          SELECT ..., ROW_NUMBER() OVER (ORDER BY score DESC) AS ranking
+          FROM mv_product_rank_staging
+          WHERE period_key = :periodKey
+          ORDER BY score DESC
+          LIMIT 100
 ```
+
+### 왜 Partitioning인가
+
+**요구사항**: "대량의 데이터를 읽고 처리할 수 있도록 구성"
+
+쿠팡급(상품 100만, 30일치 3,000만 행) 기준 성능:
+
+| 구조 | GROUP BY 실행 | 소요 시간 |
+|------|-------------|----------|
+| 단일 CursorReader | 3,000만 행 1회 | ~30초 |
+| **Partitioning (4 Worker)** | 각 750만 행 × 4 병렬 | **~10초** (3배 빠름) |
+| Partitioning (10 Worker) | 각 300만 행 × 10 병렬 | **~5초** (6배 빠름) |
+
+CursorReader의 장점(GROUP BY 1회 실행)을 유지하면서, 데이터를 product_id 범위로 분할하여 병렬 처리한다. PagingReader로 전환하면 페이지마다 GROUP BY를 재실행하는 문제가 생기지만, Partitioning은 각 Worker가 **독립 커넥션 + 독립 CursorReader**를 가지므로 이 문제가 없다.
 
 ### 왜 Chunk인가 — 프레임워크 운영 기능 활용
 
-이 작업은 Tasklet(INSERT INTO...SELECT)으로도 가능하고, 네트워크 효율만 따지면 Tasklet이 우위다. 그러나 Chunk를 선택하면 Spring Batch가 제공하는 운영 기능을 활용할 수 있다:
+이 작업은 Tasklet(INSERT INTO...SELECT)으로도 가능하고, 네트워크 효율만 따지면 Tasklet이 우위다. chunk를 선택하면 Spring Batch가 제공하는 운영 기능을 활용할 수 있다:
 
 - **faultTolerant + retry + ExponentialBackOffPolicy**: 일시적 DB 에러(데드락, 커넥션 타임아웃) 시 자동 재시도. 100ms → 200ms → 400ms 간격으로 재시도하여 락 해소 시간 확보
-- **StepExecution 자동 기록**: readCount, writeCount, skipCount 등 처리 지표를 Spring Batch가 자동 기록
-- **StepMonitorListener**: 실패 시 알림 (기존 인프라 재활용)
-- **restart**: 메타 테이블 기반 실패 지점 복구 (이 규모에서는 불필요하지만 프레임워크가 무료로 제공)
+- **StepExecution 자동 기록**: 각 Worker별 readCount, writeCount 자동 추적
+- **StepMonitorListener**: Worker 실패 시 알림
+- **Partitioned restart**: 실패한 파티션만 재실행 가능
 
-100건에 대한 네트워크 왕복 비용(< 1ms)보다 이 운영 기능의 가치가 크다.
+### 스테이징 테이블
 
-### Best Practice 대조 점검
+```sql
+CREATE TABLE mv_product_rank_staging (
+    product_id BIGINT NOT NULL,
+    score DOUBLE NOT NULL,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    period_key VARCHAR(8) NOT NULL,
+    PRIMARY KEY (product_id, period_key)
+) ENGINE=InnoDB;
+```
 
-| Best Practice | 적용 | 상세 |
-|-------------|------|------|
-| chunkSize = pageSize 일치 | 해당 없음 | CursorReader는 pageSize 개념 없음. 결과 100건 = chunkSize 100 |
-| @StepScope + Late Binding | ✅ | Reader/Processor에 targetDate, scope 주입 |
-| Reader name 설정 | ✅ | ExecutionContext 저장 시 key로 사용 |
-| Processor에서 DB 수정 금지 | ✅ | ranking 부여만 (DB 접근 없음) |
-| Writer 벌크 처리 | ✅ | JdbcBatchItemWriter (JDBC batch INSERT) |
-| assertUpdates | ✅ | INSERT이므로 false |
-| ExponentialBackOffPolicy | ✅ | 데드락 시 간격을 두고 재시도 |
-| cleanupStep allowStartIfComplete | ✅ | DELETE는 멱등. 재시작 시에도 항상 실행 |
-| Cursor Reader 선택 근거 | ✅ | GROUP BY 집계 쿼리에서 Paging은 매 페이지마다 집계를 재실행하므로 부적합. Cursor는 1회 실행 후 스트리밍. 단, 멀티스레드 불가(ResultSet 공유 상태) — 병렬화 시 Partitioning 전환 |
-| skip policy | 미적용 (의도적) | 100건이므로 1건 에러 시 전체 실패가 적절. skip 시 chunk scan(100번 재실행) 비용이 오히려 큼 |
-| saveState(false) | 미적용 | Reader 100건이므로 상태 저장 오버헤드 무시 가능 |
+각 Worker가 자기 범위의 전체 집계 결과를 스테이징에 적재. PK가 `(product_id, period_key)`이므로 Worker 간 충돌 없음 (product_id 범위가 겹치지 않으므로).
 
-### Reader SQL
-
-DB에서 집계 + score 계산 + 정렬 + TOP 100 필터링을 모두 처리하고, 100건만 반환한다:
+### Worker Reader SQL (파티션별)
 
 ```sql
 SELECT
@@ -271,7 +303,6 @@ SELECT
     SUM(pm.like_count - pm.unlike_count) AS total_net_like_count,
     SUM(pm.sales_count) AS total_sales_count,
     SUM(pm.sales_amount - pm.cancel_amount_by_event_date) AS total_net_sales_amount,
-    p.category_id,
     (
         0.1 * LOG10(GREATEST(SUM(pm.view_count), 0) + 1) / 7.0
       + 0.2 * LOG10(GREATEST(SUM(pm.like_count - pm.unlike_count), 0) + 1) / 7.0
@@ -281,32 +312,46 @@ SELECT
 FROM product_metrics pm
 JOIN product p ON pm.product_id = p.id
 WHERE pm.metric_date BETWEEN :startDate AND :endDate
+  AND pm.product_id BETWEEN :minProductId AND :maxProductId
   AND p.deleted_at IS NULL
-GROUP BY pm.product_id, p.category_id
-ORDER BY score DESC
-LIMIT 100
+GROUP BY pm.product_id
 ```
 
 - **주간**: `startDate = targetDate - 6`, `endDate = targetDate` (7일)
 - **월간**: `startDate = targetDate - 29`, `endDate = targetDate` (30일)
-- SQL 실행 순서(GROUP BY → SELECT → ORDER BY → LIMIT)에 의해 **DB가 전체 상품의 score를 계산하고 정렬한 후 상위 100건만 반환**. TOP 100은 DB가 보장
+- **LIMIT 없음**: 각 파티션의 전체 결과를 스테이징에 적재. 글로벌 TOP 100은 mergeStep에서 결정
+- **product_id BETWEEN**: Partitioner가 할당한 범위만 처리
 
-### Processor
-
-Reader가 score와 정렬을 완료했으므로, Processor는 ranking 번호만 부여한다:
-
-```java
-// AtomicInteger counter로 순위 부여
-// Reader가 score DESC로 정렬하여 반환하므로 순서대로 1, 2, 3... 부여
-```
-
-### Writer
+### mergeStep SQL
 
 ```sql
 INSERT INTO mv_product_rank_{scope}
-(product_id, ranking, score, view_count, like_count, sales_count, sales_amount, period_key, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    (product_id, ranking, score, view_count, like_count, sales_count, sales_amount, period_key, created_at)
+SELECT
+    product_id,
+    ROW_NUMBER() OVER (ORDER BY score DESC) AS ranking,
+    score, view_count, like_count, sales_count, sales_amount, :periodKey, NOW()
+FROM mv_product_rank_staging
+WHERE period_key = :periodKey
+ORDER BY score DESC
+LIMIT 100
 ```
+
+스테이징에 모인 전체 결과에서 `ROW_NUMBER()`로 글로벌 순위를 부여하고 TOP 100만 MV에 적재.
+
+### Best Practice 대조 점검
+
+| Best Practice | 적용 | 상세 |
+|-------------|------|------|
+| @StepScope + Late Binding | ✅ | Worker Reader에 minProductId, maxProductId, targetDate, scope 주입 |
+| Reader name 설정 | ✅ | 각 Worker별 고유 name. ExecutionContext 저장 시 key |
+| Processor에서 DB 수정 금지 | ✅ | pass-through (스테이징 적재는 Writer에서) |
+| Writer 벌크 처리 | ✅ | JdbcBatchItemWriter (JDBC batch INSERT) |
+| assertUpdates(false) | ✅ | INSERT이므로 |
+| ExponentialBackOffPolicy | ✅ | Worker별 데드락 시 간격 두고 재시도 |
+| cleanupStep allowStartIfComplete | ✅ | DELETE는 멱등. 재시작 시에도 항상 실행 |
+| CursorReader + Partitioning | ✅ | GROUP BY 1회 실행 유지 + 병렬 처리. ResultSet 공유 없음 (Worker별 독립 커넥션) |
+| skip policy | 미적용 (의도적) | 집계 결과이므로 데이터 오류 가능성 낮음. 1건 에러 시 해당 파티션 전체 실패가 적절 |
 
 ---
 
