@@ -413,9 +413,10 @@ return switch (scope) {
 ```
 
 **MV 조회 흐름**:
-1. `MvProductRankRepository.findByPeriodKey(periodKey, pageable)` → MV 테이블 조회
-2. MV 결과가 없으면 → 빈 결과 반환 (Redis fallback 없음)
-3. Product 상세 정보 조합 → 응답
+1. 당일 period_key로 MV 테이블 조회
+2. 당일 데이터 없으면 → 전일 period_key로 fallback (같은 공식, 1일 stale)
+3. 전일도 없으면 → 빈 결과 반환
+4. Product 상세 정보 조합 → 응답
 
 **기존 API 시그니처 변경 없음**: `/api/v1/rankings?scope=weekly&date=20260416&size=20&page=0`
 
@@ -426,7 +427,7 @@ return switch (scope) {
 | domain | `MvProductRank.java` | MV 엔티티 (@Entity) |
 | domain | `MvProductRankRepository.java` | Repository 인터페이스 |
 | infrastructure | `MvProductRankJpaRepository.java` | JPA 구현체 |
-| application | `RankingFacade.java` (수정) | MV 우선 조회 + Redis fallback |
+| application | `RankingFacade.java` (수정) | MV 단일 소스 조회 + 전일 MV fallback |
 
 ---
 
@@ -458,10 +459,9 @@ java -jar commerce-batch.jar --job.name=productRankingMvJob targetDate=20260416 
 
 ```
 apps/commerce-batch/src/main/java/com/loopers/batch/job/rankingmv/
-  ├── ProductRankingMvJobConfig.java        ← Job + Step 구성
-  ├── ProductRankingMvProperties.java       ← score 가중치 설정 (기존 재활용)
+  ├── ProductRankingMvJobConfig.java        ← Job(3 Step) + Partitioner + Reader + Writer
   └── step/
-      └── CleanupTasklet.java              ← DELETE Step
+      └── CleanupTasklet.java              ← Step 1: DELETE MV + staging + 3일 이전 정리
 
 apps/commerce-api/src/main/java/com/loopers/
   ├── domain/ranking/
@@ -470,10 +470,10 @@ apps/commerce-api/src/main/java/com/loopers/
   ├── infrastructure/ranking/
   │   └── MvProductRankJpaRepository.java  ← JPA 구현체
   └── application/ranking/
-      └── RankingFacade.java               ← (수정) MV 우선 조회
+      └── RankingFacade.java               ← (수정) MV 단일 소스 + 전일 fallback
 
-apps/commerce-batch/src/main/resources/
-  └── schema-mv.sql                        ← DDL
+apps/commerce-batch/src/test/resources/
+  └── schema-batch-test.sql                ← DDL (MV + staging 포함)
 ```
 
 ---
@@ -482,51 +482,52 @@ apps/commerce-batch/src/main/resources/
 
 ### Phase 0: 설계 (완료)
 
-- ✅ 0-1. 아키텍처 결정 — Redis vs MV 역할 분담 (MV primary, Redis fallback)
-- ✅ 0-2. MV 스키마 설계 — DDL 확정, 슬라이딩 윈도우 period_key
-- ✅ 0-3. Job 설계 — Chunk-Oriented, DELETE+INSERT, 파라미터 기반
-- ✅ 0-4. Score 전략 — 방식 A (균등 합산) 확정, Redis 지수 감쇠와의 차이 분석
-- ✅ 0-5. 시간 윈도우 — 슬라이딩 윈도우 (매일 갱신) 확정
-- ✅ 0-6. 설계 문서 작성 — 분석 보고서, 코드 참고 스니펫, 시스템 설계
+- ✅ 0-1. 아키텍처 결정 — MV 단일 소스 (Redis fallback 없음, 전일 MV fallback)
+- ✅ 0-2. MV 스키마 설계 — DDL 확정 (MV weekly/monthly + staging)
+- ✅ 0-3. Job 설계 — Partitioning + Map-Reduce (3 Step)
+- ✅ 0-4. Score 전략 — 방식 A (균등 합산, 전체 재계산), Reader SQL에서 LOG10 계산
+- ✅ 0-5. 시간 윈도우 — 슬라이딩 윈도우 (매일 갱신)
+- ✅ 0-6. 운영 기능 — faultTolerant + retry + ExponentialBackOffPolicy
+- ✅ 0-7. 멱등성 — cleanup(DELETE) → 전체 재실행. RunIdIncrementer로 재실행 허용
+- ✅ 0-8. 설계 문서 작성
 
 ### Phase 1: 배치 Job 구현 → R1, R2 충족
 
-| # | 작업 | 산출물 |
-|---|------|--------|
-| 1-1 | DDL 작성 | `mv_product_rank_weekly`, `mv_product_rank_monthly` 테이블 |
-| 1-2 | CleanupTasklet | period_key 기준 DELETE (Step 1) |
-| 1-3 | ProductRankingMvJobConfig | Job + Step 구성 (Reader/Processor/Writer) |
-| 1-4 | 파라미터 처리 | targetDate, scope → 기간 계산, 테이블 분기, period_key |
+| # | 작업 | 상태 | 산출물 |
+|---|------|------|--------|
+| 1-1 | DDL 작성 | ✅ | `schema-batch-test.sql`에 MV weekly/monthly + staging 추가 |
+| 1-2 | CleanupTasklet | ✅ | 당일 MV + staging DELETE + 3일 이전 정리 |
+| 1-3 | ProductRankingMvJobConfig | ✅ | 3-Step Job (cleanup → partitioned aggregate → merge) |
+| 1-4 | 컴파일 확인 | ✅ | BUILD SUCCESSFUL |
 
 ### Phase 2: API 확장 → R3 충족
 
-| # | 작업 | 산출물 |
-|---|------|--------|
-| 2-1 | MV 엔티티/리포지토리 | MvProductRank, MvProductRankRepository, JPA 구현체 |
-| 2-2 | RankingFacade 수정 | weekly/monthly → MV 우선 조회 + Redis fallback |
+| # | 작업 | 상태 | 산출물 |
+|---|------|------|--------|
+| 2-1 | MV 엔티티/리포지토리 | | MvProductRank, MvProductRankRepository, JPA 구현체 |
+| 2-2 | RankingFacade 수정 | | weekly/monthly → MV 조회 + 전일 MV fallback |
 
 ### Phase 3: 테스트
 
-| # | 작업 | 산출물 |
-|---|------|--------|
-| 3-1 | Score 단위 테스트 | 기존 RankingCorrectionScoreTest와 공식 일관성 검증 |
-| 3-2 | Job 통합 테스트 | 시드 → Job → MV 결과 검증 (Testcontainers + @SpringBatchTest) |
-| 3-3 | 멱등성 테스트 | 같은 파라미터 2회 실행 → MV 결과 동일 |
-| 3-4 | 엣지 케이스 | 데이터 없는 날짜, 7일 미만 데이터 |
-| 3-5 | API 통합 테스트 | MV 조회 + Redis fallback 동작 검증 |
+| # | 작업 | 상태 | 산출물 |
+|---|------|------|--------|
+| 3-1 | Job 통합 테스트 | | 시드 → Job → MV 결과 검증 (@SpringBatchTest) |
+| 3-2 | 멱등성 테스트 | | 같은 파라미터 2회 실행 → MV 결과 동일 |
+| 3-3 | 엣지 케이스 | | 데이터 없는 날짜, 7일 미만 데이터 |
+| 3-4 | API 통합 테스트 | | MV 조회 + 전일 fallback 동작 검증 |
 
 ### Phase 4: 시나리오 검증 & 모니터링
 
-| # | 작업 | 산출물 |
-|---|------|--------|
-| 4-1 | 정상 실행 시나리오 | 시드 데이터 기반 주간/월간 Job 실행 결과 |
-| 4-2 | MV vs Redis 비교 | 같은 기간 TOP 20 대조, score 차이 분석 |
-| 4-3 | 성능 측정 | Job 실행 시간, 처리 건수 기록 |
+| # | 작업 | 상태 | 산출물 |
+|---|------|------|--------|
+| 4-1 | 정상 실행 시나리오 | | 시드 데이터 기반 주간/월간 Job 실행 결과 |
+| 4-2 | MV vs Redis 비교 | | 같은 기간 TOP 20 대조, score 차이 분석 |
+| 4-3 | 성능 측정 | | Job 실행 시간, 처리 건수, Partitioning 효과 |
 
 ### Phase 5: 문서 & PR → R4 충족
 
-| # | 작업 | 산출물 |
-|---|------|--------|
-| 5-1 | 설계 문서 갱신 | 구현 결과, 성능 수치, 트레이드오프 반영 |
-| 5-2 | PR 작성 | 변경 요약 + 리뷰 포인트 2~3개 |
-| 5-3 | 블로그 + 10주 회고 | TL;DR 포함, 설계 판단 중심 |
+| # | 작업 | 상태 | 산출물 |
+|---|------|------|--------|
+| 5-1 | 설계 문서 갱신 | | 구현 결과, 성능 수치, 트레이드오프 반영 |
+| 5-2 | PR 작성 | | 변경 요약 + 리뷰 포인트 2~3개 |
+| 5-3 | 블로그 + 10주 회고 | | TL;DR 포함, 설계 판단 중심 |
