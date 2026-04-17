@@ -5,6 +5,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import java.time.LocalDate;
+
 @Tag(name = "Ranking V1 API", description = "랭킹 조회 API 입니다.")
 public interface RankingV1ApiSpec {
 
@@ -25,6 +27,26 @@ public interface RankingV1ApiSpec {
     ApiResponse<RankingV1Dto.RankingListResponse> getHourlyRanking(
             @Parameter(description = "조회 날짜 (yyyyMMdd, 기본값: 오늘)") String date,
             @Parameter(description = "조회 시간 (0~23, 기본값: 현재 시각)") Integer hour,
+            @Parameter(description = "페이지 번호 (0부터 시작, 기본값: 0)") int page,
+            @Parameter(description = "페이지 크기 (기본값: 20)") int size
+    );
+
+    @Operation(
+            summary = "주간 랭킹 조회",
+            description = "배치 집계된 주간 인기 상품 랭킹을 조회합니다. date 미입력 시 최신 스냅샷 기준."
+    )
+    ApiResponse<RankingV1Dto.RankingListResponse> getWeeklyRanking(
+            @Parameter(description = "스냅샷 날짜 (yyyy-MM-dd, 기본값: 최신)") LocalDate date,
+            @Parameter(description = "페이지 번호 (0부터 시작, 기본값: 0)") int page,
+            @Parameter(description = "페이지 크기 (기본값: 20)") int size
+    );
+
+    @Operation(
+            summary = "월간 랭킹 조회",
+            description = "배치 집계된 월간 인기 상품 랭킹을 조회합니다. date 미입력 시 최신 스냅샷 기준."
+    )
+    ApiResponse<RankingV1Dto.RankingListResponse> getMonthlyRanking(
+            @Parameter(description = "스냅샷 날짜 (yyyy-MM-dd, 기본값: 최신)") LocalDate date,
             @Parameter(description = "페이지 번호 (0부터 시작, 기본값: 0)") int page,
             @Parameter(description = "페이지 크기 (기본값: 20)") int size
     );

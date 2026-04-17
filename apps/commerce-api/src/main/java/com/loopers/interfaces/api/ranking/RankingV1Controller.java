@@ -46,4 +46,26 @@ public class RankingV1Controller implements RankingV1ApiSpec {
         var result = rankingFacade.findHourlyRanking(targetDate, targetHour, page, size);
         return ApiResponse.success(RankingV1Dto.RankingListResponse.from(result));
     }
+
+    @GetMapping("/weekly")
+    @Override
+    public ApiResponse<RankingV1Dto.RankingListResponse> getWeeklyRanking(
+            @RequestParam(required = false) LocalDate date,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size)
+    {
+        var result = rankingFacade.findWeeklyRanking(date, page, size);
+        return ApiResponse.success(RankingV1Dto.RankingListResponse.from(result));
+    }
+
+    @GetMapping("/monthly")
+    @Override
+    public ApiResponse<RankingV1Dto.RankingListResponse> getMonthlyRanking(
+            @RequestParam(required = false) LocalDate date,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size)
+    {
+        var result = rankingFacade.findMonthlyRanking(date, page, size);
+        return ApiResponse.success(RankingV1Dto.RankingListResponse.from(result));
+    }
 }
