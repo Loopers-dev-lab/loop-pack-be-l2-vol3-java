@@ -7,7 +7,10 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.product.vo.Price;
 import com.loopers.domain.product.vo.Stock;
+import com.loopers.domain.ranking.MonthlyRankingRepository;
+import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.WeeklyRankingRepository;
 import com.loopers.support.page.PageResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -23,10 +26,12 @@ import static org.mockito.Mockito.when;
 class RankingFacadeTest {
 
     RankingRepository rankingRepository = mock(RankingRepository.class);
+    WeeklyRankingRepository weeklyRankingRepository = mock(WeeklyRankingRepository.class);
+    MonthlyRankingRepository monthlyRankingRepository = mock(MonthlyRankingRepository.class);
     ProductRepository productRepository = mock(ProductRepository.class);
     BrandRepository brandRepository = mock(BrandRepository.class);
     ProductAssembler productAssembler = new ProductAssembler();
-    RankingFacade rankingFacade = new RankingFacade(rankingRepository, productRepository, brandRepository, productAssembler);
+    RankingFacade rankingFacade = new RankingFacade(rankingRepository, weeklyRankingRepository, monthlyRankingRepository, productRepository, brandRepository, productAssembler);
 
     @DisplayName("getPage() 를 호출할 때, ")
     @Nested
@@ -56,7 +61,7 @@ class RankingFacadeTest {
             when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of(brand));
 
             // act
-            PageResponse<RankingInfo> result = rankingFacade.getPage(date, page, size);
+            PageResponse<RankingInfo> result = rankingFacade.getPage(date, RankingPeriod.DAILY, page, size);
 
             // assert
             assertThat(result.content()).hasSize(2);
@@ -76,7 +81,7 @@ class RankingFacadeTest {
             when(rankingRepository.findProductIdsByRank(date, 0L, 20L)).thenReturn(List.of());
 
             // act
-            PageResponse<RankingInfo> result = rankingFacade.getPage(date, page, size);
+            PageResponse<RankingInfo> result = rankingFacade.getPage(date, RankingPeriod.DAILY, page, size);
 
             // assert
             assertThat(result.content()).isEmpty();
@@ -104,10 +109,104 @@ class RankingFacadeTest {
             when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of(brand));
 
             // act
-            PageResponse<RankingInfo> result = rankingFacade.getPage(date, page, size);
+            PageResponse<RankingInfo> result = rankingFacade.getPage(date, RankingPeriod.DAILY, page, size);
 
             // assert
             assertThat(result.totalPages()).isEqualTo(2);
+        }
+
+        @DisplayName("period=WEEKLY 이면 date 가 속한 주의 월요일 기준으로 weeklyRankingRepository 를 호출한다.")
+        @Test
+        void getPage_weekly_returnsInfos_withMondayAsBaseDate() {
+            // arrange
+            LocalDate wednesday = LocalDate.of(2026, 4, 15); // 수요일
+            LocalDate monday = LocalDate.of(2026, 4, 13);    // 해당 주 월요일
+            int page = 1, size = 2;
+
+            Long brandId = 1L;
+            Brand brand = mock(Brand.class);
+            when(brand.getId()).thenReturn(brandId);
+            when(brand.name()).thenReturn("나이키");
+
+            Product product1 = mockProduct(10L, "상품 A", null, brandId, 10, 1000, 5L);
+            Product product2 = mockProduct(20L, "상품 B", null, brandId, 5, 2000, 3L);
+
+            when(weeklyRankingRepository.findProductIdsByBaseDate(monday, 0L, 2L)).thenReturn(List.of(10L, 20L));
+            when(weeklyRankingRepository.countByBaseDate(monday)).thenReturn(2L);
+            when(productRepository.findAllByIdIn(List.of(10L, 20L))).thenReturn(List.of(product1, product2));
+            when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of(brand));
+
+            // act
+            PageResponse<RankingInfo> result = rankingFacade.getPage(wednesday, RankingPeriod.WEEKLY, page, size);
+
+            // assert
+            assertThat(result.content()).hasSize(2);
+            assertThat(result.content().get(0).rank()).isEqualTo(1L);
+            assertThat(result.content().get(0).productId()).isEqualTo(10L);
+        }
+
+        @DisplayName("period=WEEKLY 이고 데이터가 없으면 빈 페이지를 반환한다.")
+        @Test
+        void getPage_weekly_returnsEmpty_whenNoData() {
+            // arrange
+            LocalDate date = LocalDate.of(2026, 4, 13);
+            LocalDate monday = LocalDate.of(2026, 4, 13);
+
+            when(weeklyRankingRepository.findProductIdsByBaseDate(monday, 0L, 20L)).thenReturn(List.of());
+
+            // act
+            PageResponse<RankingInfo> result = rankingFacade.getPage(date, RankingPeriod.WEEKLY, 1, 20);
+
+            // assert
+            assertThat(result.content()).isEmpty();
+            assertThat(result.totalPages()).isEqualTo(0);
+        }
+
+        @DisplayName("period=MONTHLY 이면 date 가 속한 월의 1일 기준으로 monthlyRankingRepository 를 호출한다.")
+        @Test
+        void getPage_monthly_returnsInfos_withFirstDayAsBaseDate() {
+            // arrange
+            LocalDate midMonth = LocalDate.of(2026, 4, 15);  // 15일
+            LocalDate firstDay = LocalDate.of(2026, 4, 1);   // 해당 월 1일
+            int page = 1, size = 2;
+
+            Long brandId = 1L;
+            Brand brand = mock(Brand.class);
+            when(brand.getId()).thenReturn(brandId);
+            when(brand.name()).thenReturn("나이키");
+
+            Product product1 = mockProduct(10L, "상품 A", null, brandId, 10, 1000, 5L);
+            Product product2 = mockProduct(20L, "상품 B", null, brandId, 5, 2000, 3L);
+
+            when(monthlyRankingRepository.findProductIdsByBaseDate(firstDay, 0L, 2L)).thenReturn(List.of(10L, 20L));
+            when(monthlyRankingRepository.countByBaseDate(firstDay)).thenReturn(2L);
+            when(productRepository.findAllByIdIn(List.of(10L, 20L))).thenReturn(List.of(product1, product2));
+            when(brandRepository.findAllByIdIn(List.of(brandId))).thenReturn(List.of(brand));
+
+            // act
+            PageResponse<RankingInfo> result = rankingFacade.getPage(midMonth, RankingPeriod.MONTHLY, page, size);
+
+            // assert
+            assertThat(result.content()).hasSize(2);
+            assertThat(result.content().get(0).rank()).isEqualTo(1L);
+            assertThat(result.content().get(0).productId()).isEqualTo(10L);
+        }
+
+        @DisplayName("period=MONTHLY 이고 데이터가 없으면 빈 페이지를 반환한다.")
+        @Test
+        void getPage_monthly_returnsEmpty_whenNoData() {
+            // arrange
+            LocalDate date = LocalDate.of(2026, 4, 15);
+            LocalDate firstDay = LocalDate.of(2026, 4, 1);
+
+            when(monthlyRankingRepository.findProductIdsByBaseDate(firstDay, 0L, 20L)).thenReturn(List.of());
+
+            // act
+            PageResponse<RankingInfo> result = rankingFacade.getPage(date, RankingPeriod.MONTHLY, 1, 20);
+
+            // assert
+            assertThat(result.content()).isEmpty();
+            assertThat(result.totalPages()).isEqualTo(0);
         }
 
         private Product mockProduct(Long id, String name, String description, Long brandId,
