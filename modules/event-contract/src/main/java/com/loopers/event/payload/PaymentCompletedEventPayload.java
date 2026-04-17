@@ -13,7 +13,5 @@ import java.util.List;
 public class PaymentCompletedEventPayload implements EventPayload {
     private Long paymentId;
     private Long orderId;
-    private Long userId;
-    private List<Long> productIds;
     private List<OrderedProduct> orderedProducts;
 }
