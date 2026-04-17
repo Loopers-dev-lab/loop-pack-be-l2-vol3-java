@@ -1,6 +1,6 @@
-# 10. 회사 배치 어플리케이션 분석 보고서
+# 10. 배치 어플리케이션 분석 보고서
 
-> 회사 실무 배치 앱 2개를 분석하고, Round 10 과제(Spring Batch 주간/월간 랭킹 MV 적재)에 적용할 인사이트를 추출한 보고서.
+> 배치 앱 2개(production 브랜치)를 분석하고, Spring Batch 주간/월간 랭킹 MV 적재에 적용할 인사이트를 추출한 보고서.
 
 ---
 
@@ -8,8 +8,8 @@
 
 | 배치 앱 | 도메인 | Job 수 | 핵심 역할 |
 |---------|--------|--------|----------|
-| **aurora-x2bee-batch-gddp** (배치 A) | 상품/전시/검색 | 47개 | 상품 리뷰 집계, 검색 인덱스 적재, 베스트/신상품 산정 |
-| **aurora-x2bee-batch-mbod** (배치 B) | 주문/회원/정산 | 43개 | 마일리지 소멸, 회원 등급 변경, 매출/재고 통계, PG 정산 대사 |
+| **aurora-x2bee-batch-gddp** (배치 A) | 상품/전시/검색 | 49개 | 상품 리뷰 집계, 검색 인덱스 적재, 베스트/신상품 산정, SAP 연동 |
+| **aurora-x2bee-batch-mbod** (배치 B) | 주문/회원/정산 | 48개 | 마일리지 소멸, 회원 등급 변경, 매출/재고 통계, PG 정산 대사 |
 
 ---
 
@@ -19,9 +19,9 @@
 
 | 항목 | 내용 |
 |------|------|
-| **총 Job 수** | 47개 |
+| **총 Job 수** | 49개 (Tasklet 36 + Chunk 8 + Stub 5) |
 | **주요 도메인** | 전시(display), 이벤트(event), 상품(goods), 검색(search), 입점사(vendor) |
-| **처리 모델** | **Tasklet 75% / Chunk 25%** — 검색 인덱싱과 샘플 Job이 Chunk 사용 |
+| **처리 모델** | **Tasklet 73% / Chunk 16% / Stub 11%** |
 | **DB** | PostgreSQL + MySQL, RODB/RWDB 분리 (5쌍) |
 | **ORM** | MyBatis 중심 (34개 XML 매퍼) |
 | **Spring Boot** | 3.3.4, Java 17 |
@@ -82,11 +82,11 @@
 
 | 항목 | 내용 |
 |------|------|
-| **총 Job 수** | 43개 |
+| **총 Job 수** | 48개 (Tasklet 46 + Chunk 2) |
 | **주요 도메인** | 정산(adjust), 배송(delivery), 회원(member), 주문(order), **통계(statistics)** |
-| **처리 모델** | **Tasklet 98% / Chunk 2%** — 마일리지 소멸, 회원 등급 변경만 Chunk |
+| **처리 모델** | **Tasklet 96% / Chunk 4%** — 마일리지 소멸, 회원 등급 변경만 Chunk |
 | **DB** | MySQL, RODB/RWDB 분리 (6쌍) |
-| **ORM** | MyBatis 중심 |
+| **ORM** | MyBatis 중심 (68개 XML 매퍼) |
 | **Spring Boot** | 3.3.4, Java 17 |
 
 ### Chunk-Oriented Job 상세 (2개)
@@ -152,7 +152,7 @@ Step 3: memberGradeCouponIssueStep (Tasklet) → 등급 변경 쿠폰 발급
 
 | 비교 항목 | 배치 A (gddp) | 배치 B (mbod) | **내 과제 (추천)** | **근거** |
 |----------|--------------|--------------|-------------------|---------|
-| **처리 모델** | Tasklet 75% / Chunk 25% | Tasklet 98% / Chunk 2% | **Chunk-Oriented** | 과제 요구사항이 Chunk 학습. 단, 집계 SQL이 단순하면 Tasklet도 합리적 선택 |
+| **처리 모델** | Tasklet 73% / Chunk 16% / Stub 11% | Tasklet 96% / Chunk 4% | **Chunk-Oriented + Partitioning** | 대규모 집계 병렬 처리. Tasklet이 효율적인 경우도 있지만, Chunk의 운영 기능(retry, 모니터링) 활용 |
 | **Reader 타입** | MyBatisCursorItemReader 주력 | MyBatisCursorItemReader (2건) | **JdbcCursorItemReader** | 기존 RankingCorrectionJob과 일관성 유지. 집계 쿼리가 단순하므로 MyBatis 매퍼 오버헤드 불필요 |
 | **비즈니스 로직 위치** | Reader SQL에서 GROUP BY 집계 수행 | Tasklet 내부에서 SQL 직접 실행 | **Reader SQL에서 집계 + Processor에서 score 계산** | GROUP BY는 DB가 효율적, score 공식(log₁₀ 정규화)은 Java 코드가 명확 |
 | **Writer 전략** | UPSERT (`ON DUPLICATE KEY UPDATE`) | CompositeItemWriter (UPDATE+INSERT) | **DELETE+INSERT** (기간별 전체 교체) | TOP 100만 저장하므로 UPSERT보다 DELETE+INSERT가 단순. 멱등성 자동 보장 |
@@ -332,7 +332,7 @@ OrderSaleStatisticsJob (원천 집계)
 
 > 두 앱 모두 동일한 커스텀 구현을 사용한다. Spring Batch 기본 동작과의 차이를 분석했다.
 
-### 구현 코드 (두 앱 동일)
+### 구현 코드 (두 앱 동일, production 브랜치)
 
 ```java
 public class UniqueRunIdIncrementer extends RunIdIncrementer {
@@ -340,18 +340,21 @@ public class UniqueRunIdIncrementer extends RunIdIncrementer {
 
     @Override
     public JobParameters getNext(JobParameters parameters) {
+        UUID uuid = UUID.randomUUID();
         return new JobParametersBuilder()
-                .addLong(RUN_ID, System.currentTimeMillis())
+                .addString(RUN_ID, uuid + Long.toString(System.currentTimeMillis()))
                 .toJobParameters();
     }
 }
 ```
 
+> **이전 브랜치와의 차이**: `addLong(RUN_ID, System.currentTimeMillis())` → `addString(RUN_ID, UUID + timestamp)`. 밀리초 단위 충돌 가능성을 UUID로 해소. `Long` → `String`으로 타입도 변경.
+
 ### Spring Batch 기본 RunIdIncrementer와의 비교
 
 | 항목 | 기본 RunIdIncrementer | 커스텀 UniqueRunIdIncrementer |
 |------|----------------------|------------------------------|
-| **run.id 생성** | 순차 증가 (`run.id + 1`) | `System.currentTimeMillis()` (타임스탬프) |
+| **run.id 생성** | 순차 증가 (`run.id + 1`) | `UUID + System.currentTimeMillis()` (UUID + 타임스탬프) |
 | **기존 파라미터** | **보존** (기존 파라미터에 run.id만 추가) | **전부 버림** (run.id만 남는 새 JobParameters 생성) |
 | **Job Instance 식별** | jobName + 모든 파라미터(run.id 제외) | jobName만으로 식별 (다른 파라미터가 없으므로) |
 | **재실행** | 같은 파라미터 + 새 run.id = 같은 Instance의 새 Execution | 매번 새 Execution |
@@ -589,16 +592,15 @@ Step 2 (Chunk Writer):
 [클라이언트 응답]
 ```
 
-### Redis와 MV의 역할 분담 (최종)
+### Redis와 MV의 역할 분담 (최종 — 단일 소스 원칙)
 
 | 관점 | Redis ZSET | MV 테이블 |
 |------|-----------|----------|
 | **역할** | Speed Layer — 실시간 근사치 | Batch Layer — DB 원장 기반 정확값 |
-| **daily** | 실시간 ZADD (primary) | 불필요 (Redis로 충분) |
-| **weekly** | ZUNIONSTORE 합산 (보조/fallback) | **primary** — 정확한 기간 집계 |
-| **monthly** | carry-over 감쇠 (보조/fallback) | **primary** — 정확한 기간 집계 |
-| **API 우선순위** | daily → Redis | weekly/monthly → MV 우선, Redis fallback |
-| **장애 시** | Redis 다운 → daily 조회 불가 | DB만 살아있으면 weekly/monthly 조회 가능 |
+| **daily** | 단일 소스 | 불필요 (Redis로 충분) |
+| **weekly** | 사용 안 함 (MV 도입 후 제거) | **단일 소스** — 정확한 기간 집계 |
+| **monthly** | 사용 안 함 (MV 도입 후 제거) | **단일 소스** — 정확한 기간 집계 |
+| **장애 시** | Redis 다운 → daily 조회 불가 | 당일 MV 없으면 → 전일 MV fallback (같은 공식, 1일 stale) |
 
 ---
 
@@ -608,7 +610,7 @@ Step 2 (Chunk Writer):
 
 | 패턴 | 설명 | 내 과제 적용 |
 |------|------|------------|
-| **UniqueRunIdIncrementer** | `System.currentTimeMillis()` 기반 run.id → 같은 파라미터로 재실행 가능 | 멱등성 전략과 조합 |
+| **UniqueRunIdIncrementer** | `UUID + System.currentTimeMillis()` 기반 run.id → 같은 파라미터로 재실행 가능. 파라미터 전부 버림 | 파라미터 보존이 필요하므로 기본 RunIdIncrementer 사용 |
 | **RODB/RWDB 분리** | 읽기는 Replica, 쓰기는 Primary | 현재 규모에서는 단일 DataSource로 충분 |
 | **SingleJobExecutionListener** | `JobExplorer.findRunningJobExecutions()`로 중복 실행 방지 | 동일 패턴 적용 가능 |
 | **MyBatis + XML Mapper** | SQL을 XML로 외부 관리, 동적 조건 분기 | JdbcCursorItemReader + 인라인 SQL로 충분 |
@@ -624,4 +626,4 @@ Step 2 (Chunk Writer):
 | 데이터 규모 | SQL이 감당 가능한 범위 | OOM 위험 → chunk 단위 커밋 |
 | 비즈니스 로직 | 단순 이동/삭제/갱신 | score 계산, 등급 산정 등 Java 로직 |
 | 트랜잭션 | 전체 or nothing | 부분 커밋 필요 (실패 시 일부 복구) |
-| 회사 코드 비율 | **88%** (80/90개 Job) | **12%** (10/90개 Job) |
+| 배치 앱 비율 | **85%** (82/97개 Job) | **15%** (10/97개 Job, stub 5개 제외) |
