@@ -133,7 +133,7 @@
 
 > 실행일: 2026-04-17
 > 환경: Docker MySQL 8.0 + Redis Master/Replica + commerce-api (localhost:8080)
-> 캡처 파일: [`docs/captures/04-ranking-api-capture.md`](../captures/04-ranking-api-capture.md)
+> 캡처 파일: [`docs/captures/04-ranking-api-capture.md`](../../captures/04-ranking-api-capture.md)
 
 ### 데이터 규모
 

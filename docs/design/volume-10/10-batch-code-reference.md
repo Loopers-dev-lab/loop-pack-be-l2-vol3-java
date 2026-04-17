@@ -7,7 +7,7 @@
 
 ## 1. 공통 인프라 코드
 
-### UniqueRunIdIncrementer (두 앱 동일)
+### UniqueRunIdIncrementer (두 앱 동일, production 브랜치)
 
 ```java
 public class UniqueRunIdIncrementer extends RunIdIncrementer {
@@ -15,14 +15,16 @@ public class UniqueRunIdIncrementer extends RunIdIncrementer {
 
     @Override
     public JobParameters getNext(JobParameters parameters) {
+        UUID uuid = UUID.randomUUID();
         return new JobParametersBuilder()
-                .addLong(RUN_ID, System.currentTimeMillis())
+                .addString(RUN_ID, uuid + Long.toString(System.currentTimeMillis()))
                 .toJobParameters();
     }
 }
 ```
 
-- **주의**: 기존 파라미터를 전부 버린다. 내 과제에서는 `targetDate`, `scope` 파라미터가 필요하므로 기본 `RunIdIncrementer`를 사용할 것
+- **이전 버전과의 차이**: `addLong(timestamp)` → `addString(UUID + timestamp)`. 밀리초 충돌 가능성을 UUID로 해소
+- **주의**: 기존 파라미터를 전부 버린다. `targetDate`, `scope` 파라미터가 필요한 경우 기본 `RunIdIncrementer`를 사용할 것
 
 ### SingleJobExecutionListener (중복 실행 방지)
 
