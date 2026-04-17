@@ -89,18 +89,34 @@ public class RankingService {
         };
     }
 
+    private static final int MV_FALLBACK_MAX_DAYS = 3;
+
     private List<RankEntry> fallbackFromMv(RankingPeriod period, LocalDate date, int page, int size, String group) {
         try {
             LocalDate anchorDate = keyResolver.anchorDateOf(date);
             int offset = page * size;
-            List<MvRankEntry> rows = switch (period) {
-                case LAST_7D  -> mvRankingQueryRepository.findLast7d(anchorDate, group, offset, size);
-                case LAST_30D -> mvRankingQueryRepository.findLast30d(anchorDate, group, offset, size);
-                default -> List.of();
-            };
-            return rows.stream()
-                    .map(r -> new RankEntry(r.productId(), r.score(), r.rankPosition()))
-                    .toList();
+
+            // 현재 anchor 의 MV 가 비어있으면 전일 anchor 로 자동 fallback (최대 3일).
+            // Step 7 (audit) 실패 시 오염 MV 를 DELETE 하므로 비어있을 수 있음.
+            // "잘못된 랭킹" 보다 "어제 랭킹이라도 보여주기" 가 사용자 경험상 나음.
+            for (int retry = 0; retry < MV_FALLBACK_MAX_DAYS; retry++) {
+                List<MvRankEntry> rows = switch (period) {
+                    case LAST_7D  -> mvRankingQueryRepository.findLast7d(anchorDate, group, offset, size);
+                    case LAST_30D -> mvRankingQueryRepository.findLast30d(anchorDate, group, offset, size);
+                    default -> List.of();
+                };
+                if (!rows.isEmpty()) {
+                    if (retry > 0) {
+                        log.info("MV fallback: 현재 anchor 비어있어 전일로 대체. period={}, 원래anchor={}, 사용anchor={}",
+                                period, keyResolver.anchorDateOf(date), anchorDate);
+                    }
+                    return rows.stream()
+                            .map(r -> new RankEntry(r.productId(), r.score(), r.rankPosition()))
+                            .toList();
+                }
+                anchorDate = anchorDate.minusDays(1);
+            }
+            return List.of();
         } catch (Exception e) {
             log.error("MV fallback 실패. period={}, date={}, group={}", period, date, group, e);
             return List.of();

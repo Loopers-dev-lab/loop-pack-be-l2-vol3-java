@@ -84,7 +84,17 @@ public class AuditTasklet implements Tasklet {
         }
 
         if (!failures.isEmpty()) {
-            String message = "MV audit 실패: " + String.join(" / ", failures);
+            // 오염 격리: 불완전한 MV 를 API 가 서빙하지 않도록 해당 anchor DELETE.
+            // API 는 현재 anchor MV 가 비어있으면 전일 anchor 로 자동 fallback 한다.
+            // "잘못된 랭킹 보여주기" 보다 "어제 랭킹이라도 보여주기" 가 나음.
+            int deleted7d  = jdbcTemplate.update(
+                    "DELETE FROM mv_product_rank_last_7d WHERE anchor_date = ?", Date.valueOf(anchorDate));
+            int deleted30d = jdbcTemplate.update(
+                    "DELETE FROM mv_product_rank_last_30d WHERE anchor_date = ?", Date.valueOf(anchorDate));
+            log.warn("[STEP=auditStep] 오염 MV 격리 완료: anchorDate={} deleted7d={} deleted30d={}",
+                    anchorDate, deleted7d, deleted30d);
+
+            String message = "MV audit 실패 (오염 MV 삭제됨): " + String.join(" / ", failures);
             log.error("[STEP=auditStep] FAILED anchorDate={} reasons={}", anchorDate, failures);
             throw new IllegalStateException(message);
         }

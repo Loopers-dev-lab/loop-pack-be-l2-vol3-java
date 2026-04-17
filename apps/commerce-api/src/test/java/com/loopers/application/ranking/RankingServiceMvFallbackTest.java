@@ -85,7 +85,23 @@ class RankingServiceMvFallbackTest {
     }
 
     @Test
-    void MV_도_비어있으면_빈_리스트를_반환한다() {
+    void 현재_anchor_MV_가_비어있으면_전일_anchor_로_자동_fallback_한다() {
+        when(redisRepository.getRankings(anyString(), anyInt(), anyInt())).thenReturn(List.of());
+        // 오늘 anchor (4/14) 비어있음 → 전일 (4/13) 에 데이터 있음
+        when(mvRepository.findLast7d(eq(LocalDate.of(2026, 4, 14)), anyString(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+        when(mvRepository.findLast7d(eq(LocalDate.of(2026, 4, 13)), anyString(), anyInt(), anyInt()))
+                .thenReturn(List.of(new MvRankEntry(1L, 50.0, 1)));
+
+        List<RankEntry> result = service.getRankEntries(
+                RankingPeriod.LAST_7D, LocalDate.of(2026, 4, 15), 0, 20, "control");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).productId()).isEqualTo(1L);
+    }
+
+    @Test
+    void 전일_fallback_도_3일간_비어있으면_빈_리스트를_반환한다() {
         when(redisRepository.getRankings(anyString(), anyInt(), anyInt())).thenReturn(List.of());
         when(mvRepository.findLast7d(any(), anyString(), anyInt(), anyInt())).thenReturn(List.of());
 
