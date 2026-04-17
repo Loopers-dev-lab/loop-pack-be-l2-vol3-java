@@ -107,26 +107,6 @@ class RankingScoreUpdaterTest {
         }
 
         @Test
-        @DisplayName("주간 키: ranking:weekly:{yyyyMMdd} 형식")
-        void weeklyKey_format() {
-            LocalDate date = LocalDate.of(2026, 4, 10);
-
-            String key = RankingScoreUpdater.weeklyKey(date);
-
-            assertThat(key).isEqualTo("ranking:weekly:20260410");
-        }
-
-        @Test
-        @DisplayName("월간 키: ranking:monthly:{yyyyMMdd} 형식")
-        void monthlyKey_format() {
-            LocalDate date = LocalDate.of(2026, 4, 10);
-
-            String key = RankingScoreUpdater.monthlyKey(date);
-
-            assertThat(key).isEqualTo("ranking:monthly:20260410");
-        }
-
-        @Test
         @DisplayName("Hash 키: ranking:metrics:{yyyyMMdd}:{productId} 형식")
         void hashKey_format() {
             LocalDate date = LocalDate.of(2026, 4, 10);
@@ -187,10 +167,5 @@ class RankingScoreUpdaterTest {
             assertThat(RankingScoreUpdater.RANKING_HASH_TTL_SECONDS).isEqualTo(172_800L);
         }
 
-        @Test
-        @DisplayName("집계 TTL 상수가 2일(172800초)")
-        void aggregatedTtlConstant_isTwoDays() {
-            assertThat(RankingScoreUpdater.RANKING_AGGREGATED_TTL_SECONDS).isEqualTo(172_800L);
-        }
     }
 }

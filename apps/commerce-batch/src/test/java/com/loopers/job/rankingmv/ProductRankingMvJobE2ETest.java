@@ -638,7 +638,7 @@ class ProductRankingMvJobE2ETest {
     }
 
     @Test
-    @DisplayName("벤치마크 — gridSize=1 vs gridSize=4 소요 시간 비교")
+    @DisplayName("벤치마크 — gridSize=1 vs gridSize=4 소요 시간 비교 (weekly + monthly)")
     void partitionBenchmark() throws Exception {
         int productCount = 100_000;
         int metricDays = 30;
@@ -651,46 +651,71 @@ class ProductRankingMvJobE2ETest {
         int metricRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM product_metrics", Integer.class);
         System.out.printf("%n[시드 완료] 상품 %,d건, 메트릭 %,d건 (%,dms)%n", productCount, metricRows, seedMs);
 
-        // ── gridSize=1 (단일 스레드) ──
+        // ── weekly gridSize=1 ──
         ReflectionTestUtils.setField(jobConfig, "gridSize", 1);
 
         t0 = System.currentTimeMillis();
-        BatchStatus singleStatus = runJob("weekly");
-        long singleMs = System.currentTimeMillis() - t0;
-        assertThat(singleStatus).isEqualTo(BatchStatus.COMPLETED);
-
-        int singleMvCount = jdbcTemplate.queryForObject(
+        BatchStatus weeklySingleStatus = runJob("weekly");
+        long weeklySingleMs = System.currentTimeMillis() - t0;
+        assertThat(weeklySingleStatus).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM mv_product_rank_weekly WHERE period_key = ?",
-            Integer.class, TARGET_DATE);
-        assertThat(singleMvCount).isEqualTo(100);
+            Integer.class, TARGET_DATE)).isEqualTo(100);
 
-        // ── 중간 정리 ──
         jdbcTemplate.update("DELETE FROM mv_product_rank_weekly WHERE period_key = ?", TARGET_DATE);
         jdbcTemplate.update("DELETE FROM mv_product_rank_staging WHERE period_key = ?", TARGET_DATE);
 
-        // ── gridSize=4 (4 Partition 병렬) ──
+        // ── weekly gridSize=4 ──
         ReflectionTestUtils.setField(jobConfig, "gridSize", 4);
 
         t0 = System.currentTimeMillis();
-        BatchStatus partitionedStatus = runJob("weekly");
-        long partitionedMs = System.currentTimeMillis() - t0;
-        assertThat(partitionedStatus).isEqualTo(BatchStatus.COMPLETED);
-
-        int partitionedMvCount = jdbcTemplate.queryForObject(
+        BatchStatus weeklyPartitionedStatus = runJob("weekly");
+        long weeklyPartitionedMs = System.currentTimeMillis() - t0;
+        assertThat(weeklyPartitionedStatus).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM mv_product_rank_weekly WHERE period_key = ?",
-            Integer.class, TARGET_DATE);
-        assertThat(partitionedMvCount).isEqualTo(100);
+            Integer.class, TARGET_DATE)).isEqualTo(100);
 
-        double speedup = (double) singleMs / partitionedMs;
+        jdbcTemplate.update("DELETE FROM mv_product_rank_weekly WHERE period_key = ?", TARGET_DATE);
+        jdbcTemplate.update("DELETE FROM mv_product_rank_staging WHERE period_key = ?", TARGET_DATE);
+
+        // ── monthly gridSize=1 ──
+        ReflectionTestUtils.setField(jobConfig, "gridSize", 1);
+
+        t0 = System.currentTimeMillis();
+        BatchStatus monthlySingleStatus = runJob("monthly");
+        long monthlySingleMs = System.currentTimeMillis() - t0;
+        assertThat(monthlySingleStatus).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM mv_product_rank_monthly WHERE period_key = ?",
+            Integer.class, TARGET_DATE)).isEqualTo(100);
+
+        jdbcTemplate.update("DELETE FROM mv_product_rank_monthly WHERE period_key = ?", TARGET_DATE);
+        jdbcTemplate.update("DELETE FROM mv_product_rank_staging WHERE period_key = ?", TARGET_DATE);
+
+        // ── monthly gridSize=4 ──
+        ReflectionTestUtils.setField(jobConfig, "gridSize", 4);
+
+        t0 = System.currentTimeMillis();
+        BatchStatus monthlyPartitionedStatus = runJob("monthly");
+        long monthlyPartitionedMs = System.currentTimeMillis() - t0;
+        assertThat(monthlyPartitionedStatus).isEqualTo(BatchStatus.COMPLETED);
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM mv_product_rank_monthly WHERE period_key = ?",
+            Integer.class, TARGET_DATE)).isEqualTo(100);
+
+        double weeklySpeedup = (double) weeklySingleMs / weeklyPartitionedMs;
+        double monthlySpeedup = (double) monthlySingleMs / monthlyPartitionedMs;
 
         System.out.println();
-        System.out.println("═══════════════════════════════════════");
-        System.out.println("  Partitioning 벤치마크 (10만 상품)");
-        System.out.println("═══════════════════════════════════════");
-        System.out.printf("  gridSize=1: %,dms%n", singleMs);
-        System.out.printf("  gridSize=4: %,dms%n", partitionedMs);
-        System.out.printf("  향상률:     %.1fx%n", speedup);
-        System.out.println("═══════════════════════════════════════");
+        System.out.println("════════════════════════════════════════════════════════��═════");
+        System.out.println("  Partitioning 벤치마크 (10만 상품 × 30일 메트릭)");
+        System.out.println("══════════════════════════════════════════════════════════════");
+        System.out.printf("  %-20s %10s %10s %10s%n", "", "gridSize=1", "gridSize=4", "향상률");
+        System.out.println("──────────────────────────────────────────────────────────────");
+        System.out.printf("  %-20s %,8dms %,8dms %8.1fx%n", "weekly  (7일, 70만행)", weeklySingleMs, weeklyPartitionedMs, weeklySpeedup);
+        System.out.printf("  %-20s %,8dms %,8dms %8.1fx%n", "monthly (30일, 300만행)", monthlySingleMs, monthlyPartitionedMs, monthlySpeedup);
+        System.out.println("══════════════════════════════════════════════════════════════");
     }
 
     // ── 엣지 케이스 ─────────────────────────────────────────────────────

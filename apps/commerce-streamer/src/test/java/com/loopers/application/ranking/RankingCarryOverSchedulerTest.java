@@ -6,7 +6,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.connection.zset.Aggregate;
@@ -15,9 +14,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 
 import java.time.LocalDate;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -121,124 +118,6 @@ class RankingCarryOverSchedulerTest {
     }
 
     @Nested
-    @DisplayName("주간 랭킹 (buildWeeklyRanking)")
-    class WeeklyRanking {
-
-        @Test
-        @DisplayName("최근 7일 daily ZSET을 동일 가중치로 합산하여 내일자 weekly ZSET 생성")
-        void buildsWeeklyFromSevenDays() {
-            stubZSetOps();
-            LocalDate tomorrow = TODAY.plusDays(1);
-
-            scheduler.buildWeeklyRanking(TODAY, tomorrow);
-
-            verify(zSetOps).unionAndStore(
-                eq(TODAY_KEY),
-                argThat((Collection<String> keys) -> keys.size() == 6),
-                eq("ranking:weekly:20260411"),
-                eq(Aggregate.SUM),
-                eq(Weights.of(1, 1, 1, 1, 1, 1, 1))
-            );
-        }
-
-        @Test
-        @DisplayName("weekly ZSET에 AGGREGATED TTL(172800초 = 2일) 설정")
-        void setsAggregatedTtl() {
-            stubZSetOps();
-            LocalDate tomorrow = TODAY.plusDays(1);
-
-            scheduler.buildWeeklyRanking(TODAY, tomorrow);
-
-            verify(writeTemplate).expire("ranking:weekly:20260411",
-                RANKING_AGGREGATED_TTL_SECONDS, TimeUnit.SECONDS);
-        }
-
-        @Test
-        @DisplayName("7일 daily 키가 오늘부터 6일 전까지 정확히 생성됨")
-        @SuppressWarnings("unchecked")
-        void dailyKeysSpanSevenDays() {
-            stubZSetOps();
-            LocalDate tomorrow = TODAY.plusDays(1);
-
-            scheduler.buildWeeklyRanking(TODAY, tomorrow);
-
-            ArgumentCaptor<String> firstKeyCaptor = ArgumentCaptor.forClass(String.class);
-            ArgumentCaptor<Collection<String>> otherKeysCaptor = ArgumentCaptor.forClass(Collection.class);
-            verify(zSetOps).unionAndStore(
-                firstKeyCaptor.capture(),
-                otherKeysCaptor.capture(),
-                anyString(), any(), any()
-            );
-
-            List<String> allKeys = new java.util.ArrayList<>();
-            allKeys.add(firstKeyCaptor.getValue());
-            allKeys.addAll(otherKeysCaptor.getValue());
-
-            assertThat(allKeys).containsExactly(
-                "ranking:all:20260410",
-                "ranking:all:20260409",
-                "ranking:all:20260408",
-                "ranking:all:20260407",
-                "ranking:all:20260406",
-                "ranking:all:20260405",
-                "ranking:all:20260404"
-            );
-        }
-
-        @Test
-        @DisplayName("Redis 장애 시 예외를 삼키고 로그만 남김")
-        void onFailure_doesNotThrow() {
-            when(writeTemplate.opsForZSet()).thenThrow(new RuntimeException("Redis 연결 실패"));
-
-            assertThatCode(() -> scheduler.buildWeeklyRanking(TODAY, TODAY.plusDays(1)))
-                .doesNotThrowAnyException();
-        }
-    }
-
-    @Nested
-    @DisplayName("월간 랭킹 (buildMonthlyRanking)")
-    class MonthlyRanking {
-
-        @Test
-        @DisplayName("오늘 monthly × 0.97 + 오늘 daily × 1.0 → 내일 monthly")
-        void buildsMonthlyWithDecay() {
-            stubZSetOps();
-            LocalDate tomorrow = TODAY.plusDays(1);
-
-            scheduler.buildMonthlyRanking(TODAY, tomorrow);
-
-            verify(zSetOps).unionAndStore(
-                eq("ranking:monthly:20260410"),
-                eq(Collections.singletonList(TODAY_KEY)),
-                eq("ranking:monthly:20260411"),
-                eq(Aggregate.SUM),
-                eq(Weights.of(0.97, 1.0))
-            );
-        }
-
-        @Test
-        @DisplayName("monthly ZSET에 AGGREGATED TTL(172800초 = 2일) 설정")
-        void setsAggregatedTtl() {
-            stubZSetOps();
-            LocalDate tomorrow = TODAY.plusDays(1);
-
-            scheduler.buildMonthlyRanking(TODAY, tomorrow);
-
-            verify(writeTemplate).expire("ranking:monthly:20260411",
-                RANKING_AGGREGATED_TTL_SECONDS, TimeUnit.SECONDS);
-        }
-
-        @Test
-        @DisplayName("Redis 장애 시 예외를 삼키고 로그만 남김")
-        void onFailure_doesNotThrow() {
-            when(writeTemplate.opsForZSet()).thenThrow(new RuntimeException("Redis 연결 실패"));
-
-            assertThatCode(() -> scheduler.buildMonthlyRanking(TODAY, TODAY.plusDays(1)))
-                .doesNotThrowAnyException();
-        }
-    }
-
-    @Nested
     @DisplayName("carry-over 후 Trim (ZSET 크기 관리)")
     class ZsetTrim {
 
@@ -261,27 +140,6 @@ class RankingCarryOverSchedulerTest {
             scheduler.carryOver(TODAY);
 
             verify(zSetOps, never()).removeRange(anyString(), anyLong(), anyLong());
-        }
-
-        @Test
-        @DisplayName("monthly carry-over 후 ZSET 크기가 cap 초과 시 하위 score 제거")
-        void monthlyTrim_whenExceedsCap() {
-            long oversized = 20_000L;
-            stubZSetOps(oversized);
-
-            scheduler.buildMonthlyRanking(TODAY, TODAY.plusDays(1));
-
-            verify(zSetOps).removeRange("ranking:monthly:20260411", 0, oversized - CARRY_OVER_CAP - 1);
-        }
-
-        @Test
-        @DisplayName("weekly 랭킹에는 trim이 적용되지 않음 — 합산 재생성이므로 누적 없음")
-        void weeklyTrim_neverApplied() {
-            stubZSetOps(50_000L);
-
-            scheduler.buildWeeklyRanking(TODAY, TODAY.plusDays(1));
-
-            verify(zSetOps, never()).removeRange(eq("ranking:weekly:20260411"), anyLong(), anyLong());
         }
 
         @Test

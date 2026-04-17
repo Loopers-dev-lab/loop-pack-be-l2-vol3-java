@@ -1019,10 +1019,10 @@ MV가 매일 원장(product_metrics)에서 7일/30일치를 처음부터 GROUP B
 
 ---
 
-## 소재 13: (구현 후 추가 예정)
+## 소재 13: (반영 완료)
 
-- MV vs Redis 실제 랭킹 비교 결과 (score 차이 분석)
-- Partitioning 실제 성능 측정 결과
+- ~~MV vs Redis 실제 랭킹 비교 결과 (score 차이 분석)~~ → 12-ranking-batch-design-blog.md 섹션 1, 2.1에 반영
+- ~~Partitioning 실제 성능 측정 결과~~ → 12-ranking-batch-design-blog.md 섹션 3 벤치마크에 반영
 
 ---
 

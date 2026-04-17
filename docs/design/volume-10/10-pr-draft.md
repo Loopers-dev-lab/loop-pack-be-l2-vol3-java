@@ -4,7 +4,7 @@
 
 - **배경**: 대규모 데이터를 다루는 이커머스 환경에서 DB 원장 기준의 기간별 집계 랭킹이 필요하다.
 - **목표**: Spring Batch로 `product_metrics`(일간 메트릭)를 주간/월간 단위로 합산하여 MV 테이블에 TOP 100 랭킹을 적재하고, API에서 조회할 수 있도록 한다.
-- **결과**: Partitioning + Chunk-Oriented 3-Step 배치 구현, API 확장(MV 단일 소스 + 전일 fallback), E2E 테스트 10/10 통과, 10만 개의 상품 × 300만 행 기준 약 1.8초에 집계 완료. Partitioning 벤치마크 gridSize=1 대비 gridSize=4가 2.1x 향상.
+- **결과**: Partitioning + Chunk-Oriented 3-Step 배치 구현, API 확장(MV 단일 소스 + 전일 fallback), E2E 테스트 10/10 통과, 10만 상품 기준 weekly 약 1.7초, monthly(300만 행) 약 2.2초에 집계 완료. Partitioning 벤치마크 gridSize=1 대비 gridSize=4가 weekly 2.1x, monthly 1.8x 향상.
 
 ---
 
@@ -66,10 +66,12 @@
     - `MvProductRankRepository.java` + JPA 구현체 — MV 조회
     - `mv_product_rank_weekly` / `mv_product_rank_monthly` / `mv_product_rank_staging` — DDL
 - **수정**:
-    - `RankingScoreUpdater.java` — calculateScore()를 ScoreFormula에 위임
+    - `RankingScoreUpdater.java` — calculateScore()를 ScoreFormula에 위임, weekly/monthly 키 생성 메서드 및 상수 제거
     - `RankingCorrectionJobConfig.java` — calculateScore()를 ScoreFormula에 위임
     - `RankingProperties.java` / `RankingCorrectionProperties.java` — Weights inner record 제거, ScoreFormula.Weights 사용
     - `RankingFacade.java` — weekly/monthly 조회 경로를 Redis → MV로 변경
+    - `RankingCarryOverScheduler.java` — Redis weekly/monthly carry-over 제거 (MV가 담당하므로 daily carry-over만 유지)
+    - `RankingRedisRepository.java` — 미사용 RANKING_WEEKLY_PREFIX/RANKING_MONTHLY_PREFIX 상수 제거
 
 ### 주요 컴포넌트 책임
 
@@ -159,30 +161,23 @@ sequenceDiagram
 | 대규모 (10만 × 30일) | 300만 행 4 Partition 병렬 집계, 파티션 균등 분배 |
 | **벤치마크 (gridSize=1 vs 4)** | **단일 스레드 vs 4 Partition 병렬 소요 시간 비교** |
 
-### 성능
-
-| 규모      | 상품 수 | 메트릭 행 수 | weekly | monthly |
-|---------|--------|------------|--------|---------|
-| 소규모     | 1,020 | 30,600 | 275ms | 309ms |
-| **대규모** | **100,000** | **3,000,000** | **2,205ms** | **2,564ms** |
-
-10만 상품 × 30일(300만 행)에서 4 Partition 병렬 집계 + Merge까지 약 1.8초. 데이터 100배 증가 시 소요 시간 ~8배 증가 (sub-linear scaling).
-
 ### Partitioning 벤치마크 (gridSize=1 vs gridSize=4)
 
-| 구성 | weekly 소요 시간 | 비고 |
-|------|----------------|------|
-| gridSize=1 (단일 스레드) | 3,740ms | CursorReader 1개로 10만 건 GROUP BY |
-| gridSize=4 (4 Partition 병렬) | 1,763ms | 각 Worker가 2.5만 건씩 독립 GROUP BY |
-| **향상률** | **2.1x** | |
+| 구성 | weekly (7일, 70만행) | monthly (30일, 300만행) |
+|------|---------------------|------------------------|
+| gridSize=1 (단일 스레드) | 3,691ms | 3,842ms |
+| gridSize=4 (4 Partition 병렬) | 1,746ms | 2,188ms |
+| **향상률** | **2.1x** | **1.8x** |
 
-동일 데이터(10만 상품 × 30일 = 300만 행)를 `ReflectionTestUtils`로 gridSize만 교체하여 측정. 4 Partition 병렬이 단일 스레드 대비 2.1배 빠르다.
+동일 데이터(10만 상품 × 30일 = 300만 행)를 `ReflectionTestUtils`로 gridSize만 교체하여 weekly/monthly 각 2회 측정. 4 Partition 병렬이 단일 스레드 대비 weekly 2.1x, monthly 1.8x 빠르다.
+
+데이터 4배(70만→300만)에도 gridSize=4 기준 소요 시간은 25%만 증가(1,746ms→2,188ms). Reader SQL의 GROUP BY가 scope와 무관하게 결과를 10만 건으로 압축하므로, Processor/Writer/Merge가 데이터 볼륨에 영향받지 않는 구조.
 
 ---
 
 ## 리뷰 포인트
 
-### 1. Partitioning + CursorReader 조합시에 적절한 gridSize, 스테이징 테이블을 두는 효용 산정 방식
+### Partitioning + CursorReader 조합시에 적절한 gridSize, 스테이징 테이블을 두는 효용 산정 방식
 
 요구사항에 "대량의 데이터를 읽고 처리할 수 있도록 구성"이 명시되어 있어, 활성 상품 수가 수십만~수백만 규모로 성장하더라도 배치 윈도우 내에 처리 가능한 구조를 고려했습니다.
 
@@ -192,17 +187,3 @@ GROUP BY 집계에서 PagingReader는 페이지마다 집계를 재실행하고,
 - **gridSize를 4로 설정**했는데, 커넥션 풀 크기나 CPU 코어 수에 연동하거나 동적으로 조정해야 할 것 같습니다. 실무에서는 gridSize를 어떻게 설정하시나요?
 - **스테이징 테이블에 전체 상품 집계 결과를 적재**한 후 mergeStep에서 TOP 100만 추출하는 구조인데, 상품 수가 많아지면 스테이징 적재 비용이 커집니다. 이 중간 저장 비용 대비 Partitioning의 병렬 처리 이점이 충분한지는 처리 속도만 고려해서 판단해도 될까요?
 
-### 2. Score 공식 중앙화 — ScoreFormula 추출
-
-Score 공식이 4곳(streamer, batch correction, MV Job SQL, API drift scheduler)에 분산되어 있었고, MV Job에서는 `categoryPriority`가 누락된 상태였습니다.
-
-**해결**: `modules/jpa`에 `ScoreFormula` 클래스를 추출하여 Single Source of Truth로 통합했습니다.
-
-| 변경 전 | 변경 후 |
-|---------|---------|
-| 4곳에 score 공식 분산 | `ScoreFormula.calculate()` 1곳에 집중 |
-| 각 모듈마다 `Weights` inner record 정의 | `ScoreFormula.Weights` 공유 |
-| MV Job SQL에 score 포함, `categoryPriority` 누락 | Java ItemProcessor에서 ScoreFormula 호출, categoryPriority 반영 |
-| 공식 변경 시 4곳 수정 필요 | 1곳 수정으로 전체 반영 |
-
-Score 계산을 SQL에서 Java Processor로 이동함으로써 DB 네트워크 왕복이 약간 증가하지만(수만 건의 집계 결과를 Java에서 처리), 공식 일관성과 유지보수성이 우선이라고 판단했습니다. E2E 테스트 10/10 통과로 성능 영향 없음을 확인했습니다.

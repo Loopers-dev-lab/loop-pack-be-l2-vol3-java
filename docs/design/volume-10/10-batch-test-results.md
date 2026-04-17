@@ -276,22 +276,24 @@ DISTINCT product_id 사전 조회 기반 분할로 4 파티션 완전 균등 분
 
 ### 테스트 방식
 
-동일 시드 데이터를 한 번만 생성한 후, `ReflectionTestUtils.setField(jobConfig, "gridSize", N)`으로 gridSize만 교체하여 2회 실행.
+동일 시드 데이터를 한 번만 생성한 후, `ReflectionTestUtils.setField(jobConfig, "gridSize", N)`으로 gridSize만 교체하여 weekly/monthly 각 2회 실행.
 
 1. gridSize=1로 weekly Job 실행 → 소요 시간 측정
 2. MV + staging DELETE → gridSize=4로 weekly Job 실행 → 소요 시간 측정
+3. gridSize=1로 monthly Job 실행 → 소요 시간 측정
+4. MV + staging DELETE → gridSize=4로 monthly Job 실행 → 소요 시간 측정
 
 ### 결과
 
-| 구성 | weekly 소요 시간 | Worker 수 | Worker당 상품 수 |
-|------|----------------|-----------|--------------|
-| gridSize=1 (단일 스레드) | **3,740ms** | 1 | 100,000 |
-| gridSize=4 (4 Partition 병렬) | **1,763ms** | 4 | 25,000 |
-| **향상률** | **2.1x** | | |
+| 구성 | weekly (7일, 70만행) | monthly (30일, 300만행) |
+|------|---------------------|------------------------|
+| gridSize=1 (단일 스레드) | **3,691ms** | **3,842ms** |
+| gridSize=4 (4 Partition 병렬) | **1,746ms** | **2,188ms** |
+| **향상률** | **2.1x** | **1.8x** |
 
 ### 분석
 
-- **이론적 상한: 4x**, 실측: **2.1x**
-- Amdahl's Law에 의해 병렬화할 수 없는 부분(Partitioner의 `DISTINCT product_id` 쿼리, mergeStep의 `ROW_NUMBER() OVER`, 각 Step 간 JobRepository 메타데이터 저장)이 전체 소요 시간의 일부를 차지
+- **이론적 상한: 4x**, 실측: weekly **2.1x**, monthly **1.8x**
+- 데이터가 4배 많은 monthly에서 향상률이 떨어지는 이유: Amdahl's Law에 의해 직렬 구간(Partitioner의 `DISTINCT product_id` 쿼리, mergeStep의 `ROW_NUMBER() OVER`, JobRepository 메타데이터 저장)의 비중이 데이터량에 비례해 커짐
 - Testcontainers MySQL에서 innodb-buffer-pool-size=256M 제약 환경 기준. 프로덕션 MySQL에서는 더 큰 향상률이 기대됨
-- 양쪽 모두 MV 100건 적재 + Job COMPLETED 검증 통과
+- 4개 모든 측정(weekly×2, monthly×2) MV 100건 적재 + Job COMPLETED 검증 통과

@@ -13,8 +13,6 @@ import java.util.Set;
 public class RankingRedisRepository {
 
     private static final String RANKING_ZSET_PREFIX = "ranking:all:";
-    private static final String RANKING_WEEKLY_PREFIX = "ranking:weekly:";
-    private static final String RANKING_MONTHLY_PREFIX = "ranking:monthly:";
 
     private final RedisTemplate<String, String> readTemplate;
 

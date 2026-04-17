@@ -31,16 +31,12 @@ import java.util.concurrent.TimeUnit;
 public class RankingScoreUpdater {
 
     public static final String RANKING_ZSET_PREFIX = "ranking:all:";
-    public static final String RANKING_WEEKLY_PREFIX = "ranking:weekly:";
-    public static final String RANKING_MONTHLY_PREFIX = "ranking:monthly:";
     public static final String RANKING_METRICS_PREFIX = "ranking:metrics:";
 
-    /** Daily ZSET TTL: 8일 (주간 합산에 7일분 필요 + 1일 여유) */
+    /** Daily ZSET TTL: 8일 (배치 보정에 최근 데이터 필요 + 여유) */
     public static final long RANKING_ZSET_TTL_SECONDS = 691_200L;
     /** Hash TTL: 2일 (당일 score 재계산에만 사용) */
     public static final long RANKING_HASH_TTL_SECONDS = 172_800L;
-    /** 주간/월간 집계 ZSET TTL: 2일 (매일 재생성) */
-    public static final long RANKING_AGGREGATED_TTL_SECONDS = 172_800L;
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -62,14 +58,6 @@ public class RankingScoreUpdater {
 
     static String zsetKey(String prefix, LocalDate date) {
         return prefix + date.format(DATE_FORMATTER);
-    }
-
-    static String weeklyKey(LocalDate date) {
-        return RANKING_WEEKLY_PREFIX + date.format(DATE_FORMATTER);
-    }
-
-    static String monthlyKey(LocalDate date) {
-        return RANKING_MONTHLY_PREFIX + date.format(DATE_FORMATTER);
     }
 
     static String hashKey(LocalDate date, Long productId) {

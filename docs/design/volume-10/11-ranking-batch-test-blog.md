@@ -72,7 +72,7 @@ Step 3: Merge
 | 7 | **cancellation** | 매출 200만/취소 150만 vs 매출 100만/취소 0 | 순매출 기준 순위 |
 | 8 | **printRankingResults** | 20개 상품 × 30일 (5가지 패턴) | 일간/주간/월간 TOP 20 시각화 출력 |
 | 9 | **largeScale** | 10만 상품 × 30일 (300만 행) | 4 Partition 병렬 집계, 파티션 균등 분배, 1위 정확성 |
-| 10 | **partitionBenchmark** | gridSize=1 vs gridSize=4 | Partitioning 성능 효과 정량 측정 (2.1x 향상) |
+| 10 | **partitionBenchmark** | gridSize=1 vs gridSize=4 (weekly + monthly) | Partitioning 성능 효과 정량 측정 (weekly 2.1x, monthly 1.8x) |
 
 7~10번 시나리오 중 처음 작성했을 때 기능 테스트(1~7) **모두 실패**했다. 테스트 프레임워크와의 충돌 때문이었다.
 
@@ -230,21 +230,23 @@ SUM(pm.sales_amount - pm.cancel_amount_by_event_date) AS total_net_sales_amount
 
 "Partitioning이 없었다면 단일 쿼리로 처리해야 하므로 데이터가 커질수록 차이가 벌어진다." — 이걸 실제로 측정해봤다.
 
-10만 상품 × 30일(300만 행)에서 gridSize만 1과 4로 바꿔서 같은 데이터를 2회 실행한 결과:
+10만 상품 × 30일(300만 행)에서 gridSize만 1과 4로 바꿔서 weekly/monthly 각 2회 실행한 결과:
 
-| 구성 | weekly 소요 시간 | Worker당 상품 수 |
-|------|----------------|--------------|
-| gridSize=1 (단일 스레드) | **3,740ms** | 100,000 |
-| gridSize=4 (4 Partition 병렬) | **1,763ms** | 25,000 |
-| **향상률** | **2.1x** | |
+| 구성 | weekly (7일, 70만행) | monthly (30일, 300만행) |
+|------|---------------------|------------------------|
+| gridSize=1 (단일 스레드) | **3,691ms** | **3,842ms** |
+| gridSize=4 (4 Partition 병렬) | **1,746ms** | **2,188ms** |
+| **향상률** | **2.1x** | **1.8x** |
 
-이론적 상한은 4x지만, 실측은 2.1x다. 차이의 원인:
+이 표는 두 방향으로 읽을 수 있다.
 
-1. **Amdahl's Law**: Partitioner의 `SELECT DISTINCT product_id` 쿼리, mergeStep의 `ROW_NUMBER() OVER`, JobRepository 메타데이터 저장 등 **직렬 구간이 전체의 일부**를 차지한다.
-2. **Testcontainers 환경 제약**: `innodb-buffer-pool-size=256M`으로 제한된 환경이므로, 프로덕션 MySQL에서는 더 큰 향상률이 기대된다.
-3. **IO 경합**: 4개 Worker가 동시에 같은 MySQL 인스턴스에 접근하므로 디스크/메모리 경합이 발생한다.
+**세로로 읽기 — "병렬화하면 얼마나 빨라지나?"** 같은 scope에서 gridSize 1→4로 올리면 weekly 2.1x, monthly 1.8x 향상. 이론적 상한 4x보다 낮은 이유는 Amdahl's Law — 직렬 구간(Partitioner, mergeStep, JobRepository)이 병목이 된다.
 
-그래도 **2.1x는 의미 있는 수치**다. 1일 1회 배치에서 3.7초와 1.8초의 절대적 차이는 크지 않지만, 데이터가 10배(100만 상품)로 늘어나면 37초 vs 18초로 벌어진다. 병렬화의 효과는 규모에 비례한다.
+**가로로 읽기 — "데이터 4배면 얼마나 더 느린가?"** 같은 gridSize에서 weekly→monthly로 데이터가 4배 늘면, gridSize=1은 **+4%**, gridSize=4는 **+25%** 증가한다. 4배 데이터인데 4배 느려지지 않는 이유는 Reader SQL의 GROUP BY가 70만/300만 행을 모두 **동일한 10만 건으로 압축**하기 때문이다. Processor, Writer, Merge는 scope와 무관하게 10만 건을 처리하므로 데이터 볼륨에 영향받지 않는다.
+
+gridSize=4에서 격차가 +4%→+25%로 벌어지는 이유는 IO 경합이다. Worker 4개가 동시에 같은 MySQL에 접근할 때, weekly(각 17.5만행)는 buffer pool 256MB로 커버되지만 monthly(각 75만행)는 경합이 발생한다. 프로덕션 MySQL(buffer pool 수 GB 이상)에서는 워킹셋이 메모리에 올라가므로 이 격차가 줄어들 것으로 예상된다.
+
+2.1x/1.8x는 의미 있는 수치다. 데이터가 10배(100만 상품)로 늘어나면 37초 vs 18초(weekly), 38초 vs 22초(monthly)로 벌어진다. 병렬화의 효과는 규모에 비례한다.
 
 ---
 
@@ -275,7 +277,7 @@ MvProductRank*.class → 빌드에 없음 → getFromMv() 호출되어도 쿼리
 | 빈 데이터 / 부분 데이터 | Job COMPLETED, 안전 처리 |
 | 취소 반영 | 순매출 기준 순위 결정 |
 | 시간 윈도우별 랭킹 차이 | 일간/주간/월간 TOP 20이 완전히 다름 |
-| Partitioning 성능 효과 | gridSize=1 대비 gridSize=4가 2.1x 빠름 (10만 상품 기준) |
+| Partitioning 성능 효과 | gridSize=1 대비 gridSize=4: weekly 2.1x, monthly 1.8x (10만 상품 기준) |
 
 ### 테스트 설계에서 배운 것
 
@@ -289,6 +291,6 @@ MvProductRank*.class → 빌드에 없음 → getFromMv() 호출되어도 쿼리
 
 ### 비즈니스 관점에서 확인한 것
 
-시간 윈도우는 단순한 "기간 필터"가 아니다. **어떤 시간 윈도우를 선택하느냐가 "인기 상품"의 정의 자체를 바꾼다.** 오늘 SNS에서 터진 상품, 이번 주 꾸준히 팔린 상품, 한 달간 스테디셀러인 상품은 모두 "인기 상품"이지만, 하나의 랭킹으로는 세 관점을 동시에 담을 수 없다.
+시간 윈도우는 단순한 "기간 필터"가 아니다. **같은 공식이라도 시간 윈도우에 따라 집계 대상이 달라지고, 그 결과 "인기 상품"의 순위가 완전히 바뀐다.** 오늘 SNS에서 터진 상품, 이번 주 꾸준히 팔린 상품, 한 달간 스테디셀러인 상품은 모두 "인기 상품"이지만, 하나의 랭킹으로는 세 관점을 동시에 담을 수 없다.
 
 Lambda Architecture(실시간 Redis + 배치 MV)를 선택한 이유도 여기에 있다. 실시간 경로는 "지금 뜨는 상품"을, 배치 경로는 "기간 동안 검증된 상품"을 각각 담당한다. 두 경로가 서로 다른 것은 버그가 아니라 설계 의도이며, 이 테스트는 그 설계 의도가 실제로 동작하는지를 확인하는 과정이었다.
