@@ -2,6 +2,7 @@ package com.loopers.batch.job.ranking.step;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
 
@@ -59,7 +60,12 @@ public class WeeklyRankingTasklet implements Tasklet {
             throw new IllegalArgumentException("JobParameter 'date' is required");
         }
 
-        LocalDate baseDate = LocalDate.parse(date, DATE_FORMAT);
+        LocalDate baseDate;
+        try {
+            baseDate = LocalDate.parse(date, DATE_FORMAT);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("JobParameter 'date' must be yyyyMMdd format: " + date, e);
+        }
         LocalDate start = baseDate.minusDays(7);
         LocalDate end = baseDate.minusDays(1);
 

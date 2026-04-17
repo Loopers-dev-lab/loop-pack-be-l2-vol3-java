@@ -11,7 +11,7 @@ import com.loopers.domain.ranking.ProductRankingMonthly;
 
 public interface ProductRankingMonthlyJpaRepository extends JpaRepository<ProductRankingMonthly, Long> {
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
             value = "INSERT INTO mv_product_rank_monthly (product_id, score_date, score) "
                     + "VALUES (:productId, :scoreDate, :score) "

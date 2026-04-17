@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.loopers.domain.ranking.MonthlyRankingRepository;
 import com.loopers.domain.ranking.ProductRankingMonthly;
@@ -24,7 +23,6 @@ public class MonthlyRankingRepositoryImpl implements MonthlyRankingRepository {
     private final MonthlyRankingJpaRepository monthlyRankingJpaRepository;
 
     @Override
-    @Transactional(readOnly = true)
     public List<ProductRankingMonthly> readTopRanked(LocalDate scoreDate, int page, int size) {
         return monthlyRankingJpaRepository.findByScoreDateOrderByScoreDesc(scoreDate, PageRequest.of(page, size));
     }

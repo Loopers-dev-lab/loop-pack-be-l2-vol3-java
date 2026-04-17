@@ -7,7 +7,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 import lombok.AccessLevel;
@@ -15,9 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "mv_product_rank_weekly", indexes = {
-        @Index(name = "idx_score_date_score", columnList = "score_date, score DESC")
-})
+@Table(name = "mv_product_rank_weekly")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class ProductRankingWeekly {

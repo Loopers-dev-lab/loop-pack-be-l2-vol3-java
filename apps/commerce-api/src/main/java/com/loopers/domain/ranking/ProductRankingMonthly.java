@@ -7,7 +7,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 import lombok.AccessLevel;
@@ -20,9 +19,7 @@ import lombok.NoArgsConstructor;
  * <p>배치가 집계한 {@code mv_product_rank_monthly} 테이블의 읽기 전용 매핑이다.</p>
  */
 @Entity
-@Table(name = "mv_product_rank_monthly", indexes = {
-        @Index(name = "idx_score_date_score", columnList = "score_date, score DESC")
-})
+@Table(name = "mv_product_rank_monthly")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
 public class ProductRankingMonthly {

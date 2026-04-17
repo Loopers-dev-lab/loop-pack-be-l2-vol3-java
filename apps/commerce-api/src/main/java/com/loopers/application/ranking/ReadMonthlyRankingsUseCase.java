@@ -2,12 +2,15 @@ package com.loopers.application.ranking;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
 import com.loopers.application.shared.annotation.UseCase;
 import com.loopers.domain.ranking.ProductRankingMonthly;
 import com.loopers.domain.ranking.RankingItem;
 import com.loopers.domain.ranking.RankingService;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import com.loopers.support.page.PageSize;
 
 import lombok.RequiredArgsConstructor;
@@ -33,7 +36,12 @@ public class ReadMonthlyRankingsUseCase {
      * @return 랭킹 페이지 결과 (상품 정보, brandId, 좋아요 여부 포함)
      */
     public RankingPageResult execute(Long userId, String date, PageSize pageSize) {
-        LocalDate scoreDate = LocalDate.parse(date, DATE_FORMAT);
+        LocalDate scoreDate;
+        try {
+            scoreDate = LocalDate.parse(date, DATE_FORMAT);
+        } catch (DateTimeParseException e) {
+            throw new CoreException(ErrorType.INVALID_RANKING_DATE_FORMAT);
+        }
         List<ProductRankingMonthly> rankings = rankingService.readMonthlyTopRanked(scoreDate, pageSize.page(), pageSize.size());
         List<RankingItem> rankingItems = RankingItem.toRankingItems(
                 rankings,

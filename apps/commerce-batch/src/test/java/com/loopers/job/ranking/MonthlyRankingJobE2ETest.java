@@ -65,7 +65,10 @@ class MonthlyRankingJobE2ETest {
             jobLauncherTestUtils.setJob(job);
 
             // act
-            var jobExecution = jobLauncherTestUtils.launchJob();
+            var jobParameters = new JobParametersBuilder()
+                    .addLong("run.id", System.nanoTime())
+                    .toJobParameters();
+            var jobExecution = jobLauncherTestUtils.launchJob(jobParameters);
 
             // assert
             assertThat(jobExecution.getExitStatus().getExitCode())

@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
@@ -17,6 +18,8 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "mv_product_rank_monthly", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"product_id", "score_date"})
+}, indexes = {
+        @Index(name = "idx_score_date_score", columnList = "score_date, score DESC")
 })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
