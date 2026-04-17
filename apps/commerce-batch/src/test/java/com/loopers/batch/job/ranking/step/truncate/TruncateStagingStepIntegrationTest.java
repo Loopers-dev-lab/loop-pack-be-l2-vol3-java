@@ -9,7 +9,9 @@ import com.loopers.domain.ranking.staging.StagingRankingScoredRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBatchTest
 @Import(MySqlTestContainersConfig.class)
 @TestPropertySource(properties = "spring.batch.job.name=" + RollingRankingJobConfig.JOB_NAME)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class TruncateStagingStepIntegrationTest {
 
     @Autowired private JobLauncherTestUtils jobLauncherTestUtils;
@@ -44,71 +47,79 @@ class TruncateStagingStepIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("anchorDateKey 에 해당하는 두 스테이징 테이블의 row 만 삭제된다.")
-    @Test
-    void deletesOnlyTargetAnchor() throws Exception {
-        String targetAnchor = "20260414";
-        String otherAnchor = "20260101";
-        aggregationRepository.save(new StagingRankingAggregation("LAST_7D",  targetAnchor, 1L, 10, 0, 0));
-        aggregationRepository.save(new StagingRankingAggregation("LAST_30D", targetAnchor, 2L, 20, 0, 0));
-        aggregationRepository.save(new StagingRankingAggregation("LAST_7D",  otherAnchor,  3L, 30, 0, 0));
-        scoredRepository.save(new StagingRankingScored("LAST_7D",  targetAnchor, "control", 1L, 10, 0, 0, 1.0));
-        scoredRepository.save(new StagingRankingScored("LAST_30D", otherAnchor,  "control", 3L, 30, 0, 0, 3.0));
+    @Nested
+    class 대상_삭제 {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(targetAnchor));
+        @Test
+        void anchorDateKey_에_해당하는_두_스테이징_테이블의_row_만_삭제된다() throws Exception {
+            String targetAnchor = "20260414";
+            String otherAnchor = "20260101";
+            aggregationRepository.save(new StagingRankingAggregation("LAST_7D",  targetAnchor, 1L, 10, 0, 0));
+            aggregationRepository.save(new StagingRankingAggregation("LAST_30D", targetAnchor, 2L, 20, 0, 0));
+            aggregationRepository.save(new StagingRankingAggregation("LAST_7D",  otherAnchor,  3L, 30, 0, 0));
+            scoredRepository.save(new StagingRankingScored("LAST_7D",  targetAnchor, "control", 1L, 10, 0, 0, 1.0));
+            scoredRepository.save(new StagingRankingScored("LAST_30D", otherAnchor,  "control", 3L, 30, 0, 0, 3.0));
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(aggregationRepository.countByPeriodKey(targetAnchor)).isZero(),
-                () -> assertThat(scoredRepository.countByPeriodKey(targetAnchor)).isZero(),
-                () -> assertThat(aggregationRepository.countByPeriodKey(otherAnchor)).isOne(),
-                () -> assertThat(scoredRepository.countByPeriodKey(otherAnchor)).isOne()
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(targetAnchor));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(aggregationRepository.countByPeriodKey(targetAnchor)).isZero(),
+                    () -> assertThat(scoredRepository.countByPeriodKey(targetAnchor)).isZero(),
+                    () -> assertThat(aggregationRepository.countByPeriodKey(otherAnchor)).isOne(),
+                    () -> assertThat(scoredRepository.countByPeriodKey(otherAnchor)).isOne()
+            );
+        }
     }
 
-    @DisplayName("비어있는 스테이징에 실행해도 멱등하게 성공한다 (첫 실행 시나리오).")
-    @Test
-    void succeedsOnEmptyStaging() throws Exception {
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf("20260414"));
+    @Nested
+    class 멱등성 {
 
-        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        @Test
+        void 비어있는_스테이징에_실행해도_멱등하게_성공한다() throws Exception {
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf("20260414"));
+
+            assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        }
+
+        @Test
+        void 같은_anchorDate_로_두번_돌려도_결과가_동일하다() throws Exception {
+            String anchor = "20260414";
+            aggregationRepository.save(new StagingRankingAggregation("LAST_7D", anchor, 1L, 10, 0, 0));
+            scoredRepository.save(new StagingRankingScored("LAST_7D", anchor, "control", 1L, 10, 0, 0, 1.0));
+
+            jobLauncherTestUtils.setJob(job);
+
+            JobExecution first = jobLauncherTestUtils.launchJob(paramsOf(anchor));
+            // 재실행을 위해 새 JobInstance 로 실행 (runTimestamp 로 격리)
+            JobExecution second = jobLauncherTestUtils.launchJob(paramsOf(anchor));
+
+            assertAll(
+                    () -> assertThat(first.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(second.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(aggregationRepository.countByPeriodKey(anchor)).isZero(),
+                    () -> assertThat(scoredRepository.countByPeriodKey(anchor)).isZero()
+            );
+        }
     }
 
-    @DisplayName("같은 anchorDate 로 두 번 돌려도 결과가 동일하다 (배치 멱등성).")
-    @Test
-    void idempotentOnRepeatedRun() throws Exception {
-        String anchor = "20260414";
-        aggregationRepository.save(new StagingRankingAggregation("LAST_7D", anchor, 1L, 10, 0, 0));
-        scoredRepository.save(new StagingRankingScored("LAST_7D", anchor, "control", 1L, 10, 0, 0, 1.0));
+    @Nested
+    class 파라미터_검증 {
 
-        jobLauncherTestUtils.setJob(job);
+        @Test
+        void anchorDate_파라미터가_없으면_Job_이_실패한다() throws Exception {
+            jobLauncherTestUtils.setJob(job);
 
-        JobExecution first = jobLauncherTestUtils.launchJob(paramsOf(anchor));
-        // 재실행을 위해 새 JobInstance 로 실행 (runTimestamp 로 격리)
-        JobExecution second = jobLauncherTestUtils.launchJob(paramsOf(anchor));
+            JobExecution execution = jobLauncherTestUtils.launchJob(
+                    new JobParametersBuilder()
+                            .addLong("runTimestamp", System.nanoTime())
+                            .toJobParameters()
+            );
 
-        assertAll(
-                () -> assertThat(first.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(second.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(aggregationRepository.countByPeriodKey(anchor)).isZero(),
-                () -> assertThat(scoredRepository.countByPeriodKey(anchor)).isZero()
-        );
-    }
-
-    @DisplayName("anchorDate 파라미터가 없으면 Job 이 실패한다.")
-    @Test
-    void failsWhenAnchorDateMissing() throws Exception {
-        jobLauncherTestUtils.setJob(job);
-
-        JobExecution execution = jobLauncherTestUtils.launchJob(
-                new JobParametersBuilder()
-                        .addLong("runTimestamp", System.nanoTime())
-                        .toJobParameters()
-        );
-
-        assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+            assertThat(execution.getStatus()).isEqualTo(BatchStatus.FAILED);
+        }
     }
 
     private JobParameters paramsOf(String anchorDate) {

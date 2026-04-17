@@ -9,7 +9,9 @@ import com.loopers.domain.ranking.mv.MvProductRankLast7dRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
@@ -34,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBatchTest
 @Import(MySqlTestContainersConfig.class)
 @TestPropertySource(properties = "spring.batch.job.name=" + RollingRankingJobConfig.JOB_NAME)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class PurgeMvStepIntegrationTest {
 
     private static final LocalDate TARGET_ANCHOR = LocalDate.of(2026, 4, 14);
@@ -52,49 +55,54 @@ class PurgeMvStepIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("타겟 anchorDate 의 MV row 만 양쪽 테이블에서 삭제되고 다른 anchor 는 유지된다.")
-    @Test
-    void purgesOnlyTargetAnchorInBothMvTables() throws Exception {
-        last7dRepository.save(mv7d(TARGET_ANCHOR, 1L, 1));
-        last7dRepository.save(mv7d(OTHER_ANCHOR, 2L, 1));
-        last30dRepository.save(mv30d(TARGET_ANCHOR, 1L, 1));
-        last30dRepository.save(mv30d(OTHER_ANCHOR, 2L, 1));
+    @Nested
+    class MV_purge {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+        @Test
+        void 타겟_anchorDate_의_MV_row_만_양쪽_테이블에서_삭제되고_다른_anchor_는_유지된다() throws Exception {
+            last7dRepository.save(mv7d(TARGET_ANCHOR, 1L, 1));
+            last7dRepository.save(mv7d(OTHER_ANCHOR, 2L, 1));
+            last30dRepository.save(mv30d(TARGET_ANCHOR, 1L, 1));
+            last30dRepository.save(mv30d(OTHER_ANCHOR, 2L, 1));
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(last7dRepository.countByAnchorDate(TARGET_ANCHOR)).isZero(),
-                () -> assertThat(last30dRepository.countByAnchorDate(TARGET_ANCHOR)).isZero(),
-                () -> assertThat(last7dRepository.countByAnchorDate(OTHER_ANCHOR)).isOne(),
-                () -> assertThat(last30dRepository.countByAnchorDate(OTHER_ANCHOR)).isOne()
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(last7dRepository.countByAnchorDate(TARGET_ANCHOR)).isZero(),
+                    () -> assertThat(last30dRepository.countByAnchorDate(TARGET_ANCHOR)).isZero(),
+                    () -> assertThat(last7dRepository.countByAnchorDate(OTHER_ANCHOR)).isOne(),
+                    () -> assertThat(last30dRepository.countByAnchorDate(OTHER_ANCHOR)).isOne()
+            );
+        }
+
+        @Test
+        void 동일_anchor_같은_상품이_여러_weight_group_에_있으면_전부_삭제된다() throws Exception {
+            last7dRepository.save(mv7d(TARGET_ANCHOR, "control",      1L, 1));
+            last7dRepository.save(mv7d(TARGET_ANCHOR, "experiment_a", 1L, 1));
+            last7dRepository.save(mv7d(TARGET_ANCHOR, "experiment_b", 1L, 1));
+
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(last7dRepository.countByAnchorDate(TARGET_ANCHOR)).isZero()
+            );
+        }
     }
 
-    @DisplayName("MV 에 동일 anchor/같은 상품이 여러 weight_group 에 있으면 그룹 구분 없이 전부 삭제된다.")
-    @Test
-    void purgesAllWeightGroupsForAnchor() throws Exception {
-        last7dRepository.save(mv7d(TARGET_ANCHOR, "control",      1L, 1));
-        last7dRepository.save(mv7d(TARGET_ANCHOR, "experiment_a", 1L, 1));
-        last7dRepository.save(mv7d(TARGET_ANCHOR, "experiment_b", 1L, 1));
+    @Nested
+    class 빈_MV {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+        @Test
+        void MV_가_비어_있어도_Job_은_성공한다() throws Exception {
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(last7dRepository.countByAnchorDate(TARGET_ANCHOR)).isZero()
-        );
-    }
-
-    @DisplayName("MV 가 비어 있어도 Job 은 성공한다 (첫 실행 시나리오).")
-    @Test
-    void succeedsOnEmptyMv() throws Exception {
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
-
-        assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+            assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED);
+        }
     }
 
     // -- helpers --

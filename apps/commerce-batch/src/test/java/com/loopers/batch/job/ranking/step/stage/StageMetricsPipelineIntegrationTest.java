@@ -6,7 +6,9 @@ import com.loopers.domain.ranking.staging.StagingRankingAggregationRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
@@ -37,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBatchTest
 @Import(MySqlTestContainersConfig.class)
 @TestPropertySource(properties = "spring.batch.job.name=" + RollingRankingJobConfig.JOB_NAME)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class StageMetricsPipelineIntegrationTest {
 
     private static final String ANCHOR = "20260414";
@@ -54,74 +57,78 @@ class StageMetricsPipelineIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("3 메트릭(View/Like/Order) 이 모두 있는 상품은 staging row 하나에 세 컬럼이 모두 채워진다.")
-    @Test
-    void mergesThreeMetricsIntoOneRow() throws Exception {
-        saveView(1L, IN_7D, 10);
-        saveView(1L, IN_30D_ONLY, 5);
-        saveLike(1L, IN_7D, 2);
-        saveLike(1L, IN_30D_ONLY, 3);
-        saveOrder(1L, IN_7D, 1000);
-        saveOrder(1L, IN_30D_ONLY, 2000);
+    @Nested
+    class 메트릭_병합 {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+        @Test
+        void 세_메트릭이_모두_있는_상품은_staging_row_하나에_세_컬럼이_모두_채워진다() throws Exception {
+            saveView(1L, IN_7D, 10);
+            saveView(1L, IN_30D_ONLY, 5);
+            saveLike(1L, IN_7D, 2);
+            saveLike(1L, IN_30D_ONLY, 3);
+            saveOrder(1L, IN_7D, 1000);
+            saveOrder(1L, IN_30D_ONLY, 2000);
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(row("LAST_7D",  ANCHOR, 1L)).containsExactly(10L, 2L, 1000L),
-                () -> assertThat(row("LAST_30D", ANCHOR, 1L)).containsExactly(15L, 5L, 3000L)
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(row("LAST_7D",  ANCHOR, 1L)).containsExactly(10L, 2L, 1000L),
+                    () -> assertThat(row("LAST_30D", ANCHOR, 1L)).containsExactly(15L, 5L, 3000L)
+            );
+        }
+
+        @Test
+        void Like_만_있는_상품은_Step2_의_INSERT_로_row_가_생성되고_view_sales_는_0이다() throws Exception {
+            saveLike(2L, IN_7D, 4);
+
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(row("LAST_7D",  ANCHOR, 2L)).containsExactly(0L, 4L, 0L),
+                    () -> assertThat(row("LAST_30D", ANCHOR, 2L)).containsExactly(0L, 4L, 0L)
+            );
+        }
+
+        @Test
+        void Order_만_있는_상품도_Step3_의_INSERT_로_row_가_생성된다() throws Exception {
+            saveOrder(3L, IN_30D_ONLY, 5000);
+
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(row("LAST_7D",  ANCHOR, 3L)).containsExactly(0L, 0L, 0L),
+                    () -> assertThat(row("LAST_30D", ANCHOR, 3L)).containsExactly(0L, 0L, 5000L)
+            );
+        }
     }
 
-    @DisplayName("Like 만 있는 상품은 Step 2 의 INSERT 로 row 가 새로 생성되고 view/sales 는 0 이다.")
-    @Test
-    void likeOnlyProductIsInsertedByStep2() throws Exception {
-        saveLike(2L, IN_7D, 4);
+    @Nested
+    class 독립_적재 {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+        @Test
+        void 메트릭마다_다른_상품_집합이_있어도_각각_독립적으로_적재된다() throws Exception {
+            saveView(10L, IN_7D, 1);
+            saveLike(20L, IN_7D, 2);
+            saveOrder(30L, IN_7D, 3);
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(row("LAST_7D",  ANCHOR, 2L)).containsExactly(0L, 4L, 0L),
-                () -> assertThat(row("LAST_30D", ANCHOR, 2L)).containsExactly(0L, 4L, 0L)
-        );
-    }
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
 
-    @DisplayName("Order 만 있는 상품도 Step 3 의 INSERT 로 row 가 생성된다.")
-    @Test
-    void orderOnlyProductIsInsertedByStep3() throws Exception {
-        saveOrder(3L, IN_30D_ONLY, 5000);
-
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
-
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(row("LAST_7D",  ANCHOR, 3L)).containsExactly(0L, 0L, 0L),
-                () -> assertThat(row("LAST_30D", ANCHOR, 3L)).containsExactly(0L, 0L, 5000L)
-        );
-    }
-
-    @DisplayName("메트릭마다 다른 상품 집합이 있어도 각각 독립적으로 적재된다.")
-    @Test
-    void independentProductsPerMetric() throws Exception {
-        saveView(10L, IN_7D, 1);
-        saveLike(20L, IN_7D, 2);
-        saveOrder(30L, IN_7D, 3);
-
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
-
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(row("LAST_7D", ANCHOR, 10L)).containsExactly(1L, 0L, 0L),
-                () -> assertThat(row("LAST_7D", ANCHOR, 20L)).containsExactly(0L, 2L, 0L),
-                () -> assertThat(row("LAST_7D", ANCHOR, 30L)).containsExactly(0L, 0L, 3L),
-                // product 당 LAST_7D + LAST_30D → 3 × 2 = 6
-                () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isEqualTo(6L)
-        );
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(row("LAST_7D", ANCHOR, 10L)).containsExactly(1L, 0L, 0L),
+                    () -> assertThat(row("LAST_7D", ANCHOR, 20L)).containsExactly(0L, 2L, 0L),
+                    () -> assertThat(row("LAST_7D", ANCHOR, 30L)).containsExactly(0L, 0L, 3L),
+                    // product 당 LAST_7D + LAST_30D → 3 × 2 = 6
+                    () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isEqualTo(6L)
+            );
+        }
     }
 
     // -- helpers --

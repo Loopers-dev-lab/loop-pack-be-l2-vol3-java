@@ -1,6 +1,8 @@
 package com.loopers.batch.job.ranking.step.stage;
 
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -11,89 +13,97 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class StreamingMetricAggregatorTest {
 
     private static final LocalDateTime LAST_7D_START  = LocalDateTime.of(2026, 4, 8, 0, 0);
     private static final LocalDateTime LAST_30D_START = LocalDateTime.of(2026, 3, 16, 0, 0);
 
-    @DisplayName("같은 product 의 연속된 row 는 한 AggregatedMetric 으로 합쳐진다.")
-    @Test
-    void collapseSameProductRowsIntoOneAggregated() throws Exception {
-        ListSource source = new ListSource(List.of(
-                row(1L, LAST_7D_START,                    5),  // 7d 포함
-                row(1L, LAST_7D_START.plusDays(3),       10),  // 7d 포함
-                row(2L, LAST_30D_START,                   3)   // 30d 만
-        ));
-        StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
+    @Nested
+    class 집계 {
 
-        AggregatedMetric first  = agg.next();
-        AggregatedMetric second = agg.next();
-        AggregatedMetric end    = agg.next();
+        @Test
+        void 같은_product_의_연속된_row_는_한_AggregatedMetric_으로_합쳐진다() throws Exception {
+            ListSource source = new ListSource(List.of(
+                    row(1L, LAST_7D_START,                    5),  // 7d 포함
+                    row(1L, LAST_7D_START.plusDays(3),       10),  // 7d 포함
+                    row(2L, LAST_30D_START,                   3)   // 30d 만
+            ));
+            StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
 
-        assertAll(
-                () -> assertThat(first.productId()).isEqualTo(1L),
-                () -> assertThat(first.sum7d()).isEqualTo(15),
-                () -> assertThat(first.sum30d()).isEqualTo(15),
-                () -> assertThat(second.productId()).isEqualTo(2L),
-                () -> assertThat(second.sum7d()).isEqualTo(0),
-                () -> assertThat(second.sum30d()).isEqualTo(3),
-                () -> assertThat(end).isNull()
-        );
+            AggregatedMetric first  = agg.next();
+            AggregatedMetric second = agg.next();
+            AggregatedMetric end    = agg.next();
+
+            assertAll(
+                    () -> assertThat(first.productId()).isEqualTo(1L),
+                    () -> assertThat(first.sum7d()).isEqualTo(15),
+                    () -> assertThat(first.sum30d()).isEqualTo(15),
+                    () -> assertThat(second.productId()).isEqualTo(2L),
+                    () -> assertThat(second.sum7d()).isEqualTo(0),
+                    () -> assertThat(second.sum30d()).isEqualTo(3),
+                    () -> assertThat(end).isNull()
+            );
+        }
+
+        @Test
+        void bucket_time_이_last7dStart_보다_앞이면_sum7d_에는_포함되지_않고_sum30d_에만_포함된다() throws Exception {
+            ListSource source = new ListSource(List.of(
+                    row(1L, LAST_30D_START,                       7),    // 30d O, 7d X
+                    row(1L, LAST_7D_START.minusSeconds(1),        2),    // 30d O, 7d X (경계 직전)
+                    row(1L, LAST_7D_START,                        3)     // 30d O, 7d O (경계 포함)
+            ));
+            StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
+
+            AggregatedMetric result = agg.next();
+
+            assertAll(
+                    () -> assertThat(result.sum30d()).isEqualTo(12),
+                    () -> assertThat(result.sum7d()).isEqualTo(3)
+            );
+        }
     }
 
-    @DisplayName("bucket_time 이 last7dStart 보다 앞이면 sum7d 에는 포함되지 않고 sum30d 에만 포함된다.")
-    @Test
-    void boundaryExcludesPre7dFromSum7d() throws Exception {
-        ListSource source = new ListSource(List.of(
-                row(1L, LAST_30D_START,                       7),    // 30d O, 7d X
-                row(1L, LAST_7D_START.minusSeconds(1),        2),    // 30d O, 7d X (경계 직전)
-                row(1L, LAST_7D_START,                        3)     // 30d O, 7d O (경계 포함)
-        ));
-        StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
+    @Nested
+    class 빈_소스 {
 
-        AggregatedMetric result = agg.next();
+        @Test
+        void 소스가_비어_있으면_첫_호출부터_null_을_반환한다() throws Exception {
+            StreamingMetricAggregator agg = new StreamingMetricAggregator(new ListSource(List.of()), LAST_7D_START);
 
-        assertAll(
-                () -> assertThat(result.sum30d()).isEqualTo(12),
-                () -> assertThat(result.sum7d()).isEqualTo(3)
-        );
+            assertThat(agg.next()).isNull();
+        }
+
+        @Test
+        void 한_번_exhausted_되면_이후_호출도_항상_null_을_반환한다() throws Exception {
+            ListSource source = new ListSource(List.of(row(1L, LAST_7D_START, 5)));
+            StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
+
+            assertAll(
+                    () -> assertThat(agg.next()).isNotNull(),
+                    () -> assertThat(agg.next()).isNull(),
+                    () -> assertThat(agg.next()).isNull()
+            );
+        }
     }
 
-    @DisplayName("소스가 비어 있으면 첫 호출부터 null 을 반환한다.")
-    @Test
-    void emptySourceReturnsNullImmediately() throws Exception {
-        StreamingMetricAggregator agg = new StreamingMetricAggregator(new ListSource(List.of()), LAST_7D_START);
+    @Nested
+    class 대량_처리 {
 
-        assertThat(agg.next()).isNull();
-    }
+        @Test
+        void 한_상품이_많은_row_를_가져도_O1_메모리로_처리된다() throws Exception {
+            int chainLength = 8_640;
+            ListSource source = new ListSource(generateChain(1L, chainLength));
+            StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
 
-    @DisplayName("한 번 exhausted 되면 이후 호출도 항상 null 을 반환한다.")
-    @Test
-    void stablyReturnsNullAfterExhaustion() throws Exception {
-        ListSource source = new ListSource(List.of(row(1L, LAST_7D_START, 5)));
-        StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
+            AggregatedMetric result = agg.next();
 
-        assertAll(
-                () -> assertThat(agg.next()).isNotNull(),
-                () -> assertThat(agg.next()).isNull(),
-                () -> assertThat(agg.next()).isNull()
-        );
-    }
-
-    @DisplayName("한 상품이 많은 row (예: 8,640 개) 를 가져도 O(1) 메모리로 처리된다.")
-    @Test
-    void handlesLongChainWithConstantMemory() throws Exception {
-        int chainLength = 8_640;
-        ListSource source = new ListSource(generateChain(1L, chainLength));
-        StreamingMetricAggregator agg = new StreamingMetricAggregator(source, LAST_7D_START);
-
-        AggregatedMetric result = agg.next();
-
-        assertAll(
-                () -> assertThat(result.productId()).isEqualTo(1L),
-                () -> assertThat(result.sum30d()).isEqualTo(chainLength),
-                () -> assertThat(agg.next()).isNull()
-        );
+            assertAll(
+                    () -> assertThat(result.productId()).isEqualTo(1L),
+                    () -> assertThat(result.sum30d()).isEqualTo(chainLength),
+                    () -> assertThat(agg.next()).isNull()
+            );
+        }
     }
 
     private static RawMetricRow row(long productId, LocalDateTime bucketTime, long count) {

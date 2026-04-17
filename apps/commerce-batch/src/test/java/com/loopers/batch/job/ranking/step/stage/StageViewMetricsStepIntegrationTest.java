@@ -6,7 +6,9 @@ import com.loopers.domain.ranking.staging.StagingRankingAggregationRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
@@ -32,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBatchTest
 @Import(MySqlTestContainersConfig.class)
 @TestPropertySource(properties = "spring.batch.job.name=" + RollingRankingJobConfig.JOB_NAME)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class StageViewMetricsStepIntegrationTest {
 
     private static final String ANCHOR = "20260414";
@@ -52,61 +55,70 @@ class StageViewMetricsStepIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("anchor 범위 내 bucket 은 집계되고, 범위 밖 (30일 이전·오늘 이후) 은 제외된다.")
-    @Test
-    void aggregatesOnlyWithinWindow() throws Exception {
-        // product 1: 7d 10 + 30d 추가 5 = sum7d 10, sum30d 15
-        saveView(1L, IN_7D, 10L);
-        saveView(1L, IN_30D_ONLY, 5L);
-        // product 2: 30d only
-        saveView(2L, IN_30D_ONLY, 7L);
-        // 범위 밖 — 집계 제외
-        saveView(3L, BEFORE_30D, 100L);
-        saveView(3L, ON_TODAY, 100L);
+    @Nested
+    class 윈도우_집계 {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+        @Test
+        void anchor_범위_내_bucket_은_집계되고_범위_밖은_제외된다() throws Exception {
+            // product 1: 7d 10 + 30d 추가 5 = sum7d 10, sum30d 15
+            saveView(1L, IN_7D, 10L);
+            saveView(1L, IN_30D_ONLY, 5L);
+            // product 2: 30d only
+            saveView(2L, IN_30D_ONLY, 7L);
+            // 범위 밖 — 집계 제외
+            saveView(3L, BEFORE_30D, 100L);
+            saveView(3L, ON_TODAY, 100L);
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(viewCount("LAST_7D",  ANCHOR, 1L)).isEqualTo(10L),
-                () -> assertThat(viewCount("LAST_30D", ANCHOR, 1L)).isEqualTo(15L),
-                () -> assertThat(viewCount("LAST_7D",  ANCHOR, 2L)).isEqualTo(0L),
-                () -> assertThat(viewCount("LAST_30D", ANCHOR, 2L)).isEqualTo(7L),
-                () -> assertThat(productExists(ANCHOR, 3L)).isFalse(),
-                () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isEqualTo(4L)  // (LAST_7D + LAST_30D) × 2 products
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(viewCount("LAST_7D",  ANCHOR, 1L)).isEqualTo(10L),
+                    () -> assertThat(viewCount("LAST_30D", ANCHOR, 1L)).isEqualTo(15L),
+                    () -> assertThat(viewCount("LAST_7D",  ANCHOR, 2L)).isEqualTo(0L),
+                    () -> assertThat(viewCount("LAST_30D", ANCHOR, 2L)).isEqualTo(7L),
+                    () -> assertThat(productExists(ANCHOR, 3L)).isFalse(),
+                    () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isEqualTo(4L)  // (LAST_7D + LAST_30D) × 2 products
+            );
+        }
     }
 
-    @DisplayName("같은 anchor 로 Job 을 다시 돌려도 결과가 동일하다 (멱등성).")
-    @Test
-    void idempotentOnRerun() throws Exception {
-        saveView(1L, IN_7D, 3L);
-        saveView(1L, IN_7D.plusHours(1), 4L);
+    @Nested
+    class 멱등성 {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution first  = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
-        JobExecution second = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+        @Test
+        void 같은_anchor_로_두번_돌려도_결과가_동일하다() throws Exception {
+            saveView(1L, IN_7D, 3L);
+            saveView(1L, IN_7D.plusHours(1), 4L);
 
-        assertAll(
-                () -> assertThat(first.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(second.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(viewCount("LAST_7D",  ANCHOR, 1L)).isEqualTo(7L),
-                () -> assertThat(viewCount("LAST_30D", ANCHOR, 1L)).isEqualTo(7L),
-                () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isEqualTo(2L)
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution first  = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+            JobExecution second = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(first.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(second.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(viewCount("LAST_7D",  ANCHOR, 1L)).isEqualTo(7L),
+                    () -> assertThat(viewCount("LAST_30D", ANCHOR, 1L)).isEqualTo(7L),
+                    () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isEqualTo(2L)
+            );
+        }
     }
 
-    @DisplayName("원천이 비어 있어도 Job 은 성공하고 staging 은 비어 있다.")
-    @Test
-    void emptySourceSucceeds() throws Exception {
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+    @Nested
+    class 빈_원천 {
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isZero()
-        );
+        @Test
+        void 원천이_비어_있어도_Job_은_성공하고_staging_은_비어_있다() throws Exception {
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(aggregationRepository.countByPeriodKey(ANCHOR)).isZero()
+            );
+        }
     }
 
     // -- helpers --

@@ -12,7 +12,9 @@ import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
@@ -47,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBatchTest
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @TestPropertySource(properties = "spring.batch.job.name=" + RollingRankingJobConfig.JOB_NAME)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class RollingRankingJobE2ETest {
 
     private static final String ANCHOR_KEY = "20260414";
@@ -70,98 +73,106 @@ class RollingRankingJobE2ETest {
         redisCleanUp.truncateAll();
     }
 
-    @DisplayName("원천 → MV → audit → Redis ZSET 까지 전체 파이프라인이 통과하고 identity cache 가 된다.")
-    @Test
-    void fullPipelineSucceedsAndProducesIdentityCache() throws Exception {
-        weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
+    @Nested
+    class 전체_파이프라인 {
 
-        // 3 product, 각각 다른 원천
-        saveView(1L, IN_7D, 100);  saveLike(1L, IN_7D, 50);  saveOrder(1L, IN_7D, 999);
-        saveView(2L, IN_7D, 50);   saveLike(2L, IN_7D, 10);  saveOrder(2L, IN_7D, 100);
-        saveView(3L, IN_7D, 10);   saveLike(3L, IN_7D, 2);   saveOrder(3L, IN_7D, 10);
+        @Test
+        void 원천에서_MV_audit_Redis_ZSET_까지_전체_파이프라인이_성공하고_identity_cache_가_된다() throws Exception {
+            weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+            // 3 product, 각각 다른 원천
+            saveView(1L, IN_7D, 100);  saveLike(1L, IN_7D, 50);  saveOrder(1L, IN_7D, 999);
+            saveView(2L, IN_7D, 50);   saveLike(2L, IN_7D, 10);  saveOrder(2L, IN_7D, 100);
+            saveView(3L, IN_7D, 10);   saveLike(3L, IN_7D, 2);   saveOrder(3L, IN_7D, 10);
 
-        // MV 에 TOP N (여기선 3 상품) 적재 + rank 1,2,3 연속
-        // Redis ZSET 에 같은 score 순으로 적재
-        Set<ZSetOperations.TypedTuple<String>> zsetLast7d = redisTemplate.opsForZSet()
-                .reverseRangeWithScores("ranking:last7d:" + ANCHOR_KEY + ":control", 0, -1);
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(3L),
-                () -> assertThat(last30dRepository.countByAnchorDate(ANCHOR)).isEqualTo(3L),
-                () -> assertThat(rankPositions("mv_product_rank_last_7d", "control")).containsExactly(1, 2, 3),
-                // audit 로그 2건 (LAST_7D + LAST_30D)
-                () -> assertThat(auditLogRepository.findByAnchorDate(ANCHOR))
-                        .extracting(BatchAuditLog::getStatus)
-                        .containsOnly(BatchAuditLog.STATUS_OK),
-                // Redis ZSET 에 동일 3 상품이 동일 score 로 들어감 (identity cache)
-                () -> assertThat(zsetLast7d).hasSize(3)
-        );
+            // MV 에 TOP N (여기선 3 상품) 적재 + rank 1,2,3 연속
+            // Redis ZSET 에 같은 score 순으로 적재
+            Set<ZSetOperations.TypedTuple<String>> zsetLast7d = redisTemplate.opsForZSet()
+                    .reverseRangeWithScores("ranking:last7d:" + ANCHOR_KEY + ":control", 0, -1);
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(3L),
+                    () -> assertThat(last30dRepository.countByAnchorDate(ANCHOR)).isEqualTo(3L),
+                    () -> assertThat(rankPositions("mv_product_rank_last_7d", "control")).containsExactly(1, 2, 3),
+                    // audit 로그 2건 (LAST_7D + LAST_30D)
+                    () -> assertThat(auditLogRepository.findByAnchorDate(ANCHOR))
+                            .extracting(BatchAuditLog::getStatus)
+                            .containsOnly(BatchAuditLog.STATUS_OK),
+                    // Redis ZSET 에 동일 3 상품이 동일 score 로 들어감 (identity cache)
+                    () -> assertThat(zsetLast7d).hasSize(3)
+            );
+        }
+
+        @Test
+        void 여러_weight_group_이_활성화되면_MV_Redis_모두_그룹별로_독립_생성된다() throws Exception {
+            weightConfigRepository.save(new WeightConfig("control",      0.1, 0.2, 0.7, 50, true));
+            weightConfigRepository.save(new WeightConfig("experiment_a", 0.8, 0.1, 0.1, 50, true));
+
+            saveView(1L, IN_7D, 100);
+            saveLike(1L, IN_7D, 50);
+            saveOrder(1L, IN_7D, 500);
+
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    // control + experiment_a 두 그룹 × 1 상품 = 2 row per MV
+                    () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(2L),
+                    () -> assertThat(redisTemplate.hasKey("ranking:last7d:" + ANCHOR_KEY + ":control")).isTrue(),
+                    () -> assertThat(redisTemplate.hasKey("ranking:last7d:" + ANCHOR_KEY + ":experiment_a")).isTrue(),
+                    () -> assertThat(redisTemplate.hasKey("ranking:last30d:" + ANCHOR_KEY + ":control")).isTrue(),
+                    () -> assertThat(redisTemplate.hasKey("ranking:last30d:" + ANCHOR_KEY + ":experiment_a")).isTrue()
+            );
+        }
     }
 
-    @DisplayName("여러 weight_group 이 활성화되면 MV·Redis 모두 그룹별로 독립 생성된다.")
-    @Test
-    void multipleWeightGroupsEachHaveOwnMvAndRedisKey() throws Exception {
-        weightConfigRepository.save(new WeightConfig("control",      0.1, 0.2, 0.7, 50, true));
-        weightConfigRepository.save(new WeightConfig("experiment_a", 0.8, 0.1, 0.1, 50, true));
+    @Nested
+    class 멱등성 {
 
-        saveView(1L, IN_7D, 100);
-        saveLike(1L, IN_7D, 50);
-        saveOrder(1L, IN_7D, 500);
+        @Test
+        void 같은_anchorDate_로_두번_돌려도_최종_결과가_동일하다() throws Exception {
+            weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
+            saveView(1L, IN_7D, 100);
+            saveLike(1L, IN_7D, 50);
+            saveOrder(1L, IN_7D, 999);
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+            jobLauncherTestUtils.setJob(job);
+            jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+            double firstScore = scoreOfMv("mv_product_rank_last_7d", ANCHOR_KEY, "control", 1L);
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                // control + experiment_a 두 그룹 × 1 상품 = 2 row per MV
-                () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(2L),
-                () -> assertThat(redisTemplate.hasKey("ranking:last7d:" + ANCHOR_KEY + ":control")).isTrue(),
-                () -> assertThat(redisTemplate.hasKey("ranking:last7d:" + ANCHOR_KEY + ":experiment_a")).isTrue(),
-                () -> assertThat(redisTemplate.hasKey("ranking:last30d:" + ANCHOR_KEY + ":control")).isTrue(),
-                () -> assertThat(redisTemplate.hasKey("ranking:last30d:" + ANCHOR_KEY + ":experiment_a")).isTrue()
-        );
+            JobExecution second = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
+            double secondScore = scoreOfMv("mv_product_rank_last_7d", ANCHOR_KEY, "control", 1L);
+
+            assertAll(
+                    () -> assertThat(second.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(1L),
+                    () -> assertThat(secondScore).isEqualTo(firstScore)
+            );
+        }
     }
 
-    @DisplayName("같은 anchorDate 로 두 번 돌려도 최종 결과가 동일하다 (배치 멱등성).")
-    @Test
-    void idempotentOnRerun() throws Exception {
-        weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
-        saveView(1L, IN_7D, 100);
-        saveLike(1L, IN_7D, 50);
-        saveOrder(1L, IN_7D, 999);
+    @Nested
+    class 빈_원천 {
 
-        jobLauncherTestUtils.setJob(job);
-        jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
-        double firstScore = scoreOfMv("mv_product_rank_last_7d", ANCHOR_KEY, "control", 1L);
+        @Test
+        void 원천이_비어_있어도_Job_은_성공한다() throws Exception {
+            weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
 
-        JobExecution second = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
-        double secondScore = scoreOfMv("mv_product_rank_last_7d", ANCHOR_KEY, "control", 1L);
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
 
-        assertAll(
-                () -> assertThat(second.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(1L),
-                () -> assertThat(secondScore).isEqualTo(firstScore)
-        );
-    }
-
-    @DisplayName("원천이 비어 있어도 Job 은 성공한다 (빈 배치 day).")
-    @Test
-    void emptySourceSucceedsWithNoMv() throws Exception {
-        weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
-
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR_KEY));
-
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isZero(),
-                () -> assertThat(last30dRepository.countByAnchorDate(ANCHOR)).isZero(),
-                () -> assertThat(redisTemplate.hasKey("ranking:last7d:" + ANCHOR_KEY + ":control")).isFalse()
-        );
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isZero(),
+                    () -> assertThat(last30dRepository.countByAnchorDate(ANCHOR)).isZero(),
+                    () -> assertThat(redisTemplate.hasKey("ranking:last7d:" + ANCHOR_KEY + ":control")).isFalse()
+            );
+        }
     }
 
     // -- helpers --

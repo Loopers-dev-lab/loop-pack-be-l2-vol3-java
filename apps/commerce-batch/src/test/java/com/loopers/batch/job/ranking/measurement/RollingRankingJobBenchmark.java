@@ -12,7 +12,9 @@ import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
@@ -49,6 +51,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBatchTest
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 @TestPropertySource(properties = "spring.batch.job.name=" + RollingRankingJobConfig.JOB_NAME)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class RollingRankingJobBenchmark {
 
     private static final LocalDate ANCHOR = LocalDate.of(2026, 4, 14);
@@ -72,30 +75,34 @@ class RollingRankingJobBenchmark {
         redisCleanUp.truncateAll();
     }
 
-    @DisplayName("[Benchmark] S단계 (1,000 product) 실행 시간")
-    @Test
-    void benchmark_small() throws Exception {
-        runBenchmark("S", SeedSpec.small(ANCHOR));
+    @Nested
+    class 선형성_측정 {
+
+        @Test
+        void S단계_1000_product_실행_시간() throws Exception {
+            runBenchmark("S", SeedSpec.small(ANCHOR));
+        }
+
+        @Test
+        void M단계_5000_product_실행_시간() throws Exception {
+            runBenchmark("M", SeedSpec.medium(ANCHOR));
+        }
+
+        @Test
+        void L단계_20000_product_실행_시간() throws Exception {
+            runBenchmark("L", SeedSpec.large(ANCHOR));
+        }
     }
 
-    @DisplayName("[Benchmark] M단계 (5,000 product) 실행 시간")
-    @Test
-    void benchmark_medium() throws Exception {
-        runBenchmark("M", SeedSpec.medium(ANCHOR));
-    }
+    @Nested
+    class 스파이크_측정 {
 
-    @DisplayName("[Benchmark] L단계 (20,000 product) 실행 시간")
-    @Test
-    void benchmark_large() throws Exception {
-        runBenchmark("L", SeedSpec.large(ANCHOR));
-    }
-
-    @DisplayName("[Benchmark] XL단계 - 스파이크 시뮬레이션 (활동 product 5배)")
-    @Test
-    void benchmark_xl_spike() throws Exception {
-        // L 의 5배 — Hot/Warm 의 일일 이벤트가 그만큼 폭증한 worst-case
-        SeedSpec spike = new SeedSpec(100_000, ANCHOR, 30, 42L);
-        runBenchmark("XL_SPIKE", spike);
+        @Test
+        void XL단계_스파이크_시뮬레이션_활동_product_5배() throws Exception {
+            // L 의 5배 — Hot/Warm 의 일일 이벤트가 그만큼 폭증한 worst-case
+            SeedSpec spike = new SeedSpec(100_000, ANCHOR, 30, 42L);
+            runBenchmark("XL_SPIKE", spike);
+        }
     }
 
     private void runBenchmark(String label, SeedSpec spec) throws Exception {

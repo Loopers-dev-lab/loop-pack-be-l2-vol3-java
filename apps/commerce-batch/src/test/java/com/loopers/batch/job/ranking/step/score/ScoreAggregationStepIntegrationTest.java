@@ -7,7 +7,9 @@ import com.loopers.domain.ranking.weight.WeightConfigRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.batch.core.Job;
@@ -39,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @SpringBatchTest
 @Import(MySqlTestContainersConfig.class)
 @TestPropertySource(properties = "spring.batch.job.name=" + RollingRankingJobConfig.JOB_NAME)
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class ScoreAggregationStepIntegrationTest {
 
     private static final String ANCHOR = "20260414";
@@ -55,68 +58,77 @@ class ScoreAggregationStepIntegrationTest {
         databaseCleanUp.truncateAllTables();
     }
 
-    @DisplayName("활성 weight_group 별로 2차 staging 에 row 가 fan-out 되고 score 가 공식대로 계산된다.")
-    @Test
-    void fansOutPerWeightGroupWithCorrectScore() throws Exception {
-        weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
+    @Nested
+    class score_계산 {
 
-        saveView(1L, IN_7D, 100);
-        saveLike(1L, IN_7D, 50);
-        saveOrder(1L, IN_7D, 999);
+        @Test
+        void 활성_weight_group_별로_2차_staging_에_fan_out_되고_score_가_공식대로_계산된다() throws Exception {
+            weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+            saveView(1L, IN_7D, 100);
+            saveLike(1L, IN_7D, 50);
+            saveOrder(1L, IN_7D, 999);
 
-        double expectedScore = ScoreFormula.compute(
-                100, 50, 999,
-                new WeightConfig("control", 0.1, 0.2, 0.7, 100, true)
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                // LAST_7D + LAST_30D × control 1 group = 2 rows
-                () -> assertThat(scoredCount(ANCHOR)).isEqualTo(2L),
-                () -> assertThat(scoreOf("LAST_7D",  ANCHOR, "control", 1L)).isCloseTo(expectedScore, offset(1e-9)),
-                () -> assertThat(scoreOf("LAST_30D", ANCHOR, "control", 1L)).isCloseTo(expectedScore, offset(1e-9))
-        );
+            double expectedScore = ScoreFormula.compute(
+                    100, 50, 999,
+                    new WeightConfig("control", 0.1, 0.2, 0.7, 100, true)
+            );
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    // LAST_7D + LAST_30D × control 1 group = 2 rows
+                    () -> assertThat(scoredCount(ANCHOR)).isEqualTo(2L),
+                    () -> assertThat(scoreOf("LAST_7D",  ANCHOR, "control", 1L)).isCloseTo(expectedScore, offset(1e-9)),
+                    () -> assertThat(scoreOf("LAST_30D", ANCHOR, "control", 1L)).isCloseTo(expectedScore, offset(1e-9))
+            );
+        }
     }
 
-    @DisplayName("여러 weight_group 이 활성화되어 있으면 각 그룹별로 독립적인 score 가 저장된다.")
-    @Test
-    void multipleWeightGroupsProduceIndependentScores() throws Exception {
-        weightConfigRepository.save(new WeightConfig("control",      0.1, 0.2, 0.7, 50, true));
-        weightConfigRepository.save(new WeightConfig("experiment_a", 0.8, 0.1, 0.1, 50, true));
-        weightConfigRepository.save(new WeightConfig("inactive",     0.3, 0.3, 0.4, 0, false));  // 제외
+    @Nested
+    class 다중_weight_group {
 
-        saveView(1L, IN_7D, 100);
-        saveLike(1L, IN_7D, 100);
-        saveOrder(1L, IN_7D, 999);
+        @Test
+        void 여러_weight_group_이_활성화되면_각_그룹별로_독립적인_score_가_저장된다() throws Exception {
+            weightConfigRepository.save(new WeightConfig("control",      0.1, 0.2, 0.7, 50, true));
+            weightConfigRepository.save(new WeightConfig("experiment_a", 0.8, 0.1, 0.1, 50, true));
+            weightConfigRepository.save(new WeightConfig("inactive",     0.3, 0.3, 0.4, 0, false));  // 제외
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+            saveView(1L, IN_7D, 100);
+            saveLike(1L, IN_7D, 100);
+            saveOrder(1L, IN_7D, 999);
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                // (LAST_7D + LAST_30D) × (control + experiment_a) = 4 rows, inactive 제외
-                () -> assertThat(scoredCount(ANCHOR)).isEqualTo(4L),
-                () -> assertThat(scoreOf("LAST_7D", ANCHOR, "control", 1L))
-                        .isNotEqualTo(scoreOf("LAST_7D", ANCHOR, "experiment_a", 1L)),
-                () -> assertThat(existsScored(ANCHOR, "inactive")).isFalse()
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    // (LAST_7D + LAST_30D) × (control + experiment_a) = 4 rows, inactive 제외
+                    () -> assertThat(scoredCount(ANCHOR)).isEqualTo(4L),
+                    () -> assertThat(scoreOf("LAST_7D", ANCHOR, "control", 1L))
+                            .isNotEqualTo(scoreOf("LAST_7D", ANCHOR, "experiment_a", 1L)),
+                    () -> assertThat(existsScored(ANCHOR, "inactive")).isFalse()
+            );
+        }
     }
 
-    @DisplayName("원천이 비어 있으면 1차/2차 staging 모두 비어 있고 Job 은 성공한다.")
-    @Test
-    void emptySourceProducesEmptyScored() throws Exception {
-        weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
+    @Nested
+    class 빈_원천 {
 
-        jobLauncherTestUtils.setJob(job);
-        JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+        @Test
+        void 원천이_비어_있으면_1차_2차_staging_모두_비어_있고_Job_은_성공한다() throws Exception {
+            weightConfigRepository.save(new WeightConfig("control", 0.1, 0.2, 0.7, 100, true));
 
-        assertAll(
-                () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                () -> assertThat(scoredCount(ANCHOR)).isZero()
-        );
+            jobLauncherTestUtils.setJob(job);
+            JobExecution execution = jobLauncherTestUtils.launchJob(paramsOf(ANCHOR));
+
+            assertAll(
+                    () -> assertThat(execution.getStatus()).isEqualTo(BatchStatus.COMPLETED),
+                    () -> assertThat(scoredCount(ANCHOR)).isZero()
+            );
+        }
     }
 
     // -- helpers --
