@@ -26,8 +26,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 
 /**
  * 롤링 7일 / 30일 랭킹 배치 Job 구성.
- * 현재 Step 0 (스테이징 초기화) + Step 1 (View 적재) 가 연결되어 있으며,
- * 이후 커밋에서 Step 2~7 가 순차 추가된다.
+ *
+ * <p>Step 체인: 0 → 1 → 2 → 3 → 4 → 5 → 5b → 7 → 6</p>
  */
 @Configuration
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = RollingRankingJobConfig.JOB_NAME)
@@ -49,8 +49,7 @@ public class RollingRankingJobConfig {
             @Qualifier(StageViewMetricsStepConfig.STEP_NAME) Step stageViewMetricsStep,
             @Qualifier(StageLikeMetricsStepConfig.STEP_NAME) Step stageLikeMetricsStep,
             @Qualifier(StageOrderMetricsStepConfig.STEP_NAME) Step stageOrderMetricsStep,
-            @Qualifier(PurgeMvStepConfig.STEP_LAST_7D) Step purgeLast7dMvStep,
-            @Qualifier(PurgeMvStepConfig.STEP_LAST_30D) Step purgeLast30dMvStep,
+            @Qualifier(PurgeMvStepConfig.STEP_NAME) Step purgeMvStep,
             @Qualifier(ScoreAggregationStepConfig.STEP_NAME) Step scoreAggregationStep,
             @Qualifier(PromoteTopToMvStepConfig.STEP_NAME) Step promoteTopToMvStep,
             @Qualifier(AuditStepConfig.STEP_NAME) Step auditStep,
@@ -63,8 +62,7 @@ public class RollingRankingJobConfig {
                 .next(stageViewMetricsStep)
                 .next(stageLikeMetricsStep)
                 .next(stageOrderMetricsStep)
-                .next(purgeLast7dMvStep)
-                .next(purgeLast30dMvStep)
+                .next(purgeMvStep)
                 .next(scoreAggregationStep)
                 .next(promoteTopToMvStep)
                 .next(auditStep)
