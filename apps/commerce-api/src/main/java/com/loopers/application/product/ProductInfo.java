@@ -12,6 +12,7 @@ public record ProductInfo(
         int price,
         int stock,
         int likeCount,
+        Long rank,          // 오늘 기준 랭킹 순위 (없으면 null)
         ZonedDateTime createdAt,
         ZonedDateTime updatedAt
 ) {
@@ -24,8 +25,14 @@ public record ProductInfo(
                 product.getPrice().getAmount(),
                 product.getStock().getQuantity(),
                 product.getLikeCount(),
+                null,
                 product.getCreatedAt(),
                 product.getUpdatedAt()
         );
+    }
+
+    public ProductInfo withRank(Long rank) {
+        return new ProductInfo(id, brandId, brandName, name, price, stock, likeCount,
+                rank, createdAt, updatedAt);
     }
 }

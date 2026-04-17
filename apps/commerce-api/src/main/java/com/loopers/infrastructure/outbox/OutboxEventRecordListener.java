@@ -45,7 +45,7 @@ public class OutboxEventRecordListener {
     public void onOrderCreated(OrderCreatedEvent event) {
         outboxRecorder.record("ORDER", event.orderId(), "ORDER_CREATED",
                 Map.of("orderId", event.orderId(), "userId", event.userId(),
-                        "totalAmount", event.totalAmount(), "itemCount", event.items().size()),
+                        "totalAmount", event.totalAmount(), "items", event.items()),
                 OutboxTopics.ORDER_EVENTS, String.valueOf(event.orderId()));
         log.debug("[Outbox 기록] ORDER_CREATED: orderId={}", event.orderId());
     }

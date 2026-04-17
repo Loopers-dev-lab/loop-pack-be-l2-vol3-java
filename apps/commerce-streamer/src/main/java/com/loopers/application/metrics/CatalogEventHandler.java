@@ -6,11 +6,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.domain.event.EventHandled;
 import com.loopers.domain.event.EventHandledRepository;
 import com.loopers.domain.metrics.ProductMetricsService;
+import com.loopers.domain.ranking.RankingMetricsService;
 import com.loopers.interfaces.consumer.OutboxMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.ZonedDateTime;
 
 /**
  * catalog-events 메시지 처리 핸들러.
@@ -24,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CatalogEventHandler {
 
     private final ProductMetricsService productMetricsService;
+    private final RankingMetricsService rankingMetricsService;
     private final EventHandledRepository eventHandledRepository;
     private final ObjectMapper objectMapper;
 
@@ -36,10 +41,23 @@ public class CatalogEventHandler {
         }
 
         Long productId = extractProductId(message.payload());
+        ZonedDateTime now = ZonedDateTime.now();
+        LocalDate today = now.toLocalDate();
+        int hour = now.getHour();
 
         switch (message.eventType()) {
-            case "LIKE_CREATED" -> productMetricsService.incrementLikeCount(productId);
-            case "LIKE_CANCELLED" -> productMetricsService.decrementLikeCount(productId);
+            case "LIKE_CREATED" -> {
+                productMetricsService.incrementLikeCount(productId);
+                rankingMetricsService.incrementLikeCount(productId, today, hour);
+            }
+            case "LIKE_CANCELLED" -> {
+                productMetricsService.decrementLikeCount(productId);
+                rankingMetricsService.decrementLikeCount(productId, today, hour);
+            }
+            case "PRODUCT_VIEWED" -> {
+                productMetricsService.incrementViewCount(productId);
+                rankingMetricsService.incrementViewCount(productId, today, hour);
+            }
             default -> log.warn("[CatalogEventHandler] 알 수 없는 이벤트 타입: {}", message.eventType());
         }
 

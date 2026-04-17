@@ -29,6 +29,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 // BR-A03: 상품 조회 및 브랜드 조회는 인증 없이 접근 가능 (비회원/회원 모두 허용)
                 .excludePathPatterns("/api/v1/products/**")
                 .excludePathPatterns("/api/v1/brands/**")
+                // BR-R01: 랭킹 조회는 공개 API — 비회원도 인기 상품 확인 가능
+                .excludePathPatterns("/api/v1/rankings/**")
                 // PG 시스템이 호출하는 콜백 엔드포인트 — 사용자 인증 불가
                 .excludePathPatterns("/api/v1/payments/callback");
 

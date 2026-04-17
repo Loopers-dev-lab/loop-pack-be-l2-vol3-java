@@ -13,7 +13,8 @@ public class ProductV1Dto {
             String name,
             int price,
             int stock,
-            int likeCount
+            int likeCount,
+            Long rank          // 오늘 기준 랭킹 순위 (랭킹 없으면 null)
     ) {
         public static ProductResponse from(ProductInfo info) {
             return new ProductResponse(
@@ -22,7 +23,8 @@ public class ProductV1Dto {
                     info.name(),
                     info.price(),
                     info.stock(),
-                    info.likeCount()
+                    info.likeCount(),
+                    info.rank()
             );
         }
     }

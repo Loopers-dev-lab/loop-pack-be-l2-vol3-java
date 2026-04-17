@@ -4,6 +4,7 @@ import com.loopers.config.CacheProperties;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.ranking.RankingService;
 import com.loopers.domain.useraction.UserActionEvent;
 import com.loopers.domain.useraction.UserActionEventPublisher;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,6 +27,7 @@ public class ProductFacade {
     private final ProductCacheRepository productCacheRepository;
     private final CacheProperties cacheProperties;
     private final UserActionEventPublisher userActionEventPublisher;
+    private final RankingService rankingService;
 
     // 상품 상세 조회 (Cache-Aside)
     @Transactional(readOnly = true)
@@ -41,7 +44,9 @@ public class ProductFacade {
         userActionEventPublisher.publish(new UserActionEvent(
                 UserActionEvent.ActionType.PRODUCT_VIEW, null, "PRODUCT", id, null));
 
-        return info;
+        // 오늘 기준 랭킹 순위 조회 (랭킹 없으면 null)
+        Long rank = rankingService.findProductRank(LocalDate.now(), id);
+        return info.withRank(rank);
     }
 
     // 상품 목록 조회 (Cache-Aside 패턴)

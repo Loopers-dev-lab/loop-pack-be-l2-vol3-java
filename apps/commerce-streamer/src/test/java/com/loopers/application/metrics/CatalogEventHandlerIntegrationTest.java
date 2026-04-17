@@ -3,6 +3,8 @@ package com.loopers.application.metrics;
 import com.loopers.domain.event.EventHandledRepository;
 import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.metrics.ProductMetricsRepository;
+import com.loopers.domain.ranking.RankingMetricsService;
+import com.loopers.domain.ranking.RankingMetricsSummary;
 import com.loopers.interfaces.consumer.OutboxMessage;
 import com.loopers.utils.DatabaseCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -11,6 +13,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -25,6 +29,9 @@ public class CatalogEventHandlerIntegrationTest {
 
     @Autowired
     private ProductMetricsRepository productMetricsRepository;
+
+    @Autowired
+    private RankingMetricsService rankingMetricsService;
 
     @Autowired
     private EventHandledRepository eventHandledRepository;
@@ -46,6 +53,12 @@ public class CatalogEventHandlerIntegrationTest {
     private OutboxMessage likeCancelledMessage(Long eventId) {
         return new OutboxMessage(
                 eventId, "PRODUCT", PRODUCT_ID, "LIKE_CANCELLED",
+                "{\"productId\": " + PRODUCT_ID + ", \"userId\": " + USER_ID + "}");
+    }
+
+    private OutboxMessage productViewedMessage(Long eventId) {
+        return new OutboxMessage(
+                eventId, "PRODUCT", PRODUCT_ID, "PRODUCT_VIEWED",
                 "{\"productId\": " + PRODUCT_ID + ", \"userId\": " + USER_ID + "}");
     }
 
@@ -106,6 +119,51 @@ public class CatalogEventHandlerIntegrationTest {
             // assert
             ProductMetrics metrics = productMetricsRepository.findByProductId(PRODUCT_ID).orElseThrow();
             assertThat(metrics.getLikeCount()).isEqualTo(0);
+        }
+    }
+
+    @DisplayName("PRODUCT_VIEWED 이벤트 처리")
+    @Nested
+    class HandleProductViewed {
+
+        @DisplayName("조회 이벤트를 처리하면 ranking_metrics에 view_count가 반영된다")
+        @Test
+        void rankingMetricsViewCountReflected() {
+            // act
+            catalogEventHandler.handle(productViewedMessage(1L));
+
+            // assert
+            RankingMetricsSummary summary = rankingMetricsService.sumByProductIdAndDate(PRODUCT_ID, LocalDate.now());
+            assertThat(summary.totalViewCount()).isEqualTo(1);
+        }
+
+        @DisplayName("서로 다른 조회 이벤트가 여러 번 처리되면 view_count가 누적된다")
+        @Test
+        void viewCountAccumulated() {
+            // act
+            catalogEventHandler.handle(productViewedMessage(1L));
+            catalogEventHandler.handle(productViewedMessage(2L));
+            catalogEventHandler.handle(productViewedMessage(3L));
+
+            // assert
+            RankingMetricsSummary summary = rankingMetricsService.sumByProductIdAndDate(PRODUCT_ID, LocalDate.now());
+            assertThat(summary.totalViewCount()).isEqualTo(3);
+        }
+    }
+
+    @DisplayName("LIKE_CREATED → ranking_metrics 반영")
+    @Nested
+    class LikeCreatedRankingMetrics {
+
+        @DisplayName("좋아요 생성 이벤트를 처리하면 ranking_metrics에 like_count가 반영된다")
+        @Test
+        void rankingMetricsLikeCountReflected() {
+            // act
+            catalogEventHandler.handle(likeCreatedMessage(1L));
+
+            // assert
+            RankingMetricsSummary summary = rankingMetricsService.sumByProductIdAndDate(PRODUCT_ID, LocalDate.now());
+            assertThat(summary.totalLikeCount()).isEqualTo(1);
         }
     }
 
