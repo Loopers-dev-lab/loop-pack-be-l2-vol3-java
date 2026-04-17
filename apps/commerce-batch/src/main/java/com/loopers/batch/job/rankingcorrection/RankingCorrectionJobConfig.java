@@ -40,9 +40,7 @@ import java.util.concurrent.TimeUnit;
  * <p>DB 원장(product_metrics) 기준으로 Redis 랭킹(Hash + ZSET)을 덮어쓴다.
  * 실시간 경로(Kafka → Redis)에서 누적된 드리프트를 1시간 주기로 보정.</p>
  *
- * <p>Score 수식 (v2 — 0~1 정규화):
- * {@code categoryPriority + W(view)×log₁₀(viewCount+1)/MAX_LOG + W(like)×log₁₀(likeCount+1)/MAX_LOG
- *   + W(order)×log₁₀(salesAmount+1)/MAX_LOG + lastEventEpochSeconds × TIEBREAKER_SCALE}</p>
+ * @see ScoreFormula
  */
 @Slf4j
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = RankingCorrectionJobConfig.JOB_NAME)

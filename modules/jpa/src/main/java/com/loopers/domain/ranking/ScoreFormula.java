@@ -1,16 +1,13 @@
 package com.loopers.domain.ranking;
 
 /**
- * 랭킹 Score 공식 — Single Source of Truth.
+ * 랭킹 Score 공식.
  *
  * <p>수식 (v2 — 0~1 정규화):
  * {@code categoryPriority + W(view)×log₁₀(viewCount+1)/MAX_LOG
  *   + W(like)×log₁₀(likeCount+1)/MAX_LOG
  *   + W(order)×log₁₀(salesAmount+1)/MAX_LOG
  *   + lastEventEpochSeconds × TIEBREAKER_SCALE}</p>
- *
- * <p>commerce-streamer(RankingScoreUpdater), commerce-batch(RankingCorrectionJobConfig,
- * ProductRankingMvJobConfig) 세 곳에서 이 클래스에 위임한다.</p>
  */
 public final class ScoreFormula {
 

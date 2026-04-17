@@ -14,15 +14,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.within;
 
-/**
- * RankingScoreUpdater의 ScoreFormula 위임 검증 + 키 생성 단위 테스트.
- *
- * <p>Score 공식 자체의 상세 테스트는 {@code ScoreFormulaTest}에서 수행한다.
- * 이 테스트는 RankingScoreUpdater가 ScoreFormula에 올바르게 위임하는지,
- * 그리고 Redis 키 생성이 올바른지를 검증한다.</p>
- */
 @ExtendWith(MockitoExtension.class)
 class RankingScoreUpdaterTest {
 

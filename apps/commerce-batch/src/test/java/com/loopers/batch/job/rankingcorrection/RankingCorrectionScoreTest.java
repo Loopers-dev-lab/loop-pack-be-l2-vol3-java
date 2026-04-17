@@ -20,13 +20,6 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-/**
- * RankingCorrectionJobConfig의 ScoreFormula 위임 검증.
- *
- * <p>Score 공식 자체의 상세 테스트는 {@code ScoreFormulaTest}에서 수행한다.
- * 이 테스트는 RankingCorrectionJobConfig가 ScoreFormula에 올바르게 위임하는지,
- * 그리고 resolveCategoryPriority가 올바르게 동작하는지를 검증한다.</p>
- */
 @ExtendWith(MockitoExtension.class)
 class RankingCorrectionScoreTest {
 

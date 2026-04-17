@@ -24,9 +24,7 @@ import java.util.concurrent.TimeUnit;
  * <p>Pipeline 2회: HINCRBY(Hash 누적) → 리턴값으로 score 계산 → ZADD(ZSET 덮어쓰기).
  * ZINCRBY 대신 HINCRBY→ZADD를 선택한 근거는 설계 문서 참조.</p>
  *
- * <p>Score 수식 (v2 — 0~1 정규화):
- * {@code categoryPriority + W(view)×log₁₀(viewCount+1)/MAX_LOG + W(like)×log₁₀(likeCount+1)/MAX_LOG
- *   + W(order)×log₁₀(salesAmount+1)/MAX_LOG + lastEventEpochSeconds × TIEBREAKER_SCALE}</p>
+ * @see ScoreFormula
  */
 @Slf4j
 @Component

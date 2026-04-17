@@ -36,15 +36,16 @@ Step 1: CleanupTasklet
 
 Step 2: Partitioned Aggregate (병렬)
   └─ product_id MIN~MAX 범위를 4파티션으로 분할
-  └─ 각 파티션이 독립적으로 Score 계산 → staging 테이블 적재
-  └─ Score = 0.1×LOG10(view+1)/7 + 0.2×LOG10(like+1)/7 + 0.7×LOG10(net_sales+1)/7
+  └─ Reader(SQL): 파티션별 GROUP BY 집계 (view, like, net_sales)
+  └─ Processor(Java): ScoreFormula.calculate()로 Score 계산
+  └─ Writer: staging 테이블 적재
 
 Step 3: Merge
   └─ staging에서 Global TOP 100 추출 → MV 테이블 적재
   └─ ROW_NUMBER() OVER (ORDER BY score DESC) LIMIT 100
 ```
 
-핵심은 **Map-Reduce 패턴**이다. 각 파티션(Map)이 독립적으로 score를 계산하고, Merge 단계(Reduce)에서 전체 순위를 매긴다.
+핵심은 **Map-Reduce 패턴**이다. 각 파티션(Map)이 독립적으로 메트릭을 집계(Reader SQL)하고 Score를 계산(Processor, `ScoreFormula`)한 뒤, Merge 단계(Reduce)에서 전체 순위를 매긴다.
 
 ---
 
@@ -136,30 +137,20 @@ private Partitioner createPartitioner(String targetDate, String scope) { ... }
 
 ---
 
-## 5. 테스트 데이터 설계에서 발견한 함정
+## 5. 테스트 데이터 설계: 운영에서 발생하는 6가지 패턴을 시나리오에 담기
 
-### "7일 데이터로는 주간과 월간의 차이를 증명할 수 없다"
-
-처음에는 모든 테스트에 7일치 데이터만 시딩했다. 7개 시나리오는 모두 통과했지만, **시각화 테스트를 추가했을 때** 문제가 드러났다:
-
-> 주간 랭킹과 월간 랭킹의 수치가 완전히 동일하다.
-
-당연하다. 주간은 7일 윈도우, 월간은 30일 윈도우인데, 데이터가 7일밖에 없으니 양쪽 모두 같은 7일을 집계한 것이다.
-
-이건 **테스트가 통과했지만 아무것도 증명하지 못한** 상태다. `monthlySuccess` 테스트는 "30일 윈도우로 쿼리한다"는 것만 확인했을 뿐, "30일 데이터가 7일 데이터와 다른 랭킹을 만든다"는 핵심 가정을 검증하지 않았다.
-
-### 해결: 30일 데이터 + 6가지 트렌드 패턴
+시간 윈도우별 랭킹 차이를 검증하려면 테스트 데이터가 실제 운영 환경의 트래픽 패턴을 반영해야 한다. 이커머스에서 반복적으로 관찰되는 6가지 패턴을 식별하고, 각각이 일간/주간/월간 랭킹에서 어떤 위치를 차지하는지 설계했다.
 
 ```
-A) 급상승  (5%):  과거 23일 미미 → 최근 7일 폭발
-B) 장기강자 (10%): 30일 꾸준히 높음
-C) 하락추세 (5%):  과거 23일 높음 → 최근 7일 급락
-D) 바이럴  (2%):  오늘 하루만 폭발
-E) 취소높음 (3%):  매출 높지만 취소 50~70%
-F) 일반   (75%): 보통 수준
+A) 급상승  (5%):  과거 23일 미미 → 최근 7일 폭발    — 시즌 상품, 인플루언서 픽
+B) 장기강자 (10%): 30일 꾸준히 높음               — 스테디셀러, 필수 소비재
+C) 하락추세 (5%):  과거 23일 높음 → 최근 7일 급락   — 시즌 아웃, 품질 이슈
+D) 바이럴  (2%):  오늘 하루만 폭발                — SNS 바이럴, 타임딜
+E) 취소높음 (3%):  매출 높지만 취소 50~70%         — 사이즈 이슈, 기대 불일치
+F) 일반   (75%): 보통 수준                       — 롱테일 상품군
 ```
 
-이 패턴으로 30일 데이터를 시딩하자, 일간/주간/월간 랭킹이 **완전히 다른 TOP 20**을 보여주었다.
+이 패턴의 핵심은 **각 트렌드가 시간 윈도우에 따라 순위가 뒤집힌다**는 것이다. 급상승 상품은 주간에서 상위지만 월간에서는 묻히고, 장기강자는 주간에서 눈에 띄지 않지만 월간에서 상위로 올라온다. 30일 데이터에 이 패턴을 시딩하자, 일간/주간/월간 랭킹이 **완전히 다른 TOP 20**을 보여주었다.
 
 ---
 
@@ -197,17 +188,21 @@ F) 일반   (75%): 보통 수준
 
 ### Score 공식
 
-```sql
-  0.1 * LOG10(GREATEST(SUM(view_count), 0) + 1) / 7.0
-+ 0.2 * LOG10(GREATEST(SUM(net_like_count), 0) + 1) / 7.0
-+ 0.7 * LOG10(GREATEST(SUM(net_sales_amount), 0) + 1) / 7.0
-+ UNIX_TIMESTAMP() * 1e-16
+Score 계산은 `ScoreFormula.calculate()`(modules/jpa)에 중앙화되어 있다. Streamer, Batch Correction, MV Job, API Drift Scheduler 등 4곳에서 동일한 공식을 호출한다.
+
+```
+score = viewWeight  × LOG10(view + 1) / 7.0
+      + likeWeight  × LOG10(like + 1) / 7.0
+      + salesWeight × LOG10(net_sales + 1) / 7.0
+      + categoryPriority
+      + timestamp   × 1e-16
 ```
 
 - **LOG10**: 조회수 100만과 200만의 차이가 1과 2만큼 크지 않게 만든다 (로그 스케일링)
-- **가중치 0.1/0.2/0.7**: 매출 중심 랭킹 (view 10%, like 20%, sales 70%)
+- **가중치 (기본 0.1/0.2/0.7)**: 매출 중심 랭킹 (view 10%, like 20%, sales 70%). `application.yml`에서 외부화
 - **/7.0**: 일간 Score와 범위를 맞추기 위한 정규화
-- **UNIX_TIMESTAMP * 1e-16**: Score가 동일할 때 최신 데이터를 우선하는 타이브레이커
+- **categoryPriority**: 카테고리별 가산점. 기존 MV Job SQL에서는 누락되어 있었으나 ScoreFormula 중앙화 시 반영
+- **timestamp × 1e-16**: Score가 동일할 때 최신 데이터를 우선하는 타이브레이커
 
 ### 취소 반영
 

@@ -7,17 +7,6 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-/**
- * ScoreFormula 단위 테스트 — 모든 Score 경로의 Single Source of Truth.
- *
- * <p>수식 (v2 — 0~1 정규화):
- * {@code categoryPriority + W(view)×log₁₀(viewCount+1)/MAX_LOG
- *   + W(like)×log₁₀(likeCount+1)/MAX_LOG
- *   + W(order)×log₁₀(salesAmount+1)/MAX_LOG
- *   + lastEventEpochSeconds × TIEBREAKER_SCALE}</p>
- *
- * <p>기본 가중치: view=0.1, like=0.2, order=0.7, MAX_LOG=7, TIEBREAKER_SCALE=1e-16</p>
- */
 class ScoreFormulaTest {
 
     private static final ScoreFormula.Weights DEFAULT_WEIGHTS = new ScoreFormula.Weights(0.1, 0.2, 0.7);
