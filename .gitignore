@@ -38,3 +38,8 @@ out/
 
 ### Kotlin ###
 .kotlin
+
+### Claude Code ###
+*.md
+!docs/**/*.md
+!blog/**/*.md
