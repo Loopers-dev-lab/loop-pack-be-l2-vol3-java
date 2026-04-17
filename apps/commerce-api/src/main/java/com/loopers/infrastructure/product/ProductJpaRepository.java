@@ -20,6 +20,8 @@ public interface ProductJpaRepository extends JpaRepository<ProductJpaEntity, Lo
 
     List<ProductJpaEntity> findAllByBrandIdAndDeletedAtIsNull(Long brandId);
 
+    List<ProductJpaEntity> findAllByIdInAndDeletedAtIsNull(List<Long> ids);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT p FROM ProductJpaEntity p WHERE p.id = :id")
     Optional<ProductJpaEntity> findByIdForUpdate(@Param("id") Long id);

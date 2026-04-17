@@ -12,7 +12,8 @@ public record ProductDetailResponse(
         boolean onSale,
         int stock,
         int likeCount,
-        String description
+        String description,
+        Long rank
 ) {
     public static ProductDetailResponse from(ProductQueryUseCase.ProductDetailInfo info) {
         return new ProductDetailResponse(
@@ -25,7 +26,8 @@ public record ProductDetailResponse(
                 info.onSale(),
                 info.stock(),
                 info.likeCount(),
-                info.description()
+                info.description(),
+                info.rank()
         );
     }
 }

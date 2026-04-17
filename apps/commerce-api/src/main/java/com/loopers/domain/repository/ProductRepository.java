@@ -20,6 +20,8 @@ public interface ProductRepository {
 
     List<Product> findAllByBrandId(Long brandId);
 
+    List<Product> findAllActiveByIds(List<Long> ids);
+
     void incrementLikeCount(Long productId);
 
     void decrementLikeCount(Long productId);

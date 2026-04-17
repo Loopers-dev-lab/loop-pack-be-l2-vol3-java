@@ -1,5 +1,6 @@
 package com.loopers.application.product;
 
+import com.loopers.application.ranking.RankingQueryUseCase;
 import com.loopers.domain.model.brand.Brand;
 import com.loopers.domain.model.brand.BrandData;
 import com.loopers.domain.model.brand.BrandName;
@@ -26,13 +27,15 @@ class ProductQueryServiceTest {
 
     private ProductRepository productRepository;
     private BrandRepository brandRepository;
+    private RankingQueryUseCase rankingQueryUseCase;
     private ProductQueryService service;
 
     @BeforeEach
     void setUp() {
         productRepository = mock(ProductRepository.class);
         brandRepository = mock(BrandRepository.class);
-        service = new ProductQueryService(productRepository, brandRepository);
+        rankingQueryUseCase = mock(RankingQueryUseCase.class);
+        service = new ProductQueryService(productRepository, brandRepository, rankingQueryUseCase);
     }
 
     @Nested

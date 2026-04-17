@@ -18,7 +18,8 @@ public interface ProductQueryUseCase {
             boolean onSale,
             int stock,
             int likeCount,
-            String description
+            String description,
+            Long rank
     ) {}
 
     record ProductSummaryInfo(
