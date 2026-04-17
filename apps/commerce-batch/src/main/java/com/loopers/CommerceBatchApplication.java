@@ -4,11 +4,13 @@ import jakarta.annotation.PostConstruct;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.TimeZone;
 
 @ConfigurationPropertiesScan
 @SpringBootApplication
+@EnableScheduling
 public class CommerceBatchApplication {
 
     @PostConstruct
@@ -18,7 +20,6 @@ public class CommerceBatchApplication {
     }
 
     public static void main(String[] args) {
-        int exitCode = SpringApplication.exit(SpringApplication.run(CommerceBatchApplication.class, args));
-        System.exit(exitCode);
+        SpringApplication.run(CommerceBatchApplication.class, args);
     }
 }
