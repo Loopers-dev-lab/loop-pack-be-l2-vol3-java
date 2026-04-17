@@ -44,12 +44,14 @@ public class RankingV1Controller implements RankingV1ApiSpec {
     @Override
     public ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> getRankings(
             @RequestParam(required = false) String date,
+            @RequestParam(required = false) String period,
+            @RequestParam(required = false) String periodKey,
             @RequestParam(defaultValue = "1") @Min(1) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
             @RequestParam(required = false) String rankingSnapshotId
     ) {
         Optional<String> snap = Optional.ofNullable(rankingSnapshotId).filter(s -> !s.isBlank());
-        RankingListInfo listResult = rankingFacade.getRankings(date, page, size, snap);
+        RankingListInfo listResult = rankingFacade.getRankings(date, period, periodKey, page, size, snap);
         return ResponseEntity.ok()
                 .header(HEADER_RANKING_DATA_SOURCE, listResult.dataSource())
                 .body(ApiResponse.success(RankingV1Dto.ListResponse.from(listResult)));

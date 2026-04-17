@@ -8,25 +8,30 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 
-@Tag(name = "Ranking V1 API", description = "일간 인기 상품 랭킹 API (비로그인 허용)")
+@Tag(name = "Ranking V1 API", description = "인기 상품 랭킹 API: 일간(Redis)·주간/월간(MV) (비로그인 허용)")
 public interface RankingV1ApiSpec {
 
     @Operation(
         summary = "랭킹 목록 조회",
-        description = "지정 일자의 일간 랭킹을 page·size 오프셋으로 조회합니다. Redis ZSET(ranking:all:{yyyyMMdd}) 점수 내림차순이며, "
-            + "date 생략 시 오늘(Asia/Seoul)입니다. `rankingSnapshotId`를 주면 POST /rankings/snapshots로 만든 스냅샷 ZSET에서만 페이징해 순서가 고정됩니다. "
-            + "라이브 조회는 실시간 갱신으로 재요청 시 항목이 달라질 수 있습니다. "
-            + "응답 `dataSource`는 REDIS·REDIS_SNAPSHOT·FALLBACK_LATEST·DEGRADED를 구분합니다. "
+        description = "일간: Redis ZSET(ranking:all:{yyyyMMdd}) 점수 내림차순, date 생략 시 오늘(Asia/Seoul). "
+            + "`rankingSnapshotId`를 주면 POST /rankings/snapshots로 만든 스냅샷 ZSET에서만 페이징합니다. "
+            + "주간/월간: `period=WEEKLY|MONTHLY`와 `periodKey`(주간 yyyyWww, 월간 yyyyMM)를 함께 지정하면 DB MV에서 조회합니다(일간과 date·스냅샷과 동시 사용 불가). "
+            + "MV는 최대 100행 기준으로 total·페이징하며, 요청 page가 범위를 넘으면 빈 content와 total 유지. "
+            + "응답 `dataSource`: REDIS·REDIS_SNAPSHOT·FALLBACK_LATEST·DEGRADED·MV_WEEKLY·MV_MONTHLY. "
             + "동일 값을 헤더 `X-Loopers-Ranking-Data-Source`로도 내려줍니다."
     )
     ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> getRankings(
-        @Parameter(description = "기준 일자 yyyyMMdd (선택, 기본 오늘 Asia/Seoul)")
+        @Parameter(description = "기준 일자 yyyyMMdd (일간 전용, 선택, 기본 오늘 Asia/Seoul)")
         String date,
+        @Parameter(description = "WEEKLY 또는 MONTHLY (주간/월간 MV, periodKey와 함께 지정)")
+        String period,
+        @Parameter(description = "주간 yyyyWww, 월간 yyyyMM")
+        String periodKey,
         @Parameter(description = "페이지 번호 (1부터)")
         @Min(1) int page,
         @Parameter(description = "페이지 크기 (1~100)")
         @Min(1) @Max(100) int size,
-        @Parameter(description = "스냅샷 UUID (선택, POST /rankings/snapshots에서 발급)")
+        @Parameter(description = "스냅샷 UUID (일간 전용, POST /rankings/snapshots에서 발급)")
         String rankingSnapshotId
     );
 

@@ -38,10 +38,10 @@ class RankingV1ControllerTest {
                 "FALLBACK_LATEST",
                 null
         );
-        when(rankingFacade.getRankings("20260408", 1, 20, Optional.empty())).thenReturn(fallback);
+        when(rankingFacade.getRankings("20260408", null, null, 1, 20, Optional.empty())).thenReturn(fallback);
 
         ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response =
-                rankingV1Controller.getRankings("20260408", 1, 20, null);
+                rankingV1Controller.getRankings("20260408", null, null, 1, 20, null);
 
         assertThat(response.getHeaders().getFirst(RankingV1Controller.HEADER_RANKING_DATA_SOURCE))
                 .isEqualTo("FALLBACK_LATEST");
@@ -61,10 +61,10 @@ class RankingV1ControllerTest {
                 "DEGRADED",
                 null
         );
-        when(rankingFacade.getRankings(null, 1, 20, Optional.empty())).thenReturn(degraded);
+        when(rankingFacade.getRankings(null, null, null, 1, 20, Optional.empty())).thenReturn(degraded);
 
         ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response =
-                rankingV1Controller.getRankings(null, 1, 20, null);
+                rankingV1Controller.getRankings(null, null, null, 1, 20, null);
 
         assertThat(response.getHeaders().getFirst(RankingV1Controller.HEADER_RANKING_DATA_SOURCE))
                 .isEqualTo("DEGRADED");

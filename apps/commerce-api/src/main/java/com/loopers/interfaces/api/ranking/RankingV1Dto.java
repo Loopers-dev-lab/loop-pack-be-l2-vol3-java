@@ -69,7 +69,7 @@ public class RankingV1Dto {
             long totalElements,
             @Schema(description = "총 페이지 수(ceil(totalElements/size), totalElements=0이면 0)")
             int totalPages,
-            @Schema(description = "REDIS·REDIS_SNAPSHOT·FALLBACK_LATEST·DEGRADED")
+            @Schema(description = "REDIS·REDIS_SNAPSHOT·FALLBACK_LATEST·DEGRADED·MV_WEEKLY·MV_MONTHLY")
             String dataSource,
             @Schema(description = "스냅샷 조회 시 echo, 라이브 조회면 null")
             String rankingSnapshotId

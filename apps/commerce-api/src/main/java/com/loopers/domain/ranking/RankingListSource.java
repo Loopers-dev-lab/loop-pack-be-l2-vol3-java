@@ -17,5 +17,11 @@ public enum RankingListSource {
     FALLBACK_DB_LATEST,
 
     /** Redis를 읽지 못했고 fallback도 쓰지 않았거나 결과가 비었을 때 */
-    DEGRADED_EMPTY
+    DEGRADED_EMPTY,
+
+    /** 주간 랭킹 MV({@code mv_product_rank_weekly}) */
+    MV_WEEKLY,
+
+    /** 월간 랭킹 MV({@code mv_product_rank_monthly}) */
+    MV_MONTHLY
 }

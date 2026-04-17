@@ -1,9 +1,13 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.RankingMvPeriod;
+import com.loopers.domain.ranking.RankingMvRequestValidator;
 import com.loopers.domain.ranking.RankingPage;
 import com.loopers.domain.ranking.RankingQueryService;
 import com.loopers.domain.ranking.RankingRequestDate;
 import com.loopers.domain.ranking.RankingSnapshotCreateResult;
+import com.loopers.support.error.CoreException;
+import com.loopers.support.error.ErrorType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +39,7 @@ public class RankingFacade {
      */
     @Transactional(readOnly = true)
     public RankingListInfo getRankings(String dateYyyyMmDdOptional, int page, int size) {
-        return getRankings(dateYyyyMmDdOptional, page, size, Optional.empty());
+        return getRankings(dateYyyyMmDdOptional, null, null, page, size, Optional.empty());
     }
 
     /**
@@ -44,6 +48,40 @@ public class RankingFacade {
     @Transactional(readOnly = true)
     public RankingListInfo getRankings(
             String dateYyyyMmDdOptional, int page, int size, Optional<String> rankingSnapshotId) {
+        return getRankings(dateYyyyMmDdOptional, null, null, page, size, rankingSnapshotId);
+    }
+
+    /**
+     * 일간 Redis 또는 주간/월간 MV 랭킹 조회.
+     *
+     * @param periodRaw            {@code WEEKLY} / {@code MONTHLY} (선택, 주간·월간 MV)
+     * @param periodKeyRaw         주간 yyyyWww, 월간 yyyyMM (선택)
+     */
+    @Transactional(readOnly = true)
+    public RankingListInfo getRankings(
+            String dateYyyyMmDdOptional,
+            String periodRaw,
+            String periodKeyRaw,
+            int page,
+            int size,
+            Optional<String> rankingSnapshotId) {
+        Optional<String> dateOpt = Optional.ofNullable(dateYyyyMmDdOptional).filter(s -> !s.isBlank());
+        boolean periodPresent = periodRaw != null && !periodRaw.isBlank();
+        boolean periodKeyPresent = periodKeyRaw != null && !periodKeyRaw.isBlank();
+        RankingMvRequestValidator.validateMvPairPresent(periodPresent, periodKeyPresent);
+        boolean mvRequested = periodPresent;
+        RankingMvRequestValidator.validateMutualExclusion(dateOpt, mvRequested);
+        if (mvRequested && rankingSnapshotId.filter(s -> !s.isBlank()).isPresent()) {
+            throw new CoreException(
+                    ErrorType.BAD_REQUEST,
+                    "주간/월간 조회에서는 rankingSnapshotId를 사용할 수 없습니다.");
+        }
+        if (mvRequested) {
+            RankingMvPeriod period = RankingMvRequestValidator.parsePeriod(periodRaw);
+            RankingMvRequestValidator.validatePeriodKey(period, periodKeyRaw);
+            RankingPage pageResult = rankingQueryService.loadMvPage(period, periodKeyRaw, page, size);
+            return RankingListInfo.from(pageResult);
+        }
         LocalDate date = RankingRequestDate.resolveOptionalYyyyMmDd(dateYyyyMmDdOptional);
         RankingPage pageResult = rankingQueryService.loadPage(date, page, size, rankingSnapshotId);
         return RankingListInfo.from(pageResult);

@@ -51,6 +51,8 @@ public record RankingListInfo(
             case REDIS_ZSET_SNAPSHOT -> "REDIS_SNAPSHOT";
             case FALLBACK_DB_LATEST -> "FALLBACK_LATEST";
             case DEGRADED_EMPTY -> "DEGRADED";
+            case MV_WEEKLY -> "MV_WEEKLY";
+            case MV_MONTHLY -> "MV_MONTHLY";
         };
     }
 }

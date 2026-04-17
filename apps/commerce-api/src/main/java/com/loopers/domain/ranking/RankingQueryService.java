@@ -47,6 +47,7 @@ public class RankingQueryService {
 
     private final RankingReadRepository rankingReadRepository;
     private final RankingSnapshotRepository rankingSnapshotRepository;
+    private final RankingMvReadRepository rankingMvReadRepository;
     private final ProductRepository productRepository;
     private final BrandService brandService;
     private final LikeService likeService;
@@ -57,6 +58,7 @@ public class RankingQueryService {
     public RankingQueryService(
             RankingReadRepository rankingReadRepository,
             RankingSnapshotRepository rankingSnapshotRepository,
+            RankingMvReadRepository rankingMvReadRepository,
             ProductRepository productRepository,
             BrandService brandService,
             LikeService likeService,
@@ -65,12 +67,111 @@ public class RankingQueryService {
             @Value("${app.ranking.snapshot-ttl-seconds:600}") long snapshotTtlSeconds) {
         this.rankingReadRepository = rankingReadRepository;
         this.rankingSnapshotRepository = rankingSnapshotRepository;
+        this.rankingMvReadRepository = rankingMvReadRepository;
         this.productRepository = productRepository;
         this.brandService = brandService;
         this.likeService = likeService;
         this.meterRegistry = meterRegistry;
         this.fallbackOnRedisFailure = fallbackOnRedisFailure;
         this.snapshotTtlSeconds = snapshotTtlSeconds;
+    }
+
+    /**
+     * 주간/월간 MV에서 랭킹 페이지를 조회한다. 행 수는 최대 100으로 캡한다.
+     *
+     * @param period        WEEKLY 또는 MONTHLY
+     * @param periodKey     검증된 기간 키(주간 yyyyWww, 월간 yyyyMM)
+     * @param pageOneBased  페이지 (1부터)
+     * @param size          페이지 크기
+     * @return MV 기준 랭킹 페이지
+     */
+    public RankingPage loadMvPage(
+            RankingMvPeriod period,
+            String periodKey,
+            int pageOneBased,
+            int size) {
+        validatePageAndSize(pageOneBased, size);
+        List<RankingMvTableRow> all = switch (period) {
+            case WEEKLY -> rankingMvReadRepository.findWeeklyByPeriodKeyOrdered(periodKey);
+            case MONTHLY -> rankingMvReadRepository.findMonthlyByPeriodKeyOrdered(periodKey);
+        };
+        RankingListSource listSource = switch (period) {
+            case WEEKLY -> RankingListSource.MV_WEEKLY;
+            case MONTHLY -> RankingListSource.MV_MONTHLY;
+        };
+        List<RankingMvTableRow> capped = all.stream().limit(100).toList();
+        long total = capped.size();
+        int totalPages = computeTotalPages(total, size);
+        if (total == 0L) {
+            return new RankingPage(
+                    List.of(), pageOneBased, size, 0L, 0, listSource, null);
+        }
+        long startIndex = (long) (pageOneBased - 1) * size;
+        if (startIndex >= total) {
+            meterRegistry.counter("ranking.mv.page_beyond", "period", period.name()).increment();
+            log.debug(
+                    "ranking.mv.page_beyond period={} periodKey={} total={} page={} size={}",
+                    period,
+                    periodKey,
+                    total,
+                    pageOneBased,
+                    size);
+            return new RankingPage(
+                    List.of(), pageOneBased, size, total, totalPages, listSource, null);
+        }
+        int from = (int) startIndex;
+        int to = (int) Math.min(startIndex + size, total);
+        List<RankingMvTableRow> slice = capped.subList(from, to);
+        List<RankingRow> rows = hydrateMvRows(slice);
+        return new RankingPage(rows, pageOneBased, size, total, totalPages, listSource, null);
+    }
+
+    /**
+     * 주간/월간 MV 행을 랭킹 행으로 변환한다.
+     *
+     * @param slice 주간/월간 MV 행
+     * @return 랭킹 행
+     */
+    private List<RankingRow> hydrateMvRows(List<RankingMvTableRow> slice) {
+        if (slice.isEmpty()) {
+            return List.of();
+        }
+        List<Long> parsedIds = slice.stream().map(RankingMvTableRow::productId).toList();
+        Map<Long, ProductModel> productMap = productRepository.findByIdInAndNotDeletedAsMap(parsedIds);
+        List<Long> brandIds = productMap.values().stream()
+                .map(ProductModel::getBrandId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, BrandModel> brandMap = brandIds.isEmpty()
+                ? Map.of()
+                : brandService.findByIdAndNotDeletedIn(brandIds);
+        Map<Long, Long> likeMap = likeService.getLikeCountByProductIdsFromStats(parsedIds);
+
+        List<RankingRow> rows = new ArrayList<>();
+        for (RankingMvTableRow row : slice) {
+            ProductModel product = productMap.get(row.productId());
+            if (product == null) {
+                continue;
+            }
+            BrandModel brand = brandMap.get(product.getBrandId());
+            if (brand == null) {
+                continue;
+            }
+            long likeCount = likeMap.getOrDefault(row.productId(), 0L);
+            rows.add(new RankingRow(
+                    row.rankValue(),
+                    row.productId(),
+                    row.score().doubleValue(),
+                    product.getName(),
+                    product.getPrice(),
+                    product.getBrandId(),
+                    brand.getName(),
+                    likeCount,
+                    product.getStockQuantity()
+            ));
+        }
+        return rows;
     }
 
     /**
