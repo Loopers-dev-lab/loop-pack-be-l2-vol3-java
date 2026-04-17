@@ -18,6 +18,9 @@ import org.springframework.test.context.jdbc.Sql;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,15 +42,16 @@ class ProductRankingMvJobE2ETest {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final String TARGET_DATE = "20260416";
+    private static final int SEED_BATCH_SIZE = 1_000;
 
     @BeforeEach
     void setUp() {
         jobLauncherTestUtils.setJob(job);
-        jdbcTemplate.update("DELETE FROM mv_product_rank_weekly");
-        jdbcTemplate.update("DELETE FROM mv_product_rank_monthly");
-        jdbcTemplate.update("DELETE FROM mv_product_rank_staging");
-        jdbcTemplate.update("DELETE FROM product_metrics");
-        jdbcTemplate.update("DELETE FROM product");
+        jdbcTemplate.execute("TRUNCATE TABLE mv_product_rank_weekly");
+        jdbcTemplate.execute("TRUNCATE TABLE mv_product_rank_monthly");
+        jdbcTemplate.execute("TRUNCATE TABLE mv_product_rank_staging");
+        jdbcTemplate.execute("TRUNCATE TABLE product_metrics");
+        jdbcTemplate.execute("TRUNCATE TABLE product");
     }
 
     private void seedProducts(int count) {
@@ -82,6 +86,145 @@ class ProductRankingMvJobE2ETest {
             .addLong("run.id", System.currentTimeMillis())
             .toJobParameters();
         return jobLauncherTestUtils.launchJob(params).getStatus();
+    }
+
+    // ── Bulk Seed (대규모 테스트용) ──────────────────────────────────────
+
+    private void seedProductsBulk(int count) {
+        String sql = "INSERT INTO product (id, brand_id, name, price, stock_quantity, like_count, created_at, updated_at) " +
+            "VALUES (?, 1, ?, ?, 1000, 0, NOW(), NOW())";
+        for (int batchStart = 0; batchStart < count; batchStart += SEED_BATCH_SIZE) {
+            int start = batchStart;
+            int end = Math.min(batchStart + SEED_BATCH_SIZE, count);
+            jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    int p = start + i + 1;
+                    ps.setLong(1, p);
+                    ps.setString(2, "product-" + p);
+                    ps.setInt(3, 10_000 + (p % 90_000));
+                }
+                @Override
+                public int getBatchSize() { return end - start; }
+            });
+        }
+    }
+
+    /**
+     * 6가지 트렌드 패턴으로 메트릭 벌크 시드.
+     * <pre>
+     *   A) 급상승    (1~5,000  = 5%)  : 최근 7일 폭발, 이전 미미
+     *   B) 장기강자  (5,001~15,000 = 10%): 30일 꾸준히 높음
+     *   C) 하락추세  (15,001~20,000 = 5%): 이전 높음 → 최근 급락
+     *   D) 바이럴    (20,001~22,000 = 2%): 오늘만 폭발
+     *   E) 취소높음  (22,001~25,000 = 3%): 매출 높지만 취소 50~70%
+     *   F) 일반      (25,001~100,000 = 75%): 보통 수준
+     * </pre>
+     */
+    private void seedMetricsBulkWithTrends(int productCount, int days, String endDateStr) {
+        LocalDate endDate = LocalDate.parse(endDateStr, DATE_FORMATTER);
+        String sql = "INSERT INTO product_metrics " +
+            "(product_id, metric_date, view_count, like_count, unlike_count, " +
+            "sales_count, sales_amount, cancel_count_by_event_date, cancel_amount_by_event_date, " +
+            "cancel_count_by_order_date, cancel_amount_by_order_date) " +
+            "VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)";
+
+        for (int d = 0; d < days; d++) {
+            LocalDate date = endDate.minusDays(d);
+            boolean isRecent = d < 7;
+            boolean isToday = d == 0;
+
+            for (int batchStart = 0; batchStart < productCount; batchStart += SEED_BATCH_SIZE) {
+                int start = batchStart;
+                int end = Math.min(batchStart + SEED_BATCH_SIZE, productCount);
+                final LocalDate metricDate = date;
+                final boolean recent = isRecent;
+                final boolean today = isToday;
+
+                jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+                    @Override
+                    public void setValues(PreparedStatement ps, int i) throws SQLException {
+                        int p = start + i + 1;
+                        int views, likes, salesCount;
+                        long salesAmount;
+                        long cancelAmount = 0;
+                        int cancelCount = 0;
+
+                        if (p <= 5_000) {
+                            // A) 급상승
+                            if (recent) {
+                                views = 4_000 + p;
+                                likes = 500 + p / 10;
+                                salesAmount = 2_000_000L + p * 200L;
+                            } else {
+                                views = 50;
+                                likes = 5;
+                                salesAmount = 20_000L;
+                            }
+                        } else if (p <= 15_000) {
+                            // B) 장기강자
+                            int pos = p - 5_000;
+                            views = 1_000 + pos / 5;
+                            likes = 100 + pos / 50;
+                            salesAmount = 1_500_000L + pos * 50L;
+                        } else if (p <= 20_000) {
+                            // C) 하락추세
+                            int pos = p - 15_000;
+                            if (recent) {
+                                views = 100;
+                                likes = 10;
+                                salesAmount = 50_000L;
+                            } else {
+                                views = 2_000 + pos / 3;
+                                likes = 200 + pos / 25;
+                                salesAmount = 1_500_000L + pos * 100L;
+                            }
+                        } else if (p <= 22_000) {
+                            // D) 바이럴
+                            if (today) {
+                                views = 15_000;
+                                likes = 2_000;
+                                salesAmount = 5_000_000L;
+                            } else {
+                                views = 100;
+                                likes = 10;
+                                salesAmount = 50_000L;
+                            }
+                        } else if (p <= 25_000) {
+                            // E) 취소높음
+                            views = 1_500;
+                            likes = 150;
+                            salesAmount = 2_000_000L;
+                            int cancelRate = 50 + ((p - 22_001) % 3) * 10;
+                            cancelAmount = salesAmount * cancelRate / 100;
+                            cancelCount = (int) (cancelAmount / 100_000);
+                        } else {
+                            // F) 일반
+                            int pos = p - 25_000;
+                            views = 200 + pos / 30;
+                            likes = 20 + pos / 300;
+                            salesAmount = 100_000L + pos * 3L;
+                        }
+
+                        salesCount = (int) (salesAmount / 50_000) + 1;
+
+                        ps.setLong(1, p);
+                        ps.setObject(2, metricDate);
+                        ps.setInt(3, views);
+                        ps.setInt(4, likes);
+                        ps.setInt(5, salesCount);
+                        ps.setLong(6, salesAmount);
+                        ps.setInt(7, cancelCount);
+                        ps.setLong(8, cancelAmount);
+                        ps.setInt(9, cancelCount);
+                        ps.setLong(10, cancelAmount);
+                    }
+
+                    @Override
+                    public int getBatchSize() { return end - start; }
+                });
+            }
+        }
     }
 
     // ── 주간 랭킹 Job ──────────────────────────────────────────────────
@@ -412,6 +555,85 @@ class ProductRankingMvJobE2ETest {
         }
         System.out.println();
     }
+
+    // ── 대규모 성능 테스트 ──────────────────────────────────────────────
+
+    @Test
+    @DisplayName("대규모 — 10만 상품 × 30일 메트릭, 4 Partition 병렬 집계")
+    void largeScalePartitionedBatchTest() throws Exception {
+        int productCount = 100_000;
+        int metricDays = 30;
+
+        // ── 시드 ──
+        long t0 = System.currentTimeMillis();
+        seedProductsBulk(productCount);
+        long productSeedMs = System.currentTimeMillis() - t0;
+
+        t0 = System.currentTimeMillis();
+        seedMetricsBulkWithTrends(productCount, metricDays, TARGET_DATE);
+        long metricSeedMs = System.currentTimeMillis() - t0;
+
+        int metricRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM product_metrics", Integer.class);
+        System.out.printf("%n[시드 완료] 상품 %,d건 (%,dms) / 메트릭 %,d건 (%,dms)%n",
+            productCount, productSeedMs, metricRows, metricSeedMs);
+
+        // ── Weekly ──
+        t0 = System.currentTimeMillis();
+        BatchStatus weeklyStatus = runJob("weekly");
+        long weeklyMs = System.currentTimeMillis() - t0;
+
+        assertThat(weeklyStatus).isEqualTo(BatchStatus.COMPLETED);
+
+        int weeklyMvCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM mv_product_rank_weekly WHERE period_key = ?",
+            Integer.class, TARGET_DATE);
+        assertThat(weeklyMvCount).isEqualTo(100);
+
+        Long weeklyTopId = jdbcTemplate.queryForObject(
+            "SELECT product_id FROM mv_product_rank_weekly WHERE period_key = ? AND ranking = 1",
+            Long.class, TARGET_DATE);
+        // 급상승 그룹(1~5000) 중 p=5000이 최고 메트릭
+        assertThat(weeklyTopId).isEqualTo(5_000L);
+
+        // ── Monthly ──
+        t0 = System.currentTimeMillis();
+        BatchStatus monthlyStatus = runJob("monthly");
+        long monthlyMs = System.currentTimeMillis() - t0;
+
+        assertThat(monthlyStatus).isEqualTo(BatchStatus.COMPLETED);
+
+        int monthlyMvCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM mv_product_rank_monthly WHERE period_key = ?",
+            Integer.class, TARGET_DATE);
+        assertThat(monthlyMvCount).isEqualTo(100);
+
+        Long monthlyTopId = jdbcTemplate.queryForObject(
+            "SELECT product_id FROM mv_product_rank_monthly WHERE period_key = ? AND ranking = 1",
+            Long.class, TARGET_DATE);
+        // 장기강자 그룹(5001~15000) 중 p=15000이 최고 메트릭
+        assertThat(monthlyTopId).isEqualTo(15_000L);
+
+        // ── 파티션 균등 분배 검증 (monthly 실행 후 staging 기준) ──
+        int stagingTotal = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM mv_product_rank_staging WHERE period_key = ?",
+            Integer.class, TARGET_DATE);
+        assertThat(stagingTotal).isEqualTo(productCount);
+
+        // ── 결과 출력 ──
+        System.out.println();
+        System.out.println("═══════════════════════════════════════════════════");
+        System.out.println("  대규모 배치 테스트 결과 (10만 건)");
+        System.out.println("═══════════════════════════════════════════════════");
+        System.out.printf("  상품 수          : %,d%n", productCount);
+        System.out.printf("  메트릭 행 수     : %,d%n", metricRows);
+        System.out.printf("  Partitioning     : %d Worker%n", 4);
+        System.out.printf("  Weekly  소요     : %,dms (1위: product_%d, 급상승)%n", weeklyMs, weeklyTopId);
+        System.out.printf("  Monthly 소요     : %,dms (1위: product_%d, 장기강자)%n", monthlyMs, monthlyTopId);
+        System.out.printf("  Staging 적재     : %,d건 (~%,d건/partition)%n", stagingTotal, stagingTotal / 4);
+        System.out.println("═══════════════════════════════════════════════════");
+    }
+
+    // ── 엣지 케이스 ─────────────────────────────────────────────────────
 
     @Test
     @DisplayName("엣지 — 취소 반영: cancel_amount가 score에 반영")
