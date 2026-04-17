@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS brand (
 CREATE TABLE IF NOT EXISTS product (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     brand_id BIGINT NOT NULL,
+    category_id BIGINT,
     name VARCHAR(255) NOT NULL,
     price INT NOT NULL,
     stock_quantity INT NOT NULL,
@@ -97,4 +98,59 @@ CREATE TABLE IF NOT EXISTS reconciliation_mismatch (
     created_at DATETIME(6),
     updated_at DATETIME(6),
     note TEXT
+);
+
+CREATE TABLE IF NOT EXISTS product_metrics (
+    product_id BIGINT NOT NULL,
+    metric_date DATE NOT NULL,
+    view_count INT NOT NULL DEFAULT 0,
+    like_count INT NOT NULL DEFAULT 0,
+    unlike_count INT NOT NULL DEFAULT 0,
+    sales_count INT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    cancel_count_by_event_date INT NOT NULL DEFAULT 0,
+    cancel_amount_by_event_date BIGINT NOT NULL DEFAULT 0,
+    cancel_count_by_order_date INT NOT NULL DEFAULT 0,
+    cancel_amount_by_order_date BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (product_id, metric_date),
+    INDEX idx_metric_date (metric_date)
+);
+
+CREATE TABLE IF NOT EXISTS mv_product_rank_weekly (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    ranking INT NOT NULL,
+    score DOUBLE NOT NULL,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    period_key VARCHAR(8) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_period_ranking (period_key, ranking)
+);
+
+CREATE TABLE IF NOT EXISTS mv_product_rank_monthly (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    ranking INT NOT NULL,
+    score DOUBLE NOT NULL,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    period_key VARCHAR(8) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_period_ranking (period_key, ranking)
+);
+
+CREATE TABLE IF NOT EXISTS mv_product_rank_staging (
+    product_id BIGINT NOT NULL,
+    score DOUBLE NOT NULL,
+    view_count BIGINT NOT NULL DEFAULT 0,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    sales_amount BIGINT NOT NULL DEFAULT 0,
+    period_key VARCHAR(8) NOT NULL,
+    PRIMARY KEY (product_id, period_key)
 );
