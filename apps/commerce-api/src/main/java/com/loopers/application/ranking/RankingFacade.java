@@ -4,6 +4,7 @@ import com.loopers.domain.brand.BrandModel;
 import com.loopers.application.brand.BrandService;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductRepository;
+import com.loopers.domain.ranking.RankingPeriod;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,8 +22,8 @@ public class RankingFacade {
     private final ProductRepository productRepository;
     private final BrandService brandService;
 
-    public List<RankingWithProduct> getTopRankings(LocalDate date, int page, int size) {
-        List<RankingInfo> rankings = rankingService.getTopRankings(date, page, size);
+    public List<RankingWithProduct> getTopRankings(LocalDate date, int page, int size, RankingPeriod period) {
+        List<RankingInfo> rankings = rankingService.getTopRankings(date, page, size, period);
         if (rankings.isEmpty()) return List.of();
 
         List<Long> productIds = rankings.stream().map(RankingInfo::productId).toList();

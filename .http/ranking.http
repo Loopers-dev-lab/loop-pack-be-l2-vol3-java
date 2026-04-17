@@ -10,6 +10,14 @@ Content-Type: application/json
 GET http://localhost:8080/api/v1/rankings?date=20260410&size=10&page=2
 Content-Type: application/json
 
+### 주간 랭킹 조회
+GET http://localhost:8080/api/v1/rankings?size=20&page=1&period=WEEKLY
+Content-Type: application/json
+
+### 월간 랭킹 조회
+GET http://localhost:8080/api/v1/rankings?size=20&page=1&period=MONTHLY
+Content-Type: application/json
+
 ### 상품 상세 (랭킹 포함)
 GET http://localhost:8080/api/v1/products/1
 Content-Type: application/json

@@ -27,6 +27,7 @@ public class RankingV1Dto {
         String date,
         int page,
         int size,
+        String period,
         List<RankingResponse> rankings
     ) {}
 }

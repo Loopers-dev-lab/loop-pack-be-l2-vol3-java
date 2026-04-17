@@ -5,7 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.idempotency.EventHandled;
 import com.loopers.domain.metrics.ProductMetrics;
+import com.loopers.domain.metrics.ProductMetricsDaily;
+import com.loopers.domain.metrics.ProductMetricsDailyId;
 import com.loopers.infrastructure.idempotency.EventHandledJpaRepository;
+import com.loopers.infrastructure.metrics.ProductMetricsDailyJpaRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsJpaRepository;
 import com.loopers.domain.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankingScoreCalculator;
@@ -23,6 +26,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
@@ -34,6 +38,7 @@ public class CatalogEventConsumer {
     private static final int MAX_RETRY = 3;
 
     private final ProductMetricsJpaRepository productMetricsRepository;
+    private final ProductMetricsDailyJpaRepository productMetricsDailyRepository;
     private final EventHandledJpaRepository eventHandledRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
@@ -112,6 +117,10 @@ public class CatalogEventConsumer {
         metrics.incrementLikeCount();
         productMetricsRepository.save(metrics);
 
+        ProductMetricsDaily daily = getOrCreateDailyMetrics(productId);
+        daily.incrementLikeCount();
+        productMetricsDailyRepository.save(daily);
+
         String rankingKey = RankingKeyGenerator.todayKey();
         rankingRedisRepository.incrementScore(rankingKey, productId, rankingScoreCalculator.likeScore());
         log.info("좋아요 집계 + 랭킹 반영: productId={}", productId);
@@ -122,6 +131,10 @@ public class CatalogEventConsumer {
         ProductMetrics metrics = getOrCreateMetrics(productId);
         metrics.decrementLikeCount();
         productMetricsRepository.save(metrics);
+
+        ProductMetricsDaily daily = getOrCreateDailyMetrics(productId);
+        daily.decrementLikeCount();
+        productMetricsDailyRepository.save(daily);
         log.info("좋아요 취소 집계: productId={}", productId);
     }
 
@@ -131,9 +144,19 @@ public class CatalogEventConsumer {
         metrics.incrementViewCount();
         productMetricsRepository.save(metrics);
 
+        ProductMetricsDaily daily = getOrCreateDailyMetrics(productId);
+        daily.incrementViewCount();
+        productMetricsDailyRepository.save(daily);
+
         String rankingKey = RankingKeyGenerator.todayKey();
         rankingRedisRepository.incrementScore(rankingKey, productId, rankingScoreCalculator.viewScore());
         log.debug("조회수 집계 + 랭킹 반영: productId={}", productId);
+    }
+
+    private ProductMetricsDaily getOrCreateDailyMetrics(Long productId) {
+        var id = new ProductMetricsDailyId(productId, LocalDate.now());
+        return productMetricsDailyRepository.findById(id)
+            .orElseGet(() -> new ProductMetricsDaily(productId, LocalDate.now()));
     }
 
     private ProductMetrics getOrCreateMetrics(Long productId) {

@@ -1,7 +1,9 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.MvRankingRepository;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingKeyGenerator;
+import com.loopers.domain.ranking.RankingPeriod;
 import com.loopers.domain.ranking.RankingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -15,11 +17,18 @@ import java.util.List;
 public class RankingService {
 
     private final RankingRepository rankingRepository;
+    private final MvRankingRepository mvRankingRepository;
 
-    public List<RankingInfo> getTopRankings(LocalDate date, int page, int size) {
-        String key = RankingKeyGenerator.dailyKey(date);
+    public List<RankingInfo> getTopRankings(LocalDate date, int page, int size, RankingPeriod period) {
         int offset = (page - 1) * size;
-        List<RankingEntry> entries = rankingRepository.getTopN(key, offset, size);
+        List<RankingEntry> entries = switch (period) {
+            case DAILY -> {
+                String key = RankingKeyGenerator.dailyKey(date);
+                yield rankingRepository.getTopN(key, offset, size);
+            }
+            case WEEKLY -> mvRankingRepository.getWeeklyTopN(offset, size);
+            case MONTHLY -> mvRankingRepository.getMonthlyTopN(offset, size);
+        };
         List<RankingInfo> result = new ArrayList<>();
         for (int i = 0; i < entries.size(); i++) {
             RankingEntry entry = entries.get(i);

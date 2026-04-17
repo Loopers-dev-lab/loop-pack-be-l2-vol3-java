@@ -22,4 +22,8 @@ public class RankingScoreCalculator {
         if (totalAmount <= 0) return 0.0;
         return ORDER_WEIGHT * Math.log10(totalAmount);
     }
+
+    public double calculateScore(int viewCount, int likeCount, int saleCount) {
+        return viewCount * VIEW_WEIGHT + likeCount * LIKE_WEIGHT + saleCount * ORDER_WEIGHT;
+    }
 }

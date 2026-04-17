@@ -4,9 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.confg.kafka.KafkaConfig;
 import com.loopers.domain.idempotency.EventHandled;
+import com.loopers.domain.metrics.ProductMetricsDaily;
+import com.loopers.domain.metrics.ProductMetricsDailyId;
 import com.loopers.domain.ranking.RankingKeyGenerator;
 import com.loopers.domain.ranking.RankingScoreCalculator;
 import com.loopers.infrastructure.idempotency.EventHandledJpaRepository;
+import com.loopers.infrastructure.metrics.ProductMetricsDailyJpaRepository;
 import com.loopers.infrastructure.ranking.RankingRedisRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +23,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
 
 @Slf4j
@@ -30,6 +34,7 @@ public class OrderEventConsumer {
     private static final String DLT_TOPIC = "order-events.DLT";
 
     private final EventHandledJpaRepository eventHandledRepository;
+    private final ProductMetricsDailyJpaRepository productMetricsDailyRepository;
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final RankingScoreCalculator rankingScoreCalculator;
@@ -96,7 +101,13 @@ public class OrderEventConsumer {
                 int quantity = item.get("quantity").asInt();
                 double score = rankingScoreCalculator.orderScore(price, quantity);
                 rankingRedisRepository.incrementScore(rankingKey, productId, score);
-                log.info("주문 랭킹 반영: productId={}, score={}", productId, score);
+
+                var dailyId = new ProductMetricsDailyId(productId, LocalDate.now());
+                var daily = productMetricsDailyRepository.findById(dailyId)
+                    .orElseGet(() -> new ProductMetricsDaily(productId, LocalDate.now()));
+                daily.incrementSaleCount(quantity);
+                productMetricsDailyRepository.save(daily);
+                log.info("주문 랭킹 + 일별 메트릭 반영: productId={}, score={}, quantity={}", productId, score, quantity);
             }
         }
     }
