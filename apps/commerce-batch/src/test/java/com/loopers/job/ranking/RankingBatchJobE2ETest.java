@@ -139,4 +139,54 @@ class RankingBatchJobE2ETest {
                 () -> assertThat(weeklyMv.get(1).getProductId()).isEqualTo(2L)
         );
     }
+
+    @Test
+    @DisplayName("동일 period·periodKey로 Job을 두 번 실행해도 MV rank·product_id 결과가 동일하다(멱등).")
+    void launchJob_twiceSamePeriod_shouldProduceSameWeeklyMv() throws Exception {
+        jobLauncherTestUtils.setJob(job);
+        Instant at = Instant.parse("2026-04-10T00:00:00Z");
+        jdbcTemplate.update(
+                """
+                INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                1L, 0L, 0L, 10L, java.sql.Timestamp.from(at)
+        );
+        jdbcTemplate.update(
+                """
+                INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                2L, 0L, 0L, 5L, java.sql.Timestamp.from(at)
+        );
+        var params1 = new JobParametersBuilder()
+                .addString(RankingBatchJobParameters.JOB_PARAM_PERIOD, "WEEKLY")
+                .addString(RankingBatchJobParameters.JOB_PARAM_PERIOD_KEY, "2026W15")
+                .addLong("run.id", System.currentTimeMillis())
+                .toJobParameters();
+        var first = jobLauncherTestUtils.launchJob(params1);
+        assertThat(first.getExitStatus().getExitCode()).isEqualTo(ExitStatus.COMPLETED.getExitCode());
+
+        var afterFirst = mvProductRankWeeklyJpaRepository.findByPeriodKeyOrderByRankValueAsc("2026W15");
+
+        var params2 = new JobParametersBuilder()
+                .addString(RankingBatchJobParameters.JOB_PARAM_PERIOD, "WEEKLY")
+                .addString(RankingBatchJobParameters.JOB_PARAM_PERIOD_KEY, "2026W15")
+                .addLong("run.id", System.currentTimeMillis())
+                .toJobParameters();
+        var second = jobLauncherTestUtils.launchJob(params2);
+        assertThat(second.getExitStatus().getExitCode()).isEqualTo(ExitStatus.COMPLETED.getExitCode());
+
+        var afterSecond = mvProductRankWeeklyJpaRepository.findByPeriodKeyOrderByRankValueAsc("2026W15");
+
+        assertAll(
+                () -> assertThat(afterSecond).hasSize(afterFirst.size()),
+                () -> assertThat(afterSecond.get(0).getProductId()).isEqualTo(afterFirst.get(0).getProductId()),
+                () -> assertThat(afterSecond.get(0).getRankValue()).isEqualTo(afterFirst.get(0).getRankValue()),
+                () -> assertThat(afterSecond.get(0).getScore()).isEqualByComparingTo(afterFirst.get(0).getScore()),
+                () -> assertThat(afterSecond.get(1).getProductId()).isEqualTo(afterFirst.get(1).getProductId()),
+                () -> assertThat(afterSecond.get(1).getRankValue()).isEqualTo(afterFirst.get(1).getRankValue()),
+                () -> assertThat(afterSecond.get(1).getScore()).isEqualByComparingTo(afterFirst.get(1).getScore())
+        );
+    }
 }

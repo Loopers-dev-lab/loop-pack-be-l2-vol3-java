@@ -558,6 +558,41 @@ class RankingV1ApiE2ETest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/rankings - 월간 MV에서 마지막 페이지 초과 시 빈 content·total 유지")
+    void getRankings_monthlyMv_whenPageBeyond_shouldKeepTotal() {
+        seedTwoProductRanking();
+        String periodKey = "202605";
+        Instant at = Instant.now();
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_monthly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                highScoreProductId,
+                1,
+                BigDecimal.ONE,
+                1,
+                Timestamp.from(at));
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=MONTHLY&periodKey=" + periodKey + "&page=5&size=1",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().content()).isEmpty(),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
+                () -> assertThat(response.getBody().data().totalPages()).isEqualTo(1),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
+        );
+    }
+
+    @Test
     @DisplayName("GET /api/v1/rankings - period만 주면 400")
     void getRankings_whenPeriodWithoutKey_shouldReturn400() {
         ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(

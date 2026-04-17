@@ -2,6 +2,8 @@ package com.loopers.infrastructure.ranking.mv;
 
 import com.loopers.domain.ranking.mv.ProductRankMvPublishRepository;
 import com.loopers.domain.ranking.mv.ProductRankMvRow;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,6 +12,9 @@ import java.util.List;
 
 @Repository
 public class ProductRankMvPublishRepositoryImpl implements ProductRankMvPublishRepository {
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final MvProductRankWeeklyJpaRepository weeklyJpaRepository;
     private final MvProductRankMonthlyJpaRepository monthlyJpaRepository;
@@ -33,6 +38,8 @@ public class ProductRankMvPublishRepositoryImpl implements ProductRankMvPublishR
     @Transactional
     public void replaceWeeklyPeriod(String periodKey, List<ProductRankMvRow> rows, Instant publishedAt) {
         weeklyJpaRepository.deleteByPeriodKey(periodKey);
+        entityManager.flush();
+        entityManager.clear();
         weeklyJpaRepository.saveAll(rows.stream().map(r -> toWeeklyEntity(r, publishedAt)).toList());
     }
 
@@ -47,6 +54,8 @@ public class ProductRankMvPublishRepositoryImpl implements ProductRankMvPublishR
     @Transactional
     public void replaceMonthlyPeriod(String periodKey, List<ProductRankMvRow> rows, Instant publishedAt) {
         monthlyJpaRepository.deleteByPeriodKey(periodKey);
+        entityManager.flush();
+        entityManager.clear();
         monthlyJpaRepository.saveAll(rows.stream().map(r -> toMonthlyEntity(r, publishedAt)).toList());
     }
 

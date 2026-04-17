@@ -48,4 +48,39 @@ class RankingMvRequestValidatorTest {
                 RankingMvPeriod.MONTHLY, "202604"))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    @DisplayName("주간 periodKey가 yyyyWww 패턴이 아니면 BAD_REQUEST")
+    void validatePeriodKey_weeklyInvalidFormat_shouldThrow() {
+        assertThatThrownBy(() -> RankingMvRequestValidator.validatePeriodKey(
+                RankingMvPeriod.WEEKLY, "20260406"))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
+    @DisplayName("주간 periodKey 주차가 01~53 밖이면 BAD_REQUEST")
+    void validatePeriodKey_weeklyOutOfRangeWeek_shouldThrow() {
+        assertThatThrownBy(() -> RankingMvRequestValidator.validatePeriodKey(
+                RankingMvPeriod.WEEKLY, "2026W00"))
+                .isInstanceOf(CoreException.class);
+        assertThatThrownBy(() -> RankingMvRequestValidator.validatePeriodKey(
+                RankingMvPeriod.WEEKLY, "2026W54"))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
+    @DisplayName("월간 periodKey가 6자리 숫자가 아니면 BAD_REQUEST")
+    void validatePeriodKey_monthlyInvalidFormat_shouldThrow() {
+        assertThatThrownBy(() -> RankingMvRequestValidator.validatePeriodKey(
+                RankingMvPeriod.MONTHLY, "2026-04"))
+                .isInstanceOf(CoreException.class);
+    }
+
+    @Test
+    @DisplayName("월간 periodKey의 월이 01~12 밖이면 BAD_REQUEST")
+    void validatePeriodKey_monthlyInvalidMonth_shouldThrow() {
+        assertThatThrownBy(() -> RankingMvRequestValidator.validatePeriodKey(
+                RankingMvPeriod.MONTHLY, "202613"))
+                .isInstanceOf(CoreException.class);
+    }
 }

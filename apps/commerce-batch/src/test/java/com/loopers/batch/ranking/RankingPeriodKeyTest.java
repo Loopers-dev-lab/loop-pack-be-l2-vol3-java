@@ -27,6 +27,23 @@ class RankingPeriodKeyTest {
     }
 
     @Test
+    @DisplayName("weekly: 2026-01-01(목) 연초는 ISO 주의 월요일 앵커(전년 12/29)로 귀속된다.")
+    void weekly_whenNewYearsDay2026_shouldMapToMondayAnchorInPriorDecember() {
+        LocalDate newYears = LocalDate.of(2026, 1, 1);
+        LocalDate mondaySameIsoWeek = LocalDate.of(2025, 12, 29);
+
+        assertThat(RankingPeriodKey.weekly(newYears)).isEqualTo("20251229");
+        assertThat(RankingPeriodKey.weekly(mondaySameIsoWeek)).isEqualTo("20251229");
+    }
+
+    @Test
+    @DisplayName("weekly: 월요일 시작 규칙 — 앵커는 항상 해당 주의 월요일 yyyyMMdd이다.")
+    void weekly_whenSundayInWeek_shouldStillResolveToMondayOfThatWeek() {
+        LocalDate sunday = LocalDate.of(2026, 4, 12);
+        assertThat(RankingPeriodKey.weekly(sunday)).isEqualTo("20260406");
+    }
+
+    @Test
     @DisplayName("monthly: yyyyMMdd 형식으로 해당 월의 첫째 날 키를 만든다.")
     void monthly_whenLocalDateGiven_shouldReturnFirstDayYyyyMmDd() {
         // given
