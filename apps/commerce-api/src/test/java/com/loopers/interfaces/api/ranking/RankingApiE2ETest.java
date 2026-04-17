@@ -14,6 +14,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -46,6 +47,9 @@ class RankingApiE2ETest {
 
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private Clock clock;
@@ -201,27 +205,95 @@ class RankingApiE2ETest {
         }
 
         @Test
-        void 주간_기간으로_조회하면_200_응답한다() {
-            ResponseEntity<ApiResponse<RankingV1Dto.PageResponse>> response = getRankings("?period=WEEKLY");
+        void 롤링_7일_기간으로_조회하면_200_응답한다() {
+            ResponseEntity<ApiResponse<RankingV1Dto.PageResponse>> response = getRankings("?period=LAST_7D");
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().period().name()).isEqualTo("WEEKLY")
+                    () -> assertThat(response.getBody().data().period().name()).isEqualTo("LAST_7D")
             );
         }
 
         @Test
-        void 월간_기간으로_조회하면_200_응답한다() {
-            ResponseEntity<ApiResponse<RankingV1Dto.PageResponse>> response = getRankings("?period=MONTHLY");
+        void 롤링_30일_기간으로_조회하면_200_응답한다() {
+            ResponseEntity<ApiResponse<RankingV1Dto.PageResponse>> response = getRankings("?period=LAST_30D");
 
             assertAll(
                     () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
-                    () -> assertThat(response.getBody().data().period().name()).isEqualTo("MONTHLY")
+                    () -> assertThat(response.getBody().data().period().name()).isEqualTo("LAST_30D")
+            );
+        }
+    }
+
+    @Nested
+    class 롤링_랭킹_MV_fallback {
+
+        @Test
+        void LAST_7D_는_Redis_가_비어있고_MV_에만_데이터가_있으면_MV_에서_조회하여_응답한다() {
+            Long brandId = fixture.registerBrand("나이키", "스포츠");
+            Long productId1 = fixture.registerProduct(brandId, "상품A", BigDecimal.valueOf(10000), 100, "설명A");
+            Long productId2 = fixture.registerProduct(brandId, "상품B", BigDecimal.valueOf(20000), 100, "설명B");
+
+            // 조회 기준일 = 2026-04-15 → anchor_date = 2026-04-14
+            String targetDate = "20260415";
+            insertMvLast7d(java.sql.Date.valueOf("2026-04-14"), "control", productId1, 99.9, 1);
+            insertMvLast7d(java.sql.Date.valueOf("2026-04-14"), "control", productId2, 50.0, 2);
+            // Redis 는 비워둠 → MV fallback 경로
+
+            ResponseEntity<ApiResponse<RankingV1Dto.PageResponse>> response =
+                    getRankings("?period=LAST_7D&date=" + targetDate);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().items()).hasSize(2),
+                    () -> assertThat(response.getBody().data().items().get(0).rank()).isEqualTo(1),
+                    () -> assertThat(response.getBody().data().items().get(0).productName()).isEqualTo("상품A"),
+                    () -> assertThat(response.getBody().data().items().get(0).score()).isEqualTo(99.9),
+                    () -> assertThat(response.getBody().data().items().get(1).rank()).isEqualTo(2),
+                    () -> assertThat(response.getBody().data().items().get(1).productName()).isEqualTo("상품B")
+            );
+        }
+
+        @Test
+        void LAST_30D_도_동일하게_MV_fallback_경로로_응답한다() {
+            Long brandId = fixture.registerBrand("나이키", "스포츠");
+            Long productId = fixture.registerProduct(brandId, "상품A", BigDecimal.valueOf(10000), 100, "설명A");
+
+            String targetDate = "20260415";
+            insertMvLast30d(java.sql.Date.valueOf("2026-04-14"), "control", productId, 77.7, 1);
+
+            ResponseEntity<ApiResponse<RankingV1Dto.PageResponse>> response =
+                    getRankings("?period=LAST_30D&date=" + targetDate);
+
+            assertAll(
+                    () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                    () -> assertThat(response.getBody().data().items()).hasSize(1),
+                    () -> assertThat(response.getBody().data().items().get(0).score()).isEqualTo(77.7)
             );
         }
     }
 
     // --- 헬퍼 메서드 ---
+
+    private void insertMvLast7d(java.sql.Date anchorDate, String group, long productId, double score, int rank) {
+        jdbcTemplate.update(
+                "INSERT INTO mv_product_rank_last_7d " +
+                        "(anchor_date, weight_group, product_id, view_count, like_count, sales_amount, " +
+                        " score, rank_position, created_at) " +
+                        "VALUES (?, ?, ?, 0, 0, 0, ?, ?, ?)",
+                anchorDate, group, productId, score, rank,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.of(2026, 4, 15, 1, 0)));
+    }
+
+    private void insertMvLast30d(java.sql.Date anchorDate, String group, long productId, double score, int rank) {
+        jdbcTemplate.update(
+                "INSERT INTO mv_product_rank_last_30d " +
+                        "(anchor_date, weight_group, product_id, view_count, like_count, sales_amount, " +
+                        " score, rank_position, created_at) " +
+                        "VALUES (?, ?, ?, 0, 0, 0, ?, ?, ?)",
+                anchorDate, group, productId, score, rank,
+                java.sql.Timestamp.valueOf(java.time.LocalDateTime.of(2026, 4, 15, 1, 0)));
+    }
 
     private ResponseEntity<ApiResponse<RankingV1Dto.PageResponse>> getRankings(String queryString) {
         return testRestTemplate.exchange(
