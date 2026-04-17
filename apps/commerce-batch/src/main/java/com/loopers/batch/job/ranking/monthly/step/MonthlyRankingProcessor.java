@@ -33,11 +33,8 @@ public class MonthlyRankingProcessor implements ItemProcessor<ProductAggregation
     @Override
     public MvProductRankMonthly process(ProductAggregation item) {
         int rank = rankCounter.incrementAndGet();
-        double score = item.totalView() * 0.1
-                + item.totalLike() * 0.2
-                + 0.7 * Math.log1p(item.totalSales());
         return MvProductRankMonthly.of(
-                item.productId(), rank, score,
+                item.productId(), rank, item.score(),
                 item.totalLike(), item.totalOrder(), item.totalView(),
                 item.totalSales(), baseDate
         );

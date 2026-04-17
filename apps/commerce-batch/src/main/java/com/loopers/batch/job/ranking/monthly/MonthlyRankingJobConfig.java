@@ -6,7 +6,6 @@ import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
 import com.loopers.domain.ranking.MvProductRankMonthly;
 import com.loopers.domain.ranking.ProductAggregation;
-import jakarta.persistence.EntityManagerFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -16,16 +15,16 @@ import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
-import org.springframework.batch.item.database.JpaItemWriter;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.database.builder.JdbcCursorItemReaderBuilder;
-import org.springframework.batch.item.database.builder.JpaItemWriterBuilder;
 import org.springframework.batch.support.transaction.ResourcelessTransactionManager;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 
 import javax.sql.DataSource;
 import java.time.LocalDateTime;
@@ -48,6 +47,8 @@ public class MonthlyRankingJobConfig {
     // 파라미터 1: 집계 시작(inclusive), 파라미터 2: 집계 종료(exclusive)
     private static final String MONTHLY_METRICS_SQL = """
             SELECT product_id,
+                   SUM(like_count) * 0.2 + SUM(view_count) * 0.1
+                       + 0.7 * LOG(1 + SUM(sales_amount)) AS score,
                    SUM(like_count)   AS total_like,
                    SUM(order_count)  AS total_order,
                    SUM(view_count)   AS total_view,
@@ -57,8 +58,7 @@ public class MonthlyRankingJobConfig {
               AND metric_hour <  ?
               AND deleted_at IS NULL
             GROUP BY product_id
-            ORDER BY (SUM(like_count) * 0.2 + SUM(view_count) * 0.1
-                      + 0.7 * LOG(1 + SUM(sales_amount))) DESC
+            ORDER BY score DESC
             LIMIT 100
             """;
 
@@ -67,7 +67,6 @@ public class MonthlyRankingJobConfig {
     private final StepMonitorListener stepMonitorListener;
     private final TruncateMonthlyMvTasklet truncateMonthlyMvTasklet;
     private final MonthlyRankingProcessor monthlyRankingProcessor;
-    private final EntityManagerFactory entityManagerFactory;
     private final DataSource dataSource;
 
     @Bean(JOB_NAME)
@@ -96,7 +95,7 @@ public class MonthlyRankingJobConfig {
     @Bean(STEP_AGGREGATE_AND_RANK)
     public Step monthlyAggregateAndRankStep() {
         return new StepBuilder(STEP_AGGREGATE_AND_RANK, jobRepository)
-                .<ProductAggregation, MvProductRankMonthly>chunk(CHUNK_SIZE, new JpaTransactionManager(entityManagerFactory))
+                .<ProductAggregation, MvProductRankMonthly>chunk(CHUNK_SIZE, new DataSourceTransactionManager(dataSource))
                 .reader(monthlyMetricsItemReader(null))
                 .processor(monthlyRankingProcessor)
                 .writer(monthlyRankingItemWriter())
@@ -124,6 +123,7 @@ public class MonthlyRankingJobConfig {
                 })
                 .rowMapper((rs, rowNum) -> new ProductAggregation(
                         rs.getLong("product_id"),
+                        rs.getDouble("score"),
                         rs.getLong("total_like"),
                         rs.getLong("total_order"),
                         rs.getLong("total_view"),
@@ -133,9 +133,15 @@ public class MonthlyRankingJobConfig {
     }
 
     @Bean
-    public JpaItemWriter<MvProductRankMonthly> monthlyRankingItemWriter() {
-        return new JpaItemWriterBuilder<MvProductRankMonthly>()
-                .entityManagerFactory(entityManagerFactory)
+    public JdbcBatchItemWriter<MvProductRankMonthly> monthlyRankingItemWriter() {
+        return new JdbcBatchItemWriterBuilder<MvProductRankMonthly>()
+                .dataSource(dataSource)
+                .sql("""
+                        INSERT INTO mv_product_rank_monthly
+                          (product_id, rank, score, total_like, total_order, total_view, total_sales, base_date, created_at)
+                        VALUES (:productId, :rank, :score, :totalLike, :totalOrder, :totalView, :totalSales, :baseDate, NOW())
+                        """)
+                .beanMapped()
                 .build();
     }
 }
