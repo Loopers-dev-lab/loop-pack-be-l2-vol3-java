@@ -24,11 +24,12 @@ public class RankingV1Controller {
     @GetMapping
     public ApiResponse<List<RankingV1Dto.RankingResponse>> getRankings(
         @RequestParam String date,
+        @RequestParam(defaultValue = "daily") String period,
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
         LocalDate localDate = LocalDate.parse(date, DATE_FORMATTER);
-        List<RankingInfo> rankings = rankingFacade.getRankings(localDate, size, page);
+        List<RankingInfo> rankings = rankingFacade.getRankings(localDate, period, size, page);
         List<RankingV1Dto.RankingResponse> response = rankings.stream()
             .map(RankingV1Dto.RankingResponse::from)
             .toList();

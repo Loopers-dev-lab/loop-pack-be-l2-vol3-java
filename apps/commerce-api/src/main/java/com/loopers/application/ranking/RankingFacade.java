@@ -23,8 +23,12 @@ public class RankingFacade {
     private final ProductService productService;
     private final BrandService brandService;
 
-    public List<RankingInfo> getRankings(LocalDate date, int size, int page) {
-        List<RankedProduct> rankedProducts = rankingRepository.getTopN(date, size, page);
+    public List<RankingInfo> getRankings(LocalDate date, String period, int size, int page) {
+        List<RankedProduct> rankedProducts = switch (period) {
+            case "weekly" -> rankingRepository.getWeeklyTopN(date, size, page);
+            case "monthly" -> rankingRepository.getMonthlyTopN(date, size, page);
+            default -> rankingRepository.getTopN(date, size, page);
+        };
         if (rankedProducts.isEmpty()) {
             return List.of();
         }

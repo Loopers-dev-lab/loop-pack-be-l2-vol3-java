@@ -2,9 +2,9 @@ package com.loopers.application.metrics;
 
 import com.loopers.domain.event.EventHandled;
 import com.loopers.domain.event.EventHandledRepository;
-import com.loopers.domain.metrics.ProductMetrics;
 import com.loopers.domain.metrics.ProductMetricsRepository;
 import com.loopers.domain.ranking.RankingRepository;
+import java.time.LocalDate;
 import java.time.ZonedDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,24 +35,25 @@ public class ProductMetricsProcessor {
             return;
         }
 
-        ensureMetricsExists(productId);
+        LocalDate metricsDate = occurredAt.toLocalDate();
+        ensureMetricsExists(productId, metricsDate);
 
         switch (eventType) {
             case "PRODUCT_VIEWED" -> {
-                productMetricsRepository.incrementViewCount(productId);
-                rankingRepository.incrementScore(productId, 0.1, occurredAt.toLocalDate());
+                productMetricsRepository.incrementViewCount(productId, metricsDate);
+                rankingRepository.incrementScore(productId, 0.1, metricsDate);
             }
             case "LIKED" -> {
-                productMetricsRepository.incrementLikeCount(productId);
-                rankingRepository.incrementScore(productId, 0.2, occurredAt.toLocalDate());
+                productMetricsRepository.incrementLikeCount(productId, metricsDate);
+                rankingRepository.incrementScore(productId, 0.2, metricsDate);
             }
             case "UNLIKED" -> {
-                productMetricsRepository.decrementLikeCount(productId);
-                rankingRepository.incrementScore(productId, -0.2, occurredAt.toLocalDate());
+                productMetricsRepository.decrementLikeCount(productId, metricsDate);
+                rankingRepository.incrementScore(productId, -0.2, metricsDate);
             }
             case "ORDER_CONFIRMED" -> {
-                productMetricsRepository.incrementSalesCount(productId);
-                rankingRepository.incrementScore(productId, 0.7 * Math.log1p(quantity), occurredAt.toLocalDate());
+                productMetricsRepository.incrementSalesAndQuantity(productId, metricsDate, quantity);
+                rankingRepository.incrementScore(productId, 0.7 * Math.log1p(quantity), metricsDate);
             }
             default -> log.warn("알 수 없는 이벤트 타입. eventType={}", eventType);
         }
@@ -60,8 +61,7 @@ public class ProductMetricsProcessor {
         eventHandledRepository.save(EventHandled.create(eventId, eventType, entityId, occurredAt));
     }
 
-    private void ensureMetricsExists(Long productId) {
-        productMetricsRepository.findByProductId(productId)
-            .orElseGet(() -> productMetricsRepository.save(ProductMetrics.create(productId)));
+    private void ensureMetricsExists(Long productId, LocalDate metricsDate) {
+        productMetricsRepository.upsertIfAbsent(productId, metricsDate);
     }
 }
