@@ -1,7 +1,6 @@
-# 10. 테크니컬 라이팅 소재 모음
+# 10. 설계 판단 근거 모음
 
 > Round 10 과제를 수행하면서 발생한 설계 고민, 트레이드오프, 판단 근거를 기록한다.
-> 블로그 글의 소재로 활용한다.
 
 ---
 
@@ -1026,32 +1025,23 @@ MV가 매일 원장(product_metrics)에서 7일/30일치를 처음부터 GROUP B
 
 ---
 
-## 블로그 작성 시 참고자료 & 참고사례 목록
-
-> 블로그 본문에서 관련 섹션에 실제 코드/이미지를 인용하여 사용할 것.
+## 참고자료 & 참고사례 목록
 
 ### 참고자료 (Spring Batch 공식/기술 문서)
 
-| 자료 | URL | 블로그에서 활용할 부분 |
-|------|-----|---------------------|
+| 자료 | URL | 활용 부분 |
+|------|-----|----------|
 | Spring Batch Scalability 공식 문서 | https://docs.spring.io/spring-batch/reference/scalability.html | Partitioning 아키텍처 다이어그램, "IO-intensive Step" 언급, 4가지 스케일링 전략 비교 |
 | ColumnRangePartitioner 공식 샘플 | https://github.com/SpringOne2GX-2014/spring-batch-performance-tuning/blob/master/sample_code/remote-partitioning/remote-partitioning-master/src/main/java/io/spring/remotepartitioningmaster/partition/ColumnRangePartitioner.java | MIN/MAX → 범위 분할 → ExecutionContext 코드. 우리 createPartitioner와 비교 |
 | Baeldung Spring Batch Partitioner | https://www.baeldung.com/spring-batch-partitioner | TaskExecutorPartitionHandler 전체 구현 예시 |
 | Partitioner 성능 개선 사례 (prostars.net) | https://prostars.net/357 | 파티션 1→5 변경 시 30초→17초 (1.8배). 스레드 풀 1 제한 시 2분 15초. 성능 비교 표 |
 
-### 참고사례 (빅테크 엔지니어링 블로그)
+### 참고사례 (빅테크 엔지니어링)
 
-| 사례 | URL | 블로그에서 활용할 부분 |
-|------|-----|---------------------|
+| 사례 | URL | 활용 부분 |
+|------|-----|----------|
 | Netflix Distributed Counter | https://netflixtechblog.com/netflixs-distributed-counter-abstraction-8d0c45eb66b2 | 시간 기반 파티셔닝 + Rollup 병렬 집계 → merge. 우리 Map-Reduce 3-Step과 구조 유사 |
 | Shopify BFCM Flink | https://shopify.engineering/bfcm-live-map-2021-apache-flink-redesign | 텀블링 윈도우 5분 간격 TOP 500 집계. Redis 병목 → Flink 전환. Lambda vs Kappa 비교 |
 | Flipkart Unified Ranking | https://blog.flipkart.tech/the-science-of-unified-ranking-integrating-ads-and-organic-recommendations-8cc24113ef21 | 일간 배치로 relevance score 계산. aggregate features 설계 |
 | eBay Analytics Data Processing | https://innovation.ebayinc.com/stories/optimizing-analytics-data-processing-on-ebays-new-open-source-based-platform/ | ETL 배치 최적화, 일간 테이블 갱신 |
 | Airbnb Search Ranking Pipeline | https://medium.com/airbnb-engineering/machine-learning-powered-search-ranking-of-airbnb-experiences-110b4b1a0789 | 랭킹 파이프라인 offline 배치 실행, daily Airflow |
-
-### 기술 블로그 작성 참고
-
-| 자료 | URL | 활용 |
-|------|-----|------|
-| 토스 테크니컬 라이팅 가이드 | https://github.com/toss/technical-writing | "명확하고, 독자가 문제를 해결할 수 있는 글". 톤/구조 참고 |
-| 토스 8가지 라이팅 원칙 | https://toss.tech/article/8-writing-principles-of-toss | "Clear" — 한 번에 이해되는 문장 |
