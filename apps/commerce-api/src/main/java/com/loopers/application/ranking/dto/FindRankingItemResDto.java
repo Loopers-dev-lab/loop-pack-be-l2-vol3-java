@@ -1,7 +1,7 @@
 package com.loopers.application.ranking.dto;
 
 import com.loopers.domain.product.model.Product;
-import com.loopers.domain.ranking.repository.RankingRepository;
+import com.loopers.domain.ranking.model.RankingEntry;
 
 public record FindRankingItemResDto(
         long rank,
@@ -10,7 +10,7 @@ public record FindRankingItemResDto(
         String productName,
         int price
 ) {
-    public static FindRankingItemResDto from(RankingRepository.RankingEntry entry, Product product) {
+    public static FindRankingItemResDto from(RankingEntry entry, Product product) {
         return new FindRankingItemResDto(
                 entry.rank(),
                 entry.score(),

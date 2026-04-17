@@ -1,11 +1,14 @@
 package com.loopers.domain.metrics.service;
 
+import com.loopers.domain.metrics.repository.ProductMetricsDailyRepository;
+import com.loopers.domain.metrics.repository.ProductMetricsRepository;
 import com.loopers.domain.ranking.model.ProductMetrics;
 import com.loopers.infrastructure.metrics.entity.ProductMetricsEntity;
-import com.loopers.infrastructure.metrics.repository.ProductMetricsJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -13,36 +16,43 @@ import java.util.List;
 @Component
 public class MetricsService {
 
-    private final ProductMetricsJpaRepository metricsRepository;
+    private static final double VIEW_WEIGHT = 0.1;
+    private static final double LIKE_WEIGHT = 0.2;
+    private static final double ORDER_WEIGHT = 0.7;
 
-    public void incrementViewCount(Long productId, long version) {
+    private final ProductMetricsRepository metricsRepository;
+    private final ProductMetricsDailyRepository dailyMetricsRepository;
+
+    @Transactional
+    public void incrementViewCount(Long productId) {
         ProductMetricsEntity metrics = findOrCreate(productId);
-        if (version <= metrics.getVersion()) return;
         metrics.incrementViewCount();
-        metrics.updateVersion(version);
         metricsRepository.save(metrics);
+        dailyMetricsRepository.incrementViewCount(LocalDate.now(), productId, VIEW_WEIGHT);
     }
 
-    public void incrementLikeCount(Long productId, long version) {
+    @Transactional
+    public void incrementLikeCount(Long productId) {
         ProductMetricsEntity metrics = findOrCreate(productId);
-        if (version <= metrics.getVersion()) return;
         metrics.incrementLikeCount();
-        metrics.updateVersion(version);
         metricsRepository.save(metrics);
+        dailyMetricsRepository.incrementLikeCount(LocalDate.now(), productId, LIKE_WEIGHT);
     }
 
-    public void decrementLikeCount(Long productId, long version) {
+    @Transactional
+    public void decrementLikeCount(Long productId) {
         ProductMetricsEntity metrics = findOrCreate(productId);
-        if (version <= metrics.getVersion()) return;
         metrics.decrementLikeCount();
-        metrics.updateVersion(version);
         metricsRepository.save(metrics);
+        dailyMetricsRepository.decrementLikeCount(LocalDate.now(), productId, -LIKE_WEIGHT);
     }
 
+    @Transactional
     public void incrementOrderCount(Long productId) {
         ProductMetricsEntity metrics = findOrCreate(productId);
         metrics.incrementOrderCount();
         metricsRepository.save(metrics);
+        dailyMetricsRepository.incrementOrderCount(LocalDate.now(), productId, ORDER_WEIGHT);
     }
 
     public List<ProductMetrics> findChangedAfter(LocalDateTime since) {
