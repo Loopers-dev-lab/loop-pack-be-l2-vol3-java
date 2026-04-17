@@ -37,6 +37,7 @@ import javax.sql.DataSource;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -120,16 +121,14 @@ public class ProductRankingMvJobConfig {
             LocalDate startDate = endDate.minusDays(days);
 
             JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-            Long minId = jdbc.queryForObject(
-                "SELECT COALESCE(MIN(product_id), 0) FROM product_metrics " +
-                "WHERE metric_date BETWEEN ? AND ?",
-                Long.class, startDate, endDate);
-            Long maxId = jdbc.queryForObject(
-                "SELECT COALESCE(MAX(product_id), 0) FROM product_metrics " +
-                "WHERE metric_date BETWEEN ? AND ?",
+
+            // 실제 행 수 기반 분할: product_id에 gap이 있어도 파티션 간 처리량이 균등
+            List<Long> productIds = jdbc.queryForList(
+                "SELECT DISTINCT product_id FROM product_metrics " +
+                "WHERE metric_date BETWEEN ? AND ? ORDER BY product_id",
                 Long.class, startDate, endDate);
 
-            if (minId == null || maxId == null || maxId == 0) {
+            if (productIds.isEmpty()) {
                 log.warn("[Partitioner] 데이터 없음: {} ~ {}", startDate, endDate);
                 Map<String, ExecutionContext> empty = new HashMap<>();
                 ExecutionContext ctx = new ExecutionContext();
@@ -139,18 +138,23 @@ public class ProductRankingMvJobConfig {
                 return empty;
             }
 
-            long range = (maxId - minId) / gridSize + 1;
+            int totalProducts = productIds.size();
+            int partitionSize = totalProducts / gridSize + (totalProducts % gridSize == 0 ? 0 : 1);
             Map<String, ExecutionContext> partitions = new HashMap<>();
 
             for (int i = 0; i < gridSize; i++) {
+                int fromIndex = i * partitionSize;
+                if (fromIndex >= totalProducts) break;
+                int toIndex = Math.min((i + 1) * partitionSize, totalProducts);
+
                 ExecutionContext ctx = new ExecutionContext();
-                long partMin = minId + (i * range);
-                long partMax = Math.min(minId + ((i + 1) * range) - 1, maxId);
+                long partMin = productIds.get(fromIndex);
+                long partMax = productIds.get(toIndex - 1);
                 ctx.putLong("minProductId", partMin);
                 ctx.putLong("maxProductId", partMax);
                 partitions.put("partition" + i, ctx);
 
-                log.info("[Partitioner] partition{}: productId {}~{}", i, partMin, partMax);
+                log.info("[Partitioner] partition{}: productId {}~{} ({}건)", i, partMin, partMax, toIndex - fromIndex);
             }
             return partitions;
         };
