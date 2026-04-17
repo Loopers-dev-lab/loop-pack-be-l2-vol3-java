@@ -45,7 +45,7 @@ class IdempotentProcessorIntegrationTest {
         void 처음_처리하면_handler가_실행되고_true를_반환한다() {
             AtomicInteger counter = new AtomicInteger();
 
-            boolean result = idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation",
+            boolean result = idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation",
                     counter::incrementAndGet);
 
             assertThat(result).isTrue();
@@ -54,7 +54,7 @@ class IdempotentProcessorIntegrationTest {
 
         @Test
         void 처리_후_event_handled에_레코드가_저장된다() {
-            idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation",
+            idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation",
                     () -> {});
 
             assertThat(eventHandledRepository.existsByEventId("evt-1")).isTrue();
@@ -69,8 +69,8 @@ class IdempotentProcessorIntegrationTest {
             AtomicInteger counter = new AtomicInteger();
             Runnable handler = counter::incrementAndGet;
 
-            idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation", handler);
-            boolean result = idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation", handler);
+            idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation", handler);
+            boolean result = idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation", handler);
 
             assertThat(result).isFalse();
             assertThat(counter.get()).isEqualTo(1);
@@ -82,7 +82,7 @@ class IdempotentProcessorIntegrationTest {
 
         @Test
         void 처리_성공하면_PROCESSED_EventLog가_저장된다() {
-            idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation",
+            idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation",
                     () -> {});
 
             // EventLog는 같은 TX에 저장되므로 DB에서 확인
@@ -91,10 +91,10 @@ class IdempotentProcessorIntegrationTest {
 
         @Test
         void 스킵하면_SKIPPED_EventLog가_저장된다() {
-            idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation",
+            idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation",
                     () -> {});
             // 두 번째 호출 → 스킵
-            idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation",
+            idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation",
                     () -> {});
             // SKIPPED EventLog가 저장됨 (직접 조회 불가, 에러 없이 완료되면 성공)
         }
@@ -102,7 +102,7 @@ class IdempotentProcessorIntegrationTest {
         @Test
         void handler_예외_시_FAILED_EventLog가_저장되고_예외가_재전파된다() {
             assertThatThrownBy(() ->
-                    idempotentProcessor.process("evt-fail", "product.liked", "catalog-events", "metrics-aggregation",
+                    idempotentProcessor.process("evt-fail", "product.liked", "product-interaction-events", "metrics-aggregation",
                             () -> { throw new RuntimeException("처리 실패"); }))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("처리 실패");
@@ -117,8 +117,8 @@ class IdempotentProcessorIntegrationTest {
             AtomicInteger counter = new AtomicInteger();
             Runnable handler = counter::incrementAndGet;
 
-            idempotentProcessor.process("evt-1", "product.liked", "catalog-events", "metrics-aggregation", handler);
-            idempotentProcessor.process("evt-2", "product.liked", "catalog-events", "metrics-aggregation", handler);
+            idempotentProcessor.process("evt-1", "product.liked", "product-interaction-events", "metrics-aggregation", handler);
+            idempotentProcessor.process("evt-2", "product.liked", "product-interaction-events", "metrics-aggregation", handler);
 
             assertThat(counter.get()).isEqualTo(2);
         }

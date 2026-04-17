@@ -1,0 +1,100 @@
+package com.loopers.application.ranking;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.loopers.application.product.ProductInfo;
+import com.loopers.application.product.ProductService;
+import com.loopers.application.ranking.RankingInfo.RankingItem;
+import com.loopers.domain.product.Product;
+import com.loopers.domain.ranking.RankEntry;
+import com.loopers.domain.ranking.RankingPeriod;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Component
+public class RankingFacade {
+
+    private static final int OVER_FETCH_MULTIPLIER = 2;
+
+    private final RankingService rankingService;
+    private final ProductService productService;
+
+    private final Cache<String, RankingInfo> rankingResultCache = Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofSeconds(30))
+            .maximumSize(200)
+            .build();
+
+    public RankingFacade(RankingService rankingService, ProductService productService) {
+        this.rankingService = rankingService;
+        this.productService = productService;
+    }
+
+    // Query
+
+    @Transactional(readOnly = true)
+    public RankingInfo getRankings(RankingPeriod period, LocalDate date, int page, int size, Long userId) {
+        String group = rankingService.resolveGroup(userId);
+        String cacheKey = period + ":" + date + ":" + page + ":" + size + ":" + group;
+
+        return rankingResultCache.get(cacheKey, key ->
+                loadRankings(period, date, page, size, group));
+    }
+
+    private RankingInfo loadRankings(RankingPeriod period, LocalDate date, int page, int size, String group) {
+        int fetchSize = size * OVER_FETCH_MULTIPLIER;
+        List<RankEntry> entries = rankingService.getRankEntries(period, date, page, fetchSize, group);
+        // TODO: totalCount는 ZSET 전체 크기. 비활성 필터링 미반영. 실제 서빙 가능 개수와 다를 수 있음.
+        long totalCount = rankingService.getTotalCount(period, date, group);
+
+        if (entries.isEmpty()) {
+            return new RankingInfo(period, date, page, size, totalCount, group, List.of());
+        }
+
+        Set<Long> productIds = entries.stream()
+                .map(RankEntry::productId)
+                .collect(Collectors.toSet());
+        Map<Long, Product> productMap = productService.getProductsMapByIds(productIds);
+
+        List<RankingItem> items = entries.stream()
+                .filter(e -> productMap.containsKey(e.productId()))
+                .filter(e -> !productMap.get(e.productId()).isDeleted())
+                .limit(size)
+                .map(e -> {
+                    Product product = productMap.get(e.productId());
+                    return new RankingItem(
+                            e.rank(),
+                            e.score(),
+                            toSimpleInfo(product)
+                    );
+                })
+                .toList();
+
+        return new RankingInfo(period, date, page, size, totalCount, group, items);
+    }
+
+    private ProductInfo toSimpleInfo(Product product) {
+        return new ProductInfo(
+                product.getId(),
+                product.getBrandId(),
+                null,
+                product.getName(),
+                product.getPrice(),
+                null,
+                product.getDescription(),
+                product.getLikeCount(),
+                product.isDeleted() ? ProductInfo.Status.DELETED : ProductInfo.Status.ACTIVE,
+                product.getCreatedAt().toLocalDateTime(),
+                product.getUpdatedAt().toLocalDateTime(),
+                product.getDeletedAt() != null ? product.getDeletedAt().toLocalDateTime() : null
+        );
+    }
+}

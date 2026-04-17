@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
+
 import static com.loopers.support.transaction.TransactionHelper.afterCommit;
 
 /**
@@ -40,8 +42,13 @@ public class OutboxEventService {
         OutboxEvent outboxEvent = outboxEventFactory.create(eventType, aggregateType, aggregateId, topic, eventPayload);
         outboxEventRepository.save(outboxEvent);
 
+        Map<String, Object> envelope = Map.of(
+                "eventId", outboxEvent.getEventId(),
+                "eventType", outboxEvent.getEventType(),
+                "payload", outboxEvent.getPayload()
+        );
         afterCommit(() ->
-                kafkaTemplate.send(outboxEvent.getTopic(), outboxEvent.getAggregateId(), outboxEvent.getPayload())
+                kafkaTemplate.send(outboxEvent.getTopic(), outboxEvent.getAggregateId(), envelope)
                         .whenComplete((result, ex) -> {
                             if (ex != null) {
                                 log.warn("즉시 발행 실패, @Scheduled가 보완 예정: eventId={}",

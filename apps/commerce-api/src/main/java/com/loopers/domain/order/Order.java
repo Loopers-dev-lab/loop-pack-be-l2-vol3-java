@@ -114,6 +114,12 @@ public class Order {
                 .collect(Collectors.toMap(OrderItem::getProductId, OrderItem::getQuantity));
     }
 
+    public List<OrderItemSnapshot> toItemSnapshots() {
+        return orderItems.stream()
+                .map(item -> new OrderItemSnapshot(item.getProductId(), item.getQuantity(), item.getPrice()))
+                .toList();
+    }
+
     public boolean isPaid() {
         return this.status == OrderStatus.PAID;
     }

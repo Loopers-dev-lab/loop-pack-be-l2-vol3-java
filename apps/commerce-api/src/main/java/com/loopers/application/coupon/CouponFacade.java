@@ -1,6 +1,6 @@
 package com.loopers.application.coupon;
 
-import com.loopers.application.event.CouponIssueRequestedEvent;
+import com.loopers.domain.event.CouponIssueRequestedEvent;
 import com.loopers.confg.kafka.KafkaTopics;
 import com.loopers.application.user.UserService;
 import com.loopers.infrastructure.outbox.OutboxEventService;

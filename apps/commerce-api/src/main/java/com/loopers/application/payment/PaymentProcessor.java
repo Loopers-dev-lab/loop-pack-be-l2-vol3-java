@@ -2,9 +2,8 @@ package com.loopers.application.payment;
 
 import com.loopers.application.coupon.IssuedCouponService;
 import com.loopers.confg.kafka.KafkaTopics;
-import com.loopers.application.event.PaymentCanceledEvent;
-import com.loopers.application.event.PaymentCompletedEvent;
-import com.loopers.application.event.PaymentFailedEvent;
+import com.loopers.domain.event.PaymentCanceledEvent;
+import com.loopers.domain.event.PaymentFailedEvent;
 import com.loopers.application.order.OrderService;
 import com.loopers.application.stock.StockService;
 import com.loopers.domain.order.Order;
@@ -13,6 +12,8 @@ import com.loopers.infrastructure.outbox.OutboxEventService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -35,13 +36,6 @@ public class PaymentProcessor {
         Order order = orderService.getOrder(orderId);
         stockService.confirm(order.getProductQuantities());
         orderService.payOrder(orderId);
-
-        Payment payment = paymentService.getPayment(paymentId);
-        eventPublisher.publishEvent(new PaymentCompletedEvent(
-                paymentId, orderId, payment.getUserId(), payment.getAmount()));
-        outboxEventService.saveAndPublish("payment.completed", "Order",
-                String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
-                new PaymentCompletedEvent(paymentId, orderId, payment.getUserId(), payment.getAmount()));
     }
 
     /**
@@ -81,10 +75,17 @@ public class PaymentProcessor {
         orderService.cancelOrder(orderId);
 
         Payment payment = paymentService.getPayment(paymentId);
+        List<PaymentCanceledEvent.OrderItem> items = toCanceledItems(order);
         eventPublisher.publishEvent(new PaymentCanceledEvent(
-                paymentId, orderId, payment.getUserId()));
+                paymentId, orderId, payment.getUserId(), items));
         outboxEventService.saveAndPublish("payment.canceled", "Order",
                 String.valueOf(orderId), KafkaTopics.ORDER_EVENTS,
-                new PaymentCanceledEvent(paymentId, orderId, payment.getUserId()));
+                new PaymentCanceledEvent(paymentId, orderId, payment.getUserId(), items));
+    }
+
+    private List<PaymentCanceledEvent.OrderItem> toCanceledItems(Order order) {
+        return order.getOrderItems().stream()
+                .map(item -> PaymentCanceledEvent.OrderItem.of(item.getProductId(), item.getQuantity(), item.getPrice()))
+                .toList();
     }
 }

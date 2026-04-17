@@ -1,8 +1,12 @@
 package com.loopers.application.order;
 
+import com.loopers.confg.kafka.KafkaTopics;
+import com.loopers.domain.event.OrderCompletedEvent;
 import com.loopers.domain.order.Order;
+import com.loopers.domain.order.OrderItemSnapshot;
 import com.loopers.domain.order.OrderRepository;
 import com.loopers.domain.order.OrderStatus;
+import com.loopers.infrastructure.outbox.OutboxEventService;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +15,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.List;
 
@@ -19,6 +24,7 @@ import java.util.List;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final OutboxEventService outboxEventService;
 
     // Command
 
@@ -50,6 +56,12 @@ public class OrderService {
         Order order = orderRepository.findByIdWithItems(orderId)
                 .orElseThrow(() -> new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 주문입니다"));
         order.pay();
+
+        List<OrderItemSnapshot> items = order.toItemSnapshots();
+        OrderCompletedEvent event = new OrderCompletedEvent(
+                orderId, order.getUserId(), order.getFinalAmount(), items, Instant.now());
+        outboxEventService.saveAndPublish("order.completed", "Order",
+                String.valueOf(orderId), KafkaTopics.ORDER_EVENTS, event);
     }
 
     @Transactional

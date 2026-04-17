@@ -18,10 +18,15 @@ public class ProductUserV1Dto {
             Integer stockQuantity,
             String description,
             Integer likeCount,
+            Integer dailyRank,
             LocalDateTime createdAt,
             LocalDateTime updatedAt
     ) {
         public static ProductResponse from(ProductInfo info) {
+            return from(info, null);
+        }
+
+        public static ProductResponse from(ProductInfo info, Integer dailyRank) {
             return new ProductResponse(
                     info.id(),
                     info.brandId(),
@@ -31,6 +36,7 @@ public class ProductUserV1Dto {
                     info.stockQuantity(),
                     info.description(),
                     info.likeCount(),
+                    dailyRank,
                     info.createdAt(),
                     info.updatedAt()
             );

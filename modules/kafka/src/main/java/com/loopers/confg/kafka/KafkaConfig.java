@@ -28,6 +28,7 @@ import java.util.Map;
 @EnableConfigurationProperties(KafkaProperties.class)
 public class KafkaConfig {
     public static final String BATCH_LISTENER = "BATCH_LISTENER_DEFAULT";
+    public static final String VIEW_BATCH_LISTENER = "VIEW_BATCH_LISTENER";
 
     public static final int MAX_POLLING_SIZE = 500; // ~132 rps 기준 적정 배치. 리밸런싱 마진 확보
     public static final int FETCH_MIN_BYTES = 1; // 메시지 도착 즉시 반환. 현재 트래픽에서 1MB 대기 시 항상 타임아웃
@@ -94,6 +95,34 @@ public class KafkaConfig {
         factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
         factory.setCommonErrorHandler(commonErrorHandler);
         factory.setConcurrency(3);
+        factory.setBatchListener(true);
+        return factory;
+    }
+
+    @Bean(name = VIEW_BATCH_LISTENER)
+    public ConcurrentKafkaListenerContainerFactory<Object, Object> viewBatchListenerContainerFactory(
+            KafkaProperties kafkaProperties,
+            ByteArrayJsonMessageConverter converter,
+            CommonErrorHandler commonErrorHandler
+    ) {
+        Map<String, Object> consumerConfig = new HashMap<>(kafkaProperties.buildConsumerProperties());
+        consumerConfig.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, MAX_POLLING_SIZE);
+        consumerConfig.put(ConsumerConfig.FETCH_MIN_BYTES_CONFIG, FETCH_MIN_BYTES);
+        consumerConfig.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, FETCH_MAX_WAIT_MS);
+        consumerConfig.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, SESSION_TIMEOUT_MS);
+        consumerConfig.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, HEARTBEAT_INTERVAL_MS);
+        consumerConfig.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 5 * 60 * 1000); // view는 buffer 패턴이므로 여유 확보
+        consumerConfig.put(ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
+                "org.apache.kafka.clients.consumer.CooperativeStickyAssignor");
+        consumerConfig.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
+        consumerConfig.put(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG, 5000);
+
+        ConcurrentKafkaListenerContainerFactory<Object, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(consumerConfig));
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.BATCH); // auto commit에 위임
+        factory.setBatchMessageConverter(new BatchMessagingMessageConverter(converter));
+        factory.setCommonErrorHandler(commonErrorHandler);
+        factory.setConcurrency(12);
         factory.setBatchListener(true);
         return factory;
     }

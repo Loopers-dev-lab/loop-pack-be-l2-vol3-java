@@ -1,9 +1,10 @@
 package com.loopers.application.product;
 
 import com.loopers.application.brand.BrandService;
-import com.loopers.application.event.ProductViewedEvent;
 import com.loopers.application.queue.ModeManager;
 import com.loopers.application.stock.StockService;
+import com.loopers.domain.viewer.BotDetector;
+import com.loopers.domain.viewer.ViewerIdResolver;
 import com.loopers.domain.brand.Brand;
 import com.loopers.domain.stock.Stock;
 import com.loopers.infrastructure.product.ProductCacheManager;
@@ -34,7 +35,6 @@ public class ProductFacade {
     private final BrandService brandService;
     private final StockService stockService;
     private final ProductCacheManager productCacheManager;
-    private final ApplicationEventPublisher eventPublisher;
     private final ModeManager modeManager;
 
     // Command
@@ -99,7 +99,7 @@ public class ProductFacade {
         Stock stock = stockService.getStock(productId);
         ProductInfo info = ProductInfo.from(product, brand.getName(), stock.getQuantity());
         productCacheManager.putDetail(productId, info);
-        eventPublisher.publishEvent(new ProductViewedEvent(null, productId));
+
         return info;
     }
 
