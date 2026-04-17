@@ -41,13 +41,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * MV 기반 주간/월간 랭킹 집계 Job (Partitioning + Map-Reduce).
+ * MV 기반 주간/월간 랭킹 집계 Job.
  *
  * <p>product_metrics를 product_id 범위로 분할하여 병렬 집계(스테이징)한 후,
  * mergeStep에서 Global TOP 100을 추출하여 MV 테이블에 적재한다.</p>
- *
- * <p>Score 수식 (v2 — 균등 합산): Reader SQL에서 LOG10 기반 계산.
- * 기간 내 메트릭을 합산한 뒤 score를 1회 계산하므로, Redis(지수 감쇠)와 다른 관점의 랭킹을 제공한다.</p>
  */
 @Slf4j
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = ProductRankingMvJobConfig.JOB_NAME)
@@ -63,12 +60,11 @@ public class ProductRankingMvJobConfig {
     private final JobRepository jobRepository;
     private final PlatformTransactionManager transactionManager;
     private final DataSource dataSource;
+    private final JdbcTemplate jdbcTemplate;
     private final JobListener jobListener;
     private final StepMonitorListener stepMonitorListener;
     private final CleanupTasklet cleanupTasklet;
     private final RankingCorrectionProperties properties;
-
-    // ── Job ──────────────────────────────────────────────────────────────
 
     @Bean(JOB_NAME)
     public Job productRankingMvJob(
@@ -86,8 +82,6 @@ public class ProductRankingMvJobConfig {
             .build();
     }
 
-    // ── Step 1: Cleanup ──────────────────────────────────────────────────
-
     @JobScope
     @Bean("cleanupStep")
     public Step cleanupStep() {
@@ -97,8 +91,6 @@ public class ProductRankingMvJobConfig {
             .listener(stepMonitorListener)
             .build();
     }
-
-    // ── Step 2: Partitioned Aggregate ────────────────────────────────────
 
     @JobScope
     @Bean("partitionedAggregateStep")
@@ -120,10 +112,7 @@ public class ProductRankingMvJobConfig {
             LocalDate endDate = LocalDate.parse(targetDate, DATE_FORMATTER);
             LocalDate startDate = endDate.minusDays(days);
 
-            JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-
-            // 실제 행 수 기반 분할: product_id에 gap이 있어도 파티션 간 처리량이 균등
-            List<Long> productIds = jdbc.queryForList(
+            List<Long> productIds = jdbcTemplate.queryForList(
                 "SELECT DISTINCT product_id FROM product_metrics " +
                 "WHERE metric_date BETWEEN ? AND ? ORDER BY product_id",
                 Long.class, startDate, endDate);
@@ -261,8 +250,6 @@ public class ProductRankingMvJobConfig {
             .build();
     }
 
-    // ── Step 3: Merge ────────────────────────────────────────────────────
-
     @JobScope
     @Bean("mergeStep")
     public Step mergeStep(
@@ -277,8 +264,7 @@ public class ProductRankingMvJobConfig {
                     default -> throw new IllegalArgumentException("Invalid scope: " + scope);
                 };
 
-                JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-                int inserted = jdbc.update("""
+                int inserted = jdbcTemplate.update("""
                     INSERT INTO %s
                         (product_id, ranking, score, view_count, like_count,
                          sales_count, sales_amount, period_key, created_at)
@@ -299,8 +285,6 @@ public class ProductRankingMvJobConfig {
             .listener(stepMonitorListener)
             .build();
     }
-
-    // ── DTO ──────────────────────────────────────────────────────────────
 
     record ScoredProductRow(
         long productId, double score,
