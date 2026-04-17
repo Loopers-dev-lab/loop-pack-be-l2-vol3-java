@@ -36,6 +36,9 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -648,6 +651,34 @@ class RankingQueryServiceTest {
         assertThat(result.rows().get(0).score()).isEqualTo(1.5d);
         assertThat(result.rankingSnapshotId()).isNull();
         assertThat(result.mvPublishVersion()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("loadMvPage: 조회 중 더 높은 버전이 생겨도 요청 시작 시 고정한 버전만 사용한다.")
+    void loadMvPage_whenHigherVersionExistsAfterFixedSelection_shouldUseOnlyFixedVersion() {
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W30")).thenReturn(Optional.of(1));
+        when(rankingMvReadRepository.findWeeklyByPeriodKeyAndVersionOrdered("2026W30", 1))
+                .thenReturn(List.of(new RankingMvTableRow(1, 101L, BigDecimal.TEN)));
+
+        ProductModel p101 = mock(ProductModel.class);
+        when(p101.getBrandId()).thenReturn(1L);
+        when(p101.getName()).thenReturn("A");
+        when(p101.getPrice()).thenReturn(new BigDecimal("1000"));
+        when(p101.getStockQuantity()).thenReturn(1);
+        when(productRepository.findByIdInAndNotDeletedAsMap(anyCollection())).thenReturn(Map.of(101L, p101));
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getName()).thenReturn("브랜드");
+        when(brandService.findByIdAndNotDeletedIn(anyCollection())).thenReturn(Map.of(1L, brand));
+        when(likeService.getLikeCountByProductIdsFromStats(anyCollection())).thenReturn(Map.of());
+
+        RankingPage result = rankingQueryService.loadMvPage(
+                RankingMvPeriod.WEEKLY, "2026W30", 1, 20);
+
+        assertThat(result.mvPublishVersion()).isEqualTo(1);
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).productId()).isEqualTo(101L);
+        verify(rankingMvReadRepository, times(1)).findWeeklyByPeriodKeyAndVersionOrdered("2026W30", 1);
+        verify(rankingMvReadRepository, never()).findWeeklyByPeriodKeyAndVersionOrdered("2026W30", 2);
     }
 
     @Test

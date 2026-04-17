@@ -593,6 +593,25 @@ class RankingV1ApiE2ETest {
     }
 
     @Test
+    @DisplayName("GET /api/v1/rankings - 주간 MV 버전이 없으면 빈 content와 mvPublishVersion null")
+    void getRankings_weeklyMv_whenNoPublishedVersion_shouldReturnEmptyWithNullVersion() {
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=WEEKLY&periodKey=2026W53&page=1&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().dataSource()).isEqualTo("MV_WEEKLY"),
+                () -> assertThat(response.getBody().data().content()).isEmpty(),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(0L),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isNull()
+        );
+    }
+
+    @Test
     @DisplayName("GET /api/v1/rankings - period만 주면 400")
     void getRankings_whenPeriodWithoutKey_shouldReturn400() {
         ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
