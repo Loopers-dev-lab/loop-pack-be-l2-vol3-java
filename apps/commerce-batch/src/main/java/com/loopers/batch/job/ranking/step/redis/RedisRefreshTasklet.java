@@ -24,12 +24,12 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Step 6 — MV 의 확정된 TOP 100 을 Redis ZSET identity cache 로 복제한다.
+ * Step 7 — MV 의 확정된 TOP 100 을 Redis ZSET identity cache 로 복제한다.
  *
  * <p>Shadow key 에 ZADD 후 RENAME 으로 원자적 교체 → 조회 중 깜빡임 없음.
  * Redis 는 MV 의 identity mirror (score·순서 동일) — 새 계산은 없다.</p>
  *
- * <p>Step 6 실패는 치명적이지 않음 — MV 자체는 영속되어 있고
+ * <p>Step 7 실패는 치명적이지 않음 — MV 자체는 영속되어 있고
  * 조회 API 가 MV fallback 으로 동일 응답을 만들 수 있음.</p>
  */
 @Slf4j

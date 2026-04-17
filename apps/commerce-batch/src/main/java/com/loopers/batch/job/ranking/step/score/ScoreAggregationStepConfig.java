@@ -43,7 +43,7 @@ public class ScoreAggregationStepConfig {
                 .name("stagingAggregationCursorReader")
                 .dataSource(dataSource)
                 .fetchSize(FETCH_SIZE)
-                // Step 5 는 1:1 row 변환 (streaming aggregation 없음) 이므로
+                // Step 4 는 1:1 row 변환 (streaming aggregation 없음) 이므로
                 // saveState=true (기본값) 로 chunk-mid restart 가 정상 작동
                 .sql("""
                         SELECT period_type, period_key, product_id,

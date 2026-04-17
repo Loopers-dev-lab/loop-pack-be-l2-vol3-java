@@ -24,7 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Step 7 — MV 가 "정의된 상태 (정확히 TOP 100)" 인지 불변조건을 검증한다.
+ * Step 6 — MV 가 "정의된 상태 (정확히 TOP 100)" 인지 불변조건을 검증한다.
  *
  * <p>검증 항목:
  * <ul>
@@ -32,7 +32,7 @@ import java.util.List;
  *     <li>MIN(rank_position) = 1, MAX = 100 (1~100 연속)</li>
  *     <li>DISTINCT product_id count = 100 (중복 없음)</li>
  * </ul>
- * 위반 시 Job FAIL → Step 6 (Redis 전파) 차단. 잘못된 MV 가 캐시로 퍼지는 경로를 원천 차단.</p>
+ * 위반 시 Job FAIL → Step 7 (Redis 전파) 차단. 잘못된 MV 가 캐시로 퍼지는 경로를 원천 차단.</p>
  *
  * <p>CHECKSUM (값 해시 비교) 은 의도적으로 도입하지 않음.
  * 랭킹은 "돈이 잘못 움직이지 않는" 도메인이며, score 값 버그는 테스트 코드가 잡을 영역.</p>

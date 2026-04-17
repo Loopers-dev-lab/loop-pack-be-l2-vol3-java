@@ -42,7 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 /**
- * 랭킹 배치 전체 파이프라인 E2E — Step 0 ~ Step 6 까지의 통과 검증.
+ * 랭킹 배치 전체 파이프라인 E2E — Step 0 ~ Step 7 까지의 통과 검증.
  * 원천 3개 테이블에 시드 → Job 실행 → MV + audit + Redis ZSET 결과 검증.
  */
 @SpringBootTest

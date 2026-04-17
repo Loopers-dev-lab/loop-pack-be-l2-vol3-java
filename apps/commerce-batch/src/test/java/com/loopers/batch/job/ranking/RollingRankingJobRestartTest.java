@@ -79,9 +79,9 @@ class RollingRankingJobRestartTest {
     @Autowired private RedisCleanUp redisCleanUp;
 
     @SpyBean private StagingViewMetricsWriter viewWriter;
-    // Step 5 Writer — 일반 @Component 라 SpyBean 정상 작동.
+    // Step 4 Writer — 일반 @Component 라 SpyBean 정상 작동.
     // weight_group 은 이제 ExecutionContext 스냅샷에서 읽으므로
-    // WeightConfigRepository spy 로는 Step 5/5b 를 실패시킬 수 없음.
+    // WeightConfigRepository spy 로는 Step 4/5 를 실패시킬 수 없음.
     @SpyBean private StagingScoredWriter scoredWriter;
 
     @AfterEach
@@ -142,8 +142,8 @@ class RollingRankingJobRestartTest {
                 saveView(pid, IN_7D, 10);
             }
 
-            // StagingScoredWriter 첫 write 에서 throw → Step 5 fail
-            Mockito.doThrow(new RuntimeException("의도적 Step 5 실패"))
+            // StagingScoredWriter 첫 write 에서 throw → Step 4 fail
+            Mockito.doThrow(new RuntimeException("의도적 Step 4 실패"))
                     .when(scoredWriter).write(any());
 
             JobParameters params = paramsOf(ANCHOR_KEY, 2L);
@@ -164,20 +164,20 @@ class RollingRankingJobRestartTest {
                 saveView(pid, IN_7D, 10);
             }
 
-            // StagingScoredWriter 의 write 를 전부 통과시켜 Step 5 완주.
-            // Step 5b (PromoteTopToMv) 에서 실패를 유도하기 위해
+            // StagingScoredWriter 의 write 를 전부 통과시켜 Step 4 완주.
+            // Step 5 (PromoteTopToMv) 에서 실패를 유도하기 위해
             // MV INSERT SQL 이 실행되기 전에 MV 테이블을 DROP 하는 대신,
-            // 단순히 Step 5 완주 후 MV 가 비어있음을 검증.
-            // (Step 5b 의 @StepScope 특성 상 SpyBean 으로 직접 throw 불가)
-            // 여기서는 Step 5 까지의 정상 완주 + "MV 는 Step 5b 전에 항상 비어있다"를 확인.
+            // 단순히 Step 4 완주 후 MV 가 비어있음을 검증.
+            // (Step 5 의 @StepScope 특성 상 SpyBean 으로 직접 throw 불가)
+            // 여기서는 Step 4 까지의 정상 완주 + "MV 는 Step 5 전에 항상 비어있다"를 확인.
             JobParameters params = paramsOf(ANCHOR_KEY, 3L);
             JobExecution exec = jobLauncher.run(job, params);
 
             assertAll(
                     () -> assertThat(exec.getStatus()).isEqualTo(BatchStatus.COMPLETED),
-                    // Step 5 완주 → 2차 staging 적재 확인
+                    // Step 4 완주 → 2차 staging 적재 확인
                     () -> assertThat(stagingScoredRepository.countByPeriodKey(ANCHOR_KEY)).isEqualTo(10L),
-                    // Step 5b 도 완주 → MV 에 5 product
+                    // Step 5 도 완주 → MV 에 5 product
                     () -> assertThat(last7dRepository.countByAnchorDate(ANCHOR)).isEqualTo(5L)
             );
         }

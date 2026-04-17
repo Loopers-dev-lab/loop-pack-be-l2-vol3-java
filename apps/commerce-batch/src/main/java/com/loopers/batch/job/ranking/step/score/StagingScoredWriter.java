@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Step 5 Writer — staging_ranking_scored 에 전체 상품 score 적재.
+ * Step 4 Writer — staging_ranking_scored 에 전체 상품 score 적재.
  * Step 0 가 해당 anchor 의 scored row 를 비워 놓으므로 여기서는 순수 INSERT.
  * 재시작 안전성을 위해 UPSERT 로 기록 (같은 PK 재실행 시 값 갱신).
  */

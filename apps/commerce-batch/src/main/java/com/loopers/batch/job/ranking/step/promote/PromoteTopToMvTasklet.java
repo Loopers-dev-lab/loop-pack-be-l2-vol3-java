@@ -23,7 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Step 5b — MV 의 해당 anchor 를 DELETE 한 뒤 2차 스테이징에서 TOP 100 을 INSERT.
+ * Step 5 — MV 의 해당 anchor 를 DELETE 한 뒤 2차 스테이징에서 TOP 100 을 INSERT.
  *
  * <p>DELETE + INSERT 가 **단일 TX** 안에서 실행되므로 READ COMMITTED 에서
  * 외부 세션(API) 은 커밋 전까지 이전 MV 를, 커밋 후에는 새 MV 만 봄.

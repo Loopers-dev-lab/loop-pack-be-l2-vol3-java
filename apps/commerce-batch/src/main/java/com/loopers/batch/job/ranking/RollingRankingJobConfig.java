@@ -26,8 +26,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 /**
  * 롤링 7일 / 30일 랭킹 배치 Job 구성.
  *
- * <p>Step 체인: 0 → 1 → 2 → 3 → 5 → 5b → 7 → 6</p>
- * <p>Step 5b 가 DELETE + INSERT 를 단일 TX 로 원자 교체하므로 별도 purge Step 불필요.</p>
+ * <p>Step 체인: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7</p>
  */
 @Configuration
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = RollingRankingJobConfig.JOB_NAME)

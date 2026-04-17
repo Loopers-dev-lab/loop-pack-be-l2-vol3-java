@@ -33,9 +33,9 @@ import static org.assertj.core.api.Assertions.offset;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 /**
- * Step 5 — 1차 staging 의 raw sum 에 score 를 계산해 2차 staging 에 적재하는 파이프라인 검증.
+ * Step 4 — 1차 staging 의 raw sum 에 score 를 계산해 2차 staging 에 적재하는 파이프라인 검증.
  * Step 0~3 으로 1차가 먼저 채워지므로, 이 테스트는 view/like/order 원천에 시드하고
- * Job 전체를 돌려 Step 5 결과만 확인한다.
+ * Job 전체를 돌려 Step 4 결과만 확인한다.
  */
 @SpringBootTest
 @SpringBatchTest
