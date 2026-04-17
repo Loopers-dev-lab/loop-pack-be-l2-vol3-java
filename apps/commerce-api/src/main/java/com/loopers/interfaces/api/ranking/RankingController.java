@@ -2,6 +2,7 @@ package com.loopers.interfaces.api.ranking;
 
 import com.loopers.application.ranking.RankingQueryUseCase;
 import com.loopers.domain.model.common.PageResult;
+import com.loopers.domain.model.ranking.RankingPeriod;
 import com.loopers.interfaces.api.common.PageResponse;
 import com.loopers.interfaces.api.ranking.dto.RankingItemResponse;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -27,12 +28,13 @@ public class RankingController {
     public ResponseEntity<PageResponse<RankingItemResponse>> getRankings(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyyMMdd") LocalDate date,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(defaultValue = "0") int page
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "DAILY") RankingPeriod period
     ) {
         LocalDate targetDate = date != null ? date : LocalDate.now();
 
         PageResult<RankingQueryUseCase.RankingItemInfo> rankings =
-                rankingQueryUseCase.getRankings(targetDate, page, size);
+                rankingQueryUseCase.getRankings(targetDate, page, size, period);
 
         return ResponseEntity.ok(PageResponse.from(rankings, RankingItemResponse::from));
     }

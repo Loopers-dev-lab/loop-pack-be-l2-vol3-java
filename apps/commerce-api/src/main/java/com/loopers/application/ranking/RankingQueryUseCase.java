@@ -1,12 +1,15 @@
 package com.loopers.application.ranking;
 
 import com.loopers.domain.model.common.PageResult;
+import com.loopers.domain.model.ranking.RankingPeriod;
 
 import java.time.LocalDate;
 
 public interface RankingQueryUseCase {
 
     PageResult<RankingItemInfo> getRankings(LocalDate date, int page, int size);
+
+    PageResult<RankingItemInfo> getRankings(LocalDate date, int page, int size, RankingPeriod period);
 
     Long getProductRank(LocalDate date, Long productId);
 

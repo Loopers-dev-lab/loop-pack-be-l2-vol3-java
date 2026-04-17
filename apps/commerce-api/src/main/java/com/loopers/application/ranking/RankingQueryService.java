@@ -3,7 +3,9 @@ package com.loopers.application.ranking;
 import com.loopers.domain.model.brand.Brand;
 import com.loopers.domain.model.common.PageResult;
 import com.loopers.domain.model.product.Product;
+import com.loopers.domain.model.ranking.RankingPeriod;
 import com.loopers.domain.repository.BrandRepository;
+import com.loopers.domain.repository.PeriodRankingRepository;
 import com.loopers.domain.repository.ProductRepository;
 import com.loopers.domain.repository.RankingRepository;
 import com.loopers.domain.repository.RankingRepository.RankedProduct;
@@ -21,27 +23,51 @@ import java.util.stream.Collectors;
 public class RankingQueryService implements RankingQueryUseCase {
 
     private final RankingRepository rankingRepository;
+    private final PeriodRankingRepository periodRankingRepository;
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
 
     public RankingQueryService(RankingRepository rankingRepository,
+                               PeriodRankingRepository periodRankingRepository,
                                ProductRepository productRepository,
                                BrandRepository brandRepository) {
         this.rankingRepository = rankingRepository;
+        this.periodRankingRepository = periodRankingRepository;
         this.productRepository = productRepository;
         this.brandRepository = brandRepository;
     }
 
     @Override
     public PageResult<RankingItemInfo> getRankings(LocalDate date, int page, int size) {
+        return getRankings(date, page, size, RankingPeriod.DAILY);
+    }
+
+    @Override
+    public PageResult<RankingItemInfo> getRankings(LocalDate date, int page, int size, RankingPeriod period) {
         int offset = page * size;
-        List<RankedProduct> rankedProducts = rankingRepository.getTopRankings(date, offset, size);
+
+        List<RankedProduct> rankedProducts;
+        long totalCount;
+
+        switch (period) {
+            case WEEKLY -> {
+                rankedProducts = periodRankingRepository.getWeeklyRankings(date, offset, size);
+                totalCount = periodRankingRepository.getWeeklyTotalCount(date);
+            }
+            case MONTHLY -> {
+                rankedProducts = periodRankingRepository.getMonthlyRankings(date, offset, size);
+                totalCount = periodRankingRepository.getMonthlyTotalCount(date);
+            }
+            default -> {
+                rankedProducts = rankingRepository.getTopRankings(date, offset, size);
+                totalCount = rankingRepository.getTotalCount(date);
+            }
+        }
 
         if (rankedProducts.isEmpty()) {
             return new PageResult<>(Collections.emptyList(), page, size, 0, 0);
         }
 
-        long totalCount = rankingRepository.getTotalCount(date);
         int totalPages = (int) Math.ceil((double) totalCount / size);
 
         List<Long> productIds = rankedProducts.stream()
