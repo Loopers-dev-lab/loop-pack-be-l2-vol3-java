@@ -2,9 +2,9 @@
 
 ## 📌 Summary
 
-- **배경**: 기존 주간/월간 랭킹은 Redis carry-over(지수 감쇠) 기반의 근사치였다. DB 원장 기준의 정확한 기간 집계 랭킹이 필요했다.
+- **배경**: 대규모 데이터를 다루는 이커머스 환경에서 DB 원장 기준의 기간별 집계 랭킹이 필요하다.
 - **목표**: Spring Batch로 `product_metrics`(일간 메트릭)를 주간/월간 단위로 합산하여 MV 테이블에 TOP 100 랭킹을 적재하고, API에서 조회할 수 있도록 한다.
-- **결과**: Partitioning + Chunk-Oriented 3-Step 배치 구현, API 확장(MV 단일 소스 + 전일 fallback), E2E 테스트 8/8 통과, 10만 상품 × 300만 행 기준 약 2.5초에 집계 완료.
+- **결과**: Partitioning + Chunk-Oriented 3-Step 배치 구현, API 확장(MV 단일 소스 + 전일 fallback), E2E 테스트 8/8 통과, 10만 개의 상품 × 300만 행 기준 약 2.5초에 집계 완료.
 
 ---
 
@@ -12,18 +12,17 @@
 
 ### 문제 정의
 
-- **현재 동작**: 주간/월간 랭킹은 Redis ZUNIONSTORE(주간: 일별 score 합산)와 carry-over(월간: 지수 감쇠 `×0.97`)로 생성된다. 이것은 빠르지만 근사치이며, log₁₀ 비선형성으로 인해 동일 총 활동량의 상품이 다른 순위를 받을 수 있다.
-- **문제**: "이번 달 가장 많이 팔린 상품"이라는 공개 랭킹 보드의 비즈니스 의미에 부합하는 정확한 기간 집계가 없다. 또한 Redis 장애 시 주간/월간 랭킹 조회가 불가하다.
-- **성공 기준**: DB 원장(`product_metrics`) 기반으로 주간(7일)/월간(30일) 메트릭을 균등 합산하여 TOP 100 랭킹을 MV 테이블에 적재하고, API에서 조회할 수 있다.
+- **현재 동작**: 일간 메트릭(`product_metrics`)은 적재되어 있지만, 주간/월간 단위의 기간 집계 랭킹은 존재하지 않는다.
+- **문제**: "이번 주/이번 달 가장 많이 팔린 상품"이라는 공개 랭킹 보드를 제공하려면 DB 원장 기반의 정확한 기간 집계가 필요하다.
+- **성공 기준**: `product_metrics` 기반으로 주간(7일)/월간(30일) 메트릭을 합산하여 TOP 100 랭킹을 MV 테이블에 적재하고, API에서 조회할 수 있다.
 
 ### 선택지와 결정
 
-#### 1. Score 계산 방식
+#### 1. Chunk vs Tasklet
 
-- **A. 균등 합산** (채택): 기간 내 메트릭을 SUM한 뒤 score 공식 1회 적용. "기간 총 실적" 관점
-- **B. 지수 감쇠**: Redis와 동일하게 `daily × 0.97^i` 적용. "최근 트렌드" 관점
-- **결정**: MV가 Redis와 같은 결과를 내면 MV를 만든 이유가 없다. "이번 달 베스트셀러 = 총 판매량 기준"이라는 이커머스 업계 표준에 부합하는 균등 합산을 채택
-- **트레이드오프**: Redis 랭킹과 MV 랭킹의 순위가 다를 수 있음 → 이것은 버그가 아니라 설계 의도 (다른 관점의 랭킹 제공)
+- **A. Tasklet**: `INSERT INTO...SELECT + RANK() OVER + LIMIT 100`으로 SQL 한 방 처리. 네트워크 왕복 0
+- **B. Chunk-Oriented** (채택): Reader/Writer 분리 + faultTolerant + retry
+- **결정**: 이 작업은 Tasklet으로도 가능하지만, Chunk를 선택하면 Spring Batch의 운영 기능(`faultTolerant + retry + ExponentialBackOffPolicy`, `StepExecution` 자동 기록, `StepMonitorListener`)을 활용할 수 있다. 100건에 대한 네트워크 왕복 비용(< 1ms)보다 이 운영 기능의 가치가 크다
 
 #### 2. Reader 선택 + 병렬 처리
 
@@ -44,11 +43,12 @@
 - **B. 증분 계산**: 어제 결과 - 가장 오래된 날 + 오늘 (93% 데이터 절감)
 - **결정**: 이커머스에서 주문 취소/환불은 원주문과 다른 날에 발생(Late-Arriving Fact). 증분 계산은 "과거 데이터가 불변"이라는 전제가 필요하지만, `cancel_by_order_date`가 과거 행을 사후 갱신하므로 이 전제가 깨진다. 성능 차이(~10초 vs ~3초)는 1일 1회 배치에서 운영 영향 없음
 
-#### 5. Chunk vs Tasklet
+#### 5. Score 계산 방식
 
-- **A. Tasklet**: `INSERT INTO...SELECT + RANK() OVER + LIMIT 100`으로 SQL 한 방 처리. 네트워크 왕복 0
-- **B. Chunk-Oriented** (채택): Reader/Writer 분리 + faultTolerant + retry
-- **결정**: 이 작업은 Tasklet으로도 가능하지만, Chunk를 선택하면 Spring Batch의 운영 기능(`faultTolerant + retry + ExponentialBackOffPolicy`, `StepExecution` 자동 기록, `StepMonitorListener`)을 활용할 수 있다. 100건에 대한 네트워크 왕복 비용(< 1ms)보다 이 운영 기능의 가치가 크다
+- **A. 균등 합산** (채택): 기간 내 메트릭을 SUM한 뒤 score 공식 1회 적용. 30일 전이나 오늘이나 동등한 가중치로 "기간 총 실적"을 평가
+- **B. 지수 감쇠**: 일별 score에 `0.97^i`를 곱하여 오래된 날일수록 가중치를 줄임(반감기 약 23일). 같은 총 매출이라도 최근에 집중된 상품이 더 높은 순위를 받음. 전시 기간이 길어서 누적된 score가 높은 상품의 이점을 희석할 수 있다는 특징이 있음
+- **결정**: "이번 달 베스트셀러 = 총 판매량 기준"이라는 공개 랭킹 보드의 비즈니스 의미에 부합하는 균등 합산을 채택
+- **트레이드오프**: 균등 합산은 전시 기간이 긴 상품이 유리하다. 지수 감쇠는 이를 희석할 수 있지만, "총 실적"이라는 의미에 집중해야 한다고 생각했다.
 
 ---
 
