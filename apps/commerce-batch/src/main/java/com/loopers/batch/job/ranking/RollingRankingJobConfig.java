@@ -1,7 +1,6 @@
 package com.loopers.batch.job.ranking;
 
 import com.loopers.batch.job.ranking.param.RankingJobParametersListener;
-import com.loopers.batch.job.ranking.step.audit.AuditStepConfig;
 import com.loopers.batch.job.ranking.step.promote.PromoteTopToMvStepConfig;
 import com.loopers.batch.job.ranking.step.redis.RedisRefreshStepConfig;
 import com.loopers.batch.job.ranking.step.score.ScoreAggregationStepConfig;
@@ -26,7 +25,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 /**
  * 롤링 7일 / 30일 랭킹 배치 Job 구성.
  *
- * <p>Step 체인: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7</p>
+ * <p>Step 체인: 0 → 1 → 2 → 3 → 4 → 5 → 6</p>
  */
 @Configuration
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = RollingRankingJobConfig.JOB_NAME)
@@ -50,7 +49,6 @@ public class RollingRankingJobConfig {
             @Qualifier(StageOrderMetricsStepConfig.STEP_NAME) Step stageOrderMetricsStep,
             @Qualifier(ScoreAggregationStepConfig.STEP_NAME) Step scoreAggregationStep,
             @Qualifier(PromoteTopToMvStepConfig.STEP_NAME) Step promoteTopToMvStep,
-            @Qualifier(AuditStepConfig.STEP_NAME) Step auditStep,
             @Qualifier(RedisRefreshStepConfig.STEP_NAME) Step redisRefreshStep
     ) {
         return new JobBuilder(JOB_NAME, jobRepository)
@@ -62,7 +60,6 @@ public class RollingRankingJobConfig {
                 .next(stageOrderMetricsStep)
                 .next(scoreAggregationStep)
                 .next(promoteTopToMvStep)
-                .next(auditStep)
                 .next(redisRefreshStep)
                 .build();
     }

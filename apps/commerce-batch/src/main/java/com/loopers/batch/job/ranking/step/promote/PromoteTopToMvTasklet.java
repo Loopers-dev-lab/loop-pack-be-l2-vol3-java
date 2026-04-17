@@ -2,6 +2,8 @@ package com.loopers.batch.job.ranking.step.promote;
 
 import com.loopers.batch.job.ranking.param.RankingJobParametersListener;
 import com.loopers.batch.job.ranking.step.stage.StagingAggregationProcessor;
+import com.loopers.domain.ranking.audit.BatchAuditLog;
+import com.loopers.domain.ranking.audit.BatchAuditLogRepository;
 import com.loopers.domain.ranking.weight.WeightConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +25,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Step 5 — MV 의 해당 anchor 를 DELETE 한 뒤 2차 스테이징에서 TOP 100 을 INSERT.
+ * Step 5 — MV 의 해당 anchor 를 DELETE 한 뒤 2차 스테이징에서 TOP 100 을 INSERT + 실행 이력 기록.
  *
- * <p>DELETE + INSERT 가 **단일 TX** 안에서 실행되므로 READ COMMITTED 에서
+ * <p>DELETE + INSERT + audit_log 기록이 **단일 TX** 안에서 실행되므로 MVCC 에 의해
  * 외부 세션(API) 은 커밋 전까지 이전 MV 를, 커밋 후에는 새 MV 만 봄.
  * "MV 가 비어있는 순간" 이 물리적으로 노출되지 않는다 (원자 교체).</p>
  */
@@ -42,9 +44,13 @@ public class PromoteTopToMvTasklet implements Tasklet {
     private static final String INSERT_SQL_LAST_30D = insertSqlFor("mv_product_rank_last_30d");
 
     private final JdbcTemplate jdbcTemplate;
+    private final BatchAuditLogRepository auditLogRepository;
 
     @Value("#{jobExecutionContext['" + RankingJobParametersListener.CTX_ANCHOR_DATE_KEY + "']}")
     private String anchorDateKey;
+
+    @Value("#{stepExecution.jobExecution.id}")
+    private Long jobExecutionId;
 
     @Override
     @Transactional
@@ -64,10 +70,19 @@ public class PromoteTopToMvTasklet implements Tasklet {
         Timestamp createdAt = Timestamp.valueOf(LocalDateTime.now());
         int totalInserted = 0;
         for (WeightConfig config : configs) {
-            totalInserted += promote(INSERT_SQL_LAST_7D,  StagingAggregationProcessor.PERIOD_LAST_7D,
+            int inserted7d = promote(INSERT_SQL_LAST_7D, StagingAggregationProcessor.PERIOD_LAST_7D,
                                      anchorDate, config.getGroupName(), createdAt);
-            totalInserted += promote(INSERT_SQL_LAST_30D, StagingAggregationProcessor.PERIOD_LAST_30D,
-                                     anchorDate, config.getGroupName(), createdAt);
+            int inserted30d = promote(INSERT_SQL_LAST_30D, StagingAggregationProcessor.PERIOD_LAST_30D,
+                                      anchorDate, config.getGroupName(), createdAt);
+            totalInserted += inserted7d + inserted30d;
+
+            // 3. 실행 이력 기록 — MV 적재와 같은 TX 에서 커밋
+            auditLogRepository.save(BatchAuditLog.ok(
+                    jobExecutionId, anchorDate,
+                    StagingAggregationProcessor.PERIOD_LAST_7D, config.getGroupName(), inserted7d));
+            auditLogRepository.save(BatchAuditLog.ok(
+                    jobExecutionId, anchorDate,
+                    StagingAggregationProcessor.PERIOD_LAST_30D, config.getGroupName(), inserted30d));
         }
 
         log.info("[STEP=promoteTopToMvStep] anchorDate={} deleted7d={} deleted30d={} inserted={}",

@@ -13,9 +13,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * Step 7 (audit) 의 검증 결과 기록.
- * BATCH_JOB_EXECUTION 이 "Job 이 COMPLETED 되었는가" 를 보장한다면,
- * 이 테이블은 "결과 데이터 자체가 불변조건을 만족하는가" 의 비즈니스 감사 로그.
+ * MV 적재 실행 이력.
+ * "이 anchor, 이 period, 이 weight_group 에 N건 적재 완료" 를 기록한다.
+ * Step 5 (promote) 에서 MV INSERT 와 같은 TX 안에서 커밋된다.
  */
 @Entity
 @Table(
@@ -29,7 +29,6 @@ import java.time.LocalDateTime;
 public class BatchAuditLog {
 
     public static final String STATUS_OK = "OK";
-    public static final String STATUS_FAILED = "FAILED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -76,18 +75,4 @@ public class BatchAuditLog {
         return log;
     }
 
-    public static BatchAuditLog failed(Long jobExecutionId, LocalDate anchorDate,
-                                       String periodType, String weightGroup,
-                                       int rowCount, String reason) {
-        BatchAuditLog log = new BatchAuditLog();
-        log.jobExecutionId = jobExecutionId;
-        log.anchorDate = anchorDate;
-        log.periodType = periodType;
-        log.weightGroup = weightGroup;
-        log.status = STATUS_FAILED;
-        log.rowCount = rowCount;
-        log.reason = reason;
-        log.createdAt = LocalDateTime.now();
-        return log;
-    }
 }

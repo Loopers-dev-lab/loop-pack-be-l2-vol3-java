@@ -97,7 +97,7 @@ public class RankingService {
             int offset = page * size;
 
             // 현재 anchor 의 MV 가 비어있으면 전일 anchor 로 자동 fallback (최대 3일).
-            // Step 7 (audit) 실패 시 오염 MV 를 DELETE 하므로 비어있을 수 있음.
+            // 배치 미실행 또는 해당 anchor 에 데이터가 없으면 비어있을 수 있음.
             // "잘못된 랭킹" 보다 "어제 랭킹이라도 보여주기" 가 사용자 경험상 나음.
             for (int retry = 0; retry < MV_FALLBACK_MAX_DAYS; retry++) {
                 List<MvRankEntry> rows = switch (period) {
