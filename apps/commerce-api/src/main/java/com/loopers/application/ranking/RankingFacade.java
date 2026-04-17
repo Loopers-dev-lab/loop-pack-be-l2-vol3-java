@@ -4,18 +4,27 @@ import com.loopers.application.product.ProductInfo;
 import com.loopers.domain.brand.BrandService;
 import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductService;
+import com.loopers.domain.ranking.MonthlyRank;
+import com.loopers.domain.ranking.MonthlyRankRepository;
+import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingService;
+import com.loopers.domain.ranking.WeeklyRank;
+import com.loopers.domain.ranking.WeeklyRankRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -29,6 +38,9 @@ public class RankingFacade {
     private final ProductService productService;
     private final BrandService brandService;
     private final RankingCacheRepository rankingCacheRepository;
+    private final WeeklyRankRepository weeklyRankRepository;
+    private final MonthlyRankRepository monthlyRankRepository;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
      * 일간 랭킹 페이지 조회 (Cache-Aside).
@@ -53,16 +65,13 @@ public class RankingFacade {
         long offset = (long) page * size;
         long totalElements = rankingService.countDailyRanking(date);
 
-        List<ZSetOperations.TypedTuple<String>> tuples =
-                rankingService.findDailyRanking(date, offset, size);
+        List<RankingEntry> entries = rankingService.findDailyRanking(date, offset, size);
 
-        if (tuples.isEmpty()) {
+        if (entries.isEmpty()) {
             return new RankingResult(List.of(), page, size, totalElements);
         }
 
-        List<Long> productIds = tuples.stream()
-                .map(t -> Long.parseLong(t.getValue()))
-                .toList();
+        List<Long> productIds = entries.stream().map(RankingEntry::productId).toList();
 
         Map<Long, Product> productMap = productService.findAllByIds(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
@@ -73,15 +82,14 @@ public class RankingFacade {
 
         List<RankingItem> items = new ArrayList<>();
         int rank = (int) offset + 1;
-        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
-            Long productId = Long.parseLong(tuple.getValue());
-            Product product = productMap.get(productId);
+        for (RankingEntry entry : entries) {
+            Product product = productMap.get(entry.productId());
             if (product == null) {
                 rank++;
-                continue;  // 삭제된 상품은 건너뜀
+                continue;
             }
             String brandName = brandNameMap.getOrDefault(product.getBrandId(), "");
-            items.add(new RankingItem(rank, ProductInfo.from(product, brandName), tuple.getScore()));
+            items.add(new RankingItem(rank, ProductInfo.from(product, brandName), entry.score()));
             rank++;
         }
 
@@ -110,16 +118,13 @@ public class RankingFacade {
         long offset = (long) page * size;
         long totalElements = rankingService.countHourlyRanking(date, hour);
 
-        List<ZSetOperations.TypedTuple<String>> tuples =
-                rankingService.findHourlyRanking(date, hour, offset, size);
+        List<RankingEntry> entries = rankingService.findHourlyRanking(date, hour, offset, size);
 
-        if (tuples.isEmpty()) {
+        if (entries.isEmpty()) {
             return new RankingResult(List.of(), page, size, totalElements);
         }
 
-        List<Long> productIds = tuples.stream()
-                .map(t -> Long.parseLong(t.getValue()))
-                .toList();
+        List<Long> productIds = entries.stream().map(RankingEntry::productId).toList();
 
         Map<Long, Product> productMap = productService.findAllByIds(productIds).stream()
                 .collect(Collectors.toMap(Product::getId, Function.identity()));
@@ -130,18 +135,111 @@ public class RankingFacade {
 
         List<RankingItem> items = new ArrayList<>();
         int rank = (int) offset + 1;
-        for (ZSetOperations.TypedTuple<String> tuple : tuples) {
-            Long productId = Long.parseLong(tuple.getValue());
-            Product product = productMap.get(productId);
+        for (RankingEntry entry : entries) {
+            Product product = productMap.get(entry.productId());
             if (product == null) {
                 rank++;
                 continue;
             }
             String brandName = brandNameMap.getOrDefault(product.getBrandId(), "");
-            items.add(new RankingItem(rank, ProductInfo.from(product, brandName), tuple.getScore()));
+            items.add(new RankingItem(rank, ProductInfo.from(product, brandName), entry.score()));
             rank++;
         }
 
         return new RankingResult(items, page, size, totalElements);
+    }
+
+    /**
+     * 주간 랭킹 페이지 조회 (Cache-Aside).
+     * date 미지정 시 Redis latest_date → DB MAX() 순으로 폴백.
+     */
+    @Transactional(readOnly = true)
+    public RankingResult findWeeklyRanking(LocalDate date, int page, int size) {
+        LocalDate snapshot = resolveSnapshotDate(date, "rankings:weekly:latest_date",
+            weeklyRankRepository::findLatestSnapshotDate);
+        if (snapshot == null) {
+            return new RankingResult(List.of(), page, size, 0L);
+        }
+
+        String cacheKey = "rankings:weekly:%s:%d:%d".formatted(snapshot, page, size);
+        Optional<RankingResult> cached = rankingCacheRepository.get(cacheKey);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
+        Page<WeeklyRank> ranks = weeklyRankRepository.findBySnapshotDateOrderByRankAsc(
+            snapshot, PageRequest.of(page, size));
+        RankingResult result = toRankingResult(ranks.getContent(), r -> r.getRank(),
+            r -> r.getProductId(), r -> r.getScore(), page, size, ranks.getTotalElements());
+        rankingCacheRepository.save(cacheKey, result);
+        return result;
+    }
+
+    /**
+     * 월간 랭킹 페이지 조회 (Cache-Aside).
+     * date 미지정 시 Redis latest_date → DB MAX() 순으로 폴백.
+     */
+    @Transactional(readOnly = true)
+    public RankingResult findMonthlyRanking(LocalDate date, int page, int size) {
+        LocalDate snapshot = resolveSnapshotDate(date, "rankings:monthly:latest_date",
+            monthlyRankRepository::findLatestSnapshotDate);
+        if (snapshot == null) {
+            return new RankingResult(List.of(), page, size, 0L);
+        }
+
+        String cacheKey = "rankings:monthly:%s:%d:%d".formatted(snapshot, page, size);
+        Optional<RankingResult> cached = rankingCacheRepository.get(cacheKey);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
+        Page<MonthlyRank> ranks = monthlyRankRepository.findBySnapshotDateOrderByRankAsc(
+            snapshot, PageRequest.of(page, size));
+        RankingResult result = toRankingResult(ranks.getContent(), r -> r.getRank(),
+            r -> r.getProductId(), r -> r.getScore(), page, size, ranks.getTotalElements());
+        rankingCacheRepository.save(cacheKey, result);
+        return result;
+    }
+
+    private <T> RankingResult toRankingResult(
+            List<T> rows,
+            Function<T, Integer> rankExtractor,
+            Function<T, Long> productIdExtractor,
+            Function<T, Double> scoreExtractor,
+            int page, int size, long totalElements) {
+
+        List<Long> productIds = rows.stream().map(productIdExtractor).toList();
+        Map<Long, Product> productMap = productService.findAllByIds(productIds).stream()
+            .collect(Collectors.toMap(Product::getId, Function.identity()));
+
+        List<Long> brandIds = productMap.values().stream()
+            .map(Product::getBrandId).distinct().toList();
+        Map<Long, String> brandNameMap = brandService.findNamesByIds(brandIds);
+
+        List<RankingItem> items = rows.stream()
+            .map(row -> {
+                Long productId = productIdExtractor.apply(row);
+                Product product = productMap.get(productId);
+                if (product == null) return null;
+                String brandName = brandNameMap.getOrDefault(product.getBrandId(), "");
+                return new RankingItem(rankExtractor.apply(row), ProductInfo.from(product, brandName),
+                    scoreExtractor.apply(row));
+            })
+            .filter(item -> item != null)
+            .toList();
+
+        return new RankingResult(items, page, size, totalElements);
+    }
+
+    private LocalDate resolveSnapshotDate(LocalDate given, String latestKey,
+            Supplier<Optional<LocalDate>> dbFallback) {
+        if (given != null) return given;
+
+        String cached = stringRedisTemplate.opsForValue().get(latestKey);
+        if (cached != null) return LocalDate.parse(cached);
+
+        Optional<LocalDate> fromDb = dbFallback.get();
+        fromDb.ifPresent(d -> stringRedisTemplate.opsForValue().set(latestKey, d.toString(), Duration.ofHours(25)));
+        return fromDb.orElse(null);
     }
 }
