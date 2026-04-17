@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.ScoreFormula;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -45,7 +46,7 @@ class RankingCarryOverSchedulerTest {
     @BeforeEach
     void setUp() {
         RankingProperties properties = new RankingProperties(
-            new RankingProperties.Weights(0.1, 0.2, 0.7), 0.1, 0.97, CARRY_OVER_CAP,
+            new ScoreFormula.Weights(0.1, 0.2, 0.7), 0.1, 0.97, CARRY_OVER_CAP,
             Map.of(), 0, null
         );
         scheduler = new RankingCarryOverScheduler(writeTemplate, properties);
@@ -287,13 +288,13 @@ class RankingCarryOverSchedulerTest {
         @DisplayName("실험 활성화 시 variant carry-over에도 trim 적용")
         void experimentVariant_trimApplied() {
             RankingProperties experimentProps = new RankingProperties(
-                new RankingProperties.Weights(0.1, 0.2, 0.7), 0.1, 0.97, CARRY_OVER_CAP,
+                new ScoreFormula.Weights(0.1, 0.2, 0.7), 0.1, 0.97, CARRY_OVER_CAP,
                 Map.of(), 0,
                 new RankingProperties.Experiment(true, Map.of(
                     "A", new RankingProperties.Variant(
-                        new RankingProperties.Weights(0.1, 0.2, 0.7), "ranking:exp:A:"),
+                        new ScoreFormula.Weights(0.1, 0.2, 0.7), "ranking:exp:A:"),
                     "B", new RankingProperties.Variant(
-                        new RankingProperties.Weights(0.2, 0.3, 0.5), "ranking:exp:B:")
+                        new ScoreFormula.Weights(0.2, 0.3, 0.5), "ranking:exp:B:")
                 ))
             );
             RankingCarryOverScheduler expScheduler = new RankingCarryOverScheduler(writeTemplate, experimentProps);

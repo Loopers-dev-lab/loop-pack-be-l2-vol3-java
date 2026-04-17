@@ -2,6 +2,7 @@ package com.loopers.batch.job.rankingmv;
 
 import com.loopers.batch.job.rankingmv.step.CleanupTasklet;
 import com.loopers.batch.job.rankingcorrection.RankingCorrectionProperties;
+import com.loopers.domain.ranking.ScoreFormula;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import org.springframework.batch.core.partition.support.Partitioner;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.ExecutionContext;
+import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
@@ -34,6 +36,7 @@ import org.springframework.retry.backoff.ExponentialBackOffPolicy;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -45,6 +48,9 @@ import java.util.Map;
  *
  * <p>product_metrics를 product_id 범위로 분할하여 병렬 집계(스테이징)한 후,
  * mergeStep에서 Global TOP 100을 추출하여 MV 테이블에 적재한다.</p>
+ *
+ * <p>Score 계산은 SQL이 아닌 Java ItemProcessor에서 {@link ScoreFormula}를 사용하여
+ * 모든 Score 경로(streamer, batch correction, MV)와 공식을 통일한다.</p>
  */
 @Slf4j
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = ProductRankingMvJobConfig.JOB_NAME)
@@ -158,8 +164,9 @@ public class ProductRankingMvJobConfig {
         backOff.setMaxInterval(1000);
 
         return new StepBuilder("workerStep", jobRepository)
-            .<ScoredProductRow, ScoredProductRow>chunk(CHUNK_SIZE, transactionManager)
+            .<AggregatedMetricsRow, ScoredProductRow>chunk(CHUNK_SIZE, transactionManager)
             .reader(stagingReader(null, null, null, null))
+            .processor(scoringProcessor())
             .writer(stagingWriter(null))
             .faultTolerant()
                 .retry(DeadlockLoserDataAccessException.class)
@@ -172,7 +179,7 @@ public class ProductRankingMvJobConfig {
 
     @StepScope
     @Bean
-    public JdbcCursorItemReader<ScoredProductRow> stagingReader(
+    public JdbcCursorItemReader<AggregatedMetricsRow> stagingReader(
         @Value("#{jobParameters['targetDate']}") String targetDate,
         @Value("#{jobParameters['scope']}") String scope,
         @Value("#{stepExecutionContext['minProductId']}") Long minProductId,
@@ -182,8 +189,6 @@ public class ProductRankingMvJobConfig {
         LocalDate endDate = LocalDate.parse(targetDate, DATE_FORMATTER);
         LocalDate startDate = endDate.minusDays(days);
 
-        RankingCorrectionProperties.Weights w = properties.weights();
-
         String sql = """
             SELECT
                 pm.product_id,
@@ -191,21 +196,16 @@ public class ProductRankingMvJobConfig {
                 SUM(pm.like_count - pm.unlike_count) AS total_net_like_count,
                 SUM(pm.sales_count) AS total_sales_count,
                 SUM(pm.sales_amount - pm.cancel_amount_by_event_date) AS total_net_sales_amount,
-                (
-                    %s * LOG10(GREATEST(SUM(pm.view_count), 0) + 1) / 7.0
-                  + %s * LOG10(GREATEST(SUM(pm.like_count - pm.unlike_count), 0) + 1) / 7.0
-                  + %s * LOG10(GREATEST(SUM(pm.sales_amount - pm.cancel_amount_by_event_date), 0) + 1) / 7.0
-                  + UNIX_TIMESTAMP() * 1e-16
-                ) AS score
+                p.category_id
             FROM product_metrics pm
             JOIN product p ON pm.product_id = p.id
             WHERE pm.metric_date BETWEEN ? AND ?
               AND pm.product_id BETWEEN ? AND ?
               AND p.deleted_at IS NULL
-            GROUP BY pm.product_id
-            """.formatted(w.view(), w.like(), w.order());
+            GROUP BY pm.product_id, p.category_id
+            """;
 
-        return new JdbcCursorItemReaderBuilder<ScoredProductRow>()
+        return new JdbcCursorItemReaderBuilder<AggregatedMetricsRow>()
             .name("stagingReader")
             .dataSource(dataSource)
             .sql(sql)
@@ -215,15 +215,29 @@ public class ProductRankingMvJobConfig {
                 ps.setLong(3, minProductId);
                 ps.setLong(4, maxProductId);
             })
-            .rowMapper((rs, rowNum) -> new ScoredProductRow(
+            .rowMapper((rs, rowNum) -> new AggregatedMetricsRow(
                 rs.getLong("product_id"),
-                rs.getDouble("score"),
                 rs.getLong("total_view_count"),
                 rs.getLong("total_net_like_count"),
                 rs.getLong("total_sales_count"),
-                rs.getLong("total_net_sales_amount")
+                rs.getLong("total_net_sales_amount"),
+                rs.getObject("category_id") != null ? rs.getLong("category_id") : null
             ))
             .build();
+    }
+
+    @StepScope
+    @Bean
+    public ItemProcessor<AggregatedMetricsRow, ScoredProductRow> scoringProcessor() {
+        long nowEpochSeconds = Instant.now().getEpochSecond();
+        return row -> {
+            int categoryPriority = resolveCategoryPriority(row.categoryId());
+            double score = ScoreFormula.calculate(
+                row.viewCount(), row.likeCount(), row.salesAmount(),
+                categoryPriority, nowEpochSeconds, properties.weights());
+            return new ScoredProductRow(row.productId(), score,
+                row.viewCount(), row.likeCount(), row.salesCount(), row.salesAmount());
+        };
     }
 
     @StepScope
@@ -286,6 +300,17 @@ public class ProductRankingMvJobConfig {
             .listener(stepMonitorListener)
             .build();
     }
+
+    private int resolveCategoryPriority(Long categoryId) {
+        if (categoryId == null) return properties.defaultCategoryPriority();
+        return properties.categoryPriority()
+            .getOrDefault(categoryId, properties.defaultCategoryPriority());
+    }
+
+    record AggregatedMetricsRow(
+        long productId, long viewCount, long likeCount,
+        long salesCount, long salesAmount, Long categoryId
+    ) {}
 
     record ScoredProductRow(
         long productId, double score,

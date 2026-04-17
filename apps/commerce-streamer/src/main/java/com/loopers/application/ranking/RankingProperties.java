@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.ScoreFormula;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.util.Map;
@@ -26,7 +27,7 @@ import java.util.Map;
  */
 @ConfigurationProperties(prefix = "ranking")
 public record RankingProperties(
-    Weights weights,
+    ScoreFormula.Weights weights,
     double carryOverRate,
     double monthlyDecayRate,
     int carryOverCap,
@@ -41,13 +42,11 @@ public record RankingProperties(
         if (experiment == null) experiment = new Experiment(false, Map.of());
     }
 
-    public record Weights(double view, double like, double order) {}
-
     public record Experiment(boolean enabled, Map<String, Variant> variants) {
         public Experiment {
             if (variants == null) variants = Map.of();
         }
     }
 
-    public record Variant(Weights weights, String zsetPrefix) {}
+    public record Variant(ScoreFormula.Weights weights, String zsetPrefix) {}
 }

@@ -36,7 +36,7 @@
 | 시간 윈도우 | **슬라이딩 윈도우 (매일 갱신)** | Redis weekly와 동일한 시간 범위. 무신사 방식. 사용자에게 매일 갱신되는 랭킹 제공 |
 | Score 계산 방식 | **방식 A — 메트릭 균등 합산 후 score 1회 계산** | MV는 "기간 총 실적" 관점. Redis(지수 감쇠)와 다른 관점을 제공하는 것이 MV의 존재 이유 |
 | Reader | **JdbcCursorItemReader + Partitioning** | GROUP BY 집계에서 Paging은 페이지마다 재실행하므로 부적합. Cursor의 멀티스레드 한계를 Partitioning으로 극복 |
-| 비즈니스 로직 위치 | **Reader SQL에서 집계 + score 계산** | DB의 LOG10/GROUP BY/ORDER BY를 활용. Processor는 pass-through |
+| 비즈니스 로직 위치 | **Reader SQL에서 집계, Java ItemProcessor에서 score 계산** | Score 공식 중앙화(ScoreFormula)를 위해 SQL에서 Java로 이동. categoryPriority 누락 해결 |
 | Writer 전략 | **DELETE + INSERT (스테이징 경유)** | 병렬 집계 → 스테이징 → mergeStep에서 Global TOP 100 |
 | 멱등성 | **cleanup(DELETE MV + 스테이징) → 전체 재실행** | 스테이징 정합성을 위해 부분 재실행보다 전체 재실행이 안전 |
 | Job Instance 동일성 | **RunIdIncrementer** | targetDate, scope 파라미터 보존 + run.id 증가로 재실행 허용. cleanupStep이 멱등성 보장 |
@@ -270,8 +270,8 @@ ProductRankingMvJob
   │   │  TaskExecutor: SimpleAsyncTaskExecutor (gridSize 스레드)
   │   │
   │   ├── [Worker 1] product_id :minId ~ :maxId
-  │   │   ├── Reader: JdbcCursorItemReader (GROUP BY + score, 해당 범위만, LIMIT 없음)
-  │   │   ├── Processor: pass-through
+  │   │   ├── Reader: JdbcCursorItemReader (GROUP BY 집계, 해당 범위만)
+  │   │   ├── Processor: ScoreFormula.calculate() → score 계산 + categoryPriority 반영
   │   │   ├── Writer: JdbcBatchItemWriter → 스테이징 테이블 INSERT
   │   │   └── faultTolerant + retry(3) + ExponentialBackOffPolicy
   │   │
@@ -337,24 +337,29 @@ SELECT
     SUM(pm.like_count - pm.unlike_count) AS total_net_like_count,
     SUM(pm.sales_count) AS total_sales_count,
     SUM(pm.sales_amount - pm.cancel_amount_by_event_date) AS total_net_sales_amount,
-    (
-        0.1 * LOG10(GREATEST(SUM(pm.view_count), 0) + 1) / 7.0
-      + 0.2 * LOG10(GREATEST(SUM(pm.like_count - pm.unlike_count), 0) + 1) / 7.0
-      + 0.7 * LOG10(GREATEST(SUM(pm.sales_amount - pm.cancel_amount_by_event_date), 0) + 1) / 7.0
-      + UNIX_TIMESTAMP() * 1e-16
-    ) AS score
+    p.category_id
 FROM product_metrics pm
 JOIN product p ON pm.product_id = p.id
 WHERE pm.metric_date BETWEEN :startDate AND :endDate
   AND pm.product_id BETWEEN :minProductId AND :maxProductId
   AND p.deleted_at IS NULL
-GROUP BY pm.product_id
+GROUP BY pm.product_id, p.category_id
 ```
 
 - **주간**: `startDate = targetDate - 6`, `endDate = targetDate` (7일)
 - **월간**: `startDate = targetDate - 29`, `endDate = targetDate` (30일)
 - **LIMIT 없음**: 각 파티션의 전체 결과를 스테이징에 적재. 글로벌 TOP 100은 mergeStep에서 결정
 - **product_id BETWEEN**: Partitioner가 할당한 범위만 처리
+- **score 계산은 SQL이 아닌 Java ItemProcessor에서 수행**: `ScoreFormula.calculate()` 호출
+
+### Worker Processor — ScoreFormula 위임
+
+Reader에서 집계된 `AggregatedMetricsRow`를 받아 `ScoreFormula.calculate()`로 score를 계산한다.
+Score 공식을 SQL에서 제거하고 Java ItemProcessor로 이동한 이유:
+
+1. **Score 공식 중앙화**: `ScoreFormula`(modules/jpa)가 유일한 공식 정의. streamer, batch correction, MV Job 3곳이 모두 이 클래스에 위임
+2. **categoryPriority 반영**: SQL에서는 `categoryPriority` 매핑(yml 설정)을 적용할 수 없어 누락되어 있었음. Java Processor에서 `resolveCategoryPriority()`를 통해 반영
+3. **가중치 변경 시 단일 수정 지점**: `ScoreFormula.Weights`로 통일되어 공식 변경 시 한 곳만 수정
 
 ### mergeStep SQL
 
@@ -379,7 +384,7 @@ LIMIT 100
 |-------------|------|------|
 | @StepScope + Late Binding | ✅ | Worker Reader에 minProductId, maxProductId, targetDate, scope 주입 |
 | Reader name 설정 | ✅ | 각 Worker별 고유 name. ExecutionContext 저장 시 key |
-| Processor에서 DB 수정 금지 | ✅ | pass-through (스테이징 적재는 Writer에서) |
+| Processor에서 DB 수정 금지 | ✅ | ScoreFormula.calculate()로 score 계산만 수행. DB 수정 없음 |
 | Writer 벌크 처리 | ✅ | JdbcBatchItemWriter (JDBC batch INSERT) |
 | assertUpdates(false) | ✅ | INSERT이므로 |
 | ExponentialBackOffPolicy | ✅ | Worker별 데드락 시 간격 두고 재시도 |

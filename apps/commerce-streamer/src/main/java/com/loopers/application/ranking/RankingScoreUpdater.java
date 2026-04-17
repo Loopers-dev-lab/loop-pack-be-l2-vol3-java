@@ -1,5 +1,6 @@
 package com.loopers.application.ranking;
 
+import com.loopers.domain.ranking.ScoreFormula;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DataAccessException;
@@ -42,19 +43,6 @@ public class RankingScoreUpdater {
     public static final long RANKING_HASH_TTL_SECONDS = 172_800L;
     /** 주간/월간 집계 ZSET TTL: 2일 (매일 재생성) */
     public static final long RANKING_AGGREGATED_TTL_SECONDS = 172_800L;
-
-    /**
-     * MAX_LOG = 7 → log₁₀(10,000,000).
-     * 쿠팡급 인기 상품의 일일 최대 메트릭(조회 수백만, 매출 수천만)을 0~1로 정규화.
-     */
-    static final double MAX_LOG = 7.0;
-
-    /**
-     * Tiebreaker: lastEventEpochSeconds × 1e-16.
-     * epoch seconds ≈ 1.7×10⁹ → tiebreaker ≈ 1.7×10⁻⁷.
-     * 주 score 최소 차이(0.1×log₁₀(2)/7 ≈ 0.0043)보다 충분히 작아 역전 불가.
-     */
-    static final double TIEBREAKER_SCALE = 1e-16;
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
@@ -159,7 +147,7 @@ public class RankingScoreUpdater {
 
     @SuppressWarnings("unchecked")
     private void pipelineZadd(Map<Long, long[]> accumulated, String zsetKey,
-                              RankingProperties.Weights weights, Map<Long, MetricsDelta> deltaMap) {
+                              ScoreFormula.Weights weights, Map<Long, MetricsDelta> deltaMap) {
         writeTemplate.executePipelined(new SessionCallback<>() {
             @Override
             public Object execute(RedisOperations operations) throws DataAccessException {
@@ -173,8 +161,8 @@ public class RankingScoreUpdater {
                     int categoryPriority = properties.categoryPriority()
                         .getOrDefault(0L, properties.defaultCategoryPriority());
 
-                    double score = calculateScore(counts[0], counts[1], counts[3],
-                        lastEventAt, categoryPriority, weights);
+                    double score = ScoreFormula.calculate(counts[0], counts[1], counts[3],
+                        categoryPriority, lastEventAt, weights);
                     operations.opsForZSet().add(zsetKey, String.valueOf(productId), score);
                 }
                 operations.expire(zsetKey, RANKING_ZSET_TTL_SECONDS, TimeUnit.SECONDS);
@@ -183,27 +171,10 @@ public class RankingScoreUpdater {
         });
     }
 
-    /**
-     * score = categoryPriority
-     *       + W(view) × log₁₀(viewCount+1) / MAX_LOG
-     *       + W(like) × log₁₀(likeCount+1) / MAX_LOG
-     *       + W(order) × log₁₀(salesAmount+1) / MAX_LOG
-     *       + lastEventEpochSeconds × TIEBREAKER_SCALE
-     */
     double calculateScore(long viewCount, long likeCount, long salesAmount,
                           long lastEventEpochSeconds, int categoryPriority) {
-        return calculateScore(viewCount, likeCount, salesAmount,
-            lastEventEpochSeconds, categoryPriority, properties.weights());
-    }
-
-    static double calculateScore(long viewCount, long likeCount, long salesAmount,
-                                 long lastEventEpochSeconds, int categoryPriority,
-                                 RankingProperties.Weights w) {
-        return categoryPriority
-            + w.view() * Math.log10(Math.max(0, viewCount) + 1) / MAX_LOG
-            + w.like() * Math.log10(Math.max(0, likeCount) + 1) / MAX_LOG
-            + w.order() * Math.log10(Math.max(0, salesAmount) + 1) / MAX_LOG
-            + lastEventEpochSeconds * TIEBREAKER_SCALE;
+        return ScoreFormula.calculate(viewCount, likeCount, salesAmount,
+            categoryPriority, lastEventEpochSeconds, properties.weights());
     }
 
     private void warnIfNegative(Long productId, long[] counts) {

@@ -549,7 +549,8 @@ Redis weekly/monthly(carry-over + ZUNIONSTORE)는 제거하거나 내부 모니�
 |------|--------|-----------|--------|-------------|
 | **A. Java 전체 처리** | 전체 조회 (수만 건) | score 계산 | 정렬 + TOP 100 INSERT | 수만 건을 Java로 읽어와서 정렬/필터링 — DB가 이미 최적화된 작업을 애플리케이션에서 반복 |
 | **B. 전체 INSERT 후 삭제** | 전체 조회 | score 계산 | 전체 INSERT → Step 3에서 100위 밖 DELETE | 수만 건 INSERT 후 대부분 삭제 — 불필요한 I/O |
-| **C. SQL에서 완료 (채택)** | GROUP BY + score + ORDER BY + LIMIT 100 → **100건만 반환** | ranking 부여 | 100건 INSERT | DB가 집계, 계산, 정렬, 필터링을 한 번에 처리 |
+| **C. SQL에서 완료 (초기 채택)** | GROUP BY + score + ORDER BY + LIMIT 100 → **100건만 반환** | ranking 부여 | 100건 INSERT | DB가 집계, 계산, 정렬, 필터링을 한 번에 처리 |
+| **D. SQL 집계 + Java Processor score (최종)** | GROUP BY 집계만 (전체 상품) | ScoreFormula.calculate() | 스테이징 INSERT → mergeStep에서 TOP 100 | Score 공식 중앙화, categoryPriority 반영. Partitioning으로 병렬 처리 |
 
 ### 방안 C가 효율적인 이유: SQL 실행 순서
 
@@ -619,21 +620,25 @@ WHERE PERCENT_RNK <= 0.1
 
 **12개 매퍼에서 `RANK()`, `DENSE_RANK()`, `ROW_NUMBER()`, `PERCENT_RANK()` 윈도우 함수 사용.** Java에서 랭킹/스코어링을 처리하는 배치 Job은 없었다.
 
-### 트레이드오프: Score 공식의 이중 관리
+### 트레이드오프: Score 공식의 이중 관리 → ScoreFormula 중앙화로 해소
 
-SQL에 score 공식을 넣으면, RankingCorrectionJob(Java)과 MV Job(SQL)에 같은 공식이 두 곳에 존재한다.
+초기에는 SQL에 score 공식을 넣어 RankingCorrectionJob(Java)과 MV Job(SQL)에 같은 공식이 두 곳에 존재했다. 이를 "합리적 중복"으로 판단했었으나, 이후 추가 분석에서 **4곳 분산**(streamer, batch correction, MV Job SQL, API drift scheduler) + **MV Job에 categoryPriority 누락** 문제가 발견되어 중앙화를 결정했다.
 
-| 관점 | 분석 |
-|------|------|
-| **왜 허용 가능한가** | 두 Job은 입력이 다르다. RankingCorrectionJob은 **일간 메트릭**(CURDATE() 1일)을 읽고, MV Job은 **기간 합산 메트릭**(7일/30일 SUM)을 읽는다. 같은 공식이지만 적용 대상이 다르므로 하나의 Java 메서드를 공유하는 것이 오히려 부자연스럽다 |
-| **변경 시 위험** | 가중치(0.1/0.2/0.7)나 MAX_LOG(7.0) 변경 시 두 곳 모두 수정 필요. 하지만 가중치는 `application.yml`에 정의되어 있으므로, SQL에서도 파라미터로 주입 가능 |
-| **회사 코드 참고** | 회사는 score 공식이 SQL에만 존재(Java에 없음). 우리 프로젝트는 RankingCorrectionJob이 이미 Java에 공식을 가지고 있어서 이중 관리가 발생하지만, 이것은 두 Job의 역할이 다르기 때문에 합리적인 중복이다 |
+| 관점 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| **공식 위치** | 4곳 분산 (Java 3곳 + SQL 1곳) | `ScoreFormula.calculate()` 1곳 |
+| **Weights 정의** | 각 모듈마다 inner record | `ScoreFormula.Weights` 공유 |
+| **categoryPriority** | MV Job SQL에서 누락 | Java Processor에서 반영 |
+| **변경 시 수정 범위** | 4곳 | 1곳 |
+| **MV Job score 계산** | SQL (DB가 처리) | Java ItemProcessor (ScoreFormula 호출) |
+
+**왜 SQL → Java로 이동했는가**: Score 공식 중앙화와 categoryPriority 반영이라는 정합성 이점이, SQL에서 한 번에 처리하는 효율성 이점보다 크다고 판단했다. MV Job의 Reader SQL은 집계(GROUP BY + SUM)에 집중하고, score 계산은 Java Processor가 담당한다. TOP-N 필터링은 여전히 mergeStep의 SQL에서 처리한다.
 
 ### 이 판단에서 배운 것
 
 - **"어디서 계산하느냐"는 효율의 문제이지 패턴의 문제가 아니다.** Chunk-Oriented에서 Processor가 비즈니스 로직을 담당해야 한다는 것은 일반론이지, 모든 경우에 적용해야 하는 규칙이 아니다
-- **DB가 잘하는 일(집계, 정렬, 필터링)은 DB에서 끝내야 한다.** 수만 건을 Java로 읽어와서 정렬하는 것은 DB가 이미 최적화된 실행 계획으로 한 번에 처리할 수 있는 일을 애플리케이션에서 반복하는 것이다
-- **회사 코드가 이 판단을 뒷받침한다.** 12개 매퍼에서 윈도우 함수로 TOP-N을 처리하고, Java는 오케스트레이션만 하는 것이 이 회사의 실무 표준이다
+- **DB가 잘하는 일(집계, 정렬, 필터링)은 DB에서 끝내야 한다.** 집계와 TOP-N 필터링은 DB에서 처리하되, 비즈니스 로직(score 공식)은 중앙화를 위해 Java에서 처리하는 것이 적절한 경계다
+- **"합리적 중복"은 위험 신호다.** 초기에 "입력이 다르니 중복이 합리적"이라고 판단했지만, 공식이 4곳으로 확산되고 categoryPriority 누락이 발견되면서 중복의 비용이 드러났다. 중복이 "합리적"인지 주기적으로 재평가해야 한다
 
 ---
 

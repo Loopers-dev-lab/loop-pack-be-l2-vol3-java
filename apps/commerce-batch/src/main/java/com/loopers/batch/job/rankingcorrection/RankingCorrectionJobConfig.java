@@ -1,5 +1,6 @@
 package com.loopers.batch.job.rankingcorrection;
 
+import com.loopers.domain.ranking.ScoreFormula;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
 import lombok.RequiredArgsConstructor;
@@ -58,8 +59,6 @@ public class RankingCorrectionJobConfig {
     private static final String RANKING_METRICS_PREFIX = "ranking:metrics:";
     private static final long RANKING_ZSET_TTL_SECONDS = 691_200L; // 8일
     private static final long RANKING_HASH_TTL_SECONDS = 172_800L; // 2일
-    private static final double MAX_LOG = 7.0;
-    private static final double TIEBREAKER_SCALE = 1e-16;
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
@@ -166,12 +165,8 @@ public class RankingCorrectionJobConfig {
     }
 
     double calculateScore(ProductMetricsRow row, int categoryPriority, long lastEventEpochSeconds) {
-        RankingCorrectionProperties.Weights w = properties.weights();
-        return categoryPriority
-            + w.view() * Math.log10(Math.max(0, row.viewCount) + 1) / MAX_LOG
-            + w.like() * Math.log10(Math.max(0, row.netLike) + 1) / MAX_LOG
-            + w.order() * Math.log10(Math.max(0, row.netSalesAmount) + 1) / MAX_LOG
-            + lastEventEpochSeconds * TIEBREAKER_SCALE;
+        return ScoreFormula.calculate(row.viewCount, row.netLike, row.netSalesAmount,
+            categoryPriority, lastEventEpochSeconds, properties.weights());
     }
 
     private int resolveCategoryPriority(Long categoryId) {
