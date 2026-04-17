@@ -23,11 +23,11 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /**
- * Step 5b — 2차 스테이징(staging_ranking_scored) 에서 TOP 100 만 MV 에 INSERT.
+ * Step 5b — MV 의 해당 anchor 를 DELETE 한 뒤 2차 스테이징에서 TOP 100 을 INSERT.
  *
- * <p>(period_type × weight_group) 조합 당 한 번의 단일 SQL:
- * {@code INSERT INTO mv SELECT ... ROW_NUMBER() OVER (ORDER BY score DESC) ... LIMIT 100}.
- * Step 4a/4b 가 사전 DELETE 했으므로 MV 는 "비어있음 → 확정된 TOP 100" 두 상태만 통과한다.</p>
+ * <p>DELETE + INSERT 가 **단일 TX** 안에서 실행되므로 READ COMMITTED 에서
+ * 외부 세션(API) 은 커밋 전까지 이전 MV 를, 커밋 후에는 새 MV 만 봄.
+ * "MV 가 비어있는 순간" 이 물리적으로 노출되지 않는다 (원자 교체).</p>
  */
 @Slf4j
 @Component
@@ -38,9 +38,8 @@ public class PromoteTopToMvTasklet implements Tasklet {
     public static final int TOP_N = 100;
     private static final DateTimeFormatter KEY_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    // 각 period_type 별로 MV 테이블 이름이 다름
-    private static final String SQL_LAST_7D = sqlFor("mv_product_rank_last_7d");
-    private static final String SQL_LAST_30D = sqlFor("mv_product_rank_last_30d");
+    private static final String INSERT_SQL_LAST_7D  = insertSqlFor("mv_product_rank_last_7d");
+    private static final String INSERT_SQL_LAST_30D = insertSqlFor("mv_product_rank_last_30d");
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -51,31 +50,35 @@ public class PromoteTopToMvTasklet implements Tasklet {
     @Transactional
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) {
         LocalDate anchorDate = LocalDate.parse(anchorDateKey, KEY_FORMAT);
+        Date sqlDate = Date.valueOf(anchorDate);
         List<WeightConfig> configs = RankingJobParametersListener.restoreWeightConfigs(
                 chunkContext.getStepContext().getStepExecution().getJobExecution().getExecutionContext());
 
+        // 1. DELETE — 이전 MV 제거 (같은 TX 안이라 외부에 아직 안 보임)
+        int deleted7d  = jdbcTemplate.update(
+                "DELETE FROM mv_product_rank_last_7d WHERE anchor_date = ?", sqlDate);
+        int deleted30d = jdbcTemplate.update(
+                "DELETE FROM mv_product_rank_last_30d WHERE anchor_date = ?", sqlDate);
+
+        // 2. INSERT — TOP 100 적재
         Timestamp createdAt = Timestamp.valueOf(LocalDateTime.now());
         int totalInserted = 0;
-
         for (WeightConfig config : configs) {
-            totalInserted += promote(SQL_LAST_7D,  StagingAggregationProcessor.PERIOD_LAST_7D,
+            totalInserted += promote(INSERT_SQL_LAST_7D,  StagingAggregationProcessor.PERIOD_LAST_7D,
                                      anchorDate, config.getGroupName(), createdAt);
-            totalInserted += promote(SQL_LAST_30D, StagingAggregationProcessor.PERIOD_LAST_30D,
+            totalInserted += promote(INSERT_SQL_LAST_30D, StagingAggregationProcessor.PERIOD_LAST_30D,
                                      anchorDate, config.getGroupName(), createdAt);
         }
 
-        log.info("[STEP=promoteTopToMvStep] anchorDate={} groups={} inserted={}",
-                anchorDate, configs.size(), totalInserted);
+        log.info("[STEP=promoteTopToMvStep] anchorDate={} deleted7d={} deleted30d={} inserted={}",
+                anchorDate, deleted7d, deleted30d, totalInserted);
 
-        contribution.incrementWriteCount(totalInserted);
+        contribution.incrementWriteCount(deleted7d + deleted30d + totalInserted);
         return RepeatStatus.FINISHED;
     }
 
     private int promote(String sql, String periodType, LocalDate anchorDate,
                         String weightGroup, Timestamp createdAt) {
-        // SQL 의 ? 출현 순서: period_type, period_key, weight_group (CTE WHERE)
-        //                    anchor_date, created_at (SELECT literal)
-        //                    top_n (WHERE rn <= ?)
         return jdbcTemplate.update(
                 sql,
                 periodType, anchorDateKey, weightGroup,
@@ -84,7 +87,7 @@ public class PromoteTopToMvTasklet implements Tasklet {
         );
     }
 
-    private static String sqlFor(String mvTable) {
+    private static String insertSqlFor(String mvTable) {
         return """
                 INSERT INTO %s
                     (anchor_date, weight_group, product_id,
