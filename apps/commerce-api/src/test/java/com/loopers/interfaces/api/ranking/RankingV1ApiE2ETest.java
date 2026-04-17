@@ -432,7 +432,8 @@ class RankingV1ApiE2ETest {
                         .isEqualTo(highScoreProductId),
                 () -> assertThat(response.getBody().data().content().get(0).score()).isEqualTo(0.9d),
                 () -> assertThat(response.getBody().data().content().get(1).productId())
-                        .isEqualTo(lowScoreProductId)
+                        .isEqualTo(lowScoreProductId),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
         );
     }
 
@@ -468,7 +469,56 @@ class RankingV1ApiE2ETest {
                 () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
                 () -> assertThat(response.getBody().data().content()).hasSize(1),
                 () -> assertThat(response.getBody().data().content().get(0).productId())
-                        .isEqualTo(lowScoreProductId)
+                        .isEqualTo(lowScoreProductId),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - MV는 요청당 MAX(version)만 조회(혼합 버전 시 상위 버전만)")
+    void getRankings_weeklyMv_whenMixedVersions_shouldUseMaxVersionOnly() {
+        seedTwoProductRanking();
+        String periodKey = "2026W20";
+        Instant at = Instant.now();
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                highScoreProductId,
+                1,
+                new BigDecimal("0.10"),
+                1,
+                Timestamp.from(at));
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                lowScoreProductId,
+                1,
+                new BigDecimal("0.99"),
+                2,
+                Timestamp.from(at));
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=WEEKLY&periodKey=" + periodKey + "&page=1&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(2),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
+                () -> assertThat(response.getBody().data().content()).hasSize(1),
+                () -> assertThat(response.getBody().data().content().get(0).productId())
+                        .isEqualTo(lowScoreProductId),
+                () -> assertThat(response.getBody().data().content().get(0).score()).isEqualTo(0.99d)
         );
     }
 
@@ -502,7 +552,8 @@ class RankingV1ApiE2ETest {
                 () -> assertThat(response.getBody()).isNotNull(),
                 () -> assertThat(response.getBody().data().content()).isEmpty(),
                 () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
-                () -> assertThat(response.getBody().data().totalPages()).isEqualTo(1)
+                () -> assertThat(response.getBody().data().totalPages()).isEqualTo(1),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
         );
     }
 

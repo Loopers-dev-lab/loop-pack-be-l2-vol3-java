@@ -612,7 +612,8 @@ class RankingQueryServiceTest {
     @Test
     @DisplayName("loadMvPage: 주간 MV 행 순서·Hydration")
     void loadMvPage_weekly_shouldHydrateRows() {
-        when(rankingMvReadRepository.findWeeklyByPeriodKeyOrdered("2026W15"))
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W15")).thenReturn(Optional.of(1));
+        when(rankingMvReadRepository.findWeeklyByPeriodKeyAndVersionOrdered("2026W15", 1))
                 .thenReturn(List.of(
                         new RankingMvTableRow(1, 101L, new BigDecimal("1.5")),
                         new RankingMvTableRow(2, 102L, new BigDecimal("0.5"))
@@ -646,12 +647,14 @@ class RankingQueryServiceTest {
         assertThat(result.rows().get(0).productId()).isEqualTo(101L);
         assertThat(result.rows().get(0).score()).isEqualTo(1.5d);
         assertThat(result.rankingSnapshotId()).isNull();
+        assertThat(result.mvPublishVersion()).isEqualTo(1);
     }
 
     @Test
     @DisplayName("loadMvPage: page가 총 행을 넘으면 빈 목록·total 유지")
     void loadMvPage_whenPageBeyond_shouldReturnEmptyWithTotal() {
-        when(rankingMvReadRepository.findMonthlyByPeriodKeyOrdered("202604"))
+        when(rankingMvReadRepository.findMaxVersionForMonthly("202604")).thenReturn(Optional.of(1));
+        when(rankingMvReadRepository.findMonthlyByPeriodKeyAndVersionOrdered("202604", 1))
                 .thenReturn(List.of(new RankingMvTableRow(1, 1L, BigDecimal.ONE)));
 
         RankingPage result = rankingQueryService.loadMvPage(
@@ -661,6 +664,7 @@ class RankingQueryServiceTest {
         assertThat(result.totalElements()).isEqualTo(1L);
         assertThat(result.rows()).isEmpty();
         assertThat(result.totalPages()).isEqualTo(1);
+        assertThat(result.mvPublishVersion()).isEqualTo(1);
     }
 
     @Test
@@ -670,12 +674,26 @@ class RankingQueryServiceTest {
         for (int i = 1; i <= 105; i++) {
             many.add(new RankingMvTableRow(i, (long) i, BigDecimal.valueOf(100 - i)));
         }
-        when(rankingMvReadRepository.findWeeklyByPeriodKeyOrdered("2026W01")).thenReturn(many);
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W01")).thenReturn(Optional.of(2));
+        when(rankingMvReadRepository.findWeeklyByPeriodKeyAndVersionOrdered("2026W01", 2)).thenReturn(many);
         when(productRepository.findByIdInAndNotDeletedAsMap(anyCollection())).thenReturn(Map.of());
 
         RankingPage result = rankingQueryService.loadMvPage(
                 RankingMvPeriod.WEEKLY, "2026W01", 1, 100);
 
         assertThat(result.totalElements()).isEqualTo(100L);
+        assertThat(result.mvPublishVersion()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("loadMvPage: MAX(version)이 없으면 빈 페이지")
+    void loadMvPage_whenNoVersion_shouldReturnEmpty() {
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W99")).thenReturn(Optional.empty());
+
+        RankingPage result = rankingQueryService.loadMvPage(
+                RankingMvPeriod.WEEKLY, "2026W99", 1, 10);
+
+        assertThat(result.totalElements()).isEqualTo(0L);
+        assertThat(result.mvPublishVersion()).isNull();
     }
 }

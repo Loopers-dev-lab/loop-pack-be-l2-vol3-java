@@ -133,7 +133,7 @@ public class RankingBatchJobConfig {
      * @param lock RedisRankingBatchLock
      * @return JobExecutionListener
      */
-    @Bean
+    @Bean("rankingBatchLockReleaseListener")
     public JobExecutionListener rankingBatchLockReleaseListener(RedisRankingBatchLock lock) {
         return new JobExecutionListener() {
             @Override
@@ -380,7 +380,8 @@ public class RankingBatchJobConfig {
     @Bean(JOB_NAME)
     public Job rankingProductMvJob(
             JobParametersValidator rankingJobParametersValidator,
-            JobExecutionListener rankingBatchLockReleaseListener,
+            @Qualifier("rankingBatchLockReleaseListener") JobExecutionListener rankingBatchLockReleaseListener,
+            @Qualifier("rankingBatchJobMetricsListener") JobExecutionListener rankingBatchJobMetricsListener,
             @Qualifier(STEP_PERIOD_LOCK) Step periodLockStep,
             @Qualifier(STEP_STAGING_CLEANUP) Step stagingCleanupStep,
             @Qualifier(STEP_AGGREGATE) Step aggregateStep,
@@ -390,6 +391,7 @@ public class RankingBatchJobConfig {
                 .incrementer(new RunIdIncrementer())
                 .validator(rankingJobParametersValidator)
                 .listener(rankingBatchLockReleaseListener)
+                .listener(rankingBatchJobMetricsListener)
                 .listener(jobListener)
                 .start(periodLockStep)
                 .next(stagingCleanupStep)

@@ -47,6 +47,7 @@ class RankingFacadeTest {
                 1L,
                 1,
                 RankingListSource.REDIS_ZSET,
+                null,
                 null
         );
         when(rankingQueryService.loadPage(eq(LocalDate.of(2026, 4, 8)), eq(1), eq(20), eq(Optional.empty())))
@@ -78,7 +79,8 @@ class RankingFacadeTest {
                 1L,
                 1,
                 RankingListSource.MV_WEEKLY,
-                null
+                null,
+                1
         );
         when(rankingQueryService.loadMvPage(RankingMvPeriod.WEEKLY, "2026W15", 1, 20))
                 .thenReturn(domainPage);
@@ -90,6 +92,7 @@ class RankingFacadeTest {
 
         assertThat(out.dataSource()).isEqualTo("MV_WEEKLY");
         assertThat(out.totalElements()).isEqualTo(1L);
+        assertThat(out.mvPublishVersion()).isEqualTo(1);
     }
 
     @Test

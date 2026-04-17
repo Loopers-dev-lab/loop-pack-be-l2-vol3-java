@@ -72,7 +72,9 @@ public class RankingV1Dto {
             @Schema(description = "REDIS·REDIS_SNAPSHOT·FALLBACK_LATEST·DEGRADED·MV_WEEKLY·MV_MONTHLY")
             String dataSource,
             @Schema(description = "스냅샷 조회 시 echo, 라이브 조회면 null")
-            String rankingSnapshotId
+            String rankingSnapshotId,
+            @Schema(description = "주간/월간 MV publish 버전(요청당 고정). 일간 조회면 null")
+            Integer mvPublishVersion
     ) {
         /**
          * 랭킹 목록 결과를 응답 DTO로 변환한다.
@@ -96,7 +98,8 @@ public class RankingV1Dto {
                     result.totalElements(),
                     result.totalPages(),
                     result.dataSource(),
-                    result.rankingSnapshotId()
+                    result.rankingSnapshotId(),
+                    result.mvPublishVersion()
             );
         }
     }

@@ -36,6 +36,7 @@ class RankingV1ControllerTest {
                 0L,
                 0,
                 "FALLBACK_LATEST",
+                null,
                 null
         );
         when(rankingFacade.getRankings("20260408", null, null, 1, 20, Optional.empty())).thenReturn(fallback);
@@ -59,6 +60,7 @@ class RankingV1ControllerTest {
                 0L,
                 0,
                 "DEGRADED",
+                null,
                 null
         );
         when(rankingFacade.getRankings(null, null, null, 1, 20, Optional.empty())).thenReturn(degraded);

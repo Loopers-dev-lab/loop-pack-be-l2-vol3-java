@@ -5,6 +5,7 @@ import com.loopers.domain.ranking.RankingMvTableRow;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class RankingMvReadRepositoryImpl implements RankingMvReadRepository {
@@ -20,14 +21,31 @@ public class RankingMvReadRepositoryImpl implements RankingMvReadRepository {
     }
 
     /**
+     * 주간 랭킹 MV 최대 버전을 조회한다.
+     *
+     * @param periodKey 기간 키
+     * @return 주간 랭킹 MV 최대 버전
+     */
+    @Override
+    public Optional<Integer> findMaxVersionForWeekly(String periodKey) {
+        return Optional.ofNullable(weeklyJpaRepository.findMaxVersionByPeriodKey(periodKey));
+    }
+
+    @Override
+    public Optional<Integer> findMaxVersionForMonthly(String periodKey) {
+        return Optional.ofNullable(monthlyJpaRepository.findMaxVersionByPeriodKey(periodKey));
+    }
+
+    /**
      * 주간 랭킹 MV를 조회한다.
      *
      * @param periodKey 기간 키
+     * @param version 버전
      * @return 주간 랭킹 MV
      */
     @Override
-    public List<RankingMvTableRow> findWeeklyByPeriodKeyOrdered(String periodKey) {
-        return weeklyJpaRepository.findByPeriodKeyOrderByRankValueAsc(periodKey).stream()
+    public List<RankingMvTableRow> findWeeklyByPeriodKeyAndVersionOrdered(String periodKey, int version) {
+        return weeklyJpaRepository.findByPeriodKeyAndVersionOrderByRankValueAsc(periodKey, version).stream()
                 .map(e -> new RankingMvTableRow(e.getRankValue(), e.getProductId(), e.getScore()))
                 .toList();
     }
@@ -36,11 +54,12 @@ public class RankingMvReadRepositoryImpl implements RankingMvReadRepository {
      * 월간 랭킹 MV를 조회한다.
      *
      * @param periodKey 기간 키
+     * @param version 버전
      * @return 월간 랭킹 MV
      */
     @Override
-    public List<RankingMvTableRow> findMonthlyByPeriodKeyOrdered(String periodKey) {
-        return monthlyJpaRepository.findByPeriodKeyOrderByRankValueAsc(periodKey).stream()
+    public List<RankingMvTableRow> findMonthlyByPeriodKeyAndVersionOrdered(String periodKey, int version) {
+        return monthlyJpaRepository.findByPeriodKeyAndVersionOrderByRankValueAsc(periodKey, version).stream()
                 .map(e -> new RankingMvTableRow(e.getRankValue(), e.getProductId(), e.getScore()))
                 .toList();
     }

@@ -91,20 +91,31 @@ public class RankingQueryService {
             int pageOneBased,
             int size) {
         validatePageAndSize(pageOneBased, size);
-        List<RankingMvTableRow> all = switch (period) {
-            case WEEKLY -> rankingMvReadRepository.findWeeklyByPeriodKeyOrdered(periodKey);
-            case MONTHLY -> rankingMvReadRepository.findMonthlyByPeriodKeyOrdered(periodKey);
-        };
         RankingListSource listSource = switch (period) {
             case WEEKLY -> RankingListSource.MV_WEEKLY;
             case MONTHLY -> RankingListSource.MV_MONTHLY;
+        };
+        Optional<Integer> maxVersion = switch (period) {
+            case WEEKLY -> rankingMvReadRepository.findMaxVersionForWeekly(periodKey);
+            case MONTHLY -> rankingMvReadRepository.findMaxVersionForMonthly(periodKey);
+        };
+        if (maxVersion.isEmpty()) {
+            return new RankingPage(
+                    List.of(), pageOneBased, size, 0L, 0, listSource, null, null);
+        }
+        int activeVersion = maxVersion.get();
+        List<RankingMvTableRow> all = switch (period) {
+            case WEEKLY -> rankingMvReadRepository.findWeeklyByPeriodKeyAndVersionOrdered(
+                    periodKey, activeVersion);
+            case MONTHLY -> rankingMvReadRepository.findMonthlyByPeriodKeyAndVersionOrdered(
+                    periodKey, activeVersion);
         };
         List<RankingMvTableRow> capped = all.stream().limit(100).toList();
         long total = capped.size();
         int totalPages = computeTotalPages(total, size);
         if (total == 0L) {
             return new RankingPage(
-                    List.of(), pageOneBased, size, 0L, 0, listSource, null);
+                    List.of(), pageOneBased, size, 0L, 0, listSource, null, activeVersion);
         }
         long startIndex = (long) (pageOneBased - 1) * size;
         if (startIndex >= total) {
@@ -117,13 +128,14 @@ public class RankingQueryService {
                     pageOneBased,
                     size);
             return new RankingPage(
-                    List.of(), pageOneBased, size, total, totalPages, listSource, null);
+                    List.of(), pageOneBased, size, total, totalPages, listSource, null, activeVersion);
         }
         int from = (int) startIndex;
         int to = (int) Math.min(startIndex + size, total);
         List<RankingMvTableRow> slice = capped.subList(from, to);
         List<RankingRow> rows = hydrateMvRows(slice);
-        return new RankingPage(rows, pageOneBased, size, total, totalPages, listSource, null);
+        return new RankingPage(
+                rows, pageOneBased, size, total, totalPages, listSource, null, activeVersion);
     }
 
     /**
@@ -310,12 +322,12 @@ public class RankingQueryService {
         int totalPages = computeTotalPages(total, size);
         if (total == 0L) {
             return new RankingPage(
-                    List.of(), pageOneBased, size, 0L, 0, listSource, rankingSnapshotIdEcho);
+                    List.of(), pageOneBased, size, 0L, 0, listSource, rankingSnapshotIdEcho, null);
         }
         long startIndex = (long) (pageOneBased - 1) * size;
         if (startIndex >= total) {
             return new RankingPage(
-                    List.of(), pageOneBased, size, total, totalPages, listSource, rankingSnapshotIdEcho);
+                    List.of(), pageOneBased, size, total, totalPages, listSource, rankingSnapshotIdEcho, null);
         }
         long endIndex = Math.min(startIndex + size - 1, total - 1);
         List<RankingZsetEntry> entries;
@@ -334,7 +346,7 @@ public class RankingQueryService {
         }
         if (parsedIds.isEmpty()) {
             return new RankingPage(
-                    List.of(), pageOneBased, size, total, totalPages, listSource, rankingSnapshotIdEcho);
+                    List.of(), pageOneBased, size, total, totalPages, listSource, rankingSnapshotIdEcho, null);
         }
         Map<Long, ProductModel> productMap = productRepository.findByIdInAndNotDeletedAsMap(parsedIds);
 
@@ -379,7 +391,8 @@ public class RankingQueryService {
                     product.getStockQuantity()
             ));
         }
-        return new RankingPage(rows, pageOneBased, size, total, totalPages, listSource, rankingSnapshotIdEcho);
+        return new RankingPage(
+                rows, pageOneBased, size, total, totalPages, listSource, rankingSnapshotIdEcho, null);
     }
 
     private RankingPage onRedisFailure(
@@ -398,7 +411,14 @@ public class RankingQueryService {
                     operation, key, ex.getClass().getSimpleName(), ex.getMessage());
             if (!allowDbFallbackOnRedisFailure || !fallbackOnRedisFailure) {
                 return new RankingPage(
-                        List.of(), pageOneBased, size, 0L, 0, RankingListSource.DEGRADED_EMPTY, rankingSnapshotIdEcho);
+                        List.of(),
+                        pageOneBased,
+                        size,
+                        0L,
+                        0,
+                        RankingListSource.DEGRADED_EMPTY,
+                        rankingSnapshotIdEcho,
+                        null);
             }
             return loadPageFromLatestProducts(pageOneBased, size);
         } finally {
@@ -425,6 +445,7 @@ public class RankingQueryService {
                     productPage.getTotalElements(),
                     productPage.getTotalPages(),
                     RankingListSource.DEGRADED_EMPTY,
+                    null,
                     null
             );
         }
@@ -467,6 +488,7 @@ public class RankingQueryService {
                 productPage.getTotalElements(),
                 productPage.getTotalPages(),
                 RankingListSource.FALLBACK_DB_LATEST,
+                null,
                 null
         );
     }
