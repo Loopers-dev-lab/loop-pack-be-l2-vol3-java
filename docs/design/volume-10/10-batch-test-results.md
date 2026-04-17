@@ -3,7 +3,7 @@
 > 실행일: 2026-04-17
 > 테스트 클래스: `ProductRankingMvJobE2ETest`
 > 경로: `apps/commerce-batch/src/test/java/com/loopers/job/rankingmv/ProductRankingMvJobE2ETest.java`
-> 결과: **7/7 PASSED**
+> 결과: **9/9 PASSED** (기능 7 + 시각화 1 + 대규모 1)
 
 ---
 
@@ -187,3 +187,82 @@ GET /api/v1/rankings?scope={daily|weekly|monthly}&date=20260407&page=0&size=20
 4. **장기 강자**: 일간 하위 → 주간 하위 → 월간 상위 (30일 꾸준한 실적)
 5. **Score 범위**: daily 0.73~0.83 < weekly 0.84~0.88 < monthly 0.94~0.96 (누적 기간에 비례)
 6. **취소 반영**: 취소율 50~70% 상품은 순매출 차감으로 순위 하락 확인
+
+---
+
+## 대규모 테스트 결과 (10만 건)
+
+> 실행일: 2026-04-17
+> 환경: Testcontainers MySQL 8.0 (`--innodb-buffer-pool-size=256M`) + Gradle `-Xmx2g`
+> 테스트 메서드: `largeScalePartitionedBatchTest`
+
+### 데이터 규모
+
+| 항목 | 값 |
+|------|-----|
+| 상품 수 | 100,000개 |
+| 메트릭 행 수 | 3,000,000행 (100,000 × 30일) |
+| 시드 방식 | `JdbcTemplate.batchUpdate()` (1,000건씩 벌크 INSERT) |
+| 상품 시드 소요 | 1,137ms |
+| 메트릭 시드 소요 | 79,518ms (~80초) |
+
+### 6가지 트렌드 패턴
+
+| 그룹 | Product ID 범위 | 비율 | 설명 |
+|------|----------------|------|------|
+| A) 급상승 | 1~5,000 | 5% | 최근 7일 폭발 (view 9K, sales 300만/일), 이전 미미 |
+| B) 장기강자 | 5,001~15,000 | 10% | 30일 꾸준히 높음 (view 3K, sales 200만/일) |
+| C) 하락추세 | 15,001~20,000 | 5% | 이전 높음 → 최근 7일 급락 |
+| D) 바이럴 | 20,001~22,000 | 2% | 오늘만 폭발 (view 15K, sales 500만) |
+| E) 취소높음 | 22,001~25,000 | 3% | 매출 높지만 취소 50~70% |
+| F) 일반 | 25,001~100,000 | 75% | 보통 수준 |
+
+### 배치 실행 결과
+
+| 항목 | weekly | monthly |
+|------|--------|---------|
+| Partitioning | 4 Worker (각 25,000건 균등) | 4 Worker (각 25,000건 균등) |
+| 소요 시간 | **2,205ms** | **2,564ms** |
+| MV 적재 건수 | 100 (TOP 100) | 100 (TOP 100) |
+| Staging 적재 | 100,000건 | 100,000건 |
+| Job 상태 | COMPLETED | COMPLETED |
+
+### Step별 소요 시간
+
+| Step | weekly | monthly |
+|------|--------|---------|
+| cleanupStep | 19ms | 352ms (staging 10만건 삭제) |
+| partitionedAggregateStep | 1,977ms | 2,014ms |
+| ├ Worker 1 (partition0) | 1,663ms | 1,269ms |
+| ├ Worker 2 (partition1) | 1,695ms | 1,274ms |
+| ├ Worker 3 (partition2) | 1,642ms | 1,315ms |
+| └ Worker 4 (partition3) | 1,697ms | 1,274ms |
+| mergeStep | 74ms | 74ms |
+
+### 1위 검증
+
+| scope | 1위 상품 | 트렌드 유형 | 의미 |
+|-------|---------|-----------|------|
+| weekly | product_5000 (급상승) | 최근 7일 폭발 | 7일 윈도우에서 급상승 상품이 장기강자를 이김 |
+| monthly | product_15000 (장기강자) | 30일 꾸준히 높음 | 30일 윈도우에서 장기강자가 급상승을 역전 |
+
+### 파티션 균등 분배
+
+```
+[Partitioner] partition0: productId 1~25000 (25,000건)
+[Partitioner] partition1: productId 25001~50000 (25,000건)
+[Partitioner] partition2: productId 50001~75000 (25,000건)
+[Partitioner] partition3: productId 75001~100000 (25,000건)
+```
+
+DISTINCT product_id 사전 조회 기반 분할로 4 파티션 완전 균등 분배. Worker별 소요 시간 편차 < 60ms.
+
+### 규모별 성능 비교
+
+| 규모 | 상품 수 | 메트릭 행 수 | weekly | monthly |
+|------|--------|------------|--------|---------|
+| 기능 테스트 | 150 | 1,050 | ~90ms | — |
+| 실환경 검증 | 1,020 | 30,600 | 275ms | 309ms |
+| **대규모 테스트** | **100,000** | **3,000,000** | **2,205ms** | **2,564ms** |
+
+데이터가 100배 증가해도 소요 시간은 ~8배만 증가 — Partitioning + GROUP BY 최적화로 sub-linear scaling 달성.
