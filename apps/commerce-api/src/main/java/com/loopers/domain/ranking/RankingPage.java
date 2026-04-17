@@ -12,6 +12,7 @@ import java.util.List;
  * @param totalPages 총 페이지 수 (1부터)
  * @param listSource 목록 생성 경로(Redis / DB fallback / degraded)
  * @param rankingSnapshotId 스냅샷 조회 시 발급·요청한 UUID, 라이브 조회면 null
+ * @param mvPublishVersion 주간/월간 MV 조회 시 요청 시작 시점의 활성 버전(동일 요청 내 total·rows 일관성), 일간이면 null
  */
 public record RankingPage(
         List<RankingRow> rows,
@@ -20,6 +21,7 @@ public record RankingPage(
         long totalElements,
         int totalPages,
         RankingListSource listSource,
-        String rankingSnapshotId
+        String rankingSnapshotId,
+        Integer mvPublishVersion
 ) {
 }

@@ -22,6 +22,7 @@ import org.springframework.data.redis.RedisSystemException;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -35,6 +36,9 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +49,9 @@ class RankingQueryServiceTest {
 
     @Mock
     private RankingSnapshotRepository rankingSnapshotRepository;
+
+    @Mock
+    private RankingMvReadRepository rankingMvReadRepository;
 
     @Mock
     private ProductRepository productRepository;
@@ -66,6 +73,7 @@ class RankingQueryServiceTest {
         return new RankingQueryService(
                 rankingReadRepository,
                 rankingSnapshotRepository,
+                rankingMvReadRepository,
                 productRepository,
                 brandService,
                 likeService,
@@ -602,5 +610,121 @@ class RankingQueryServiceTest {
 
         assertThat(result.listSource()).isEqualTo(RankingListSource.DEGRADED_EMPTY);
         assertThat(result.rows()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("loadMvPage: 주간 MV 행 순서·Hydration")
+    void loadMvPage_weekly_shouldHydrateRows() {
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W15")).thenReturn(Optional.of(1));
+        when(rankingMvReadRepository.findWeeklyByPeriodKeyAndVersionOrdered("2026W15", 1))
+                .thenReturn(List.of(
+                        new RankingMvTableRow(1, 101L, new BigDecimal("1.5")),
+                        new RankingMvTableRow(2, 102L, new BigDecimal("0.5"))
+                ));
+
+        ProductModel p101 = mock(ProductModel.class);
+        when(p101.getBrandId()).thenReturn(1L);
+        when(p101.getName()).thenReturn("A");
+        when(p101.getPrice()).thenReturn(new BigDecimal("1000"));
+        when(p101.getStockQuantity()).thenReturn(3);
+        ProductModel p102 = mock(ProductModel.class);
+        when(p102.getBrandId()).thenReturn(1L);
+        when(p102.getName()).thenReturn("B");
+        when(p102.getPrice()).thenReturn(new BigDecimal("2000"));
+        when(p102.getStockQuantity()).thenReturn(0);
+        when(productRepository.findByIdInAndNotDeletedAsMap(anyCollection()))
+                .thenReturn(Map.of(101L, p101, 102L, p102));
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getName()).thenReturn("브랜드");
+        when(brandService.findByIdAndNotDeletedIn(anyCollection())).thenReturn(Map.of(1L, brand));
+        when(likeService.getLikeCountByProductIdsFromStats(anyCollection()))
+                .thenReturn(Map.of(101L, 1L, 102L, 2L));
+
+        RankingPage result = rankingQueryService.loadMvPage(
+                RankingMvPeriod.WEEKLY, "2026W15", 1, 10);
+
+        assertThat(result.listSource()).isEqualTo(RankingListSource.MV_WEEKLY);
+        assertThat(result.totalElements()).isEqualTo(2L);
+        assertThat(result.rows()).hasSize(2);
+        assertThat(result.rows().get(0).rank()).isEqualTo(1);
+        assertThat(result.rows().get(0).productId()).isEqualTo(101L);
+        assertThat(result.rows().get(0).score()).isEqualTo(1.5d);
+        assertThat(result.rankingSnapshotId()).isNull();
+        assertThat(result.mvPublishVersion()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("loadMvPage: 조회 중 더 높은 버전이 생겨도 요청 시작 시 고정한 버전만 사용한다.")
+    void loadMvPage_whenHigherVersionExistsAfterFixedSelection_shouldUseOnlyFixedVersion() {
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W30")).thenReturn(Optional.of(1));
+        when(rankingMvReadRepository.findWeeklyByPeriodKeyAndVersionOrdered("2026W30", 1))
+                .thenReturn(List.of(new RankingMvTableRow(1, 101L, BigDecimal.TEN)));
+
+        ProductModel p101 = mock(ProductModel.class);
+        when(p101.getBrandId()).thenReturn(1L);
+        when(p101.getName()).thenReturn("A");
+        when(p101.getPrice()).thenReturn(new BigDecimal("1000"));
+        when(p101.getStockQuantity()).thenReturn(1);
+        when(productRepository.findByIdInAndNotDeletedAsMap(anyCollection())).thenReturn(Map.of(101L, p101));
+        BrandModel brand = mock(BrandModel.class);
+        when(brand.getName()).thenReturn("브랜드");
+        when(brandService.findByIdAndNotDeletedIn(anyCollection())).thenReturn(Map.of(1L, brand));
+        when(likeService.getLikeCountByProductIdsFromStats(anyCollection())).thenReturn(Map.of());
+
+        RankingPage result = rankingQueryService.loadMvPage(
+                RankingMvPeriod.WEEKLY, "2026W30", 1, 20);
+
+        assertThat(result.mvPublishVersion()).isEqualTo(1);
+        assertThat(result.rows()).hasSize(1);
+        assertThat(result.rows().get(0).productId()).isEqualTo(101L);
+        verify(rankingMvReadRepository, times(1)).findWeeklyByPeriodKeyAndVersionOrdered("2026W30", 1);
+        verify(rankingMvReadRepository, never()).findWeeklyByPeriodKeyAndVersionOrdered("2026W30", 2);
+    }
+
+    @Test
+    @DisplayName("loadMvPage: page가 총 행을 넘으면 빈 목록·total 유지")
+    void loadMvPage_whenPageBeyond_shouldReturnEmptyWithTotal() {
+        when(rankingMvReadRepository.findMaxVersionForMonthly("202604")).thenReturn(Optional.of(1));
+        when(rankingMvReadRepository.findMonthlyByPeriodKeyAndVersionOrdered("202604", 1))
+                .thenReturn(List.of(new RankingMvTableRow(1, 1L, BigDecimal.ONE)));
+
+        RankingPage result = rankingQueryService.loadMvPage(
+                RankingMvPeriod.MONTHLY, "202604", 3, 1);
+
+        assertThat(result.listSource()).isEqualTo(RankingListSource.MV_MONTHLY);
+        assertThat(result.totalElements()).isEqualTo(1L);
+        assertThat(result.rows()).isEmpty();
+        assertThat(result.totalPages()).isEqualTo(1);
+        assertThat(result.mvPublishVersion()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("loadMvPage: 100행 초과 시 total은 100으로 캡")
+    void loadMvPage_whenMoreThan100Rows_shouldCapTotal() {
+        List<RankingMvTableRow> many = new ArrayList<>();
+        for (int i = 1; i <= 105; i++) {
+            many.add(new RankingMvTableRow(i, (long) i, BigDecimal.valueOf(100 - i)));
+        }
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W01")).thenReturn(Optional.of(2));
+        when(rankingMvReadRepository.findWeeklyByPeriodKeyAndVersionOrdered("2026W01", 2)).thenReturn(many);
+        when(productRepository.findByIdInAndNotDeletedAsMap(anyCollection())).thenReturn(Map.of());
+
+        RankingPage result = rankingQueryService.loadMvPage(
+                RankingMvPeriod.WEEKLY, "2026W01", 1, 100);
+
+        assertThat(result.totalElements()).isEqualTo(100L);
+        assertThat(result.mvPublishVersion()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("loadMvPage: MAX(version)이 없으면 빈 페이지")
+    void loadMvPage_whenNoVersion_shouldReturnEmpty() {
+        when(rankingMvReadRepository.findMaxVersionForWeekly("2026W99")).thenReturn(Optional.empty());
+
+        RankingPage result = rankingQueryService.loadMvPage(
+                RankingMvPeriod.WEEKLY, "2026W99", 1, 10);
+
+        assertThat(result.totalElements()).isEqualTo(0L);
+        assertThat(result.mvPublishVersion()).isNull();
     }
 }

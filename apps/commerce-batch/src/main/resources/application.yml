@@ -3,6 +3,9 @@ spring:
     web-application-type: none
   application:
     name: commerce-batch
+  # 운영에서 MV 스키마는 classpath:db/migration (Flyway). local/test는 Hibernate create + Flyway 비활성.
+  flyway:
+    enabled: false
   profiles:
     active: local
   config:
@@ -63,6 +66,17 @@ spring:
 outbox:
   cleanup:
     enabled: false
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev, qa, prd
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    table: flyway_schema_history_commerce_batch
 
 ---
 spring:

@@ -21,9 +21,12 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Instant;
 
 import static com.loopers.interfaces.api.ApiResponse.Metadata.Result;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,6 +56,9 @@ class RankingV1ApiE2ETest {
 
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private Long highScoreProductId;
     private Long lowScoreProductId;
@@ -374,5 +380,260 @@ class RankingV1ApiE2ETest {
                 () -> assertThat(p2again.getBody().data().content().get(0).productId())
                         .isEqualTo(p3.getId())
         );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - 주간 MV: DB 행 순·Hydration·MV_WEEKLY")
+    void getRankings_weeklyMv_shouldReturnFromMaterializedView() {
+        seedTwoProductRanking();
+        String periodKey = "2026W15";
+        Instant at = Instant.now();
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                highScoreProductId,
+                1,
+                new BigDecimal("0.90"),
+                1,
+                Timestamp.from(at));
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                lowScoreProductId,
+                2,
+                new BigDecimal("0.30"),
+                1,
+                Timestamp.from(at));
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=WEEKLY&periodKey=" + periodKey + "&page=1&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getHeaders().getFirst(RankingV1Controller.HEADER_RANKING_DATA_SOURCE))
+                        .isEqualTo("MV_WEEKLY"),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().dataSource()).isEqualTo("MV_WEEKLY"),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(2L),
+                () -> assertThat(response.getBody().data().content()).hasSize(2),
+                () -> assertThat(response.getBody().data().content().get(0).rank()).isEqualTo(1),
+                () -> assertThat(response.getBody().data().content().get(0).productId())
+                        .isEqualTo(highScoreProductId),
+                () -> assertThat(response.getBody().data().content().get(0).score()).isEqualTo(0.9d),
+                () -> assertThat(response.getBody().data().content().get(1).productId())
+                        .isEqualTo(lowScoreProductId),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - 월간 MV·MV_MONTHLY")
+    void getRankings_monthlyMv_shouldReturnFromMaterializedView() {
+        seedTwoProductRanking();
+        String periodKey = "202604";
+        Instant at = Instant.now();
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_monthly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                lowScoreProductId,
+                1,
+                new BigDecimal("0.50"),
+                1,
+                Timestamp.from(at));
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=MONTHLY&periodKey=" + periodKey + "&page=1&size=10",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().dataSource()).isEqualTo("MV_MONTHLY"),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
+                () -> assertThat(response.getBody().data().content()).hasSize(1),
+                () -> assertThat(response.getBody().data().content().get(0).productId())
+                        .isEqualTo(lowScoreProductId),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - MV는 요청당 MAX(version)만 조회(혼합 버전 시 상위 버전만)")
+    void getRankings_weeklyMv_whenMixedVersions_shouldUseMaxVersionOnly() {
+        seedTwoProductRanking();
+        String periodKey = "2026W20";
+        Instant at = Instant.now();
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                highScoreProductId,
+                1,
+                new BigDecimal("0.10"),
+                1,
+                Timestamp.from(at));
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                lowScoreProductId,
+                1,
+                new BigDecimal("0.99"),
+                2,
+                Timestamp.from(at));
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=WEEKLY&periodKey=" + periodKey + "&page=1&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(2),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
+                () -> assertThat(response.getBody().data().content()).hasSize(1),
+                () -> assertThat(response.getBody().data().content().get(0).productId())
+                        .isEqualTo(lowScoreProductId),
+                () -> assertThat(response.getBody().data().content().get(0).score()).isEqualTo(0.99d)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - MV에서 마지막 페이지 초과 시 빈 content·total 유지")
+    void getRankings_weeklyMv_whenPageBeyond_shouldKeepTotal() {
+        seedTwoProductRanking();
+        String periodKey = "2026W16";
+        Instant at = Instant.now();
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_weekly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                highScoreProductId,
+                1,
+                BigDecimal.ONE,
+                1,
+                Timestamp.from(at));
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=WEEKLY&periodKey=" + periodKey + "&page=5&size=1",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().content()).isEmpty(),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
+                () -> assertThat(response.getBody().data().totalPages()).isEqualTo(1),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - 월간 MV에서 마지막 페이지 초과 시 빈 content·total 유지")
+    void getRankings_monthlyMv_whenPageBeyond_shouldKeepTotal() {
+        seedTwoProductRanking();
+        String periodKey = "202605";
+        Instant at = Instant.now();
+        jdbcTemplate.update(
+                """
+                INSERT INTO mv_product_rank_monthly
+                (period_key, product_id, `rank`, score, version, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                periodKey,
+                highScoreProductId,
+                1,
+                BigDecimal.ONE,
+                1,
+                Timestamp.from(at));
+
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=MONTHLY&periodKey=" + periodKey + "&page=5&size=1",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().content()).isEmpty(),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(1L),
+                () -> assertThat(response.getBody().data().totalPages()).isEqualTo(1),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isEqualTo(1)
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - 주간 MV 버전이 없으면 빈 content와 mvPublishVersion null")
+    void getRankings_weeklyMv_whenNoPublishedVersion_shouldReturnEmptyWithNullVersion() {
+        ResponseEntity<ApiResponse<RankingV1Dto.ListResponse>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=WEEKLY&periodKey=2026W53&page=1&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertAll(
+                () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+                () -> assertThat(response.getBody()).isNotNull(),
+                () -> assertThat(response.getBody().data().dataSource()).isEqualTo("MV_WEEKLY"),
+                () -> assertThat(response.getBody().data().content()).isEmpty(),
+                () -> assertThat(response.getBody().data().totalElements()).isEqualTo(0L),
+                () -> assertThat(response.getBody().data().mvPublishVersion()).isNull()
+        );
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - period만 주면 400")
+    void getRankings_whenPeriodWithoutKey_shouldReturn400() {
+        ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "?period=WEEKLY&page=1&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().meta().result()).isEqualTo(Result.FAIL);
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/rankings - date와 period 동시 지정 시 400")
+    void getRankings_whenDateWithMvPeriod_shouldReturn400() {
+        ResponseEntity<ApiResponse<Object>> response = testRestTemplate.exchange(
+                ENDPOINT + "?date=20260408&period=WEEKLY&periodKey=2026W15&page=1&size=20",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<>() {});
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }

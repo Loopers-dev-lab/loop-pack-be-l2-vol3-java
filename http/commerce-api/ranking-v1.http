@@ -25,3 +25,12 @@ POST http://localhost:8080/api/v1/rankings/snapshots?date=20260408
 
 ### 스냅샷으로 페이징 (위에서 받은 UUID로 교체)
 GET http://localhost:8080/api/v1/rankings?date=20260408&page=1&size=20&rankingSnapshotId=00000000-0000-0000-0000-000000000000
+
+### 주간 랭킹 MV (periodKey: yyyyWww, dataSource: MV_WEEKLY)
+GET http://localhost:8080/api/v1/rankings?period=WEEKLY&periodKey=2026W15&page=1&size=20
+
+### 월간 랭킹 MV (periodKey: yyyyMM, dataSource: MV_MONTHLY)
+GET http://localhost:8080/api/v1/rankings?period=MONTHLY&periodKey=202604&page=1&size=20
+
+### period만 주고 periodKey 누락 (400 기대)
+GET http://localhost:8080/api/v1/rankings?period=WEEKLY&page=1&size=20
