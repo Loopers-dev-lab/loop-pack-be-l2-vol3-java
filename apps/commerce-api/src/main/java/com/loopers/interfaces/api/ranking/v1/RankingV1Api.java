@@ -6,8 +6,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.loopers.application.ranking.RankingPageResult;
-import com.loopers.application.ranking.ReadHourlyRankingsUseCase;
 import com.loopers.application.ranking.ReadDailyRankingsUseCase;
+import com.loopers.application.ranking.ReadHourlyRankingsUseCase;
+import com.loopers.application.ranking.ReadMonthlyRankingsUseCase;
+import com.loopers.application.ranking.ReadWeeklyRankingsUseCase;
 import com.loopers.interfaces.api.ApiResponse;
 import com.loopers.interfaces.api.auth.LoginUser;
 import com.loopers.support.page.PageSize;
@@ -21,6 +23,8 @@ public class RankingV1Api implements RankingV1ApiSpec {
 
     private final ReadDailyRankingsUseCase readRankingsUseCase;
     private final ReadHourlyRankingsUseCase readHourlyRankingsUseCase;
+    private final ReadWeeklyRankingsUseCase readWeeklyRankingsUseCase;
+    private final ReadMonthlyRankingsUseCase readMonthlyRankingsUseCase;
 
     @GetMapping("/daily")
     @Override
@@ -43,6 +47,30 @@ public class RankingV1Api implements RankingV1ApiSpec {
             @RequestParam(defaultValue = "20") int size
     ) {
         RankingPageResult result = readHourlyRankingsUseCase.execute(userId, datetime, PageSize.withMaxSize(page, size));
+        return ApiResponse.success(RankingDto.RankingResponse.from(result));
+    }
+
+    @GetMapping("/weekly")
+    @Override
+    public ApiResponse<RankingDto.RankingResponse> getWeeklyRankings(
+            @LoginUser Long userId,
+            @RequestParam String date,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        RankingPageResult result = readWeeklyRankingsUseCase.execute(userId, date, PageSize.withMaxSize(page, size));
+        return ApiResponse.success(RankingDto.RankingResponse.from(result));
+    }
+
+    @GetMapping("/monthly")
+    @Override
+    public ApiResponse<RankingDto.RankingResponse> getMonthlyRankings(
+            @LoginUser Long userId,
+            @RequestParam String date,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        RankingPageResult result = readMonthlyRankingsUseCase.execute(userId, date, PageSize.withMaxSize(page, size));
         return ApiResponse.success(RankingDto.RankingResponse.from(result));
     }
 }

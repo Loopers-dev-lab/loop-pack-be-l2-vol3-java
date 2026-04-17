@@ -3,8 +3,7 @@ package com.loopers.infrastructure.metrics.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -33,7 +32,7 @@ class ProductMetricsRepositoryImplTest {
     @Autowired
     private DatabaseCleanUp databaseCleanUp;
 
-    private static final LocalDateTime CURRENT_METRIC_HOUR = LocalDateTime.now().truncatedTo(ChronoUnit.HOURS);
+    private static final LocalDate CURRENT_METRIC_DATE = LocalDate.now();
 
     @AfterEach
     void tearDown() {
@@ -74,7 +73,7 @@ class ProductMetricsRepositoryImplTest {
                     () -> assertThat(results).hasSize(1),
                     () -> assertThat(results.get(0).getProductId()).isEqualTo(1L),
                     () -> assertThat(results.get(0).getLikeCount()).isEqualTo(1L),
-                    () -> assertThat(results.get(0).getMetricHour()).isEqualTo(CURRENT_METRIC_HOUR)
+                    () -> assertThat(results.get(0).getMetricDate()).isEqualTo(CURRENT_METRIC_DATE)
             );
         }
 
@@ -127,7 +126,7 @@ class ProductMetricsRepositoryImplTest {
                     () -> assertThat(results).hasSize(1),
                     () -> assertThat(results.get(0).getProductId()).isEqualTo(1L),
                     () -> assertThat(results.get(0).getOrderCount()).isEqualTo(3L),
-                    () -> assertThat(results.get(0).getMetricHour()).isEqualTo(CURRENT_METRIC_HOUR)
+                    () -> assertThat(results.get(0).getMetricDate()).isEqualTo(CURRENT_METRIC_DATE)
             );
         }
 
@@ -165,7 +164,7 @@ class ProductMetricsRepositoryImplTest {
                     () -> assertThat(results).hasSize(1),
                     () -> assertThat(results.get(0).getProductId()).isEqualTo(1L),
                     () -> assertThat(results.get(0).getViewCount()).isEqualTo(1L),
-                    () -> assertThat(results.get(0).getMetricHour()).isEqualTo(CURRENT_METRIC_HOUR)
+                    () -> assertThat(results.get(0).getMetricDate()).isEqualTo(CURRENT_METRIC_DATE)
             );
         }
 
