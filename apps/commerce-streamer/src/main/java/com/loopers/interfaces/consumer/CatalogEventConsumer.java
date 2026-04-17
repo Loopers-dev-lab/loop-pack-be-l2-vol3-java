@@ -48,9 +48,9 @@ public class CatalogEventConsumer {
         }
 
         switch (event.eventType()) {
-            case PRODUCT_VIEWED -> metricsService.incrementViewCount(event.productId(), event.version());
-            case FAVORITE_ADDED -> metricsService.incrementLikeCount(event.productId(), event.version());
-            case FAVORITE_REMOVED -> metricsService.decrementLikeCount(event.productId(), event.version());
+            case PRODUCT_VIEWED -> metricsService.incrementViewCount(event.productId());
+            case FAVORITE_ADDED -> metricsService.incrementLikeCount(event.productId());
+            case FAVORITE_REMOVED -> metricsService.decrementLikeCount(event.productId());
             default -> {}
         }
 

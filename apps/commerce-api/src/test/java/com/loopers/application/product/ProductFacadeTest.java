@@ -13,6 +13,7 @@ import com.loopers.domain.product.service.ProductService;
 import com.loopers.domain.product.vo.DisplayStatus;
 import com.loopers.domain.ranking.repository.RankingRepository;
 import com.loopers.domain.ranking.service.RankingService;
+import com.loopers.interfaces.api.product.dto.FindProductApiReqDto;
 import com.loopers.support.enums.SortFilter;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
@@ -28,6 +29,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -67,6 +70,12 @@ class ProductFacadeTest {
 
     @Mock
     private RankingService rankingService;
+
+    @Mock
+    private RedisTemplate<String, String> redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
 
     private static Member createTestMember() {
         return Member.reconstruct(1L, "testuser", "encodedPw", "홍길동", LocalDate.of(1990, 1, 1), "test@test.com");
@@ -177,7 +186,7 @@ class ProductFacadeTest {
                     .thenThrow(new CoreException(ErrorType.NOT_FOUND, "존재하지 않는 상품입니다."));
 
             // act & assert
-            assertThatThrownBy(() -> productFacade.findProduct(null, null, 999L))
+            assertThatThrownBy(() -> productFacade.findProduct(new FindProductApiReqDto(null, null, 999L, "127.0.0.1")))
                     .isInstanceOf(CoreException.class)
                     .satisfies(e -> assertThat(((CoreException) e).getErrorType()).isEqualTo(ErrorType.NOT_FOUND));
         }
@@ -188,9 +197,12 @@ class ProductFacadeTest {
             // arrange
             ProductItem item = createTestProductItem(false);
             when(productService.findProductDetail(1L)).thenReturn(item);
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.setIfAbsent(any(), any(), any())).thenReturn(true);
+            when(rankingService.getProductRank(any(), eq(1L))).thenReturn(null);
 
             // act
-            FindProductResDto result = productFacade.findProduct(null, null, 1L);
+            FindProductResDto result = productFacade.findProduct(new FindProductApiReqDto(null, null, 1L, "127.0.0.1"));
 
             // assert
             assertAll(
@@ -211,9 +223,12 @@ class ProductFacadeTest {
             when(productService.findProductDetail(1L)).thenReturn(item);
             when(memberService.findMember("testuser", "password")).thenReturn(member);
             when(favoriteService.existsByMemberIdAndProductId(1L, 1L)).thenReturn(true);
+            when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+            when(valueOperations.setIfAbsent(any(), any(), any())).thenReturn(true);
+            when(rankingService.getProductRank(any(), eq(1L))).thenReturn(null);
 
             // act
-            FindProductResDto result = productFacade.findProduct("testuser", "password", 1L);
+            FindProductResDto result = productFacade.findProduct(new FindProductApiReqDto("testuser", "password", 1L, "127.0.0.1"));
 
             // assert
             assertAll(

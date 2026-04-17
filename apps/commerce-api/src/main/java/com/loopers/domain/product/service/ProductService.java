@@ -158,6 +158,13 @@ public class ProductService {
         return products;
     }
 
+    public List<Product> findAllByIds(List<Long> productIds) {
+        if (productIds == null || productIds.isEmpty()) {
+            return List.of();
+        }
+        return productRepository.findByIds(productIds);
+    }
+
     private boolean isFirstPageLatest(Long brandId, SortFilter sortFilter, Pageable pageable) {
         return brandId == null && sortFilter == SortFilter.LATEST && pageable.getPageNumber() == 0;
     }
