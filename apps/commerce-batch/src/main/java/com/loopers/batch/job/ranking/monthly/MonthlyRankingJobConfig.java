@@ -47,19 +47,24 @@ public class MonthlyRankingJobConfig {
     // 파라미터 1: 집계 시작(inclusive), 파라미터 2: 집계 종료(exclusive)
     private static final String MONTHLY_METRICS_SQL = """
             SELECT product_id,
-                   SUM(like_count) * 0.2 + SUM(view_count) * 0.1
-                       + 0.7 * LOG(1 + SUM(sales_amount)) AS score,
-                   SUM(like_count)   AS total_like,
-                   SUM(order_count)  AS total_order,
-                   SUM(view_count)   AS total_view,
-                   SUM(sales_amount) AS total_sales
-            FROM product_metrics
-            WHERE metric_hour >= ?
-              AND metric_hour <  ?
-              AND deleted_at IS NULL
-            GROUP BY product_id
-            ORDER BY score DESC
-            LIMIT 100
+                   ROW_NUMBER() OVER (ORDER BY score DESC) AS `rank`,
+                   score, total_like, total_order, total_view, total_sales
+            FROM (
+                SELECT product_id,
+                       SUM(like_count) * 0.2 + SUM(view_count) * 0.1
+                           + 0.7 * LOG(1 + SUM(sales_amount)) AS score,
+                       SUM(like_count)   AS total_like,
+                       SUM(order_count)  AS total_order,
+                       SUM(view_count)   AS total_view,
+                       SUM(sales_amount) AS total_sales
+                FROM product_metrics
+                WHERE metric_hour >= ?
+                  AND metric_hour <  ?
+                  AND deleted_at IS NULL
+                GROUP BY product_id
+                ORDER BY score DESC
+                LIMIT 100
+            ) sub
             """;
 
     private final JobRepository jobRepository;
@@ -123,6 +128,7 @@ public class MonthlyRankingJobConfig {
                 })
                 .rowMapper((rs, rowNum) -> new ProductAggregation(
                         rs.getLong("product_id"),
+                        rs.getInt("rank"),
                         rs.getDouble("score"),
                         rs.getLong("total_like"),
                         rs.getLong("total_order"),
@@ -138,7 +144,7 @@ public class MonthlyRankingJobConfig {
                 .dataSource(dataSource)
                 .sql("""
                         INSERT INTO mv_product_rank_monthly
-                          (product_id, rank, score, total_like, total_order, total_view, total_sales, base_date, created_at)
+                          (product_id, `rank`, score, total_like, total_order, total_view, total_sales, base_date, created_at)
                         VALUES (:productId, :rank, :score, :totalLike, :totalOrder, :totalView, :totalSales, :baseDate, NOW())
                         """)
                 .beanMapped()

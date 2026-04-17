@@ -12,15 +12,11 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @StepScope
 @ConditionalOnProperty(name = "spring.batch.job.name", havingValue = MonthlyRankingJobConfig.JOB_NAME)
 @Component
 public class MonthlyRankingProcessor implements ItemProcessor<ProductAggregation, MvProductRankMonthly> {
-
-    // Step 생명주기 동안 rank 순번을 유지 (@StepScope 이므로 Step 종료 시 폐기)
-    private final AtomicInteger rankCounter = new AtomicInteger(0);
 
     // baseDate 는 해당 월의 1일로 저장 (예: 202604 → 2026-04-01)
     private LocalDate baseDate;
@@ -32,9 +28,8 @@ public class MonthlyRankingProcessor implements ItemProcessor<ProductAggregation
 
     @Override
     public MvProductRankMonthly process(ProductAggregation item) {
-        int rank = rankCounter.incrementAndGet();
         return MvProductRankMonthly.of(
-                item.productId(), rank, item.score(),
+                item.productId(), item.rank(), item.score(),
                 item.totalLike(), item.totalOrder(), item.totalView(),
                 item.totalSales(), baseDate
         );
