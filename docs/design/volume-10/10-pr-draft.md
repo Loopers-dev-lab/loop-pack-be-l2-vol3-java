@@ -4,15 +4,15 @@
 
 - Spring Batch + Partitioning으로 `product_metrics`(일간 메트릭)를 주간/월간 단위로 합산하여 MV 테이블에 TOP 100 랭킹 적재
 - Ranking API 확장: `scope=weekly|monthly` 요청 시 MV 단일 소스로 조회, 전일 MV fallback
-- E2E 테스트 7/7 통과 + 시간 윈도우별 랭킹 차이 검증
+- E2E 테스트 8/8 통과 + 시간 윈도우(1일/7일/30일)에 따른 랭킹 변화 확인
 
-## 변경 사항
+## 구현 사항
 
 ### 1. Spring Batch Job — Partitioning + Map-Reduce 3-Step 구조
 
 ```
 ProductRankingMvJob
-  ├── Step 1: CleanupTasklet — DELETE MV + staging + 3일 이전 정리
+  ├── Step 1: CleanupTasklet — DELETE MV + staging + 3일보다 오래된 데이터 정리
   ├── Step 2: Partitioned Aggregate (4 Worker 병렬)
   │   └── JdbcCursorItemReader(GROUP BY + LOG10 score) → staging INSERT
   └── Step 3: Merge — ROW_NUMBER() OVER → Global TOP 100 → MV INSERT
@@ -35,17 +35,18 @@ ProductRankingMvJob
 
 ### 4. E2E 테스트
 
-7개 시나리오 모두 통과:
+8개 시나리오 모두 통과:
 
-| 시나리오 | 검증 포인트 |
-|---------|-----------|
-| 주간 정상 (150개 상품) | TOP 100 적재, 1위 정확성, 전체 파이프라인 |
-| 주간 100개 미만 | LIMIT 100이지만 있는 만큼만 |
-| 월간 정상 (30일) | monthly 테이블 분기 |
-| 멱등성 (2회 실행) | 중복 없이 동일 결과 |
-| 데이터 없음 | Job COMPLETED, 빈 MV |
-| 부분 데이터 (3일) | 있는 만큼만 집계 |
-| 취소 반영 | 순매출 기준 순위 결정 |
+| 시나리오                   | 검증 포인트 |
+|------------------------|-----------|
+| scope=weekly (150개 상품) | 3-Step 파이프라인 동작, TOP 100 적재, 1위 정확성 |
+| scope=weekly (30개 상품)  | 서비스 초기 등 상품이 부족해도 Job 정상 완료 |
+| scope=monthly (30일)    | 30일 윈도우 집계, monthly 테이블에 적재 |
+| 멱등성 (2회 실행)            | 중복 없이 동일 결과 |
+| 데이터 없음                 | Job COMPLETED, 빈 MV |
+| 부분 데이터 (3일)            | 있는 만큼만 집계 |
+| 취소된 주문 반영              | 순매출 기준 순위 결정 |
+| 대규모 (10만 × 30일)        | 300만 행 4 Partition 병렬 집계, 파티션 균등 분배, 일간/주간/월간 TOP 20 순위 차이 확인 |
 
 ---
 
@@ -55,22 +56,19 @@ ProductRankingMvJob
 
 GROUP BY 집계 쿼리에서 Reader 선택은 제한적이다:
 
-- **PagingReader**: 페이지마다 GROUP BY를 재실행한다. 상품 100만 × 30일 = 3,000만 행 GROUP BY를 페이지 수만큼 반복 → 대규모에서 치명적
+- **PagingReader**: 페이지마다 GROUP BY를 재실행한다. 상품 10만 × 30일 = 300만 행 GROUP BY를 페이지 수만큼 반복 → 규모가 커질수록 치명적
 - **CursorReader**: GROUP BY를 1회 실행하고 결과를 스트리밍한다. 하지만 ResultSet이 공유 상태를 갖기 때문에 멀티스레드에서 사용 불가
 
 Partitioning은 이 딜레마를 해결한다. product_id 범위로 데이터를 분할하여, 각 Worker가 **독립 커넥션 + 독립 CursorReader**로 자기 범위만 GROUP BY한다. CursorReader의 장점(1회 쿼리)을 유지하면서 병렬 처리를 달성한다.
 
+10만 상품 × 30일(300만 행) 기준 측정값:
+
 ```
-단일 CursorReader:  GROUP BY 3,000만 행 1회 → ~30초
-Partitioning (4):   GROUP BY 750만 행 × 4 병렬 → ~10초
+4 Partition 병렬: weekly 2,205ms / monthly 2,564ms
 ```
 
 **참고 자료**:
 - [Scaling and Parallel Processing — Spring Batch Reference](https://docs.spring.io/spring-batch/reference/scalability.html): Partitioning은 각 Worker가 독립 Step으로 실행. IO-intensive Step에 유용
-- [ColumnRangePartitioner — SpringOne2GX 2014](https://github.com/SpringOne2GX-2014/spring-batch-performance-tuning/blob/master/sample_code/remote-partitioning/remote-partitioning-master/src/main/java/io/spring/remotepartitioningmaster/partition/ColumnRangePartitioner.java): MIN/MAX → 범위 분할 → ExecutionContext 패턴
-- [Partitioner 성능 개선 사례](https://prostars.net/357): 파티션 1→5, 30초→17초 (1.8배 향상)
-- [Netflix Distributed Counter](https://netflixtechblog.com/netflixs-distributed-counter-abstraction-8d0c45eb66b2): 시간 기반 파티셔닝 + 병렬 집계 → merge 패턴
-- [Shopify BFCM Flink](https://shopify.engineering/bfcm-live-map-2021-apache-flink-redesign): 윈도우 분할 → 독립 집계 → 머지
 
 ### 2. Score 계산을 SQL에서 처리한 이유 — DB가 잘하는 일은 DB에서
 
