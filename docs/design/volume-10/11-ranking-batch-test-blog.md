@@ -48,7 +48,7 @@ Step 3: Merge
 
 ---
 
-## 3. E2E 테스트: 7개 시나리오와 그 의미
+## 3. E2E 테스트: 10개 시나리오와 그 의미
 
 ### 테스트 환경
 
@@ -69,8 +69,11 @@ Step 3: Merge
 | 5 | **noData** | 메트릭 0건 | Job FAILED 아닌 COMPLETED |
 | 6 | **partialData** | 7일 중 3일만 | 있는 만큼만 집계 |
 | 7 | **cancellation** | 매출 200만/취소 150만 vs 매출 100만/취소 0 | 순매출 기준 순위 |
+| 8 | **printRankingResults** | 20개 상품 × 30일 (5가지 패턴) | 일간/주간/월간 TOP 20 시각화 출력 |
+| 9 | **largeScale** | 10만 상품 × 30일 (300만 행) | 4 Partition 병렬 집계, 파티션 균등 분배, 1위 정확성 |
+| 10 | **partitionBenchmark** | gridSize=1 vs gridSize=4 | Partitioning 성능 효과 정량 측정 (2.1x 향상) |
 
-7개 중 처음 작성했을 때 **모두 실패**했다. 테스트 프레임워크와의 충돌 때문이었다.
+7~10번 시나리오 중 처음 작성했을 때 기능 테스트(1~7) **모두 실패**했다. 테스트 프레임워크와의 충돌 때문이었다.
 
 ---
 
@@ -223,7 +226,27 @@ SUM(pm.sales_amount - pm.cancel_amount_by_event_date) AS total_net_sales_amount
 | monthly 소요 시간 | 309ms |
 | 적재 건수 | 100 (TOP 100) |
 
-30,600행을 4파티션으로 나눠 병렬 처리한 결과, **300ms 이내**에 완료되었다. Partitioning이 없었다면 단일 쿼리로 처리해야 하므로 데이터가 커질수록 차이가 벌어진다.
+30,600행을 4파티션으로 나눠 병렬 처리한 결과, **300ms 이내**에 완료되었다.
+
+### Partitioning 벤치마크: gridSize=1 vs gridSize=4
+
+"Partitioning이 없었다면 단일 쿼리로 처리해야 하므로 데이터가 커질수록 차이가 벌어진다." — 이걸 실제로 측정해봤다.
+
+10만 상품 × 30일(300만 행)에서 gridSize만 1과 4로 바꿔서 같은 데이터를 2회 실행한 결과:
+
+| 구성 | weekly 소요 시간 | Worker당 상품 수 |
+|------|----------------|--------------|
+| gridSize=1 (단일 스레드) | **3,740ms** | 100,000 |
+| gridSize=4 (4 Partition 병렬) | **1,763ms** | 25,000 |
+| **향상률** | **2.1x** | |
+
+이론적 상한은 4x지만, 실측은 2.1x다. 차이의 원인:
+
+1. **Amdahl's Law**: Partitioner의 `SELECT DISTINCT product_id` 쿼리, mergeStep의 `ROW_NUMBER() OVER`, JobRepository 메타데이터 저장 등 **직렬 구간이 전체의 일부**를 차지한다.
+2. **Testcontainers 환경 제약**: `innodb-buffer-pool-size=256M`으로 제한된 환경이므로, 프로덕션 MySQL에서는 더 큰 향상률이 기대된다.
+3. **IO 경합**: 4개 Worker가 동시에 같은 MySQL 인스턴스에 접근하므로 디스크/메모리 경합이 발생한다.
+
+그래도 **2.1x는 의미 있는 수치**다. 1일 1회 배치에서 3.7초와 1.8초의 절대적 차이는 크지 않지만, 데이터가 10배(100만 상품)로 늘어나면 37초 vs 18초로 벌어진다. 병렬화의 효과는 규모에 비례한다.
 
 ---
 
@@ -254,6 +277,7 @@ MvProductRank*.class → 빌드에 없음 → getFromMv() 호출되어도 쿼리
 | 빈 데이터 / 부분 데이터 | Job COMPLETED, 안전 처리 |
 | 취소 반영 | 순매출 기준 순위 결정 |
 | 시간 윈도우별 랭킹 차이 | 일간/주간/월간 TOP 20이 완전히 다름 |
+| Partitioning 성능 효과 | gridSize=1 대비 gridSize=4가 2.1x 빠름 (10만 상품 기준) |
 
 ### 테스트 설계에서 배운 것
 

@@ -3,7 +3,7 @@
 > 실행일: 2026-04-17
 > 테스트 클래스: `ProductRankingMvJobE2ETest`
 > 경로: `apps/commerce-batch/src/test/java/com/loopers/job/rankingmv/ProductRankingMvJobE2ETest.java`
-> 결과: **9/9 PASSED** (기능 7 + 시각화 1 + 대규모 1)
+> 결과: **10/10 PASSED** (기능 7 + 시각화 1 + 대규모 1 + 벤치마크 1)
 
 ---
 
@@ -266,3 +266,33 @@ DISTINCT product_id 사전 조회 기반 분할로 4 파티션 완전 균등 분
 | **대규모 테스트** | **100,000** | **3,000,000** | **2,205ms** | **2,564ms** |
 
 데이터가 100배 증가해도 소요 시간은 ~8배만 증가 — Partitioning + GROUP BY 최적화로 sub-linear scaling 달성.
+
+---
+
+## Partitioning 벤치마크 (gridSize=1 vs gridSize=4)
+
+> 실행일: 2026-04-17
+> 테스트 메서드: `partitionBenchmark`
+> 데이터: 100,000 상품 × 30일 = 3,000,000행 (6가지 트렌드 패턴)
+
+### 테스트 방식
+
+동일 시드 데이터를 한 번만 생성한 후, `ReflectionTestUtils.setField(jobConfig, "gridSize", N)`으로 gridSize만 교체하여 2회 실행.
+
+1. gridSize=1로 weekly Job 실행 → 소요 시간 측정
+2. MV + staging DELETE → gridSize=4로 weekly Job 실행 → 소요 시간 측정
+
+### 결과
+
+| 구성 | weekly 소요 시간 | Worker 수 | Worker당 상품 수 |
+|------|----------------|-----------|--------------|
+| gridSize=1 (단일 스레드) | **3,740ms** | 1 | 100,000 |
+| gridSize=4 (4 Partition 병렬) | **1,763ms** | 4 | 25,000 |
+| **향상률** | **2.1x** | | |
+
+### 분석
+
+- **이론적 상한: 4x**, 실측: **2.1x**
+- Amdahl's Law에 의해 병렬화할 수 없는 부분(Partitioner의 `DISTINCT product_id` 쿼리, mergeStep의 `ROW_NUMBER() OVER`, 각 Step 간 JobRepository 메타데이터 저장)이 전체 소요 시간의 일부를 차지
+- Testcontainers MySQL에서 innodb-buffer-pool-size=256M 제약 환경 기준. 프로덕션 MySQL에서는 더 큰 향상률이 기대됨
+- 양쪽 모두 MV 100건 적재 + Job COMPLETED 검증 통과

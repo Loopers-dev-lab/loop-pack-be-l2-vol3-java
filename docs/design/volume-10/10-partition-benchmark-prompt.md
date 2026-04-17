@@ -1,6 +1,4 @@
-# Partitioning 성능 비교 테스트 프롬프트
-
-> 다른 컴퓨터에서 실행. `git pull origin volume-10` 후 사용.
+# Partitioning 성능 비교 테스트
 
 ## 목적
 

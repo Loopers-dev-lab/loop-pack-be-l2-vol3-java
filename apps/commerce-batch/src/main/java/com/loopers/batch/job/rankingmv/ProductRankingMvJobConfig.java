@@ -54,7 +54,8 @@ public class ProductRankingMvJobConfig {
 
     public static final String JOB_NAME = "productRankingMvJob";
     private static final int CHUNK_SIZE = 1_000;
-    private static final int GRID_SIZE = 4;
+    @Value("${ranking.mv.grid-size:4}")
+    private int gridSize;
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 
     private final JobRepository jobRepository;
@@ -101,7 +102,7 @@ public class ProductRankingMvJobConfig {
         return new StepBuilder("partitionedAggregateStep", jobRepository)
             .partitioner("workerStep", createPartitioner(targetDate, scope))
             .step(workerStep())
-            .gridSize(GRID_SIZE)
+            .gridSize(gridSize)
             .taskExecutor(new SimpleAsyncTaskExecutor("mv-worker-"))
             .build();
     }

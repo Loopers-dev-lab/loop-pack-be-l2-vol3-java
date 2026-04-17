@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,6 +40,9 @@ class ProductRankingMvJobE2ETest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ProductRankingMvJobConfig jobConfig;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
     private static final String TARGET_DATE = "20260416";
@@ -631,6 +635,62 @@ class ProductRankingMvJobE2ETest {
         System.out.printf("  Monthly 소요     : %,dms (1위: product_%d, 장기강자)%n", monthlyMs, monthlyTopId);
         System.out.printf("  Staging 적재     : %,d건 (~%,d건/partition)%n", stagingTotal, stagingTotal / 4);
         System.out.println("═══════════════════════════════════════════════════");
+    }
+
+    @Test
+    @DisplayName("벤치마크 — gridSize=1 vs gridSize=4 소요 시간 비교")
+    void partitionBenchmark() throws Exception {
+        int productCount = 100_000;
+        int metricDays = 30;
+
+        long t0 = System.currentTimeMillis();
+        seedProductsBulk(productCount);
+        seedMetricsBulkWithTrends(productCount, metricDays, TARGET_DATE);
+        long seedMs = System.currentTimeMillis() - t0;
+
+        int metricRows = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM product_metrics", Integer.class);
+        System.out.printf("%n[시드 완료] 상품 %,d건, 메트릭 %,d건 (%,dms)%n", productCount, metricRows, seedMs);
+
+        // ── gridSize=1 (단일 스레드) ──
+        ReflectionTestUtils.setField(jobConfig, "gridSize", 1);
+
+        t0 = System.currentTimeMillis();
+        BatchStatus singleStatus = runJob("weekly");
+        long singleMs = System.currentTimeMillis() - t0;
+        assertThat(singleStatus).isEqualTo(BatchStatus.COMPLETED);
+
+        int singleMvCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM mv_product_rank_weekly WHERE period_key = ?",
+            Integer.class, TARGET_DATE);
+        assertThat(singleMvCount).isEqualTo(100);
+
+        // ── 중간 정리 ──
+        jdbcTemplate.update("DELETE FROM mv_product_rank_weekly WHERE period_key = ?", TARGET_DATE);
+        jdbcTemplate.update("DELETE FROM mv_product_rank_staging WHERE period_key = ?", TARGET_DATE);
+
+        // ── gridSize=4 (4 Partition 병렬) ──
+        ReflectionTestUtils.setField(jobConfig, "gridSize", 4);
+
+        t0 = System.currentTimeMillis();
+        BatchStatus partitionedStatus = runJob("weekly");
+        long partitionedMs = System.currentTimeMillis() - t0;
+        assertThat(partitionedStatus).isEqualTo(BatchStatus.COMPLETED);
+
+        int partitionedMvCount = jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM mv_product_rank_weekly WHERE period_key = ?",
+            Integer.class, TARGET_DATE);
+        assertThat(partitionedMvCount).isEqualTo(100);
+
+        double speedup = (double) singleMs / partitionedMs;
+
+        System.out.println();
+        System.out.println("═══════════════════════════════════════");
+        System.out.println("  Partitioning 벤치마크 (10만 상품)");
+        System.out.println("═══════════════════════════════════════");
+        System.out.printf("  gridSize=1: %,dms%n", singleMs);
+        System.out.printf("  gridSize=4: %,dms%n", partitionedMs);
+        System.out.printf("  향상률:     %.1fx%n", speedup);
+        System.out.println("═══════════════════════════════════════");
     }
 
     // ── 엣지 케이스 ─────────────────────────────────────────────────────
