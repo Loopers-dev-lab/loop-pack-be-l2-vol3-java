@@ -20,7 +20,8 @@ public class ProductV1Dto {
 
     public record ProductDetailResponse(
         Long id, String name, String description, int price,
-        Long brandId, String brandName, int likeCount, String stockStatus
+        Long brandId, String brandName, int likeCount, String stockStatus,
+        Long rank
     ) {
         public static ProductDetailResponse from(ProductDetail detail) {
             return new ProductDetailResponse(
@@ -31,7 +32,8 @@ public class ProductV1Dto {
                 detail.brandId(),
                 detail.brandName(),
                 detail.likeCount(),
-                detail.stockStatus() != null ? detail.stockStatus().name() : null
+                detail.stockStatus() != null ? detail.stockStatus().name() : null,
+                detail.rank()
             );
         }
     }

@@ -25,4 +25,14 @@ public class CouponV1Dto {
             );
         }
     }
+
+    /**
+     * 비동기 쿠폰 발급 상태 응답.
+     * status: PENDING(아직 처리 안 됨), ISSUED(발급 완료)
+     */
+    public record CouponIssueStatusResponse(
+        String status,
+        CouponIssueResponse issue
+    ) {
+    }
 }

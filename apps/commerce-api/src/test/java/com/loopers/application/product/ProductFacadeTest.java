@@ -2,6 +2,7 @@ package com.loopers.application.product;
 
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.application.brand.BrandService;
+import com.loopers.application.ranking.RankingFacade;
 import com.loopers.domain.product.Money;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.stock.StockModel;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -38,11 +40,17 @@ class ProductFacadeTest {
     @Mock
     private StockService stockService;
 
+    @Mock
+    private RankingFacade rankingFacade;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private ProductFacade productFacade;
 
     @BeforeEach
     void setUp() {
-        productFacade = new ProductFacade(productService, brandService, stockService);
+        productFacade = new ProductFacade(productService, brandService, stockService, rankingFacade, eventPublisher);
     }
 
     @DisplayName("상품 등록")

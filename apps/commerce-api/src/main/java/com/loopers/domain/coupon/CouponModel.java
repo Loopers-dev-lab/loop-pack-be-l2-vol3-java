@@ -29,6 +29,12 @@ public class CouponModel extends BaseEntity {
     @Column(name = "expired_at", nullable = false)
     private LocalDateTime expiredAt;
 
+    @Column(name = "max_quantity")
+    private Integer maxQuantity;
+
+    @Column(name = "issued_count", nullable = false)
+    private int issuedCount;
+
     protected CouponModel() {
     }
 
@@ -38,7 +44,14 @@ public class CouponModel extends BaseEntity {
         this.value = value;
         this.minOrderAmount = minOrderAmount;
         this.expiredAt = expiredAt;
+        this.issuedCount = 0;
         guard();
+    }
+
+    public CouponModel(String name, CouponType type, int value, Money minOrderAmount,
+                        LocalDateTime expiredAt, Integer maxQuantity) {
+        this(name, type, value, minOrderAmount, expiredAt);
+        this.maxQuantity = maxQuantity;
     }
 
     @Override
@@ -81,6 +94,22 @@ public class CouponModel extends BaseEntity {
         }
     }
 
+    public boolean hasQuantityLimit() {
+        return maxQuantity != null;
+    }
+
+    public boolean isQuantityAvailable() {
+        if (!hasQuantityLimit()) return true;
+        return issuedCount < maxQuantity;
+    }
+
+    public void incrementIssuedCount() {
+        if (hasQuantityLimit() && issuedCount >= maxQuantity) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "쿠폰 발급 수량이 초과되었습니다.");
+        }
+        this.issuedCount++;
+    }
+
     public void update(String name, CouponType type, int value, Money minOrderAmount, LocalDateTime expiredAt) {
         this.name = name;
         this.type = type;
@@ -108,5 +137,13 @@ public class CouponModel extends BaseEntity {
 
     public LocalDateTime expiredAt() {
         return expiredAt;
+    }
+
+    public Integer maxQuantity() {
+        return maxQuantity;
+    }
+
+    public int issuedCount() {
+        return issuedCount;
     }
 }

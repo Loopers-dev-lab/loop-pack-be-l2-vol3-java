@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Component
@@ -58,6 +59,11 @@ public class CouponIssueService {
     @Transactional(readOnly = true)
     public Page<CouponIssueModel> getIssuesByCoupon(Long couponId, Pageable pageable) {
         return couponIssueRepository.findAllByCouponId(couponId, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<CouponIssueModel> findByUserAndCoupon(Long userId, Long couponId) {
+        return couponIssueRepository.findByUserIdAndCouponId(userId, couponId);
     }
 
     @Transactional

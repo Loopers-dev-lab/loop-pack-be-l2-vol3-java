@@ -8,15 +8,18 @@ import com.loopers.domain.product.ProductModel;
 import com.loopers.application.product.ProductService;
 import com.loopers.domain.stock.StockModel;
 import com.loopers.application.stock.StockService;
+import com.loopers.domain.order.event.OrderPlacedEvent;
 import com.loopers.support.error.CoreException;
 import com.loopers.support.error.ErrorType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -49,6 +52,9 @@ class OrderFacadeTest {
 
     @Mock
     private CouponService couponService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @DisplayName("주문 생성")
     @Nested
@@ -83,6 +89,39 @@ class OrderFacadeTest {
             assertAll(
                 () -> assertThat(result.order().totalAmount()).isEqualTo(new Money(129000 * 2 + 109000)),
                 () -> assertThat(result.items()).hasSize(2)
+            );
+        }
+
+        @DisplayName("주문 생성 성공 시 OrderPlacedEvent를 발행한다")
+        @Test
+        void publishesOrderPlacedEventWhenOrderCreated() {
+            // given
+            Long userId = 1L;
+            ProductModel product = new ProductModel("에어맥스", "러닝화", new Money(129000), 1L);
+            ReflectionTestUtils.setField(product, "id", 1L);
+            StockModel stock = new StockModel(1L, 100);
+
+            given(productService.getById(1L)).willReturn(product);
+            given(stockService.getByProductIdForUpdate(1L)).willReturn(stock);
+            given(orderService.save(any(OrderModel.class))).willAnswer(invocation -> {
+                OrderModel order = invocation.getArgument(0);
+                ReflectionTestUtils.setField(order, "id", 10L);
+                return order;
+            });
+            given(orderService.saveAllItems(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+            List<OrderItemCommand> commands = List.of(new OrderItemCommand(1L, 2));
+
+            // when
+            orderFacade.placeOrder(userId, commands, null);
+
+            // then
+            ArgumentCaptor<OrderPlacedEvent> captor = ArgumentCaptor.forClass(OrderPlacedEvent.class);
+            then(eventPublisher).should().publishEvent(captor.capture());
+            assertAll(
+                () -> assertThat(captor.getValue().orderId()).isEqualTo(10L),
+                () -> assertThat(captor.getValue().userId()).isEqualTo(userId),
+                () -> assertThat(captor.getValue().totalAmountValue()).isEqualTo(258000L)
             );
         }
 
