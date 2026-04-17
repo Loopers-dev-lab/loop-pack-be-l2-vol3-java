@@ -3,7 +3,14 @@ package com.loopers.batch.ranking.job;
 import com.loopers.batch.listener.JobListener;
 import com.loopers.batch.listener.StepMonitorListener;
 import com.loopers.domain.ranking.batch.RankingBatchJobParameters;
+import com.loopers.domain.ranking.batch.RankingMvScoreCalculator;
+import com.loopers.domain.ranking.batch.RankingScoreCandidate;
+import com.loopers.domain.ranking.batch.RankingStagingRepository;
+import com.loopers.domain.ranking.batch.RankingTop100Accumulator;
+import com.loopers.infrastructure.ranking.batch.ProductMetricsEntity;
 import com.loopers.infrastructure.ranking.batch.RedisRankingBatchLock;
+import jakarta.persistence.EntityManagerFactory;
+import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobExecutionListener;
@@ -11,6 +18,8 @@ import org.springframework.batch.core.JobParameters;
 import org.springframework.batch.core.JobParametersInvalidException;
 import org.springframework.batch.core.JobParametersValidator;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.StepExecution;
+import org.springframework.batch.core.StepExecutionListener;
 import org.springframework.batch.core.UnexpectedJobExecutionException;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -18,19 +27,21 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
-import org.springframework.batch.item.support.ListItemReader;
+import org.springframework.batch.item.ItemProcessor;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.JpaPagingItemReader;
+import org.springframework.batch.item.database.builder.JpaPagingItemReaderBuilder;
 import org.springframework.batch.repeat.RepeatStatus;
 import org.springframework.batch.support.transaction.ResourcelessTransactionManager;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
-
-import java.util.List;
 
 /**
  * Round 10 — 랭킹 MV 배치 Job(3단계): 파라미터 검증 → period 락 → staging 정리(자리) → 집계(자리) → publish(자리).
@@ -55,7 +66,7 @@ public class RankingBatchJobConfig {
             ObjectProvider<JobRepository> jobRepositoryProvider,
             JobListener jobListener,
             StepMonitorListener stepMonitorListener,
-            PlatformTransactionManager transactionManager
+            @Lazy PlatformTransactionManager transactionManager
     ) {
         this.jobRepositoryProvider = jobRepositoryProvider;
         this.jobListener = jobListener;
@@ -135,13 +146,15 @@ public class RankingBatchJobConfig {
             @Override
             public void afterJob(JobExecution jobExecution) {
                 var ctx = jobExecution.getExecutionContext();
-                if (!"true".equals(ctx.getString(RankingBatchJobParameters.CTX_LOCK_HELD))) {
+                Object lockHeld = ctx.get(RankingBatchJobParameters.CTX_LOCK_HELD);
+                if (!"true".equals(lockHeld instanceof String ? (String) lockHeld : null)) {
                     return;
                 }
                 String period = jobExecution.getJobParameters().getString(RankingBatchJobParameters.JOB_PARAM_PERIOD);
                 String periodKey = jobExecution.getJobParameters()
                         .getString(RankingBatchJobParameters.JOB_PARAM_PERIOD_KEY);
-                String owner = ctx.getString(RankingBatchJobParameters.CTX_LOCK_OWNER);
+                Object ownerObj = ctx.get(RankingBatchJobParameters.CTX_LOCK_OWNER);
+                String owner = ownerObj instanceof String ? (String) ownerObj : null;
                 if (period != null && periodKey != null && owner != null) {
                     lock.releaseIfHeld(period, periodKey, owner);
                 }
@@ -182,6 +195,135 @@ public class RankingBatchJobConfig {
         };
     }
 
+    /**
+     * 랭킹 배치 스테이징 정리를 생성한다.
+     *
+     * @param rankingStagingRepository RankingStagingRepository
+     * @param period 기간
+     * @param periodKey 기간 키
+     * @return Tasklet
+     */
+    @Bean
+    @StepScope
+    public Tasklet rankingStagingCleanupTasklet(
+            RankingStagingRepository rankingStagingRepository,
+            @Value("#{jobParameters['period']}") String period,
+            @Value("#{jobParameters['periodKey']}") String periodKey
+    ) {
+        return (contribution, chunkContext) -> {
+            rankingStagingRepository.deleteByPeriodTypeAndPeriodKey(period, periodKey);
+            return RepeatStatus.FINISHED;
+        };
+    }
+
+    /**
+     * 랭킹 배치 상품 메트릭스 리더를 생성한다.
+     *
+     * @param entityManagerFactory EntityManagerFactory
+     * @return JpaPagingItemReader
+     */
+    @Bean
+    @StepScope
+    public JpaPagingItemReader<ProductMetricsEntity> rankingProductMetricsReader(
+            EntityManagerFactory entityManagerFactory
+    ) throws Exception {
+        JpaPagingItemReader<ProductMetricsEntity> reader = new JpaPagingItemReaderBuilder<ProductMetricsEntity>()
+                .name("rankingProductMetricsReader")
+                .entityManagerFactory(entityManagerFactory)
+                .pageSize(50)
+                .queryString("select e from ProductMetricsEntity e order by e.productId asc")
+                .build();
+        reader.afterPropertiesSet();
+        return reader;
+    }
+
+    /**
+     * 랭킹 배치 상품 메트릭스 프로세서를 생성한다.
+     *
+     * @return ItemProcessor
+     */
+    @Bean
+    @StepScope
+    public ItemProcessor<ProductMetricsEntity, RankingScoreCandidate> rankingAggregateProcessor() {
+        return entity -> new RankingScoreCandidate(
+                entity.getProductId(),
+                RankingMvScoreCalculator.score(
+                        entity.getViewCount(),
+                        entity.getLikeCount(),
+                        entity.getSoldQuantity()
+                )
+        );
+    }
+
+    /**
+     * 랭킹 배치 집계 누적기를 생성한다.
+     *
+     * @return RankingTop100Accumulator
+     */
+    @Bean
+    @StepScope
+    public RankingTop100Accumulator rankingTop100Accumulator() {
+        return new RankingTop100Accumulator();
+    }
+
+    /** 
+     * 랭킹 배치 집계 히프 라이터를 생성한다.
+     *
+     * @param rankingTop100Accumulator RankingTop100Accumulator
+     * @return ItemWriter
+     */
+    @Bean
+    @StepScope
+    public ItemWriter<RankingScoreCandidate> rankingAggregateHeapWriter(
+            RankingTop100Accumulator rankingTop100Accumulator
+    ) {
+        return chunk -> {
+            for (RankingScoreCandidate candidate : chunk.getItems()) {
+                rankingTop100Accumulator.accept(candidate);
+            }
+        };
+    }
+    
+    /**
+     * 랭킹 배치 집계 플러시 리스너를 생성한다.
+     *
+     * @param rankingTop100Accumulator RankingTop100Accumulator
+     * @param rankingStagingRepository RankingStagingRepository
+     * @return StepExecutionListener
+     */
+    @Bean
+    @StepScope
+    public StepExecutionListener rankingAggregateFlushListener(
+            RankingTop100Accumulator rankingTop100Accumulator,
+            RankingStagingRepository rankingStagingRepository
+    ) {
+        return new StepExecutionListener() {
+            @Override
+            public void beforeStep(StepExecution stepExecution) {
+            }
+    
+            @Override
+            public ExitStatus afterStep(StepExecution stepExecution) {
+                if (!ExitStatus.COMPLETED.equals(stepExecution.getExitStatus())) {
+                    return stepExecution.getExitStatus();
+                }
+                String periodType = stepExecution.getJobParameters()
+                        .getString(RankingBatchJobParameters.JOB_PARAM_PERIOD);
+                String periodKey = stepExecution.getJobParameters()
+                        .getString(RankingBatchJobParameters.JOB_PARAM_PERIOD_KEY);
+                if (periodType == null || periodKey == null) {
+                    return ExitStatus.FAILED;
+                }
+                rankingStagingRepository.saveRankedRows(
+                        periodType,
+                        periodKey,
+                        rankingTop100Accumulator.toSortedRankRows()
+                );
+                return ExitStatus.COMPLETED;
+            }
+        };
+    }
+    
     /**
      * 랭킹 배치 Job을 생성한다.
      *
@@ -241,10 +383,12 @@ public class RankingBatchJobConfig {
      * @return Step
      */
     @Bean(STEP_STAGING_CLEANUP)
-    public Step stagingCleanupStep(ResourcelessTransactionManager rankingBatchResourcelessTransactionManager) {
-        Tasklet noop = (contribution, chunkContext) -> RepeatStatus.FINISHED;
+    public Step stagingCleanupStep(
+            PlatformTransactionManager transactionManager,
+            Tasklet rankingStagingCleanupTasklet
+    ) {
         return new StepBuilder(STEP_STAGING_CLEANUP, jobRepository())
-                .tasklet(noop, rankingBatchResourcelessTransactionManager)
+                .tasklet(rankingStagingCleanupTasklet, transactionManager)
                 .listener(stepMonitorListener)
                 .build();
     }
@@ -252,17 +396,25 @@ public class RankingBatchJobConfig {
     /**
      * 랭킹 배치 집계를 생성한다.
      *
-     * @param rankingAggregateEmptyReader ListItemReader
+     * @param rankingProductMetricsReader JpaPagingItemReader
+     * @param rankingAggregateProcessor ItemProcessor
+     * @param rankingAggregateHeapWriter ItemWriter
+     * @param rankingAggregateFlushListener StepExecutionListener
      * @return Step
      */
     @Bean(STEP_AGGREGATE)
-    public Step aggregateStep(ListItemReader<Integer> rankingAggregateEmptyReader) {
+    public Step aggregateStep(
+            JpaPagingItemReader<ProductMetricsEntity> rankingProductMetricsReader,
+            ItemProcessor<ProductMetricsEntity, RankingScoreCandidate> rankingAggregateProcessor,
+            ItemWriter<RankingScoreCandidate> rankingAggregateHeapWriter,
+            StepExecutionListener rankingAggregateFlushListener
+    ) {
         return new StepBuilder(STEP_AGGREGATE, jobRepository())
-                .<Integer, Integer>chunk(10, transactionManager)
-                .reader(rankingAggregateEmptyReader)
-                .processor(item -> item)
-                .writer(chunk -> {
-                })
+                .<ProductMetricsEntity, RankingScoreCandidate>chunk(50, transactionManager)
+                .reader(rankingProductMetricsReader)
+                .processor(rankingAggregateProcessor)
+                .writer(rankingAggregateHeapWriter)
+                .listener(rankingAggregateFlushListener)
                 .listener(stepMonitorListener)
                 .build();
     }
@@ -280,16 +432,5 @@ public class RankingBatchJobConfig {
                 .tasklet(noop, rankingBatchResourcelessTransactionManager)
                 .listener(stepMonitorListener)
                 .build();
-    }
-
-    /**
-     * 랭킹 배치 집계 빈 리더를 생성한다.
-     *
-     * @return ListItemReader
-     */
-    @StepScope
-    @Bean
-    public ListItemReader<Integer> rankingAggregateEmptyReader() {
-        return new ListItemReader<>(List.of());
     }
 }
