@@ -18,12 +18,25 @@ public class RankingStagingRepositoryImpl implements RankingStagingRepository {
         this.jpaRepository = jpaRepository;
     }
 
+    /**
+     * 스테이징 MV를 삭제한다.
+     *
+     * @param periodType 기간 타입
+     * @param periodKey 기간 키
+     */
     @Override
     @Transactional
     public void deleteByPeriodTypeAndPeriodKey(String periodType, String periodKey) {
         jpaRepository.deleteByPeriodTypeAndPeriodKey(periodType, periodKey);
     }
 
+    /**
+     * 스테이징 MV를 저장한다.
+     *
+     * @param periodType 기간 타입
+     * @param periodKey 기간 키
+     * @param rows 랭킹 스테이징 행
+     */
     @Override
     @Transactional
     public void saveRankedRows(String periodType, String periodKey, List<RankingStagingRankRow> rows) {
@@ -41,5 +54,20 @@ public class RankingStagingRepositoryImpl implements RankingStagingRepository {
             entities.add(e);
         }
         jpaRepository.saveAll(entities);
+    }
+
+    /**
+     * 스테이징 MV를 조회한다.
+     *
+     * @param periodType 기간 타입
+     * @param periodKey 기간 키
+     * @return 랭킹 스테이징 행
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<RankingStagingRankRow> findRankedRows(String periodType, String periodKey) {
+        return jpaRepository.findByPeriodTypeAndPeriodKeyOrderByRankValueAsc(periodType, periodKey).stream()
+                .map(e -> new RankingStagingRankRow(e.getRankValue(), e.getProductId(), e.getScore()))
+                .toList();
     }
 }

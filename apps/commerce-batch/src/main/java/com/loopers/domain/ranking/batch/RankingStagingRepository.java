@@ -10,4 +10,9 @@ public interface RankingStagingRepository {
     void deleteByPeriodTypeAndPeriodKey(String periodType, String periodKey);
 
     void saveRankedRows(String periodType, String periodKey, List<RankingStagingRankRow> rows);
+
+    /**
+     * publish 직전 조회. rank 오름차순.
+     */
+    List<RankingStagingRankRow> findRankedRows(String periodType, String periodKey);
 }

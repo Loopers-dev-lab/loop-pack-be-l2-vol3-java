@@ -3,8 +3,7 @@ package com.loopers.job.ranking;
 import com.loopers.batch.ranking.job.RankingBatchJobConfig;
 import com.loopers.domain.ranking.batch.RankingBatchJobParameters;
 import com.loopers.infrastructure.ranking.batch.MvProductRankStagingJpaRepository;
-import com.loopers.infrastructure.ranking.batch.ProductMetricsEntity;
-import com.loopers.infrastructure.ranking.batch.ProductMetricsJpaRepository;
+import com.loopers.infrastructure.ranking.mv.MvProductRankWeeklyJpaRepository;
 import com.loopers.testcontainers.MySqlTestContainersConfig;
 import com.loopers.testcontainers.RedisTestContainersConfig;
 import com.loopers.utils.RedisCleanUp;
@@ -22,11 +21,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -41,6 +40,14 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 @Import({MySqlTestContainersConfig.class, RedisTestContainersConfig.class})
 class RankingBatchJobE2ETest {
 
+    private static final List<String> TRUNCATE_TABLES = List.of(
+            "mv_product_rank_staging",
+            "mv_product_rank_weekly",
+            "mv_product_rank_monthly",
+            "product_metrics",
+            "outbox_event"
+    );
+
     @Autowired
     private JobLauncherTestUtils jobLauncherTestUtils;
 
@@ -52,20 +59,21 @@ class RankingBatchJobE2ETest {
     private RedisCleanUp redisCleanUp;
 
     @Autowired
-    private ProductMetricsJpaRepository productMetricsJpaRepository;
-
-    @Autowired
     private MvProductRankStagingJpaRepository mvProductRankStagingJpaRepository;
 
     @Autowired
-    private PlatformTransactionManager transactionManager;
+    private MvProductRankWeeklyJpaRepository mvProductRankWeeklyJpaRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void cleanDb() {
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            mvProductRankStagingJpaRepository.deleteAllInBatch();
-            productMetricsJpaRepository.deleteAllInBatch();
-        });
+        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
+        for (String table : TRUNCATE_TABLES) {
+            jdbcTemplate.execute("TRUNCATE TABLE `" + table + "`");
+        }
+        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
     }
 
     @AfterEach
@@ -91,10 +99,20 @@ class RankingBatchJobE2ETest {
     void launchJob_whenValidParameters_shouldComplete() throws Exception {
         jobLauncherTestUtils.setJob(job);
         Instant at = Instant.parse("2026-04-10T00:00:00Z");
-        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
-            productMetricsJpaRepository.save(ProductMetricsEntity.forRankingRead(1L, 0L, 0L, 10L, at));
-            productMetricsJpaRepository.save(ProductMetricsEntity.forRankingRead(2L, 0L, 0L, 5L, at));
-        });
+        jdbcTemplate.update(
+                """
+                INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                1L, 0L, 0L, 10L, java.sql.Timestamp.from(at)
+        );
+        jdbcTemplate.update(
+                """
+                INSERT INTO product_metrics (product_id, like_count, view_count, sold_quantity, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                2L, 0L, 0L, 5L, java.sql.Timestamp.from(at)
+        );
         var execution = jobLauncherTestUtils.launchJob(
                 new JobParametersBuilder()
                         .addString(RankingBatchJobParameters.JOB_PARAM_PERIOD, "WEEKLY")
@@ -107,6 +125,7 @@ class RankingBatchJobE2ETest {
                 "WEEKLY",
                 "2026W15"
         );
+        var weeklyMv = mvProductRankWeeklyJpaRepository.findByPeriodKeyOrderByRankValueAsc("2026W15");
 
         assertAll(
                 () -> assertThat(execution.getExitStatus().getExitCode()).isEqualTo(ExitStatus.COMPLETED.getExitCode()),
@@ -114,7 +133,10 @@ class RankingBatchJobE2ETest {
                 () -> assertThat(staging).hasSize(2),
                 () -> assertThat(staging.get(0).getProductId()).isEqualTo(1L),
                 () -> assertThat(staging.get(0).getRankValue()).isEqualTo(1),
-                () -> assertThat(staging.get(1).getProductId()).isEqualTo(2L)
+                () -> assertThat(staging.get(1).getProductId()).isEqualTo(2L),
+                () -> assertThat(weeklyMv).hasSize(2),
+                () -> assertThat(weeklyMv.get(0).getProductId()).isEqualTo(1L),
+                () -> assertThat(weeklyMv.get(1).getProductId()).isEqualTo(2L)
         );
     }
 }

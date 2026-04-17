@@ -58,4 +58,25 @@ class RankingStagingRepositoryIntegrationTest {
         assertThat(rows.get(0).getProductId()).isEqualTo(10L);
         assertThat(rows.get(1).getRankValue()).isEqualTo(2);
     }
+
+    @Test
+    @DisplayName("findRankedRows는 rank 오름차순 DTO 목록을 반환한다.")
+    void findRankedRows_returnsOrderedDtos() {
+        rankingStagingRepository.deleteByPeriodTypeAndPeriodKey("WEEKLY", "2026W15");
+        rankingStagingRepository.saveRankedRows(
+                "WEEKLY",
+                "2026W15",
+                List.of(
+                        new RankingStagingRankRow(1, 10L, new BigDecimal("9.00")),
+                        new RankingStagingRankRow(2, 20L, new BigDecimal("1.00"))
+                )
+        );
+
+        List<RankingStagingRankRow> dtos = rankingStagingRepository.findRankedRows("WEEKLY", "2026W15");
+
+        assertThat(dtos).hasSize(2);
+        assertThat(dtos.get(0).rank()).isEqualTo(1);
+        assertThat(dtos.get(0).productId()).isEqualTo(10L);
+        assertThat(dtos.get(1).rank()).isEqualTo(2);
+    }
 }

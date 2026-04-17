@@ -5,8 +5,12 @@ import com.loopers.batch.listener.StepMonitorListener;
 import com.loopers.domain.ranking.batch.RankingBatchJobParameters;
 import com.loopers.domain.ranking.batch.RankingMvScoreCalculator;
 import com.loopers.domain.ranking.batch.RankingScoreCandidate;
+import com.loopers.domain.ranking.batch.RankingStagingRankRow;
 import com.loopers.domain.ranking.batch.RankingStagingRepository;
+import com.loopers.domain.ranking.batch.RankingStagingSnapshotValidator;
 import com.loopers.domain.ranking.batch.RankingTop100Accumulator;
+import com.loopers.domain.ranking.mv.ProductRankMvPublishRepository;
+import com.loopers.domain.ranking.mv.ProductRankMvRow;
 import com.loopers.infrastructure.ranking.batch.ProductMetricsEntity;
 import com.loopers.infrastructure.ranking.batch.RedisRankingBatchLock;
 import jakarta.persistence.EntityManagerFactory;
@@ -43,6 +47,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import java.time.Instant;
+import java.util.List;
+
 /**
  * Round 10 — 랭킹 MV 배치 Job(3단계): 파라미터 검증 → period 락 → staging 정리(자리) → 집계(자리) → publish(자리).
  */
@@ -76,16 +83,6 @@ public class RankingBatchJobConfig {
 
     private JobRepository jobRepository() {
         return jobRepositoryProvider.getObject();
-    }
-
-    /**
-     * 리소스 없는 트랜잭션 매니저를 생성한다.
-     *
-     * @return ResourcelessTransactionManager
-     */
-    @Bean
-    public ResourcelessTransactionManager rankingBatchResourcelessTransactionManager() {
-        return new ResourcelessTransactionManager();
     }
 
     /**
@@ -323,11 +320,55 @@ public class RankingBatchJobConfig {
             }
         };
     }
-    
+
+    /**
+     * 랭킹 배치 발행을 생성한다.
+     *
+     * @param rankingStagingRepository RankingStagingRepository
+     * @param productRankMvPublishRepository ProductRankMvPublishRepository
+     * @param period 기간
+     * @param periodKey 기간 키
+     * @return Tasklet
+     */
+    @Bean
+    @StepScope
+    public Tasklet rankingPublishTasklet(
+            RankingStagingRepository rankingStagingRepository,
+            ProductRankMvPublishRepository productRankMvPublishRepository,
+            @Value("#{jobParameters['period']}") String period,
+            @Value("#{jobParameters['periodKey']}") String periodKey
+    ) {
+        return (contribution, chunkContext) -> {
+            List<RankingStagingRankRow> staged = rankingStagingRepository.findRankedRows(period, periodKey);
+            try {
+                RankingStagingSnapshotValidator.validateOrThrow(staged);
+            } catch (IllegalArgumentException e) {
+                throw new UnexpectedJobExecutionException("스테이징 검증 실패: " + e.getMessage(), e);
+            }
+            Instant publishedAt = Instant.now();
+            int snapshotVersion = 1;
+            List<ProductRankMvRow> mvRows = staged.stream()
+                    .map(r -> ProductRankMvRow.newRow(
+                            periodKey,
+                            r.productId(),
+                            r.rank(),
+                            r.score(),
+                            snapshotVersion,
+                            publishedAt
+                    ))
+                    .toList();
+            RankingBatchJobParameters.Period p = RankingBatchJobParameters.Period.parse(period);
+            switch (p) {
+                case WEEKLY -> productRankMvPublishRepository.replaceWeeklyPeriod(periodKey, mvRows, publishedAt);
+                case MONTHLY -> productRankMvPublishRepository.replaceMonthlyPeriod(periodKey, mvRows, publishedAt);
+            }
+            return RepeatStatus.FINISHED;
+        };
+    }
+
     /**
      * 랭킹 배치 Job을 생성한다.
      *
-     * @param rankingBatchResourcelessTransactionManager ResourcelessTransactionManager
      * @param rankingJobParametersValidator JobParametersValidator
      * @param rankingBatchLockReleaseListener JobExecutionListener
      * @param periodLockStep Step
@@ -338,7 +379,6 @@ public class RankingBatchJobConfig {
      */
     @Bean(JOB_NAME)
     public Job rankingProductMvJob(
-            ResourcelessTransactionManager rankingBatchResourcelessTransactionManager,
             JobParametersValidator rankingJobParametersValidator,
             JobExecutionListener rankingBatchLockReleaseListener,
             @Qualifier(STEP_PERIOD_LOCK) Step periodLockStep,
@@ -361,17 +401,13 @@ public class RankingBatchJobConfig {
     /**
      * 랭킹 배치 락 획득을 생성한다.
      *
-     * @param rankingBatchResourcelessTransactionManager ResourcelessTransactionManager
      * @param rankingPeriodLockTasklet Tasklet
      * @return Step
      */
     @Bean(STEP_PERIOD_LOCK)
-    public Step periodLockStep(
-            ResourcelessTransactionManager rankingBatchResourcelessTransactionManager,
-            Tasklet rankingPeriodLockTasklet
-    ) {
+    public Step periodLockStep(Tasklet rankingPeriodLockTasklet) {
         return new StepBuilder(STEP_PERIOD_LOCK, jobRepository())
-                .tasklet(rankingPeriodLockTasklet, rankingBatchResourcelessTransactionManager)
+                .tasklet(rankingPeriodLockTasklet, new ResourcelessTransactionManager())
                 .listener(stepMonitorListener)
                 .build();
     }
@@ -379,7 +415,6 @@ public class RankingBatchJobConfig {
     /**
      * 랭킹 배치 스테이징 정리를 생성한다.
      *
-     * @param rankingBatchResourcelessTransactionManager ResourcelessTransactionManager
      * @return Step
      */
     @Bean(STEP_STAGING_CLEANUP)
@@ -422,14 +457,17 @@ public class RankingBatchJobConfig {
     /**
      * 랭킹 배치 발행을 생성한다.
      *
-     * @param rankingBatchResourcelessTransactionManager ResourcelessTransactionManager
+     * @param transactionManager PlatformTransactionManager
+     * @param rankingPublishTasklet Tasklet
      * @return Step
      */
     @Bean(STEP_PUBLISH)
-    public Step publishStep(ResourcelessTransactionManager rankingBatchResourcelessTransactionManager) {
-        Tasklet noop = (contribution, chunkContext) -> RepeatStatus.FINISHED;
+    public Step publishStep(
+            PlatformTransactionManager transactionManager,
+            Tasklet rankingPublishTasklet
+    ) {
         return new StepBuilder(STEP_PUBLISH, jobRepository())
-                .tasklet(noop, rankingBatchResourcelessTransactionManager)
+                .tasklet(rankingPublishTasklet, transactionManager)
                 .listener(stepMonitorListener)
                 .build();
     }

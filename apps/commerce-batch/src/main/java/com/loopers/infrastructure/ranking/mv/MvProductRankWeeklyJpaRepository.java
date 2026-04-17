@@ -7,4 +7,6 @@ import java.util.List;
 public interface MvProductRankWeeklyJpaRepository extends JpaRepository<MvProductRankWeeklyEntity, Long> {
 
     List<MvProductRankWeeklyEntity> findByPeriodKeyOrderByRankValueAsc(String periodKey);
+
+    void deleteByPeriodKey(String periodKey);
 }
