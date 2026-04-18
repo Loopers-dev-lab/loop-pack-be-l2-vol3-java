@@ -11,6 +11,8 @@ import java.time.LocalDate;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class DailyProductMetricsId implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private Long productId;
     private LocalDate metricDate;
 

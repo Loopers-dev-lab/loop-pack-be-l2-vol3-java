@@ -85,7 +85,7 @@ public class WeeklyRankingJobConfig {
                        SUM(sales_count) AS sales_count,
                        SUM(sales_amount) AS sales_amount,
                        ROW_NUMBER() OVER(
-                           ORDER BY (SUM(view_count) * 0.1 + SUM(like_count) * 0.2 + SUM(sales_amount) * 0.6) DESC
+                           ORDER BY (SUM(view_count) * 0.1 + SUM(like_count) * 0.2 + SUM(sales_amount) * 0.6) DESC, product_id ASC
                        ) AS `rank`
                 FROM product_metrics_daily
                 WHERE metric_date BETWEEN ? AND ?

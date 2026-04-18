@@ -5,9 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.loopers.application.kafka.KafkaTopic;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
@@ -22,14 +23,13 @@ public class ProductViewedEventListener {
     private final KafkaTemplate<Object, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
-    @EventListener
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handleProductViewed(ProductViewedEvent event) {
         try {
             String message = buildMessage(event);
             kafkaTemplate.send(KafkaTopic.CATALOG_EVENTS, String.valueOf(event.productId()), message);
         } catch (Exception e) {
-            log.warn("PRODUCT_VIEWED Kafka 전송 실패 (유실 허용): productId={}, error={}",
-                event.productId(), e.getMessage());
+            log.warn("PRODUCT_VIEWED Kafka 전송 실패 (유실 허용): productId={}", event.productId(), e);
         }
     }
 

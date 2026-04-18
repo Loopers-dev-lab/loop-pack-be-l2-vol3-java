@@ -64,6 +64,9 @@ public class ProductRankingRepositoryImpl implements ProductRankingRepository {
             return Optional.empty();
         }
         Double score = redisTemplate.opsForZSet().score(key, String.valueOf(productId));
+        if (score == null) {
+            return Optional.empty();
+        }
         return Optional.of(new RankingDetailInfo(rank + 1, score));
     }
 

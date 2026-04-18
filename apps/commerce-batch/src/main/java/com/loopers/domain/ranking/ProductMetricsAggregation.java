@@ -2,6 +2,8 @@ package com.loopers.domain.ranking;
 
 import lombok.Getter;
 
+import java.util.Objects;
+
 @Getter
 public class ProductMetricsAggregation {
 
@@ -16,11 +18,11 @@ public class ProductMetricsAggregation {
     public ProductMetricsAggregation(Long productId, Long likeCount, Long viewCount,
                                      Long salesCount, Long salesAmount, Integer rank) {
         this.productId = productId;
-        this.likeCount = likeCount;
-        this.viewCount = viewCount;
-        this.salesCount = salesCount;
-        this.salesAmount = salesAmount;
-        this.score = viewCount * 0.1 + likeCount * 0.2 + salesAmount * 0.6;
+        this.likeCount = Objects.requireNonNullElse(likeCount, 0L);
+        this.viewCount = Objects.requireNonNullElse(viewCount, 0L);
+        this.salesCount = Objects.requireNonNullElse(salesCount, 0L);
+        this.salesAmount = Objects.requireNonNullElse(salesAmount, 0L);
+        this.score = this.viewCount * 0.1 + this.likeCount * 0.2 + this.salesAmount * 0.6;
         this.rank = rank;
     }
 }

@@ -28,7 +28,7 @@ public class WeeklyProductRankEntity {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
-    @Column(name = "year_week", nullable = false, length = 7)
+    @Column(name = "year_week", nullable = false, length = 8)
     private String yearWeek;
 
     @Column(name = "like_count", nullable = false)

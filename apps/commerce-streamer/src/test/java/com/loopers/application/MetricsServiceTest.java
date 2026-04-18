@@ -108,6 +108,7 @@ class MetricsServiceTest {
 
         // Assert - incremental 이벤트는 createdAt과 무관하게 처리
         verify(productMetricsRepository).incrementLikeCount(100L, 1);
+        verify(dailyProductMetricsRepository).incrementLikeCount(100L, 1, olderEvent.toLocalDate());
         verify(aggregateEventTrackerRepository).upsert("100", "PRODUCT_LIKED", olderEvent);
     }
 

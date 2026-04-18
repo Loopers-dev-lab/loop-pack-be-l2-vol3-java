@@ -98,7 +98,7 @@ public class MetricsService {
             log.info("주문 완료 이벤트 처리 완료: orderId={}, productCount={}, totalAmount={}",
                 aggregateId, productIdsNode != null ? productIdsNode.size() : 0, totalAmount);
         } catch (Exception e) {
-            log.error("ORDER_COMPLETED payload 파싱 실패: aggregateId={}, error={}", aggregateId, e.getMessage());
+            log.error("ORDER_COMPLETED payload 파싱 실패: aggregateId={}", aggregateId, e);
         }
     }
 
@@ -106,7 +106,7 @@ public class MetricsService {
         try {
             action.run();
         } catch (Exception e) {
-            log.warn("일별 메트릭 기록 실패 (누적 메트릭에는 영향 없음): {}", e.getMessage());
+            log.warn("일별 메트릭 기록 실패 (누적 메트릭에는 영향 없음)", e);
         }
     }
 }
