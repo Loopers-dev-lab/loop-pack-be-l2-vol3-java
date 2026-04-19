@@ -4,3 +4,15 @@ spring:
       enabled: false
     jdbc:
       initialize-schema: always
+  sql:
+    init:
+      mode: always
+  jpa:
+    defer-datasource-initialization: true
+
+ranking:
+  weights:
+    view: 0.1
+    like: 0.2
+    order: 0.7
+
