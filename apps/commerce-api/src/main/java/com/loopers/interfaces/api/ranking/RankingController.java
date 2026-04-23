@@ -45,6 +45,26 @@ public class RankingController {
                     rankingQueryFacade.getHourlyPage(metricHour, page, size)
             ));
         }
+        if (window == RankingWindow.WEEKLY) {
+            LocalDate snapshotDate = date != null ? date : LocalDate.now(KOREA_ZONE).minusDays(1);
+            return ApiResponse.success(RankingDto.TopRankingResponse.from(
+                    window.name(),
+                    snapshotDate.format(DateTimeFormatter.BASIC_ISO_DATE),
+                    page,
+                    size,
+                    rankingQueryFacade.getWeeklyPage(snapshotDate, page, size)
+            ));
+        }
+        if (window == RankingWindow.MONTHLY) {
+            LocalDate snapshotDate = date != null ? date : LocalDate.now(KOREA_ZONE).minusDays(1);
+            return ApiResponse.success(RankingDto.TopRankingResponse.from(
+                    window.name(),
+                    snapshotDate.format(DateTimeFormatter.BASIC_ISO_DATE),
+                    page,
+                    size,
+                    rankingQueryFacade.getMonthlyPage(snapshotDate, page, size)
+            ));
+        }
         LocalDate metricDate = date != null ? date : LocalDate.now(KOREA_ZONE);
         return ApiResponse.success(RankingDto.TopRankingResponse.from(
                 window.name(),

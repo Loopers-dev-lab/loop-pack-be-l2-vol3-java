@@ -5,7 +5,6 @@ import com.loopers.contract.kafka.ProductMetricsEventMessage;
 import com.loopers.infrastructure.metrics.EventHandledRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsDailyRepository;
 import com.loopers.infrastructure.metrics.ProductMetricsHourlyRepository;
-import com.loopers.infrastructure.metrics.ProductMetricsRepository;
 import com.loopers.infrastructure.ranking.redis.RedisProductRankingRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +21,6 @@ public class ProductMetricsConsumerService {
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
 
     private final EventHandledRepository eventHandledRepository;
-    private final ProductMetricsRepository productMetricsRepository;
     private final ProductMetricsDailyRepository productMetricsDailyRepository;
     private final ProductMetricsHourlyRepository productMetricsHourlyRepository;
     private final RedisProductRankingRepository redisProductRankingRepository;
@@ -31,7 +29,6 @@ public class ProductMetricsConsumerService {
 
     public ProductMetricsConsumerService(
             EventHandledRepository eventHandledRepository,
-            ProductMetricsRepository productMetricsRepository,
             ProductMetricsDailyRepository productMetricsDailyRepository,
             ProductMetricsHourlyRepository productMetricsHourlyRepository,
             RedisProductRankingRepository redisProductRankingRepository,
@@ -39,7 +36,6 @@ public class ProductMetricsConsumerService {
             ProductMetricsAckPublisher productMetricsAckPublisher
     ) {
         this.eventHandledRepository = eventHandledRepository;
-        this.productMetricsRepository = productMetricsRepository;
         this.productMetricsDailyRepository = productMetricsDailyRepository;
         this.productMetricsHourlyRepository = productMetricsHourlyRepository;
         this.redisProductRankingRepository = redisProductRankingRepository;
@@ -53,7 +49,6 @@ public class ProductMetricsConsumerService {
         if (!inserted) {
             return;
         }
-        productMetricsRepository.upsert(message);
         productMetricsDailyRepository.upsert(message);
         productMetricsHourlyRepository.upsert(message);
 

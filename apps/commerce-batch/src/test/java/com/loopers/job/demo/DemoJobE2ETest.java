@@ -1,7 +1,7 @@
 package com.loopers.job.demo;
 
 import com.loopers.batch.job.demo.DemoJobConfig;
-import lombok.RequiredArgsConstructor;
+import com.loopers.testcontainers.MySqlTestContainersConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,6 +13,8 @@ import org.springframework.batch.test.context.SpringBatchTest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import java.time.LocalDate;
@@ -22,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 
 @SpringBootTest
 @SpringBatchTest
+@ImportTestcontainers(MySqlTestContainersConfig.class)
+@ActiveProfiles("test")
 @TestPropertySource(properties = "spring.batch.job.name=" + DemoJobConfig.JOB_NAME)
 class DemoJobE2ETest {
 

@@ -43,6 +43,28 @@ public class RankingApplicationService {
     }
 
     @Transactional(readOnly = true)
+    public List<RankingProductView> getWeeklyPage(LocalDate snapshotDate, int page, int size) {
+        if (page < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "page는 1 이상이어야 합니다.");
+        }
+        if (size < 1 || size > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "size는 1 이상 100 이하여야 합니다.");
+        }
+        return rankingRepository.findWeeklyPage(snapshotDate, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RankingProductView> getMonthlyPage(LocalDate snapshotDate, int page, int size) {
+        if (page < 1) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "page는 1 이상이어야 합니다.");
+        }
+        if (size < 1 || size > 100) {
+            throw new CoreException(ErrorType.BAD_REQUEST, "size는 1 이상 100 이하여야 합니다.");
+        }
+        return rankingRepository.findMonthlyPage(snapshotDate, page, size);
+    }
+
+    @Transactional(readOnly = true)
     public RankingProductView getProductRank(UUID productId) {
         RankingProductView rankingView = rankingRepository.findProductRank(LocalDate.now(KOREA_ZONE), productId);
         if (rankingView != null) {
