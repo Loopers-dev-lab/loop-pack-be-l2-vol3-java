@@ -3,8 +3,12 @@ package com.loopers.interfaces.api;
 import com.loopers.domain.brand.BrandModel;
 import com.loopers.domain.product.ProductModel;
 import com.loopers.domain.product.ProductStatus;
+import com.loopers.domain.ranking.ProductRankMonthlyModel;
+import com.loopers.domain.ranking.ProductRankWeeklyModel;
 import com.loopers.infrastructure.brand.BrandJpaRepository;
 import com.loopers.infrastructure.product.ProductJpaRepository;
+import com.loopers.infrastructure.ranking.MonthlyRankingJpaRepository;
+import com.loopers.infrastructure.ranking.WeeklyRankingJpaRepository;
 import com.loopers.utils.DatabaseCleanUp;
 import com.loopers.utils.RedisCleanUp;
 import org.junit.jupiter.api.AfterEach;
@@ -24,6 +28,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.IsoFields;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +44,8 @@ class RankingV1ApiE2ETest {
     private final TestRestTemplate testRestTemplate;
     private final ProductJpaRepository productJpaRepository;
     private final BrandJpaRepository brandJpaRepository;
+    private final WeeklyRankingJpaRepository weeklyRankingJpaRepository;
+    private final MonthlyRankingJpaRepository monthlyRankingJpaRepository;
     private final DatabaseCleanUp databaseCleanUp;
     private final RedisCleanUp redisCleanUp;
     private final RedisTemplate<String, String> redisTemplate;
@@ -48,6 +55,8 @@ class RankingV1ApiE2ETest {
         TestRestTemplate testRestTemplate,
         ProductJpaRepository productJpaRepository,
         BrandJpaRepository brandJpaRepository,
+        WeeklyRankingJpaRepository weeklyRankingJpaRepository,
+        MonthlyRankingJpaRepository monthlyRankingJpaRepository,
         DatabaseCleanUp databaseCleanUp,
         RedisCleanUp redisCleanUp,
         @Qualifier("redisTemplateMaster") RedisTemplate<String, String> redisTemplate
@@ -55,6 +64,8 @@ class RankingV1ApiE2ETest {
         this.testRestTemplate = testRestTemplate;
         this.productJpaRepository = productJpaRepository;
         this.brandJpaRepository = brandJpaRepository;
+        this.weeklyRankingJpaRepository = weeklyRankingJpaRepository;
+        this.monthlyRankingJpaRepository = monthlyRankingJpaRepository;
         this.databaseCleanUp = databaseCleanUp;
         this.redisCleanUp = redisCleanUp;
         this.redisTemplate = redisTemplate;
@@ -229,6 +240,79 @@ class RankingV1ApiE2ETest {
             () -> assertThat(content).hasSize(2),
             () -> assertThat(((Map<String, Object>) content.get(0).get("product")).get("name")).isEqualTo("나노"),
             () -> assertThat(((Map<String, Object>) content.get(1).get("product")).get("name")).isEqualTo("클래식")
+        );
+    }
+
+    @DisplayName("GET /api/v1/rankings?period=WEEKLY - 주간 랭킹을 조회할 수 있다")
+    @Test
+    void returnsWeeklyRanking() {
+        BrandModel brand = brandJpaRepository.save(new BrandModel("컨버스", "스니커즈 브랜드"));
+        ProductModel p1 = productJpaRepository.save(new ProductModel(brand, "척70", 90000L, "desc", 100, ProductStatus.ON_SALE));
+        ProductModel p2 = productJpaRepository.save(new ProductModel(brand, "원스타", 110000L, "desc", 100, ProductStatus.ON_SALE));
+        ProductModel p3 = productJpaRepository.save(new ProductModel(brand, "잭퍼셀", 80000L, "desc", 100, ProductStatus.ON_SALE));
+
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        String yearWeek = String.format("%d-W%02d",
+            today.get(IsoFields.WEEK_BASED_YEAR),
+            today.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR));
+
+        weeklyRankingJpaRepository.save(new ProductRankWeeklyModel(p2.getId(), 1, 300.0, 1000, 50, 20, yearWeek));
+        weeklyRankingJpaRepository.save(new ProductRankWeeklyModel(p1.getId(), 2, 200.0, 800, 30, 10, yearWeek));
+        weeklyRankingJpaRepository.save(new ProductRankWeeklyModel(p3.getId(), 3, 100.0, 500, 20, 5, yearWeek));
+
+        String date = BASIC_DATE.format(today);
+        ParameterizedTypeReference<ApiResponse<Map<String, Object>>> responseType = new ParameterizedTypeReference<>() {};
+        ResponseEntity<ApiResponse<Map<String, Object>>> response = testRestTemplate.exchange(
+            "/api/v1/rankings?period=WEEKLY&date=" + date + "&size=10&page=1",
+            HttpMethod.GET,
+            null,
+            responseType
+        );
+
+        List<Map<String, Object>> content = (List<Map<String, Object>>) response.getBody().data().get("content");
+
+        assertAll(
+            () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+            () -> assertThat(content).hasSize(3),
+            () -> assertThat(((Map<String, Object>) content.get(0).get("product")).get("name")).isEqualTo("원스타"),
+            () -> assertThat(((Number) content.get(0).get("rank")).longValue()).isEqualTo(1L),
+            () -> assertThat(((Number) content.get(0).get("score")).doubleValue()).isEqualTo(300.0),
+            () -> assertThat(((Map<String, Object>) content.get(1).get("product")).get("name")).isEqualTo("척70"),
+            () -> assertThat(((Map<String, Object>) content.get(2).get("product")).get("name")).isEqualTo("잭퍼셀")
+        );
+    }
+
+    @DisplayName("GET /api/v1/rankings?period=MONTHLY - 월간 랭킹을 조회할 수 있다")
+    @Test
+    void returnsMonthlyRanking() {
+        BrandModel brand = brandJpaRepository.save(new BrandModel("반스", "스케이트 브랜드"));
+        ProductModel p1 = productJpaRepository.save(new ProductModel(brand, "올드스쿨", 75000L, "desc", 100, ProductStatus.ON_SALE));
+        ProductModel p2 = productJpaRepository.save(new ProductModel(brand, "어센틱", 65000L, "desc", 100, ProductStatus.ON_SALE));
+
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        String yearMonth = today.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+
+        monthlyRankingJpaRepository.save(new ProductRankMonthlyModel(p1.getId(), 1, 500.0, 2000, 100, 50, yearMonth));
+        monthlyRankingJpaRepository.save(new ProductRankMonthlyModel(p2.getId(), 2, 300.0, 1000, 60, 30, yearMonth));
+
+        String date = BASIC_DATE.format(today);
+        ParameterizedTypeReference<ApiResponse<Map<String, Object>>> responseType = new ParameterizedTypeReference<>() {};
+        ResponseEntity<ApiResponse<Map<String, Object>>> response = testRestTemplate.exchange(
+            "/api/v1/rankings?period=MONTHLY&date=" + date + "&size=10&page=1",
+            HttpMethod.GET,
+            null,
+            responseType
+        );
+
+        List<Map<String, Object>> content = (List<Map<String, Object>>) response.getBody().data().get("content");
+
+        assertAll(
+            () -> assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK),
+            () -> assertThat(content).hasSize(2),
+            () -> assertThat(((Map<String, Object>) content.get(0).get("product")).get("name")).isEqualTo("올드스쿨"),
+            () -> assertThat(((Number) content.get(0).get("rank")).longValue()).isEqualTo(1L),
+            () -> assertThat(((Number) content.get(0).get("score")).doubleValue()).isEqualTo(500.0),
+            () -> assertThat(((Map<String, Object>) content.get(1).get("product")).get("name")).isEqualTo("어센틱")
         );
     }
 }
