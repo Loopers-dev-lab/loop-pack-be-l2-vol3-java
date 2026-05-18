@@ -8,9 +8,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "product_metrics", uniqueConstraints = {
-    @UniqueConstraint(name = "uk_product_date", columnNames = {"product_id", "metric_date"})
-})
+@Table(name = "product_metrics")
 @Getter
 public class ProductMetrics {
 
@@ -40,15 +38,5 @@ public class ProductMetrics {
     private Instant priceUpdatedAt;
 
     protected ProductMetrics() {
-    }
-
-    public static ProductMetrics create(Long productId, LocalDate metricDate) {
-        ProductMetrics metrics = new ProductMetrics();
-        metrics.productId = productId;
-        metrics.metricDate = metricDate;
-        metrics.viewCount = 0;
-        metrics.likeCount = 0;
-        metrics.salesCount = 0;
-        return metrics;
     }
 }

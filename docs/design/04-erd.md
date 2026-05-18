@@ -25,6 +25,9 @@ erDiagram
 
     products ||--o{ likes : "receives"
     products ||--o{ order_items : "referenced by"
+    products ||--o{ product_metrics : "measured by"
+    products ||--o{ mv_product_rank_weekly : "ranked in"
+    products ||--o{ mv_product_rank_monthly : "ranked in"
 
     orders ||--|{ order_items : "contains"
 
@@ -84,6 +87,39 @@ erDiagram
         decimal(19,2) product_price "NOT NULL, 스냅샷, CHECK >= 0"
         int quantity "NOT NULL, CHECK > 0"
         decimal(19,2) subtotal "NOT NULL, CHECK >= 0"
+    }
+
+    product_metrics {
+        bigint id PK "AUTO_INCREMENT"
+        bigint product_id "NOT NULL"
+        date metric_date "NOT NULL"
+        bigint view_count "NOT NULL, DEFAULT 0"
+        bigint like_count "NOT NULL, DEFAULT 0"
+        bigint sales_count "NOT NULL, DEFAULT 0"
+        decimal(19,2) latest_price "NULL"
+        datetime price_updated_at "NULL"
+    }
+
+    mv_product_rank_weekly {
+        bigint id PK "AUTO_INCREMENT"
+        bigint product_id "NOT NULL"
+        double score "NOT NULL"
+        int rank "NOT NULL"
+        bigint view_count "NOT NULL"
+        bigint like_count "NOT NULL"
+        bigint sales_count "NOT NULL"
+        date aggregated_at "NOT NULL, 배치 실행 기준일"
+    }
+
+    mv_product_rank_monthly {
+        bigint id PK "AUTO_INCREMENT"
+        bigint product_id "NOT NULL"
+        double score "NOT NULL"
+        int rank "NOT NULL"
+        bigint view_count "NOT NULL"
+        bigint like_count "NOT NULL"
+        bigint sales_count "NOT NULL"
+        date aggregated_at "NOT NULL, 배치 실행 기준일"
     }
 ```
 
@@ -660,6 +696,169 @@ VALUES ('Samsung', '삼성전자'), ('Apple', '애플');
 INSERT INTO products (brand_id, name, price, stock)
 VALUES (1, 'Galaxy S25', 1200000, 100);
 ```
+
+---
+
+## 8. 랭킹/집계 테이블 (Round 9~10)
+
+### 8.1 product_metrics (일별 상품 메트릭)
+
+이 테이블은 Kafka 이벤트 소비 시 commerce-streamer가 적재하며, commerce-batch가 주간/월간 집계의 원본으로 읽는다.
+
+```sql
+CREATE TABLE product_metrics (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    metric_date DATE NOT NULL COMMENT '메트릭 기준 날짜',
+    view_count BIGINT NOT NULL DEFAULT 0,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    latest_price DECIMAL(19, 2) NULL,
+    price_updated_at DATETIME NULL,
+
+    UNIQUE KEY uk_product_date (product_id, metric_date),
+    INDEX idx_metric_date (metric_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**컬럼 설명**:
+- `product_id`: 상품 참조 (FK 미적용, streamer에서 적재)
+- `metric_date`: 일별 스냅샷 기준 날짜
+- `view_count`, `like_count`, `sales_count`: 해당 날짜의 순증분 (음수 가능)
+- `latest_price`: 해당 날짜의 최종 가격
+- `price_updated_at`: 가격 갱신 시각
+
+**제약조건**:
+- `UNIQUE(product_id, metric_date)`: 상품당 하루에 1행, UPSERT로 갱신
+
+**배치 읽기 패턴**:
+```sql
+-- 주간 집계: 최근 7일
+SELECT product_id, SUM(view_count), SUM(like_count), SUM(sales_count)
+FROM product_metrics
+WHERE metric_date BETWEEN DATE_SUB(:baseDate, INTERVAL 6 DAY) AND :baseDate
+GROUP BY product_id
+
+-- 월간 집계: 최근 30일
+SELECT product_id, SUM(view_count), SUM(like_count), SUM(sales_count)
+FROM product_metrics
+WHERE metric_date BETWEEN DATE_SUB(:baseDate, INTERVAL 29 DAY) AND :baseDate
+GROUP BY product_id
+```
+
+---
+
+### 8.2 mv_product_rank_weekly (주간 랭킹 MV)
+
+배치가 매일 갱신하는 조회 전용 Materialized View. 배치 실행 기준일로부터 최근 7일 집계.
+
+```sql
+CREATE TABLE mv_product_rank_weekly (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    score DOUBLE NOT NULL COMMENT '가중치 합산 점수',
+    rank INT NOT NULL COMMENT '점수 기준 순위',
+    view_count BIGINT NOT NULL DEFAULT 0,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    aggregated_at DATE NOT NULL COMMENT '배치 실행 기준일',
+
+    UNIQUE KEY uk_product_aggregated (product_id, aggregated_at),
+    INDEX idx_aggregated_rank (aggregated_at, rank)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+---
+
+### 8.3 mv_product_rank_monthly (월간 랭킹 MV)
+
+구조는 weekly와 동일. 최근 30일 집계.
+
+```sql
+CREATE TABLE mv_product_rank_monthly (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    score DOUBLE NOT NULL COMMENT '가중치 합산 점수',
+    rank INT NOT NULL COMMENT '점수 기준 순위',
+    view_count BIGINT NOT NULL DEFAULT 0,
+    like_count BIGINT NOT NULL DEFAULT 0,
+    sales_count BIGINT NOT NULL DEFAULT 0,
+    aggregated_at DATE NOT NULL COMMENT '배치 실행 기준일',
+
+    UNIQUE KEY uk_product_aggregated (product_id, aggregated_at),
+    INDEX idx_aggregated_rank (aggregated_at, rank)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+**점수 계산 공식** (일간 Redis ZSET과 동일):
+```
+score = view_count × 0.1 + like_count × 0.2 + sales_count × 0.7
+```
+
+**설계 의도**:
+- MySQL에 MV 기능이 없으므로 **별도 테이블 + 배치 적재** 방식
+- `aggregated_at`으로 배치 실행 기준일 기록, 이전 데이터와 구분
+- `rank`를 미리 계산해 적재하여 API 조회 시 정렬 비용 제거
+- TOP 100만 적재하여 테이블 크기 제한
+
+**인덱스 전략**:
+- `uk_product_aggregated`: 멱등 적재 보장 (동일 기준일 재실행 시 UPSERT)
+- `idx_aggregated_rank`: API 조회 시 `WHERE aggregated_at = ? ORDER BY rank` 최적화
+
+---
+
+### 8.4 event_handled (이벤트 처리 기록)
+
+Kafka 이벤트 멱등성 보장을 위한 테이블 (commerce-streamer).
+
+```sql
+CREATE TABLE event_handled (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    topic VARCHAR(255) NOT NULL,
+    event_id VARCHAR(255) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_topic_event (topic, event_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+---
+
+### 8.5 랭킹 시스템 관계도
+
+```mermaid
+erDiagram
+    products ||--o{ product_metrics : "일별 메트릭 적재"
+    product_metrics ||--o{ mv_product_rank_weekly : "배치 집계 (7일)"
+    product_metrics ||--o{ mv_product_rank_monthly : "배치 집계 (30일)"
+
+    product_metrics {
+        bigint product_id "UK (product_id, metric_date)"
+        date metric_date "일별 기준"
+        bigint view_count "순증분"
+        bigint like_count "순증분"
+        bigint sales_count "순증분"
+    }
+
+    mv_product_rank_weekly {
+        bigint product_id "UK (product_id, aggregated_at)"
+        double score "가중치 합산"
+        int rank "순위"
+        date aggregated_at "배치 기준일"
+    }
+
+    mv_product_rank_monthly {
+        bigint product_id "UK (product_id, aggregated_at)"
+        double score "가중치 합산"
+        int rank "순위"
+        date aggregated_at "배치 기준일"
+    }
+```
+
+**핵심 포인트**:
+1. `product_metrics`는 streamer가 적재, batch가 읽기 전용으로 사용
+2. MV 테이블은 batch가 적재, API가 읽기 전용으로 사용
+3. 일간 랭킹은 Redis ZSET(`ranking:all:yyyyMMdd`)에서 직접 조회 (MV 미사용)
 
 ---
 

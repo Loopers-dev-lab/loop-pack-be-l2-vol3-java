@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -53,6 +54,9 @@ class RankingE2ETest {
 
     @Autowired
     private RedisCleanUp redisCleanUp;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private static final String TODAY = LocalDate.now(ZoneId.of("Asia/Seoul"))
         .format(DateTimeFormatter.ofPattern("yyyyMMdd"));
@@ -222,5 +226,130 @@ class RankingE2ETest {
             .andExpect(jsonPath("$.data.content[0].score").value(0.7))
             .andExpect(jsonPath("$.data.content[1].productId").value(productId1))
             .andExpect(jsonPath("$.data.content[1].score").value(0.6));
+    }
+
+    @DisplayName("GET /api/v1/rankings?period=daily: 기존 일간 랭킹과 동일하게 동작한다")
+    @Test
+    void getRankings_dailyPeriod() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("period", "daily")
+                .param("date", TODAY))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(3));
+    }
+
+    @DisplayName("GET /api/v1/rankings?period=weekly: MV 테이블에서 주간 랭킹을 조회한다")
+    @Test
+    void getRankings_weeklyPeriod() throws Exception {
+        // MV 테이블에 직접 데이터 적재 (배치가 적재한 것으로 시뮬레이션, saturation 기반 점수)
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_weekly (product_id, score, ranking, view_count, like_count, sales_count, aggregated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            productId2, 0.1462, 1, 200, 30, 5, LocalDate.parse(TODAY, DateTimeFormatter.ofPattern("yyyyMMdd"))
+        );
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_weekly (product_id, score, ranking, view_count, like_count, sales_count, aggregated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            productId1, 0.1803, 2, 100, 50, 10, LocalDate.parse(TODAY, DateTimeFormatter.ofPattern("yyyyMMdd"))
+        );
+
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("period", "weekly")
+                .param("date", TODAY))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(2))
+            .andExpect(jsonPath("$.data.content[0].rank").value(1))
+            .andExpect(jsonPath("$.data.content[0].productId").value(productId2))
+            .andExpect(jsonPath("$.data.content[0].score").value(0.1462))
+            .andExpect(jsonPath("$.data.content[0].productName").value("조던1"))
+            .andExpect(jsonPath("$.data.content[0].brandName").value("NIKE"))
+            .andExpect(jsonPath("$.data.content[1].rank").value(2))
+            .andExpect(jsonPath("$.data.content[1].productId").value(productId1));
+    }
+
+    @DisplayName("GET /api/v1/rankings?period=monthly: MV 테이블에서 월간 랭킹을 조회한다")
+    @Test
+    void getRankings_monthlyPeriod() throws Exception {
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_monthly (product_id, score, ranking, view_count, like_count, sales_count, aggregated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            productId3, 0.2917, 1, 300, 100, 20, LocalDate.parse(TODAY, DateTimeFormatter.ofPattern("yyyyMMdd"))
+        );
+
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("period", "monthly")
+                .param("date", TODAY))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(1))
+            .andExpect(jsonPath("$.data.content[0].rank").value(1))
+            .andExpect(jsonPath("$.data.content[0].productId").value(productId3))
+            .andExpect(jsonPath("$.data.content[0].score").value(0.2917));
+    }
+
+    @DisplayName("GET /api/v1/rankings: period 미입력 시 daily로 동작한다")
+    @Test
+    void getRankings_noPeriod_defaultsToDaily() throws Exception {
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("date", TODAY))
+            .andDo(print())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(3));
+    }
+
+    @DisplayName("주간 랭킹은 캐시에서 조회되며, DB 데이터가 변경되어도 캐시된 결과를 반환한다")
+    @Test
+    void getRankings_weekly_usesCache() throws Exception {
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_weekly (product_id, score, ranking, view_count, like_count, sales_count, aggregated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            productId1, 10.0, 1, 100, 50, 10, LocalDate.parse(TODAY, DateTimeFormatter.ofPattern("yyyyMMdd"))
+        );
+
+        // 첫 번째 조회 → DB에서 읽고 캐시에 저장
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("period", "weekly")
+                .param("date", TODAY))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(1))
+            .andExpect(jsonPath("$.data.content[0].productId").value(productId1));
+
+        // MV 테이블을 다른 데이터로 교체 (캐시 미적용 시 이 결과가 보여야 함)
+        jdbcTemplate.update("DELETE FROM mv_product_rank_weekly");
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_weekly (product_id, score, ranking, view_count, like_count, sales_count, aggregated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            productId2, 20.0, 1, 200, 30, 5, LocalDate.parse(TODAY, DateTimeFormatter.ofPattern("yyyyMMdd"))
+        );
+
+        // 두 번째 조회 → 캐시에서 반환되므로 여전히 productId1이 나와야 함
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("period", "weekly")
+                .param("date", TODAY))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(1))
+            .andExpect(jsonPath("$.data.content[0].productId").value(productId1));
+    }
+
+    @DisplayName("월간 랭킹도 캐시에서 조회된다")
+    @Test
+    void getRankings_monthly_usesCache() throws Exception {
+        jdbcTemplate.update(
+            "INSERT INTO mv_product_rank_monthly (product_id, score, ranking, view_count, like_count, sales_count, aggregated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            productId3, 50.0, 1, 300, 100, 20, LocalDate.parse(TODAY, DateTimeFormatter.ofPattern("yyyyMMdd"))
+        );
+
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("period", "monthly")
+                .param("date", TODAY))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content[0].productId").value(productId3));
+
+        jdbcTemplate.update("DELETE FROM mv_product_rank_monthly");
+
+        // 캐시 적용 시 DB가 비어도 이전 결과 반환
+        mockMvc.perform(get("/api/v1/rankings")
+                .param("period", "monthly")
+                .param("date", TODAY))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(1))
+            .andExpect(jsonPath("$.data.content[0].productId").value(productId3));
     }
 }

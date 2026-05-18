@@ -598,3 +598,124 @@ sequenceDiagram
    - LDAP 인증 후 전체 주문 페이징 조회
 17. `GET /api-admin/v1/orders/{orderId}`
    - LDAP 인증 후 주문 상세 조회
+
+---
+
+## 11. 주간/월간 랭킹 배치 Job (Round 10)
+
+### 목적
+Spring Batch가 `product_metrics`(일별 스냅샷)를 읽어 주간/월간 MV 테이블에 적재하는 흐름을 검증.
+Chunk-Oriented Processing의 Reader → Processor → Writer 경계와 트랜잭션 단위를 확인한다.
+
+### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    participant Scheduler as 스케줄러 (매일 새벽)
+    participant Job as RankingAggregationJob
+    participant WeeklyStep as WeeklyRankingStep
+    participant MonthlyStep as MonthlyRankingStep
+    participant Reader as ItemReader
+    participant Processor as ItemProcessor
+    participant Writer as ItemWriter
+    participant DB as Database
+
+    Scheduler->>Job: Job 실행 (파라미터: baseDate)
+
+    Note over Job,DB: === Weekly Ranking Step ===
+    Job->>WeeklyStep: Step 시작
+
+    Note over WeeklyStep,DB: Chunk 단위 반복
+    loop 청크 반복 (chunkSize 단위)
+        WeeklyStep->>Reader: read()
+        Reader->>DB: SELECT product_id,<br/>SUM(view_count), SUM(like_count), SUM(sales_count)<br/>FROM product_metrics<br/>WHERE metric_date BETWEEN baseDate-6 AND baseDate<br/>GROUP BY product_id
+        DB-->>Reader: List<ProductMetricsAggregation>
+        Reader-->>WeeklyStep: 청크 데이터
+
+        WeeklyStep->>Processor: process()
+        Processor->>Processor: score = view×0.1 + like×0.2 + sales×0.7<br/>점수순 정렬 → rank 부여<br/>TOP 100 필터
+
+        WeeklyStep->>Writer: write()
+        Writer->>DB: DELETE FROM mv_product_rank_weekly<br/>WHERE aggregated_at = baseDate
+        Writer->>DB: INSERT INTO mv_product_rank_weekly<br/>(product_id, score, rank, ..., aggregated_at)
+    end
+
+    Note over Job,DB: === Monthly Ranking Step ===
+    Job->>MonthlyStep: Step 시작
+
+    Note over MonthlyStep,DB: Chunk 단위 반복
+    loop 청크 반복 (chunkSize 단위)
+        MonthlyStep->>Reader: read()
+        Reader->>DB: SELECT ... FROM product_metrics<br/>WHERE metric_date BETWEEN baseDate-29 AND baseDate<br/>GROUP BY product_id
+        DB-->>Reader: List<ProductMetricsAggregation>
+        Reader-->>MonthlyStep: 청크 데이터
+
+        MonthlyStep->>Processor: process()
+        Processor->>Processor: 점수 계산 → 정렬 → rank 부여 → TOP 100
+
+        MonthlyStep->>Writer: write()
+        Writer->>DB: DELETE + INSERT mv_product_rank_monthly
+    end
+
+    Job-->>Scheduler: Job 완료
+```
+
+### 핵심 포인트
+1. **파라미터 기반 실행**: `baseDate`를 Job 파라미터로 받아 멱등성 보장 (같은 날짜 재실행 시 동일 결과)
+2. **Step 분리**: Weekly, Monthly를 별도 Step으로 분리하여 독립적 실패/재시도 가능
+3. **DELETE + INSERT 전략**: 기존 데이터를 삭제 후 재적재하여 멱등성 보장
+4. **가중치 일관성**: Redis 일간 랭킹과 동일한 가중치 공식 사용 (view×0.1 + like×0.2 + sales×0.7)
+5. **TOP 100 제한**: MV 테이블에는 상위 100개만 적재하여 테이블 크기 제한
+
+### 잠재 리스크
+- **배치 실패 시**: 이전 배치 결과가 삭제된 상태에서 INSERT 실패하면 데이터 유실 → DELETE와 INSERT를 같은 트랜잭션으로 묶어야 함
+- **상품 삭제**: 삭제된 상품이 MV에 포함될 수 있음 → Processor에서 삭제 상품 필터링 필요
+
+---
+
+## 12. 랭킹 API 확장 (Round 10)
+
+### 목적
+기존 일간 랭킹 API에 주간/월간 조회를 추가할 때, `period` 파라미터에 따라 데이터 소스가 분기되는 흐름을 검증.
+
+### 시퀀스 다이어그램
+
+```mermaid
+sequenceDiagram
+    actor User as 사용자
+    participant Controller as RankingController
+    participant Facade as RankingFacade
+    participant Redis as Redis ZSET
+    participant MvRepo as MvRankingRepository
+    participant DB as Database
+
+    User->>Controller: GET /api/v1/rankings<br/>?period=weekly&date=20260412&size=20&page=0
+    Controller->>Facade: getRankings(period, date, size, page)
+
+    alt period = daily
+        Facade->>Redis: ZREVRANGE ranking:all:20260412
+        Redis-->>Facade: List<RankingEntry>
+        Facade->>Facade: 상품 정보 조회 + 삭제 상품 필터링 + 캐싱
+    else period = weekly
+        Facade->>MvRepo: findByAggregatedAt(date, pageable)
+        MvRepo->>DB: SELECT * FROM mv_product_rank_weekly<br/>WHERE aggregated_at = ?<br/>ORDER BY rank<br/>LIMIT ? OFFSET ?
+        DB-->>MvRepo: List<MvProductRank>
+        MvRepo-->>Facade: 페이지 결과
+        Facade->>Facade: 상품 정보 조회 (상품명, 브랜드명)
+    else period = monthly
+        Facade->>MvRepo: findByAggregatedAt(date, pageable)
+        MvRepo->>DB: SELECT * FROM mv_product_rank_monthly<br/>WHERE aggregated_at = ?<br/>ORDER BY rank<br/>LIMIT ? OFFSET ?
+        DB-->>MvRepo: List<MvProductRank>
+        MvRepo-->>Facade: 페이지 결과
+        Facade->>Facade: 상품 정보 조회 (상품명, 브랜드명)
+    end
+
+    Facade-->>Controller: RankingPageResponse
+    Controller-->>User: 200 OK<br/>{content: [...], page, size}
+```
+
+### 핵심 포인트
+1. **데이터 소스 분기**: daily는 Redis, weekly/monthly는 DB(MV 테이블)
+2. **기존 로직 보존**: daily 경로는 Round 9 로직 그대로 유지
+3. **date 파라미터 의미 변화**: daily는 ZSET 키 날짜, weekly/monthly는 MV의 aggregated_at
+4. **페이징**: MV 테이블에 rank가 미리 계산되어 있어 ORDER BY rank로 효율적 조회

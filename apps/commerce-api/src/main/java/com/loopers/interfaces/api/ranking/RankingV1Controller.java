@@ -23,12 +23,13 @@ public class RankingV1Controller {
 
     @GetMapping("/api/v1/rankings")
     public ApiResponse<RankingV1Dto.RankingPageResponse> getRankings(
+        @RequestParam(defaultValue = "daily") String period,
         @RequestParam(required = false) String date,
         @RequestParam(defaultValue = "20") int size,
         @RequestParam(defaultValue = "0") int page
     ) {
         String resolvedDate = (date != null) ? date : todayDate();
-        List<RankingDto.RankingItemInfo> rankings = rankingFacade.getRankings(resolvedDate, page, size);
+        List<RankingDto.RankingItemInfo> rankings = rankingFacade.getRankings(period, resolvedDate, page, size);
         return ApiResponse.success(RankingV1Dto.RankingPageResponse.of(rankings, page, size));
     }
 

@@ -7,6 +7,9 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.mv.MvProductRankMonthly;
+import com.loopers.domain.ranking.mv.MvProductRankWeekly;
+import com.loopers.domain.ranking.mv.MvRankingRepository;
 import com.loopers.infrastructure.ranking.RankingCacheStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,14 +35,19 @@ public class RankingFacade {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
     private final RankingCacheStore rankingCacheStore;
+    private final MvRankingRepository mvRankingRepository;
 
     @Transactional(readOnly = true)
-    public List<RankingDto.RankingItemInfo> getRankings(String date, int page, int size) {
-        return rankingCacheStore.getRankings(date, page, size)
+    public List<RankingDto.RankingItemInfo> getRankings(String period, String date, int page, int size) {
+        return rankingCacheStore.getRankings(period, date, page, size)
             .orElseGet(() -> {
-                List<RankingDto.RankingItemInfo> result = loadRankings(date, page, size);
+                List<RankingDto.RankingItemInfo> result = switch (period) {
+                    case "weekly" -> loadMvRankings(date, page, size, true);
+                    case "monthly" -> loadMvRankings(date, page, size, false);
+                    default -> loadRankings(date, page, size);
+                };
                 if (!result.isEmpty()) {
-                    rankingCacheStore.putRankings(date, page, size, result);
+                    rankingCacheStore.putRankings(period, date, page, size, result);
                 }
                 return result;
             });
@@ -82,6 +90,52 @@ public class RankingFacade {
             String brandName = brandNameMap.getOrDefault(product.getBrandId(), "");
             ProductDto.ProductInfo productInfo = ProductDto.ProductInfo.of(product, brandName);
             result.add(RankingDto.RankingItemInfo.of(rank++, entry.score(), productInfo));
+        }
+        return result;
+    }
+
+    private List<RankingDto.RankingItemInfo> loadMvRankings(String date, int page, int size, boolean weekly) {
+        LocalDate aggregatedAt = LocalDate.parse(date, DATE_FORMAT);
+
+        List<Long> productIds;
+        List<Integer> ranks;
+        List<Double> scores;
+
+        if (weekly) {
+            var mvRanks = mvRankingRepository.findWeeklyRankings(aggregatedAt, page, size);
+            productIds = mvRanks.stream().map(MvProductRankWeekly::getProductId).toList();
+            ranks = mvRanks.stream().map(MvProductRankWeekly::getRank).toList();
+            scores = mvRanks.stream().map(MvProductRankWeekly::getScore).toList();
+        } else {
+            var mvRanks = mvRankingRepository.findMonthlyRankings(aggregatedAt, page, size);
+            productIds = mvRanks.stream().map(MvProductRankMonthly::getProductId).toList();
+            ranks = mvRanks.stream().map(MvProductRankMonthly::getRank).toList();
+            scores = mvRanks.stream().map(MvProductRankMonthly::getScore).toList();
+        }
+
+        if (productIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, Product> productMap = productRepository.findAllByIds(Set.copyOf(productIds)).stream()
+            .collect(Collectors.toMap(Product::getId, p -> p));
+
+        Set<Long> brandIds = productMap.values().stream()
+            .map(Product::getBrandId)
+            .collect(Collectors.toSet());
+
+        Map<Long, String> brandNameMap = brandRepository.findAllByIds(brandIds).stream()
+            .collect(Collectors.toMap(Brand::getId, Brand::getName));
+
+        List<RankingDto.RankingItemInfo> result = new ArrayList<>();
+        for (int i = 0; i < productIds.size(); i++) {
+            Product product = productMap.get(productIds.get(i));
+            if (product == null) {
+                continue;
+            }
+            String brandName = brandNameMap.getOrDefault(product.getBrandId(), "");
+            ProductDto.ProductInfo productInfo = ProductDto.ProductInfo.of(product, brandName);
+            result.add(RankingDto.RankingItemInfo.of(ranks.get(i), scores.get(i), productInfo));
         }
         return result;
     }

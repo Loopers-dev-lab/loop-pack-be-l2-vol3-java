@@ -8,6 +8,7 @@ import com.loopers.domain.product.Product;
 import com.loopers.domain.product.ProductRepository;
 import com.loopers.domain.ranking.RankingEntry;
 import com.loopers.domain.ranking.RankingRepository;
+import com.loopers.domain.ranking.mv.MvRankingRepository;
 import com.loopers.infrastructure.ranking.RankingCacheStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +31,7 @@ class RankingFacadeTest {
     private ProductRepository productRepository;
     private BrandRepository brandRepository;
     private RankingCacheStore rankingCacheStore;
+    private MvRankingRepository mvRankingRepository;
     private RankingFacade rankingFacade;
 
     private final String todayKey = "ranking:all:" +
@@ -41,9 +43,10 @@ class RankingFacadeTest {
         productRepository = mock(ProductRepository.class);
         brandRepository = mock(BrandRepository.class);
         rankingCacheStore = mock(RankingCacheStore.class);
-        rankingFacade = new RankingFacade(rankingRepository, productRepository, brandRepository, rankingCacheStore);
+        mvRankingRepository = mock(MvRankingRepository.class);
+        rankingFacade = new RankingFacade(rankingRepository, productRepository, brandRepository, rankingCacheStore, mvRankingRepository);
 
-        when(rankingCacheStore.getRankings(anyString(), anyInt(), anyInt())).thenReturn(Optional.empty());
+        when(rankingCacheStore.getRankings(anyString(), anyString(), anyInt(), anyInt())).thenReturn(Optional.empty());
     }
 
     @DisplayName("랭킹 페이지 조회 시 상품 정보가 포함된 랭킹 목록을 반환한다")
@@ -65,7 +68,7 @@ class RankingFacadeTest {
         setId(brand, 1L);
         when(brandRepository.findAllByIds(anyCollection())).thenReturn(List.of(brand));
 
-        List<RankingDto.RankingItemInfo> result = rankingFacade.getRankings(date, 0, 20);
+        List<RankingDto.RankingItemInfo> result = rankingFacade.getRankings("daily", date, 0, 20);
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).rank()).isEqualTo(1);
@@ -80,7 +83,7 @@ class RankingFacadeTest {
     void getRankings_emptyZset_returnsEmptyList() {
         when(rankingRepository.getTopRankings(anyString(), anyLong(), anyLong())).thenReturn(List.of());
 
-        List<RankingDto.RankingItemInfo> result = rankingFacade.getRankings("20260405", 0, 20);
+        List<RankingDto.RankingItemInfo> result = rankingFacade.getRankings("daily", "20260405", 0, 20);
 
         assertThat(result).isEmpty();
     }
@@ -117,7 +120,7 @@ class RankingFacadeTest {
         String key = "ranking:all:" + date;
         when(rankingRepository.getTopRankings(eq(key), eq(20L), anyLong())).thenReturn(List.of());
 
-        rankingFacade.getRankings(date, 1, 20);
+        rankingFacade.getRankings("daily", date, 1, 20);
 
         verify(rankingRepository).getTopRankings(eq(key), eq(20L), anyLong());
     }
@@ -128,9 +131,9 @@ class RankingFacadeTest {
         List<RankingDto.RankingItemInfo> cached = List.of(
             new RankingDto.RankingItemInfo(1, 5.0, 10L, "상품A", "브랜드", BigDecimal.valueOf(10000))
         );
-        when(rankingCacheStore.getRankings("20260405", 0, 20)).thenReturn(Optional.of(cached));
+        when(rankingCacheStore.getRankings("daily", "20260405", 0, 20)).thenReturn(Optional.of(cached));
 
-        List<RankingDto.RankingItemInfo> result = rankingFacade.getRankings("20260405", 0, 20);
+        List<RankingDto.RankingItemInfo> result = rankingFacade.getRankings("daily", "20260405", 0, 20);
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).productName()).isEqualTo("상품A");
@@ -153,9 +156,9 @@ class RankingFacadeTest {
         setId(brand, 1L);
         when(brandRepository.findAllByIds(anyCollection())).thenReturn(List.of(brand));
 
-        rankingFacade.getRankings(date, 0, 20);
+        rankingFacade.getRankings("daily", date, 0, 20);
 
-        verify(rankingCacheStore).putRankings(eq(date), eq(0), eq(20), anyList());
+        verify(rankingCacheStore).putRankings(eq("daily"), eq(date), eq(0), eq(20), anyList());
     }
 
     private void setId(Object entity, Long id) {

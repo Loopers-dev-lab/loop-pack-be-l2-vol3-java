@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 
 @Slf4j
 @Service
@@ -31,13 +33,15 @@ public class MetricsEventService {
 
         eventHandledRepository.save(EventHandled.create(topic, eventId));
 
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+
         switch (eventType) {
-            case "PRODUCT_VIEWED" -> productMetricsRepository.upsertViewCount(productId, 1);
-            case "PRODUCT_LIKED" -> productMetricsRepository.upsertLikeCount(productId, 1);
-            case "PRODUCT_UNLIKED" -> productMetricsRepository.upsertLikeCount(productId, -1);
-            case "ORDER_PLACED" -> productMetricsRepository.upsertSalesCount(productId, quantity);
-            case "ORDER_CANCELLED" -> productMetricsRepository.upsertSalesCount(productId, -quantity);
-            case "PRODUCT_PRICE_CHANGED" -> productMetricsRepository.upsertPrice(productId, price, occurredAt);
+            case "PRODUCT_VIEWED" -> productMetricsRepository.upsertViewCount(productId, today, 1);
+            case "PRODUCT_LIKED" -> productMetricsRepository.upsertLikeCount(productId, today, 1);
+            case "PRODUCT_UNLIKED" -> productMetricsRepository.upsertLikeCount(productId, today, -1);
+            case "ORDER_PLACED" -> productMetricsRepository.upsertSalesCount(productId, today, quantity);
+            case "ORDER_CANCELLED" -> productMetricsRepository.upsertSalesCount(productId, today, -quantity);
+            case "PRODUCT_PRICE_CHANGED" -> productMetricsRepository.upsertPrice(productId, today, price, occurredAt);
             default -> log.warn("알 수 없는 이벤트 타입 - eventType: {}", eventType);
         }
 

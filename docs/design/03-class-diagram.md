@@ -522,7 +522,108 @@ classDiagram
 
 ---
 
-## 6. 구현 체크리스트
+## 6. 랭킹 집계 배치 모듈 (Round 10, commerce-batch)
+
+### 목적
+commerce-batch 모듈의 클래스 구조와 의존 방향을 검증.
+Spring Batch의 Job → Step → Reader/Processor/Writer 구조가 레이어드 아키텍처와 어떻게 결합되는지 확인한다.
+
+### 다이어그램
+
+```mermaid
+classDiagram
+    %% Batch Job/Step 설정
+    class RankingAggregationJobConfig {
+        -JobRepository jobRepository
+        -PlatformTransactionManager txManager
+        +Job rankingAggregationJob()
+        +Step weeklyRankingStep()
+        +Step monthlyRankingStep()
+    }
+
+    %% Reader/Processor/Writer
+    class ProductMetricsReader {
+        <<ItemReader>>
+        -ProductMetricsRepository repository
+        +ProductMetricsAggregation read()
+    }
+
+    class RankingProcessor {
+        <<ItemProcessor>>
+        +MvProductRank process(ProductMetricsAggregation)
+    }
+
+    class MvRankingWriter {
+        <<ItemWriter>>
+        -MvProductRankRepository repository
+        +void write(Chunk~MvProductRank~)
+    }
+
+    %% 도메인
+    class ProductMetricsAggregation {
+        +Long productId
+        +long viewCount
+        +long likeCount
+        +long salesCount
+        +double calculateScore()
+    }
+
+    class MvProductRank {
+        +Long id
+        +Long productId
+        +double score
+        +int rank
+        +long viewCount
+        +long likeCount
+        +long salesCount
+        +LocalDate aggregatedAt
+    }
+
+    %% Repository
+    class ProductMetricsRepository {
+        <<interface>>
+        +List~ProductMetricsAggregation~ aggregateByDateRange(LocalDate from, LocalDate to)
+    }
+
+    class MvProductRankRepository {
+        <<interface>>
+        +void deleteByAggregatedAt(LocalDate aggregatedAt)
+        +void saveAll(List~MvProductRank~)
+    }
+
+    %% 의존 관계
+    RankingAggregationJobConfig --> ProductMetricsReader
+    RankingAggregationJobConfig --> RankingProcessor
+    RankingAggregationJobConfig --> MvRankingWriter
+
+    ProductMetricsReader --> ProductMetricsRepository
+    MvRankingWriter --> MvProductRankRepository
+
+    ProductMetricsReader ..> ProductMetricsAggregation : produces
+    RankingProcessor ..> ProductMetricsAggregation : input
+    RankingProcessor ..> MvProductRank : output
+    MvRankingWriter ..> MvProductRank : writes
+
+    note for RankingProcessor "가중치: view×0.1 + like×0.2 + sales×0.7\n점수순 정렬 후 rank 부여\nTOP 100 필터링"
+    note for RankingAggregationJobConfig "파라미터: baseDate\nWeekly: baseDate-6 ~ baseDate\nMonthly: baseDate-29 ~ baseDate"
+```
+
+### 핵심 포인트
+
+1. **Job 구성**: 하나의 Job에 Weekly Step + Monthly Step 순차 실행
+2. **Reader**: `product_metrics` 테이블에서 기간별 GROUP BY 집계 쿼리
+3. **Processor**: 가중치 점수 계산 + 순위 부여 + TOP 100 필터링
+4. **Writer**: 기존 데이터 DELETE 후 INSERT (멱등성)
+5. **의존 방향**: JobConfig → Reader/Processor/Writer → Repository (단방향)
+
+### 잠재 리스크
+- **Processor에서 정렬**: 전체 상품을 메모리에 올려 정렬해야 함 → 상품 수가 극단적으로 많으면 OOM 가능
+  - 대안: Reader 단계에서 SQL ORDER BY + LIMIT으로 TOP 100만 읽기
+- **Weekly/Monthly Step 공통화**: Reader/Writer 로직이 거의 동일 → 파라미터(기간)만 다르게 주입하여 재사용 가능
+
+---
+
+## 7. 구현 체크리스트
 
 ### 도메인 모델
 - [ ] Product 엔티티에 `@Version` 추가
